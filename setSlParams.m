@@ -13,8 +13,10 @@ function params = setSlParams(opts)
     switch hostName
         case 'electro'
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = '/home/electro/Code_Repo/n-CORTEx'; end
+            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_root = '/home/electro/NEC_Drive'; end
         case 'genoma'
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = '/home/genoma/Code_Repo/n-CORTEx'; end
+            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_root = '/home/genoma/NEC_Drive'; end
     end
 
     if ~isfield(opts,'dataStream'),opts.dataStream=struct; end 
