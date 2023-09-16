@@ -4,13 +4,19 @@
 
 /* Storage class 'PageSwitching', for system '<Root>' */
 struct nCORTEx_cal_type {
+  real_T T_npxls;                      /* Variable: T_npxls
+                                        * Referenced by: '<Root>/Npxls Trig'
+                                        */
+  real_T T_pupil;                      /* Variable: T_pupil
+                                        * Referenced by: '<Root>/Pupil Trig'
+                                        */
+  real_T T_whisk;                      /* Variable: T_whisk
+                                        * Referenced by: '<Root>/Whisker Trig'
+                                        */
+  real_T tStop;                        /* Variable: tStop
+                                        * Referenced by: '<S2>/Constant'
+                                        */
   real_T WhiskerTrig_Amp;              /* Expression: 1
-                                        * Referenced by: '<Root>/Whisker Trig'
-                                        */
-  real_T WhiskerTrig_Period;           /* Expression: 20
-                                        * Referenced by: '<Root>/Whisker Trig'
-                                        */
-  real_T WhiskerTrig_Duty;             /* Expression: 10
                                         * Referenced by: '<Root>/Whisker Trig'
                                         */
   real_T WhiskerTrig_PhaseDelay;       /* Expression: 0
@@ -19,22 +25,10 @@ struct nCORTEx_cal_type {
   real_T NpxlsTrig_Amp;                /* Expression: 1
                                         * Referenced by: '<Root>/Npxls Trig'
                                         */
-  real_T NpxlsTrig_Period;             /* Expression: 4
-                                        * Referenced by: '<Root>/Npxls Trig'
-                                        */
-  real_T NpxlsTrig_Duty;               /* Expression: 2
-                                        * Referenced by: '<Root>/Npxls Trig'
-                                        */
   real_T NpxlsTrig_PhaseDelay;         /* Expression: 0
                                         * Referenced by: '<Root>/Npxls Trig'
                                         */
   real_T PupilTrig_Amp;                /* Expression: 1
-                                        * Referenced by: '<Root>/Pupil Trig'
-                                        */
-  real_T PupilTrig_Period;             /* Expression: 100
-                                        * Referenced by: '<Root>/Pupil Trig'
-                                        */
-  real_T PupilTrig_Duty;               /* Expression: 50
                                         * Referenced by: '<Root>/Pupil Trig'
                                         */
   real_T PupilTrig_PhaseDelay;         /* Expression: 0
@@ -138,9 +132,6 @@ struct nCORTEx_cal_type {
                                      */
   real_T Digitaloutput_P6[16];         /* Expression: parDoResets
                                         * Referenced by: '<Root>/Digital output '
-                                        */
-  real_T Constant_Value;               /* Expression: 1800
-                                        * Referenced by: '<S2>/Constant'
                                         */
 };
 

@@ -1,4 +1,4 @@
-function params = setSlParams(opts)
+function params = setBaseParams(opts)
     
     %% PATH PRESETS
     switch ispc
@@ -7,7 +7,8 @@ function params = setSlParams(opts)
         case 0
             hostName = getenv('USER');
     end
-        
+    
+    if ~isfield(opts,'hostName'), opts.hostName=hostName; end
     if ~isfield(opts,'paths'), opts.paths=struct; end
        
     switch hostName

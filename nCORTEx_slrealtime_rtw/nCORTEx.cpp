@@ -7,9 +7,9 @@
  *
  * Code generation for model "nCORTEx".
  *
- * Model version              : 1.67
+ * Model version              : 1.71
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Fri Sep 15 13:44:59 2023
+ * C++ source code generated on : Sat Sep 16 17:06:14 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -48,37 +48,45 @@ RT_MODEL_nCORTEx_T *const nCORTEx_M = &nCORTEx_M_;
 /* Model step function */
 void nCORTEx_step(void)
 {
-  /* DiscretePulseGenerator: '<Root>/Whisker Trig' */
-  nCORTEx_B.whiskCam_trig = (nCORTEx_DW.clockTickCounter <
-    nCORTEx_cal->WhiskerTrig_Duty) && (nCORTEx_DW.clockTickCounter >= 0) ?
-    nCORTEx_cal->WhiskerTrig_Amp : 0.0;
+  real_T tmp;
 
   /* DiscretePulseGenerator: '<Root>/Whisker Trig' */
-  if (nCORTEx_DW.clockTickCounter >= nCORTEx_cal->WhiskerTrig_Period - 1.0) {
+  tmp = nCORTEx_cal->T_whisk / 2.0;
+
+  /* DiscretePulseGenerator: '<Root>/Whisker Trig' */
+  nCORTEx_B.whiskCam_trig = (nCORTEx_DW.clockTickCounter < tmp) &&
+    (nCORTEx_DW.clockTickCounter >= 0) ? nCORTEx_cal->WhiskerTrig_Amp : 0.0;
+
+  /* DiscretePulseGenerator: '<Root>/Whisker Trig' */
+  if (nCORTEx_DW.clockTickCounter >= nCORTEx_cal->T_whisk - 1.0) {
     nCORTEx_DW.clockTickCounter = 0;
   } else {
     nCORTEx_DW.clockTickCounter++;
   }
 
   /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
-  nCORTEx_B.npxls_trig = (nCORTEx_DW.clockTickCounter_n <
-    nCORTEx_cal->NpxlsTrig_Duty) && (nCORTEx_DW.clockTickCounter_n >= 0) ?
-    nCORTEx_cal->NpxlsTrig_Amp : 0.0;
+  tmp = nCORTEx_cal->T_npxls / 2.0;
 
   /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
-  if (nCORTEx_DW.clockTickCounter_n >= nCORTEx_cal->NpxlsTrig_Period - 1.0) {
+  nCORTEx_B.npxls_trig = (nCORTEx_DW.clockTickCounter_n < tmp) &&
+    (nCORTEx_DW.clockTickCounter_n >= 0) ? nCORTEx_cal->NpxlsTrig_Amp : 0.0;
+
+  /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
+  if (nCORTEx_DW.clockTickCounter_n >= nCORTEx_cal->T_npxls - 1.0) {
     nCORTEx_DW.clockTickCounter_n = 0;
   } else {
     nCORTEx_DW.clockTickCounter_n++;
   }
 
   /* DiscretePulseGenerator: '<Root>/Pupil Trig' */
-  nCORTEx_B.pupilCam_trig = (nCORTEx_DW.clockTickCounter_c <
-    nCORTEx_cal->PupilTrig_Duty) && (nCORTEx_DW.clockTickCounter_c >= 0) ?
-    nCORTEx_cal->PupilTrig_Amp : 0.0;
+  tmp = nCORTEx_cal->T_pupil / 2.0;
 
   /* DiscretePulseGenerator: '<Root>/Pupil Trig' */
-  if (nCORTEx_DW.clockTickCounter_c >= nCORTEx_cal->PupilTrig_Period - 1.0) {
+  nCORTEx_B.pupilCam_trig = (nCORTEx_DW.clockTickCounter_c < tmp) &&
+    (nCORTEx_DW.clockTickCounter_c >= 0) ? nCORTEx_cal->PupilTrig_Amp : 0.0;
+
+  /* DiscretePulseGenerator: '<Root>/Pupil Trig' */
+  if (nCORTEx_DW.clockTickCounter_c >= nCORTEx_cal->T_pupil - 1.0) {
     nCORTEx_DW.clockTickCounter_c = 0;
   } else {
     nCORTEx_DW.clockTickCounter_c++;
@@ -159,8 +167,7 @@ void nCORTEx_step(void)
   /* RelationalOperator: '<S2>/Relational Operator' incorporates:
    *  Constant: '<S2>/Constant'
    */
-  nCORTEx_B.RelationalOperator = (nCORTEx_B.Clock_k >=
-    nCORTEx_cal->Constant_Value);
+  nCORTEx_B.RelationalOperator = (nCORTEx_B.Clock_k >= nCORTEx_cal->tStop);
 
   /* Stop: '<S2>/Stop Simulation' */
   if (nCORTEx_B.RelationalOperator) {

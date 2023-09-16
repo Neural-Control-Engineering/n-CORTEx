@@ -3,40 +3,40 @@
 
 /* Storage class 'PageSwitching' */
 nCORTEx_cal_type nCORTEx_cal_impl = {
-  /* Expression: 1
-   * Referenced by: '<Root>/Whisker Trig'
-   */
-  1.0,
-
-  /* Expression: 20
-   * Referenced by: '<Root>/Whisker Trig'
-   */
-  20.0,
-
-  /* Expression: 10
-   * Referenced by: '<Root>/Whisker Trig'
-   */
-  10.0,
-
-  /* Expression: 0
-   * Referenced by: '<Root>/Whisker Trig'
-   */
-  0.0,
-
-  /* Expression: 1
-   * Referenced by: '<Root>/Npxls Trig'
-   */
-  1.0,
-
-  /* Expression: 4
+  /* Variable: T_npxls
    * Referenced by: '<Root>/Npxls Trig'
    */
   4.0,
 
-  /* Expression: 2
+  /* Variable: T_pupil
+   * Referenced by: '<Root>/Pupil Trig'
+   */
+  100.0,
+
+  /* Variable: T_whisk
+   * Referenced by: '<Root>/Whisker Trig'
+   */
+  20.0,
+
+  /* Variable: tStop
+   * Referenced by: '<S2>/Constant'
+   */
+  1800.0,
+
+  /* Expression: 1
+   * Referenced by: '<Root>/Whisker Trig'
+   */
+  1.0,
+
+  /* Expression: 0
+   * Referenced by: '<Root>/Whisker Trig'
+   */
+  0.0,
+
+  /* Expression: 1
    * Referenced by: '<Root>/Npxls Trig'
    */
-  2.0,
+  1.0,
 
   /* Expression: 0
    * Referenced by: '<Root>/Npxls Trig'
@@ -47,16 +47,6 @@ nCORTEx_cal_type nCORTEx_cal_impl = {
    * Referenced by: '<Root>/Pupil Trig'
    */
   1.0,
-
-  /* Expression: 100
-   * Referenced by: '<Root>/Pupil Trig'
-   */
-  100.0,
-
-  /* Expression: 50
-   * Referenced by: '<Root>/Pupil Trig'
-   */
-  50.0,
 
   /* Expression: 0
    * Referenced by: '<Root>/Pupil Trig'
@@ -229,12 +219,7 @@ nCORTEx_cal_type nCORTEx_cal_impl = {
    * Referenced by: '<Root>/Digital output '
    */
   { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-    1.0 },
-
-  /* Expression: 1800
-   * Referenced by: '<S2>/Constant'
-   */
-  1800.0
+    1.0 }
 };
 
 nCORTEx_cal_type *nCORTEx_cal = &nCORTEx_cal_impl;
