@@ -7,9 +7,9 @@
  *
  * Code generation for model "nCORTEx".
  *
- * Model version              : 1.65
+ * Model version              : 1.67
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Thu Sep 14 02:12:59 2023
+ * C++ source code generated on : Fri Sep 15 13:44:59 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -44,33 +44,6 @@ DW_nCORTEx_T nCORTEx_DW;
 /* Real-time model */
 RT_MODEL_nCORTEx_T nCORTEx_M_ = RT_MODEL_nCORTEx_T();
 RT_MODEL_nCORTEx_T *const nCORTEx_M = &nCORTEx_M_;
-
-/*
- * Writes out MAT-file header.  Returns success or failure.
- * Returns:
- * 0 - success
- * 1 - failure
- */
-int_T rt_WriteMat4FileHeader(FILE *fp, int32_T m, int32_T n, const char *name)
-{
-  typedef enum { ELITTLE_ENDIAN, EBIG_ENDIAN } ByteOrder;
-
-  int16_T one = 1;
-  ByteOrder byteOrder = (*((int8_T *)&one)==1) ? ELITTLE_ENDIAN : EBIG_ENDIAN;
-  int32_T type = (byteOrder == ELITTLE_ENDIAN) ? 0: 1000;
-  int32_T imagf = 0;
-  int32_T name_len = (int32_T)strlen(name) + 1;
-  if ((fwrite(&type, sizeof(int32_T), 1, fp) == 0) ||
-      (fwrite(&m, sizeof(int32_T), 1, fp) == 0) ||
-      (fwrite(&n, sizeof(int32_T), 1, fp) == 0) ||
-      (fwrite(&imagf, sizeof(int32_T), 1, fp) == 0) ||
-      (fwrite(&name_len, sizeof(int32_T), 1, fp) == 0) ||
-      (fwrite(name, sizeof(char), name_len, fp) == 0)) {
-    return(1);
-  } else {
-    return(0);
-  }
-}                                      /* end rt_WriteMat4FileHeader */
 
 /* Model step function */
 void nCORTEx_step(void)
@@ -163,45 +136,6 @@ void nCORTEx_step(void)
   }
 
   /* End of MATLAB Function: '<S3>/MATLAB Function1' */
-
-  /* SignalConversion generated from: '<Root>/To File' */
-  nCORTEx_B.TmpSignalConversionAtToFileInpo[0] = nCORTEx_B.onsetTone_trig;
-  nCORTEx_B.TmpSignalConversionAtToFileInpo[1] = nCORTEx_B.tonePulse;
-  nCORTEx_B.TmpSignalConversionAtToFileInpo[2] = nCORTEx_B.whiskCam_trig;
-  nCORTEx_B.TmpSignalConversionAtToFileInpo[3] = nCORTEx_B.npxls_trig;
-  nCORTEx_B.TmpSignalConversionAtToFileInpo[4] = nCORTEx_B.pupilCam_trig;
-
-  /* ToFile: '<Root>/To File' */
-  {
-    if (!(++nCORTEx_DW.ToFile_IWORK.Decimation % 1) &&
-        (nCORTEx_DW.ToFile_IWORK.Count * (5 + 1)) + 1 < 100000000 ) {
-      FILE *fp = (FILE *) nCORTEx_DW.ToFile_PWORK.FilePtr;
-      if (fp != (NULL)) {
-        real_T u[5 + 1];
-        nCORTEx_DW.ToFile_IWORK.Decimation = 0;
-        u[0] = (((nCORTEx_M->Timing.clockTick1+nCORTEx_M->Timing.clockTickH1*
-                  4294967296.0)) * 0.001);
-        u[1] = nCORTEx_B.TmpSignalConversionAtToFileInpo[0];
-        u[2] = nCORTEx_B.TmpSignalConversionAtToFileInpo[1];
-        u[3] = nCORTEx_B.TmpSignalConversionAtToFileInpo[2];
-        u[4] = nCORTEx_B.TmpSignalConversionAtToFileInpo[3];
-        u[5] = nCORTEx_B.TmpSignalConversionAtToFileInpo[4];
-        if (fwrite(u, sizeof(real_T), 5 + 1, fp) != 5 + 1) {
-          rtmSetErrorStatus(nCORTEx_M,
-                            "Error writing to MAT-file nCORTEx_log.mat");
-          return;
-        }
-
-        if (((++nCORTEx_DW.ToFile_IWORK.Count) * (5 + 1))+1 >= 100000000) {
-          (void)fprintf(stdout,
-                        "*** The ToFile block will stop logging data before\n"
-                        "    the simulation has ended, because it has reached\n"
-                        "    the maximum number of elements (100000000)\n"
-                        "    allowed in MAT-file nCORTEx_log.mat.\n");
-        }
-      }
-    }
-  }
 
   /* S-Function (sg_IO191_setup_s): '<Root>/Setup ' */
 
@@ -816,26 +750,6 @@ void nCORTEx_initialize(void)
     }
   }
 
-  /* Start for ToFile: '<Root>/To File' */
-  {
-    FILE *fp = (NULL);
-    char fileName[509] = "nCORTEx_log.mat";
-    if ((fp = fopen(fileName, "wb")) == (NULL)) {
-      rtmSetErrorStatus(nCORTEx_M, "Error creating .mat file nCORTEx_log.mat");
-      return;
-    }
-
-    if (rt_WriteMat4FileHeader(fp, 5 + 1, 0, "sessionLog")) {
-      rtmSetErrorStatus(nCORTEx_M,
-                        "Error writing mat file header to file nCORTEx_log.mat");
-      return;
-    }
-
-    nCORTEx_DW.ToFile_IWORK.Count = 0;
-    nCORTEx_DW.ToFile_IWORK.Decimation = -1;
-    nCORTEx_DW.ToFile_PWORK.FilePtr = fp;
-  }
-
   /* Start for S-Function (sg_IO191_setup_s): '<Root>/Setup ' */
   /* Level2 S-Function Block: '<Root>/Setup ' (sg_IO191_setup_s) */
   {
@@ -885,36 +799,6 @@ void nCORTEx_initialize(void)
 /* Model terminate function */
 void nCORTEx_terminate(void)
 {
-  /* Terminate for ToFile: '<Root>/To File' */
-  {
-    FILE *fp = (FILE *) nCORTEx_DW.ToFile_PWORK.FilePtr;
-    if (fp != (NULL)) {
-      char fileName[509] = "nCORTEx_log.mat";
-      if (fclose(fp) == EOF) {
-        rtmSetErrorStatus(nCORTEx_M, "Error closing MAT-file nCORTEx_log.mat");
-        return;
-      }
-
-      if ((fp = fopen(fileName, "r+b")) == (NULL)) {
-        rtmSetErrorStatus(nCORTEx_M, "Error reopening MAT-file nCORTEx_log.mat");
-        return;
-      }
-
-      if (rt_WriteMat4FileHeader(fp, 5 + 1, nCORTEx_DW.ToFile_IWORK.Count,
-           "sessionLog")) {
-        rtmSetErrorStatus(nCORTEx_M,
-                          "Error writing header for sessionLog to MAT-file nCORTEx_log.mat");
-      }
-
-      if (fclose(fp) == EOF) {
-        rtmSetErrorStatus(nCORTEx_M, "Error closing MAT-file nCORTEx_log.mat");
-        return;
-      }
-
-      nCORTEx_DW.ToFile_PWORK.FilePtr = (NULL);
-    }
-  }
-
   /* Terminate for S-Function (sg_IO191_setup_s): '<Root>/Setup ' */
   /* Level2 S-Function Block: '<Root>/Setup ' (sg_IO191_setup_s) */
   {

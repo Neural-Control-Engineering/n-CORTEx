@@ -7,9 +7,9 @@
  *
  * Code generation for model "nCORTEx".
  *
- * Model version              : 1.65
+ * Model version              : 1.67
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Thu Sep 14 02:12:59 2023
+ * C++ source code generated on : Fri Sep 15 13:44:59 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -20,8 +20,6 @@
 
 #ifndef RTW_HEADER_nCORTEx_h_
 #define RTW_HEADER_nCORTEx_h_
-#include <stdio.h>
-#include <string.h>
 #include <logsrv.h>
 #include "rtwtypes.h"
 #include "simstruc.h"
@@ -129,7 +127,6 @@ struct B_nCORTEx_T {
   real_T Memory1;                      /* '<Root>/Memory1' */
   real_T Memory;                       /* '<Root>/Memory' */
   real_T Clock;                        /* '<S3>/Clock' */
-  real_T TmpSignalConversionAtToFileInpo[5];
   real_T Clock_k;                      /* '<S2>/Clock' */
   real_T tonePulse;                    /* '<S3>/MATLAB Function1' */
   real_T state_out;                    /* '<Root>/MATLAB Function' */
@@ -147,8 +144,8 @@ struct DW_nCORTEx_T {
   real_T t0;                           /* '<S3>/MATLAB Function1' */
   real_T Setup_RWORK[2];               /* '<Root>/Setup ' */
   struct {
-    void *FilePtr;
-  } ToFile_PWORK;                      /* '<Root>/To File' */
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_Whisk;   /* synthesized block */
 
   void *Setup_PWORK;                   /* '<Root>/Setup ' */
   void *Digitaloutput_PWORK;           /* '<Root>/Digital output ' */
@@ -168,20 +165,11 @@ struct DW_nCORTEx_T {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Npxls;   /* synthesized block */
 
-  struct {
-    void *AQHandles;
-  } TAQSigLogging_InsertedFor_Whisk;   /* synthesized block */
-
   int32_T clockTickCounter;            /* '<Root>/Whisker Trig' */
   int32_T clockTickCounter_n;          /* '<Root>/Npxls Trig' */
   int32_T clockTickCounter_c;          /* '<Root>/Pupil Trig' */
   int32_T sfEvent;                     /* '<S3>/MATLAB Function1' */
   int32_T sfEvent_e;                   /* '<Root>/MATLAB Function' */
-  struct {
-    int_T Count;
-    int_T Decimation;
-  } ToFile_IWORK;                      /* '<Root>/To File' */
-
   uint8_T is_active_c2_nCORTEx;        /* '<S3>/MATLAB Function1' */
   uint8_T is_active_c1_nCORTEx;        /* '<Root>/MATLAB Function' */
   boolean_T doneDoubleBufferReInit;    /* '<S3>/MATLAB Function1' */
