@@ -24,10 +24,10 @@ function params = setBaseParams(opts)
 
     %% SPINVIEW PARAMS
     if ~isfield(opts,'spinParams'), opts.spinParams=struct; end
-    if ~isfield(opts.spinParams,'saveDir'), opts.spinParams.saveDir=opts.paths.nCORTEx_repo;end
+    if ~isfield(opts.spinParams,'saveDir'), opts.spinParams.sav
     % pupilCam config
     if ~isfield(opts.spinParams,'pupilCam'), opts.spinParams.pupilCam=struct; end
-    if ~isfield(opts.spinParams.pupilCam,'TriggerMode'), opts.spinParams.pupilCam.TriggerMode="1"; end
+    if ~isfield(opts.spinParams.pupilCam,'TriggerMode'), opts.spinParams.pupilCam.TriggerMode=1; end
     % if ~isfield(opts.spinParams.pupilCam,''), opts.spinParams.pupilCam=; end
     % if ~isfield(opts.spinParams.pupilCam,''), opts.spinParams.pupilCam=; end
     % if ~isfield(opts.spinParams.pupilCam,''), opts.spinParams.pupilCam=; end
@@ -35,7 +35,7 @@ function params = setBaseParams(opts)
     
     % whiskCam config
     if ~isfield(opts.spinParams,'whiskCam'), opts.spinParams.whiskCam=struct; end
-    if ~isfield(opts.spinParams.whiskCam,'TriggerMode'), opts.spinParams.whiskCam.TriggerMode="1"; end
+    if ~isfield(opts.spinParams.whiskCam,'TriggerMode'), opts.spinParams.whiskCam.TriggerMode=1; end
     % if ~isfield(opts.spinParams.whiskCam,''), opts.spinParams.whiskCam=; end
     % if ~isfield(opts.spinParams.whiskCam,''), opts.spinParams.whiskCam=; end
     % if ~isfield(opts.spinParams.whiskCam,''), opts.spinParams.whiskCam=; end
