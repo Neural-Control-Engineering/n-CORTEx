@@ -1,89 +1,127 @@
-import PySpin
 import sys
 import os
-import signal
 import json
+from simple_pyspin import Camera, list_cameras
+from PIL import Image
+import cv2
 
 # MINI LIBRARY BUILT FROM SPINVIEW API (SPINNAKER SDK) TO CONFIGURE AND START A SPINVIEW ACQUISITION
 
 def main():
     # Check if the required argument is provided
-    # if len(sys.argv) != 2:
-    #     print("Usage: python script.py <spinParams_json>")
-    #     sys.exit(1)
+    if len(sys.argv) != 2:
+        print("Usage: python script.py <spinParams_json>")
+        sys.exit(1)
 
-    # spinParams = sys.argv[1] 
-    spinParams="{\"saveDir\": \"Select Project Directory\", \"pupilCam\": {\"TriggerMode\": 1}, \"whiskCam\": {\"TriggerMode\": 1}, \"execStatus\": \"start\"}"
+    spinParams = sys.argv[1] 
+    # spinParams="{\"saveDir\": \"Select Project Directory\", \"pupilCam\": {\"TriggerMode\": \"On\"}, \"whiskCam\": {\"TriggerMode\": \"On\"}, \"execStatus\": \"start\"}"
     spinParams = json.loads(spinParams)       
     
 
     # retrieve video save location
     saveDir = spinParams["saveDir"]
     execStatus = spinParams["execStatus"]
-
+    # retrieve videoWriter params
+    pupilCv2 = spinParams["pupilCv2"]
+    whiskCv2 = spinParams["whiskCv2"]
+    pupFps = pupilCv2["fps"]
+    pupFrameW = pupilCv2["frameSizeW"]
+    pupFrameH = pupilCv2["frameSizeH"]
+    wskFps = whiskCv2["fps"]
+    wskFrameW = whiskCv2["frameSizeW"]
+    wskFrameH = whiskCv2["frameSizeH"]    
     
+    # SN registry
+    pupilSN = '19133897'
+    wskSN='23248866'
 
     if execStatus=="start":
-        
-        # store PID for future 'stop' interrupt
-        print('initiating vision capture')
-        # os.environ["startPID"] = os.getpid()
-        
-        # Initiate Cameras
-        system = PySpin.System.GetInstance()
-        cam_list = system.GetCameras()
-        numCams=cam_list.GetSize()
-        for i, camera in enumerate(cam_list):
-            TLDeviceNodeMap = camera.GetTLDeviceNodeMap()
-            iNode = TLDeviceNodeMap.GetNode("DeviceSerialNumber")
-            serial_number = iNode.GetUniqueID()
-            # serial_number = camera.GetTLDeviceNodeMap().GetNode("DeviceSerialNumber").GetUniqueID()
-            print(f"Camera {i + 1} - Serial Number: {serial_number}")
-        # if num_cameras == 0:
-        #     raise Exception("No cameras found!")            
-        pup_camera = cam_list.GetBySerial('19133897')    
-        pup_camera.Init()
-        tst_cam=cam_list.GetBySerial('11212')    
 
-        print(pup_camera)
-        # wsk_camera = cam_list.GetBySerial('')           
+        # Store the PID in an environment variable
+        os.environ["startPID"] = str(os.getpid())
+
+        cameras = list_cameras()
+        numCameras = cameras.GetSize()
+        print(str(numCameras) + ' camera(s) found')
+
+        # Find pupil and whisker cameras if connected
+        for i in range(numCameras):
+            cam = Camera(i)
+            cam.init()
+            serialNum = cam.get_info('DeviceSerialNumber')['value']
+            print('SN'+str(i)+': '+str(serialNum))
+            if serialNum==pupilSN:
+                pupCam = cam # find and store pupil camera
+            elif serialNum==wskSN:
+                wskCam = cam     
+               
+        # print(pupCam.get_info('TriggerMode'))
+        # pupCam.TriggerMode='Off'
+        # print(pupCam.get_info('TriggerMode'))
+        # setattr(pupCam, 'TriggerMode','On')
+        # print(pupCam.get_info('TriggerMode'))
+
+        pupCam = setSpinParams(pupCam, spinParams['pupilCam'])
+
+        if not os.path.exists(saveDir):
+            # If it doesn't exist, create the directory
+            os.mkdir(saveDir)            
+            print(f"Directory '{saveDir}' created.")
+        else:
+            print(f"Directory '{saveDir}' already exists.")
+        pupAcqDir = os.path.join(saveDir,"pupilAcquisition")
+        wskAcqDir = os.path.join(saveDir,"whiskerAcquisition")
+        if not os.path.exists(pupAcqDir):
+            os.mkdir(pupAcqDir)
+        if not os.path.exists(wskAcqDir):
+            os.mkdir(wskAcqDir)
+
+        print('starting acquisition')
+
+        # open Video Writers
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        pupWriter = cv2.VideoWriter(os.path.join(saveDir,"pupilAcquisition",("pupil.mp4"),fourcc,pupFps,(pupFrameW, pupFrameH)))
+        wskWriter = cv2.VideoWriter(os.path.join(saveDir,"whiskerAcquisition",("whisker.mp4"),fourcc,wskFps,(wskFrameW, wskFrameH)))
+
+        while True: # continue triggered acquisition until 'stop' is called
+            pupCam.start()
+            wskCam.start()
+            # print('camStarted')
+            pupFrame = pupCam.get_array()
+            pupWriter.write(pupFrame)
+            # print('arrayGot')
+            wskFrame = wskCam.get_array()
+            wskWriter.write(wskFrame)
 
 
-        # Configure Cameras
-        pup_camera = setSpinParams(pup_camera, spinParams["pupilCam"])        
-        print('Cameras configured')
-        # wsk_camera = setSpinParams(wsk_camera, spinParams["whiskCam"])
-        
-        # Acquire images by triggermode
-        pup_camera.BeginAcquisition()
-        print('Starting Acquisition')
-        # wsk_camera.BeginAcquisition()
-        i=0
-        # while True: # continue triggered acquisition until 'stop' is called
-        #     pupFrame = pup_camera.GetNextImage()
-        #     # wskFrame = wsk_camera.GetNextImage()
+            
+            
+            # print('savingImg')
+            # Image.fromarray(pupFrame).save(os.path.join(saveDir,"pupilAcquisition",("pupilFrame_"+str(i)+".png")))
+            # print('ImgSaved')
+            # Image.fromarray(wskFrame).save(os.path.join(saveDir,"whiskerAcquisition",("whiskerFrame_"+str(i)+".png")))
 
-        #     pupFrame.Save(os.path.join(saveDir,"pupilAcquisition",("pupilFrame_"+str(i)+".png")))
-        #     # wskFrame.Save(os.path.join(saveDir,"whiskerAcquisition",("whiskerFrame_"+str(i)+".png")))          
+            # i+=1
+            # print(('frame '+str(i)+' stored'))
 
-        #     i+=1
-        #     print(i)
-
+            # if i==100:
+            #     break
 
     elif execStatus=="stop":
         PID = os.environ.get("startPID")
-        os.kill(PID)
-
+        # release VideoWriters
+        pupWriter.release()
+        wskWriter.release()
          # # Release the camera and system resources
-        pup_camera.DeInit()
-        # wsk_camera.DeInit()
-        del pup_camera
-        # del wsk_camera
-        system.ReleaseInstance()
+        pupCam.close()
+        wskCam.close()                
+
+        os.kill(PID)        
+
     else:
         raise Exception("Missing ExecStatus!")  
-    
-def setSpinParams(camera, camDict):
+
+def setSpinParams(camera, stgsDict):
     """
     Configure camera parameters based on a dictionary of settings.
 
@@ -91,30 +129,12 @@ def setSpinParams(camera, camDict):
     - camera: PySpin camera instance
     - camDict: Dictionary containing camera parameter settings
     """
-    # Open the camera
-    camera.Init()
+    for key, value in stgsDict.items():
+        print('key: '+str(key))
+        print('value: '+str(value))
+        setattr(camera, key, value)
+        print('set '+str(key)+' to '+str(value))
 
-    # Access the camera node map for parameter manipulation
-    nodemap = camera.GetNodeMap()
-
-    # Loop through the dictionary and assign parameter values
-    for param_name, param_value in camDict.items():
-        try:
-            # Get the parameter node based on its name
-            param_node = PySpin.CFloatPtr(nodemap.GetNode(param_name))
-            
-            # Check if the parameter node exists and is writable
-            if param_node is not None: #and param_node.IsWritable():
-                # Set the parameter value
-                print(f"Setting {param_name} to {param_value}")
-                param_node.SetValue(param_value)
-                
-            else:
-                print(f"Skipping {param_name} (not writable)")
-
-        except Exception as e:
-            print(f"Error configuring {param_name}: {str(e)}")
-    
     return camera
 
 

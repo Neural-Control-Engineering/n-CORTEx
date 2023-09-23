@@ -24,10 +24,15 @@ function params = setBaseParams(opts)
 
     %% SPINVIEW PARAMS
     if ~isfield(opts,'spinParams'), opts.spinParams=struct; end
-    if ~isfield(opts.spinParams,'saveDir'), opts.spinParams.sav
+    if ~isfield(opts.spinParams,'saveDir'), opts.spinParams.saveDir=opts.paths.nCORTEx_repo;end
     % pupilCam config
     if ~isfield(opts.spinParams,'pupilCam'), opts.spinParams.pupilCam=struct; end
-    if ~isfield(opts.spinParams.pupilCam,'TriggerMode'), opts.spinParams.pupilCam.TriggerMode=1; end
+    if ~isfield(opts.spinParams.pupilCam,'TriggerMode'), opts.spinParams.pupilCam.TriggerMode='On'; end
+    if ~isfield(opts.spinParams.pupilCam,'TriggerSource'), opts.spinParams.pupilCam.TriggerSource='Line2'; end
+    if ~isfield(opts.spinParams,'pupilCv2'), opt
+    if ~isfield(opts.spinParams.pupilCv2,'fps'), opts.spinParams.pupilCv2.fps=10; end
+    if ~isfield(opts.spinParams.pupilCv2,'frameSizeW'), opts.spinParams.pupilCv2.frameSizeW=640; end
+    if ~isfield(opts.spinParams.pupilCv2,'frameSizeH'), opts.spinParams.pupilCv2.frameSizeH=480; end
     % if ~isfield(opts.spinParams.pupilCam,''), opts.spinParams.pupilCam=; end
     % if ~isfield(opts.spinParams.pupilCam,''), opts.spinParams.pupilCam=; end
     % if ~isfield(opts.spinParams.pupilCam,''), opts.spinParams.pupilCam=; end
@@ -35,7 +40,11 @@ function params = setBaseParams(opts)
     
     % whiskCam config
     if ~isfield(opts.spinParams,'whiskCam'), opts.spinParams.whiskCam=struct; end
-    if ~isfield(opts.spinParams.whiskCam,'TriggerMode'), opts.spinParams.whiskCam.TriggerMode=1; end
+    if ~isfield(opts.spinParams.whiskCam,'TriggerMode'), opts.spinParams.whiskCam.TriggerMode='On'; end
+    if ~isfield(opts.spinParams.whiskCam,'TriggerSource'), opts.spinParams.whiskCam.TriggerSource='Line2'; end
+    if ~isfield(opts.spinParams.whiskCv2,'fps'), opts.spinParams.whiskCv2.fps=50; end
+    if ~isfield(opts.spinParams.whiskCv2,'frameSizeW'), opts.spinParams.whiskCv2.frameSizeW=640; end
+    if ~isfield(opts.spinParams.whiskCv2,'frameSizeH'), opts.spinParams.whiskCv2.frameSizeH=480; end
     % if ~isfield(opts.spinParams.whiskCam,''), opts.spinParams.whiskCam=; end
     % if ~isfield(opts.spinParams.whiskCam,''), opts.spinParams.whiskCam=; end
     % if ~isfield(opts.spinParams.whiskCam,''), opts.spinParams.whiskCam=; end
