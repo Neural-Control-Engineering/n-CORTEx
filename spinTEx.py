@@ -80,28 +80,35 @@ def main():
 
         # open Video Writers
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        pupWriter = cv2.VideoWriter(os.path.join(saveDir,"pupilAcquisition",("pupil.mp4"),fourcc,pupFps,(pupFrameW, pupFrameH)))
-        wskWriter = cv2.VideoWriter(os.path.join(saveDir,"whiskerAcquisition",("whisker.mp4"),fourcc,wskFps,(wskFrameW, wskFrameH)))
-
-        while True: # continue triggered acquisition until 'stop' is called
-            pupCam.start()
-            wskCam.start()
+        pupWriter = cv2.VideoWriter(os.path.join(saveDir,"pupilAcquisition",("pupil.mp4")),fourcc,pupFps,(pupFrameW, pupFrameH))
+        wskWriter = cv2.VideoWriter(os.path.join(saveDir,"whiskerAcquisition",("whisker.mp4")),fourcc,wskFps,(wskFrameW, wskFrameH))
+        pupCam.start()
+        wskCam.start()
+        i=0
+        while True: # continue triggered acquisition until 'stop' is called          
+           
             # print('camStarted')
             pupFrame = pupCam.get_array()
-            pupWriter.write(pupFrame)
-            # print('arrayGot')
-            wskFrame = wskCam.get_array()
-            wskWriter.write(wskFrame)
-
-
             
+            if (len(pupFrame.shape)==2):                 
+                pupFrame = cv2.cvtColor(pupFrame, cv2.COLOR_GRAY2BGR)                 
+            print('got pup Frame '+str(i))
+            pupWriter.write(pupFrame)
+            wskFrame = wskCam.get_array()
+            if (len(pupFrame.shape)==2):                                 
+                wskFrame = cv2.cvtColor(wskFrame, cv2.COLOR_GRAY2BGR) 
+            print('got wsk Frame '+str(i))
+            wskWriter.write(wskFrame)
+            
+            # wskFrame = wskCam.get_array()
+            # wskWriter.write(wskFrame)           
             
             # print('savingImg')
             # Image.fromarray(pupFrame).save(os.path.join(saveDir,"pupilAcquisition",("pupilFrame_"+str(i)+".png")))
             # print('ImgSaved')
             # Image.fromarray(wskFrame).save(os.path.join(saveDir,"whiskerAcquisition",("whiskerFrame_"+str(i)+".png")))
 
-            # i+=1
+            i+=1
             # print(('frame '+str(i)+' stored'))
 
             # if i==100:
