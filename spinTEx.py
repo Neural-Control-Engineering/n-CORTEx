@@ -21,15 +21,16 @@ def main():
     # retrieve video save location
     saveDir = spinParams["saveDir"]
     execStatus = spinParams["execStatus"]
+    camSelect = spinParams["camSelect"]
     # retrieve videoWriter params
-    pupilCv2 = spinParams["pupilCv2"]
-    whiskCv2 = spinParams["whiskCv2"]
-    pupFps = pupilCv2["fps"]
-    pupFrameW = pupilCv2["frameSizeW"]
-    pupFrameH = pupilCv2["frameSizeH"]
-    wskFps = whiskCv2["fps"]
-    wskFrameW = whiskCv2["frameSizeW"]
-    wskFrameH = whiskCv2["frameSizeH"]    
+    # pupilCv2 = spinParams["pupilCv2"]
+    # whiskCv2 = spinParams["whiskCv2"]
+    # pupFps = pupilCv2["fps"]
+    # pupFrameW = pupilCv2["frameSizeW"]
+    # pupFrameH = pupilCv2["frameSizeH"]
+    # wskFps = whiskCv2["fps"]
+    # wskFrameW = whiskCv2["frameSizeW"]
+    # wskFrameH = whiskCv2["frameSizeH"]    
     
     # SN registry
     pupilSN = '19133897'
@@ -47,82 +48,36 @@ def main():
         # Find pupil and whisker cameras if connected
         for i in range(numCameras):
             cam = Camera(i)
-            cam.init()
-            serialNum = cam.get_info('DeviceSerialNumber')['value']
-            print('SN'+str(i)+': '+str(serialNum))
-            if serialNum==pupilSN:
-                pupCam = cam # find and store pupil camera
-            elif serialNum==wskSN:
-                wskCam = cam     
-               
-        # print(pupCam.get_info('TriggerMode'))
-        # pupCam.TriggerMode='Off'
-        # print(pupCam.get_info('TriggerMode'))
-        # setattr(pupCam, 'TriggerMode','On')
-        # print(pupCam.get_info('TriggerMode'))
-
-        pupCam = setSpinParams(pupCam, spinParams['pupilCam'])
-
-        if not os.path.exists(saveDir):
-            # If it doesn't exist, create the directory
-            os.mkdir(saveDir)            
-            print(f"Directory '{saveDir}' created.")
-        else:
-            print(f"Directory '{saveDir}' already exists.")
-        pupAcqDir = os.path.join(saveDir,"pupilAcquisition")
-        wskAcqDir = os.path.join(saveDir,"whiskerAcquisition")
-        if not os.path.exists(pupAcqDir):
-            os.mkdir(pupAcqDir)
-        if not os.path.exists(wskAcqDir):
-            os.mkdir(wskAcqDir)
+            # cam.init()
+            # serialNum = cam.get_info('DeviceSerialNumber')['value']
+            # print('SN'+str(i)+': '+str(serialNum))
+            if camSelect==0:
+                print('Pupil Cam Selected')
+                cam.init()
+                cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
+                acqDir = os.path.join(saveDir,"Raw Pupil Data")
+            elif camSelect==1:
+                print('Whisker Cam Selected')
+                cam.init()
+                cam = setSpinParams(cam, spinParams['whiskCam'])
+                acqDir = os.path.join(saveDir,"Raw Whisker Data")
+        
+        if not os.path.exists(acqDir):
+            os.mkdir(acqDir)        
 
         print('starting acquisition')
 
-        # open Video Writers
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        pupWriter = cv2.VideoWriter(os.path.join(saveDir,"pupilAcquisition",("pupil.mp4")),fourcc,pupFps,(pupFrameW, pupFrameH))
-        wskWriter = cv2.VideoWriter(os.path.join(saveDir,"whiskerAcquisition",("whisker.mp4")),fourcc,wskFps,(wskFrameW, wskFrameH))
-        pupCam.start()
-        wskCam.start()
+        # open Video Writers       
+        cam.start()       
         i=0
-        while True: # continue triggered acquisition until 'stop' is called          
-           
+        while True: # continue triggered acquisition until 'stop' is called        
             # print('camStarted')
-            pupFrame = pupCam.get_array()
-            
-            if (len(pupFrame.shape)==2):                 
-                pupFrame = cv2.cvtColor(pupFrame, cv2.COLOR_GRAY2BGR)                 
-            print('got pup Frame '+str(i))
-            pupWriter.write(pupFrame)
-            wskFrame = wskCam.get_array()
-            if (len(pupFrame.shape)==2):                                 
-                wskFrame = cv2.cvtColor(wskFrame, cv2.COLOR_GRAY2BGR) 
-            print('got wsk Frame '+str(i))
-            wskWriter.write(wskFrame)
-            
-            # wskFrame = wskCam.get_array()
-            # wskWriter.write(wskFrame)           
-            
-            # print('savingImg')
-            # Image.fromarray(pupFrame).save(os.path.join(saveDir,"pupilAcquisition",("pupilFrame_"+str(i)+".png")))
-            # print('ImgSaved')
-            # Image.fromarray(wskFrame).save(os.path.join(saveDir,"whiskerAcquisition",("whiskerFrame_"+str(i)+".png")))
-
-            i+=1
-            # print(('frame '+str(i)+' stored'))
-
-            # if i==100:
-            #     break
+            frame = cam.get_array()
+            Image.fromarray(frame).save(os.path.join(acqDir,"frame_"+str(i)+".png"))            
+            i+=1        
 
     elif execStatus=="stop":
-        PID = os.environ.get("startPID")
-        # release VideoWriters
-        pupWriter.release()
-        wskWriter.release()
-         # # Release the camera and system resources
-        pupCam.close()
-        wskCam.close()                
-
+        PID = os.environ.get("startPID")                         
         os.kill(PID)        
 
     else:
