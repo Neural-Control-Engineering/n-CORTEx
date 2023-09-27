@@ -15,22 +15,12 @@ def main():
 
     spinParams = sys.argv[1] 
     # spinParams="{\"saveDir\": \"Select Project Directory\", \"pupilCam\": {\"TriggerMode\": \"On\"}, \"whiskCam\": {\"TriggerMode\": \"On\"}, \"execStatus\": \"start\"}"
-    spinParams = json.loads(spinParams)       
-    
+    spinParams = json.loads(spinParams)     
 
     # retrieve video save location
     saveDir = spinParams["saveDir"]
     execStatus = spinParams["execStatus"]
-    camSelect = spinParams["camSelect"]
-    # retrieve videoWriter params
-    # pupilCv2 = spinParams["pupilCv2"]
-    # whiskCv2 = spinParams["whiskCv2"]
-    # pupFps = pupilCv2["fps"]
-    # pupFrameW = pupilCv2["frameSizeW"]
-    # pupFrameH = pupilCv2["frameSizeH"]
-    # wskFps = whiskCv2["fps"]
-    # wskFrameW = whiskCv2["frameSizeW"]
-    # wskFrameH = whiskCv2["frameSizeH"]    
+    camSelect = spinParams["camSelect"]    
     
     # SN registry
     pupilSN = '19133897'
@@ -56,11 +46,13 @@ def main():
                 cam.init()
                 cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
                 acqDir = os.path.join(saveDir,"Raw Pupil Data")
+                os.environ["pupilAcqPID"] = str(os.getpid())
             elif camSelect==1:
                 print('Whisker Cam Selected')
                 cam.init()
                 cam = setSpinParams(cam, spinParams['whiskCam'])
                 acqDir = os.path.join(saveDir,"Raw Whisker Data")
+                os.environ["whiskAcqPID"] = str(os.getpid())
         
         if not os.path.exists(acqDir):
             os.mkdir(acqDir)        
@@ -77,9 +69,10 @@ def main():
             i+=1        
 
     elif execStatus=="stop":
-        PID = os.environ.get("startPID")                         
-        os.kill(PID)        
-
+        pupPID = os.environ.get("pupilPID")                         
+        wskPID = os.environ.get("whiskPID")
+        os.kill(pupPID)        
+        os.kill(wskPID)
     else:
         raise Exception("Missing ExecStatus!")  
 

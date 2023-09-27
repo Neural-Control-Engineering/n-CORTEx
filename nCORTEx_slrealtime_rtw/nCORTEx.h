@@ -7,9 +7,9 @@
  *
  * Code generation for model "nCORTEx".
  *
- * Model version              : 1.72
+ * Model version              : 1.114
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Sat Sep 16 17:18:27 2023
+ * C++ source code generated on : Wed Sep 27 18:42:11 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -126,14 +126,20 @@ struct B_nCORTEx_T {
   real_T Memory2;                      /* '<Root>/Memory2' */
   real_T Memory1;                      /* '<Root>/Memory1' */
   real_T Memory;                       /* '<Root>/Memory' */
-  real_T Clock;                        /* '<S3>/Clock' */
-  real_T Clock_k;                      /* '<S2>/Clock' */
-  real_T tonePulse;                    /* '<S3>/MATLAB Function1' */
+  real_T Memory3;                      /* '<Root>/Memory3' */
+  real_T Memory4;                      /* '<Root>/Memory4' */
+  real_T Clock;                        /* '<S2>/Clock' */
+  real_T PulseGen1Hz;                  /* '<Root>/Digital input ' */
+  real_T HiddenRateTransitionForToWks_In;
+  /* '<Root>/HiddenRateTransitionForToWks_InsertedFor_TAQSigLogging_InsertedFor_Digital input _at_outport_0_at_inport_0' */
+  real_T tonePulse;                    /* '<S2>/MATLAB Function1' */
   real_T state_out;                    /* '<Root>/MATLAB Function' */
   real_T localTime_out;                /* '<Root>/MATLAB Function' */
   real_T trialNum_out;                 /* '<Root>/MATLAB Function' */
   real_T onsetTone_trig;               /* '<Root>/MATLAB Function' */
-  boolean_T RelationalOperator;        /* '<S2>/Relational Operator' */
+  real_T npxlsAcq_out;                 /* '<Root>/MATLAB Function' */
+  real_T counter_out;                  /* '<Root>/MATLAB Function' */
+  boolean_T RelationalOperator;        /* '<Root>/Relational Operator' */
 };
 
 /* Block states (default storage) for system '<Root>' */
@@ -141,7 +147,9 @@ struct DW_nCORTEx_T {
   real_T Memory2_PreviousInput;        /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
   real_T Memory_PreviousInput;         /* '<Root>/Memory' */
-  real_T t0;                           /* '<S3>/MATLAB Function1' */
+  real_T Memory3_PreviousInput;        /* '<Root>/Memory3' */
+  real_T Memory4_PreviousInput;        /* '<Root>/Memory4' */
+  real_T t0;                           /* '<S2>/MATLAB Function1' */
   real_T Setup_RWORK[2];               /* '<Root>/Setup ' */
   struct {
     void *AQHandles;
@@ -149,9 +157,14 @@ struct DW_nCORTEx_T {
 
   void *Setup_PWORK;                   /* '<Root>/Setup ' */
   void *Digitaloutput_PWORK;           /* '<Root>/Digital output ' */
+  void *Digitalinput_PWORK;            /* '<Root>/Digital input ' */
   struct {
-    void *LoggedData[4];
+    void *LoggedData[5];
   } Scope_PWORK;                       /* '<Root>/Scope' */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_Digit;   /* synthesized block */
 
   struct {
     void *AQHandles;
@@ -168,12 +181,12 @@ struct DW_nCORTEx_T {
   int32_T clockTickCounter;            /* '<Root>/Whisker Trig' */
   int32_T clockTickCounter_n;          /* '<Root>/Npxls Trig' */
   int32_T clockTickCounter_c;          /* '<Root>/Pupil Trig' */
-  int32_T sfEvent;                     /* '<S3>/MATLAB Function1' */
+  int32_T sfEvent;                     /* '<S2>/MATLAB Function1' */
   int32_T sfEvent_e;                   /* '<Root>/MATLAB Function' */
-  uint8_T is_active_c2_nCORTEx;        /* '<S3>/MATLAB Function1' */
+  uint8_T is_active_c2_nCORTEx;        /* '<S2>/MATLAB Function1' */
   uint8_T is_active_c1_nCORTEx;        /* '<Root>/MATLAB Function' */
-  boolean_T doneDoubleBufferReInit;    /* '<S3>/MATLAB Function1' */
-  boolean_T t0_not_empty;              /* '<S3>/MATLAB Function1' */
+  boolean_T doneDoubleBufferReInit;    /* '<S2>/MATLAB Function1' */
+  boolean_T t0_not_empty;              /* '<S2>/MATLAB Function1' */
   boolean_T doneDoubleBufferReInit_e;  /* '<Root>/MATLAB Function' */
 };
 
@@ -194,15 +207,15 @@ struct tag_RTM_nCORTEx_T {
   struct {
     RTWSfcnInfo sfcnInfo;
     time_T *taskTimePtrs[2];
-    SimStruct childSFunctions[2];
-    SimStruct *childSFunctionPtrs[2];
-    struct _ssBlkInfo2 blkInfo2[2];
-    struct _ssSFcnModelMethods2 methods2[2];
-    struct _ssSFcnModelMethods3 methods3[2];
-    struct _ssSFcnModelMethods4 methods4[2];
-    struct _ssStatesInfo2 statesInfo2[2];
-    ssPeriodicStatesInfo periodicStatesInfo[2];
-    struct _ssPortInfo2 inputOutputPortInfo2[2];
+    SimStruct childSFunctions[3];
+    SimStruct *childSFunctionPtrs[3];
+    struct _ssBlkInfo2 blkInfo2[3];
+    struct _ssSFcnModelMethods2 methods2[3];
+    struct _ssSFcnModelMethods3 methods3[3];
+    struct _ssSFcnModelMethods4 methods4[3];
+    struct _ssStatesInfo2 statesInfo2[3];
+    ssPeriodicStatesInfo periodicStatesInfo[3];
+    struct _ssPortInfo2 inputOutputPortInfo2[3];
     struct {
       time_T sfcnPeriod[1];
       time_T sfcnOffset[1];
@@ -217,14 +230,27 @@ struct tag_RTM_nCORTEx_T {
       time_T sfcnPeriod[1];
       time_T sfcnOffset[1];
       int_T sfcnTsMap[1];
-      struct _ssPortInputs inputPortInfo[16];
-      struct _ssInPortUnit inputPortUnits[16];
-      struct _ssInPortCoSimAttribute inputPortCoSimAttribute[16];
+      struct _ssPortInputs inputPortInfo[15];
+      struct _ssInPortUnit inputPortUnits[15];
+      struct _ssInPortCoSimAttribute inputPortCoSimAttribute[15];
       uint_T attribs[6];
       mxArray *params[6];
       struct _ssDWorkRecord dWork[1];
       struct _ssDWorkAuxRecord dWorkAux[1];
     } Sfcn1;
+
+    struct {
+      time_T sfcnPeriod[1];
+      time_T sfcnOffset[1];
+      int_T sfcnTsMap[1];
+      struct _ssPortOutputs outputPortInfo[1];
+      struct _ssOutPortUnit outputPortUnits[1];
+      struct _ssOutPortCoSimAttribute outputPortCoSimAttribute[1];
+      uint_T attribs[4];
+      mxArray *params[4];
+      struct _ssDWorkRecord dWork[1];
+      struct _ssDWorkAuxRecord dWorkAux[1];
+    } Sfcn2;
   } NonInlinedSFcns;
 
   boolean_T zCCacheNeedsReset;
@@ -361,8 +387,7 @@ extern "C"
  *
  * '<Root>' : 'nCORTEx'
  * '<S1>'   : 'nCORTEx/MATLAB Function'
- * '<S2>'   : 'nCORTEx/Session Timer'
- * '<S3>'   : 'nCORTEx/tonePulse'
- * '<S4>'   : 'nCORTEx/tonePulse/MATLAB Function1'
+ * '<S2>'   : 'nCORTEx/tonePulse'
+ * '<S3>'   : 'nCORTEx/tonePulse/MATLAB Function1'
  */
 #endif                                 /* RTW_HEADER_nCORTEx_h_ */

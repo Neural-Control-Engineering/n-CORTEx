@@ -3,6 +3,11 @@
 
 /* Storage class 'PageSwitching' */
 nCORTEx_cal_type nCORTEx_cal_impl = {
+  /* Variable: SampleTime
+   * Referenced by: '<Root>/Constant1'
+   */
+  0.001,
+
   /* Variable: T_npxls
    * Referenced by: '<Root>/Npxls Trig'
    */
@@ -18,10 +23,15 @@ nCORTEx_cal_type nCORTEx_cal_impl = {
    */
   20.0,
 
-  /* Variable: tStop
-   * Referenced by: '<S2>/Constant'
+  /* Variable: maxFrames
+   * Referenced by: '<Root>/Constant'
    */
-  1800.0,
+  300000.0,
+
+  /* Variable: tStop
+   * Referenced by: '<Root>/Constant2'
+   */
+  300.0,
 
   /* Expression: 1
    * Referenced by: '<Root>/Whisker Trig'
@@ -33,10 +43,10 @@ nCORTEx_cal_type nCORTEx_cal_impl = {
    */
   0.0,
 
-  /* Expression: 1
+  /* Expression: 2.5
    * Referenced by: '<Root>/Npxls Trig'
    */
-  1.0,
+  2.5,
 
   /* Expression: 0
    * Referenced by: '<Root>/Npxls Trig'
@@ -67,6 +77,16 @@ nCORTEx_cal_type nCORTEx_cal_impl = {
    * Referenced by: '<Root>/Memory'
    */
   0.0,
+
+  /* Expression: 1
+   * Referenced by: '<Root>/Memory3'
+   */
+  1.0,
+
+  /* Expression: 1
+   * Referenced by: '<Root>/Memory4'
+   */
+  1.0,
 
   /* Computed Parameter: Setup_P1_Size
    * Referenced by: '<Root>/Setup '
@@ -151,12 +171,12 @@ nCORTEx_cal_type nCORTEx_cal_impl = {
   /* Computed Parameter: Setup_P9_Size
    * Referenced by: '<Root>/Setup '
    */
-  { 1.0, 9.0 },
+  { 1.0, 8.0 },
 
   /* Expression: parDioFirstControl
    * Referenced by: '<Root>/Setup '
    */
-  { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0 },
+  { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 9.0 },
 
   /* Computed Parameter: Digitaloutput_P1_Size
    * Referenced by: '<Root>/Digital output '
@@ -191,35 +211,73 @@ nCORTEx_cal_type nCORTEx_cal_impl = {
   /* Computed Parameter: Digitaloutput_P4_Size
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 16.0 },
+  { 1.0, 15.0 },
 
   /* Expression: parDoChannels
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
-    15.0, 16.0 },
+  { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 15.0,
+    16.0 },
 
   /* Computed Parameter: Digitaloutput_P5_Size
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 16.0 },
+  { 1.0, 15.0 },
 
   /* Expression: parDoInitValues
    * Referenced by: '<Root>/Digital output '
    */
-  { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    0.0 },
+  { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 },
 
   /* Computed Parameter: Digitaloutput_P6_Size
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 16.0 },
+  { 1.0, 15.0 },
 
   /* Expression: parDoResets
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-    1.0 }
+  { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
+
+  /* Computed Parameter: Digitalinput_P1_Size
+   * Referenced by: '<Root>/Digital input '
+   */
+  { 1.0, 1.0 },
+
+  /* Expression: parModuleId
+   * Referenced by: '<Root>/Digital input '
+   */
+  1.0,
+
+  /* Computed Parameter: Digitalinput_P2_Size
+   * Referenced by: '<Root>/Digital input '
+   */
+  { 1.0, 1.0 },
+
+  /* Expression: parSampleTime
+   * Referenced by: '<Root>/Digital input '
+   */
+  0.001,
+
+  /* Computed Parameter: Digitalinput_P3_Size
+   * Referenced by: '<Root>/Digital input '
+   */
+  { 1.0, 1.0 },
+
+  /* Expression: parPciSlot
+   * Referenced by: '<Root>/Digital input '
+   */
+  -1.0,
+
+  /* Computed Parameter: Digitalinput_P4_Size
+   * Referenced by: '<Root>/Digital input '
+   */
+  { 1.0, 1.0 },
+
+  /* Expression: parDiChannels
+   * Referenced by: '<Root>/Digital input '
+   */
+  14.0
 };
 
 nCORTEx_cal_type *nCORTEx_cal = &nCORTEx_cal_impl;

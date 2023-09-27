@@ -2,7 +2,7 @@
 ## Makefile generated for component 'nCORTEx'. 
 ## 
 ## Makefile     : nCORTEx.mk
-## Generated on : Sat Sep 16 17:18:28 2023
+## Generated on : Wed Sep 27 18:42:12 2023
 ## Final product: $(START_DIR)/nCORTEx_slrealtime_rtw/nCORTEx
 ## Product type : executable
 ## 
@@ -148,7 +148,7 @@ DEFINES = $(DEFINES_) $(DEFINES_BUILD_ARGS) $(DEFINES_CUSTOM) $(DEFINES_OPTS) $(
 ## SOURCE FILES
 ###########################################################################
 
-SRCS = $(MATLAB_ROOT)/rtw/c/src/rt_matrx.c $(MATLAB_ROOT)/rtw/c/src/rt_printf.c $(START_DIR)/nCORTEx_slrealtime_rtw/nCORTEx.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/nCORTEx_cal.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/rtGetInf.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/rtGetNaN.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/rt_nonfinite.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/slrealtime_datatype_ground.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/rte_nCORTEx_parameters.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/main.cpp /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_do_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_setup_s.c host_timer_x86.c slrealtime_code_profiling_utility_functions.cpp
+SRCS = $(MATLAB_ROOT)/rtw/c/src/rt_matrx.c $(MATLAB_ROOT)/rtw/c/src/rt_printf.c $(START_DIR)/nCORTEx_slrealtime_rtw/nCORTEx.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/nCORTEx_cal.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/rtGetInf.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/rtGetNaN.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/rt_nonfinite.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/slrealtime_datatype_ground.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/rte_nCORTEx_parameters.cpp $(START_DIR)/nCORTEx_slrealtime_rtw/main.cpp /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_di_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_do_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_setup_s.c host_timer_x86.c slrealtime_code_profiling_utility_functions.cpp
 
 ALL_SRCS = $(SRCS)
 
@@ -156,7 +156,7 @@ ALL_SRCS = $(SRCS)
 ## OBJECTS
 ###########################################################################
 
-OBJS = rt_matrx.o rt_printf.o nCORTEx.o nCORTEx_cal.o rtGetInf.o rtGetNaN.o rt_nonfinite.o slrealtime_datatype_ground.o rte_nCORTEx_parameters.o main.o sg_IO191_do_s.o sg_IO191_setup_s.o host_timer_x86.o slrealtime_code_profiling_utility_functions.o
+OBJS = rt_matrx.o rt_printf.o nCORTEx.o nCORTEx_cal.o rtGetInf.o rtGetNaN.o rt_nonfinite.o slrealtime_datatype_ground.o rte_nCORTEx_parameters.o main.o sg_IO191_di_s.o sg_IO191_do_s.o sg_IO191_setup_s.o host_timer_x86.o slrealtime_code_profiling_utility_functions.o
 
 ALL_OBJS = $(OBJS)
 
@@ -403,6 +403,10 @@ rte_nCORTEx_parameters.o : $(START_DIR)/nCORTEx_slrealtime_rtw/rte_nCORTEx_param
 
 main.o : $(START_DIR)/nCORTEx_slrealtime_rtw/main.cpp
 	$(CPP) $(CPPFLAGS) -o $@ $<
+
+
+sg_IO191_di_s.o : /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_di_s.c
+	$(CC) $(CFLAGS) -o $@ $<
 
 
 sg_IO191_do_s.o : /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_do_s.c

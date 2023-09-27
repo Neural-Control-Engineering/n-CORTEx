@@ -7,9 +7,9 @@
  *
  * Code generation for model "nCORTEx".
  *
- * Model version              : 1.72
+ * Model version              : 1.114
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Sat Sep 16 17:18:27 2023
+ * C++ source code generated on : Wed Sep 27 18:42:11 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -45,5 +45,6 @@
 extern void* slrtRegisterSignalToLoggingService(uintptr_t sigAddr);
 extern "C" void sg_IO191_setup_s(SimStruct *rts);
 extern "C" void sg_IO191_do_s(SimStruct *rts);
+extern "C" void sg_IO191_di_s(SimStruct *rts);
 
 #endif                                 /* RTW_HEADER_nCORTEx_private_h_ */

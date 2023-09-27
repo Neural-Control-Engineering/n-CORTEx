@@ -7,9 +7,9 @@
  *
  * Code generation for model "nCORTEx".
  *
- * Model version              : 1.72
+ * Model version              : 1.114
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Sat Sep 16 17:18:27 2023
+ * C++ source code generated on : Wed Sep 27 18:42:11 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -101,10 +101,20 @@ void nCORTEx_step(void)
   /* Memory: '<Root>/Memory' */
   nCORTEx_B.Memory = nCORTEx_DW.Memory_PreviousInput;
 
-  /* MATLAB Function: '<Root>/MATLAB Function' */
+  /* Memory: '<Root>/Memory3' */
+  nCORTEx_B.Memory3 = nCORTEx_DW.Memory3_PreviousInput;
+
+  /* Memory: '<Root>/Memory4' */
+  nCORTEx_B.Memory4 = nCORTEx_DW.Memory4_PreviousInput;
+
+  /* MATLAB Function: '<Root>/MATLAB Function' incorporates:
+   *  Constant: '<Root>/Constant1'
+   *  Constant: '<Root>/Constant2'
+   */
   nCORTEx_DW.sfEvent_e = nCORTEx_CALL_EVENT;
   switch (static_cast<int32_T>(nCORTEx_B.Memory2)) {
    case 1:
+    nCORTEx_B.npxlsAcq_out = 1.0;
     nCORTEx_B.onsetTone_trig = 1.0;
     nCORTEx_B.state_out = 2.0;
     nCORTEx_B.localTime_out = 1.0;
@@ -113,25 +123,33 @@ void nCORTEx_step(void)
 
    case 2:
     nCORTEx_B.onsetTone_trig = 0.0;
-    nCORTEx_B.state_out = 2.0;
+    nCORTEx_B.state_out = nCORTEx_B.Memory2;
     nCORTEx_B.localTime_out = nCORTEx_B.Memory1 + 1.0;
-    nCORTEx_B.trialNum_out = 1.0;
+    nCORTEx_B.trialNum_out = nCORTEx_B.Memory + 1.0;
+    nCORTEx_B.npxlsAcq_out = nCORTEx_B.Memory3;
     break;
 
    default:
-    nCORTEx_B.state_out = 1.0;
     nCORTEx_B.onsetTone_trig = 0.0;
-    nCORTEx_B.trialNum_out = 1.0;
-    nCORTEx_B.localTime_out = nCORTEx_B.Memory1 + 1.0;
+    nCORTEx_B.state_out = nCORTEx_B.Memory2;
+    nCORTEx_B.localTime_out = nCORTEx_B.Memory1;
+    nCORTEx_B.trialNum_out = nCORTEx_B.Memory;
+    nCORTEx_B.npxlsAcq_out = nCORTEx_B.Memory3;
     break;
   }
 
+  if (nCORTEx_B.Memory4 + 1.0 == nCORTEx_cal->tStop * nCORTEx_cal->SampleTime) {
+    nCORTEx_B.npxlsAcq_out = 0.0;
+  }
+
+  nCORTEx_B.counter_out = nCORTEx_B.Memory4 + 1.0;
+
   /* End of MATLAB Function: '<Root>/MATLAB Function' */
 
-  /* Clock: '<S3>/Clock' */
+  /* Clock: '<S2>/Clock' */
   nCORTEx_B.Clock = nCORTEx_M->Timing.t[0];
 
-  /* MATLAB Function: '<S3>/MATLAB Function1' */
+  /* MATLAB Function: '<S2>/MATLAB Function1' */
   nCORTEx_DW.sfEvent = nCORTEx_CALL_EVENT;
   if (nCORTEx_B.onsetTone_trig != 0.0) {
     nCORTEx_B.tonePulse = 1.0;
@@ -143,7 +161,7 @@ void nCORTEx_step(void)
     nCORTEx_B.tonePulse = 0.0;
   }
 
-  /* End of MATLAB Function: '<S3>/MATLAB Function1' */
+  /* End of MATLAB Function: '<S2>/MATLAB Function1' */
 
   /* S-Function (sg_IO191_setup_s): '<Root>/Setup ' */
 
@@ -161,20 +179,29 @@ void nCORTEx_step(void)
     sfcnOutputs(rts,0);
   }
 
-  /* Clock: '<S2>/Clock' */
-  nCORTEx_B.Clock_k = nCORTEx_M->Timing.t[0];
+  /* S-Function (sg_IO191_di_s): '<Root>/Digital input ' */
 
-  /* RelationalOperator: '<S2>/Relational Operator' incorporates:
-   *  Constant: '<S2>/Constant'
+  /* Level2 S-Function Block: '<Root>/Digital input ' (sg_IO191_di_s) */
+  {
+    SimStruct *rts = nCORTEx_M->childSfunctions[2];
+    sfcnOutputs(rts,0);
+  }
+
+  /* RateTransition generated from: '<Root>/Digital input ' */
+  nCORTEx_B.HiddenRateTransitionForToWks_In = nCORTEx_B.PulseGen1Hz;
+
+  /* RelationalOperator: '<Root>/Relational Operator' incorporates:
+   *  Constant: '<Root>/Constant'
    */
-  nCORTEx_B.RelationalOperator = (nCORTEx_B.Clock_k >= nCORTEx_cal->tStop);
+  nCORTEx_B.RelationalOperator = (nCORTEx_B.counter_out >=
+    nCORTEx_cal->maxFrames);
 
-  /* Stop: '<S2>/Stop Simulation' */
+  /* Stop: '<Root>/Stop Simulation' */
   if (nCORTEx_B.RelationalOperator) {
     rtmSetStopRequested(nCORTEx_M, 1);
   }
 
-  /* End of Stop: '<S2>/Stop Simulation' */
+  /* End of Stop: '<Root>/Stop Simulation' */
 
   /* Update for Memory: '<Root>/Memory2' */
   nCORTEx_DW.Memory2_PreviousInput = nCORTEx_B.state_out;
@@ -184,6 +211,12 @@ void nCORTEx_step(void)
 
   /* Update for Memory: '<Root>/Memory' */
   nCORTEx_DW.Memory_PreviousInput = nCORTEx_B.trialNum_out;
+
+  /* Update for Memory: '<Root>/Memory3' */
+  nCORTEx_DW.Memory3_PreviousInput = nCORTEx_B.npxlsAcq_out;
+
+  /* Update for Memory: '<Root>/Memory4' */
+  nCORTEx_DW.Memory4_PreviousInput = nCORTEx_B.counter_out;
 
   /* Update absolute time for base rate */
   /* The "clockTick0" counts the number of times the code of this task has
@@ -314,19 +347,21 @@ void nCORTEx_initialize(void)
     rtssSetSolverInfoPtr(sfcnInfo, &nCORTEx_M->solverInfoPtr);
   }
 
-  nCORTEx_M->Sizes.numSFcns = (2);
+  nCORTEx_M->Sizes.numSFcns = (3);
 
   /* register each child */
   {
     (void) std::memset(static_cast<void *>
                        (&nCORTEx_M->NonInlinedSFcns.childSFunctions[0]), 0,
-                       2*sizeof(SimStruct));
+                       3*sizeof(SimStruct));
     nCORTEx_M->childSfunctions = (&nCORTEx_M->
       NonInlinedSFcns.childSFunctionPtrs[0]);
     nCORTEx_M->childSfunctions[0] = (&nCORTEx_M->
       NonInlinedSFcns.childSFunctions[0]);
     nCORTEx_M->childSfunctions[1] = (&nCORTEx_M->
       NonInlinedSFcns.childSFunctions[1]);
+    nCORTEx_M->childSfunctions[2] = (&nCORTEx_M->
+      NonInlinedSFcns.childSFunctions[2]);
 
     /* Level2 S-Function Block: nCORTEx/<Root>/Setup  (sg_IO191_setup_s) */
     {
@@ -494,7 +529,7 @@ void nCORTEx_initialize(void)
 
       /* inputs */
       {
-        _ssSetNumInputPorts(rts, 16);
+        _ssSetNumInputPorts(rts, 15);
         ssSetPortInfoForInputs(rts,
           &nCORTEx_M->NonInlinedSFcns.Sfcn1.inputPortInfo[0]);
         ssSetPortInfoForInputs(rts,
@@ -516,7 +551,6 @@ void nCORTEx_initialize(void)
         ssSetInputPortUnit(rts, 12, 0);
         ssSetInputPortUnit(rts, 13, 0);
         ssSetInputPortUnit(rts, 14, 0);
-        ssSetInputPortUnit(rts, 15, 0);
         _ssSetPortInfo2ForInputCoSimAttribute(rts,
           &nCORTEx_M->NonInlinedSFcns.Sfcn1.inputPortCoSimAttribute[0]);
         ssSetInputPortIsContinuousQuantity(rts, 0, 0);
@@ -534,7 +568,6 @@ void nCORTEx_initialize(void)
         ssSetInputPortIsContinuousQuantity(rts, 12, 0);
         ssSetInputPortIsContinuousQuantity(rts, 13, 0);
         ssSetInputPortIsContinuousQuantity(rts, 14, 0);
-        ssSetInputPortIsContinuousQuantity(rts, 15, 0);
 
         /* port 0 */
         {
@@ -563,7 +596,7 @@ void nCORTEx_initialize(void)
         /* port 3 */
         {
           ssSetInputPortRequiredContiguous(rts, 3, 1);
-          ssSetInputPortSignal(rts, 3, (const_cast<real_T*>(&nCORTEx_RGND)));
+          ssSetInputPortSignal(rts, 3, &nCORTEx_B.npxlsAcq_out);
           _ssSetInputPortNumDimensions(rts, 3, 1);
           ssSetInputPortWidthAsInt(rts, 3, 1);
         }
@@ -651,17 +684,9 @@ void nCORTEx_initialize(void)
         /* port 14 */
         {
           ssSetInputPortRequiredContiguous(rts, 14, 1);
-          ssSetInputPortSignal(rts, 14, (const_cast<real_T*>(&nCORTEx_RGND)));
+          ssSetInputPortSignal(rts, 14, &nCORTEx_B.tonePulse);
           _ssSetInputPortNumDimensions(rts, 14, 1);
           ssSetInputPortWidthAsInt(rts, 14, 1);
-        }
-
-        /* port 15 */
-        {
-          ssSetInputPortRequiredContiguous(rts, 15, 1);
-          ssSetInputPortSignal(rts, 15, &nCORTEx_B.tonePulse);
-          _ssSetInputPortNumDimensions(rts, 15, 1);
-          ssSetInputPortWidthAsInt(rts, 15, 1);
         }
       }
 
@@ -723,7 +748,7 @@ void nCORTEx_initialize(void)
       _ssSetInputPortConnected(rts, 0, 1);
       _ssSetInputPortConnected(rts, 1, 1);
       _ssSetInputPortConnected(rts, 2, 1);
-      _ssSetInputPortConnected(rts, 3, 0);
+      _ssSetInputPortConnected(rts, 3, 1);
       _ssSetInputPortConnected(rts, 4, 0);
       _ssSetInputPortConnected(rts, 5, 0);
       _ssSetInputPortConnected(rts, 6, 0);
@@ -734,8 +759,7 @@ void nCORTEx_initialize(void)
       _ssSetInputPortConnected(rts, 11, 0);
       _ssSetInputPortConnected(rts, 12, 0);
       _ssSetInputPortConnected(rts, 13, 0);
-      _ssSetInputPortConnected(rts, 14, 0);
-      _ssSetInputPortConnected(rts, 15, 1);
+      _ssSetInputPortConnected(rts, 14, 1);
 
       /* Update the BufferDstPort flags for each input port */
       ssSetInputPortBufferDstPort(rts, 0, -1);
@@ -753,7 +777,135 @@ void nCORTEx_initialize(void)
       ssSetInputPortBufferDstPort(rts, 12, -1);
       ssSetInputPortBufferDstPort(rts, 13, -1);
       ssSetInputPortBufferDstPort(rts, 14, -1);
-      ssSetInputPortBufferDstPort(rts, 15, -1);
+    }
+
+    /* Level2 S-Function Block: nCORTEx/<Root>/Digital input  (sg_IO191_di_s) */
+    {
+      SimStruct *rts = nCORTEx_M->childSfunctions[2];
+
+      /* timing info */
+      time_T *sfcnPeriod = nCORTEx_M->NonInlinedSFcns.Sfcn2.sfcnPeriod;
+      time_T *sfcnOffset = nCORTEx_M->NonInlinedSFcns.Sfcn2.sfcnOffset;
+      int_T *sfcnTsMap = nCORTEx_M->NonInlinedSFcns.Sfcn2.sfcnTsMap;
+      (void) std::memset(static_cast<void*>(sfcnPeriod), 0,
+                         sizeof(time_T)*1);
+      (void) std::memset(static_cast<void*>(sfcnOffset), 0,
+                         sizeof(time_T)*1);
+      ssSetSampleTimePtr(rts, &sfcnPeriod[0]);
+      ssSetOffsetTimePtr(rts, &sfcnOffset[0]);
+      ssSetSampleTimeTaskIDPtr(rts, sfcnTsMap);
+
+      {
+        ssSetBlkInfo2Ptr(rts, &nCORTEx_M->NonInlinedSFcns.blkInfo2[2]);
+      }
+
+      _ssSetBlkInfo2PortInfo2Ptr(rts,
+        &nCORTEx_M->NonInlinedSFcns.inputOutputPortInfo2[2]);
+
+      /* Set up the mdlInfo pointer */
+      ssSetRTWSfcnInfo(rts, nCORTEx_M->sfcnInfo);
+
+      /* Allocate memory of model methods 2 */
+      {
+        ssSetModelMethods2(rts, &nCORTEx_M->NonInlinedSFcns.methods2[2]);
+      }
+
+      /* Allocate memory of model methods 3 */
+      {
+        ssSetModelMethods3(rts, &nCORTEx_M->NonInlinedSFcns.methods3[2]);
+      }
+
+      /* Allocate memory of model methods 4 */
+      {
+        ssSetModelMethods4(rts, &nCORTEx_M->NonInlinedSFcns.methods4[2]);
+      }
+
+      /* Allocate memory for states auxilliary information */
+      {
+        ssSetStatesInfo2(rts, &nCORTEx_M->NonInlinedSFcns.statesInfo2[2]);
+        ssSetPeriodicStatesInfo(rts,
+          &nCORTEx_M->NonInlinedSFcns.periodicStatesInfo[2]);
+      }
+
+      /* outputs */
+      {
+        ssSetPortInfoForOutputs(rts,
+          &nCORTEx_M->NonInlinedSFcns.Sfcn2.outputPortInfo[0]);
+        ssSetPortInfoForOutputs(rts,
+          &nCORTEx_M->NonInlinedSFcns.Sfcn2.outputPortInfo[0]);
+        _ssSetNumOutputPorts(rts, 1);
+        _ssSetPortInfo2ForOutputUnits(rts,
+          &nCORTEx_M->NonInlinedSFcns.Sfcn2.outputPortUnits[0]);
+        ssSetOutputPortUnit(rts, 0, 0);
+        _ssSetPortInfo2ForOutputCoSimAttribute(rts,
+          &nCORTEx_M->NonInlinedSFcns.Sfcn2.outputPortCoSimAttribute[0]);
+        ssSetOutputPortIsContinuousQuantity(rts, 0, 0);
+
+        /* port 0 */
+        {
+          _ssSetOutputPortNumDimensions(rts, 0, 1);
+          ssSetOutputPortWidthAsInt(rts, 0, 1);
+          ssSetOutputPortSignal(rts, 0, ((real_T *) &nCORTEx_B.PulseGen1Hz));
+        }
+      }
+
+      /* path info */
+      ssSetModelName(rts, "Digital input ");
+      ssSetPath(rts, "nCORTEx/Digital input ");
+      ssSetRTModel(rts,nCORTEx_M);
+      ssSetParentSS(rts, (NULL));
+      ssSetRootSS(rts, rts);
+      ssSetVersion(rts, SIMSTRUCT_VERSION_LEVEL2);
+
+      /* parameters */
+      {
+        mxArray **sfcnParams = (mxArray **)
+          &nCORTEx_M->NonInlinedSFcns.Sfcn2.params;
+        ssSetSFcnParamsCount(rts, 4);
+        ssSetSFcnParamsPtr(rts, &sfcnParams[0]);
+        ssSetSFcnParam(rts, 0, (mxArray*)nCORTEx_cal->Digitalinput_P1_Size);
+        ssSetSFcnParam(rts, 1, (mxArray*)nCORTEx_cal->Digitalinput_P2_Size);
+        ssSetSFcnParam(rts, 2, (mxArray*)nCORTEx_cal->Digitalinput_P3_Size);
+        ssSetSFcnParam(rts, 3, (mxArray*)nCORTEx_cal->Digitalinput_P4_Size);
+      }
+
+      /* work vectors */
+      ssSetPWork(rts, (void **) &nCORTEx_DW.Digitalinput_PWORK);
+
+      {
+        struct _ssDWorkRecord *dWorkRecord = (struct _ssDWorkRecord *)
+          &nCORTEx_M->NonInlinedSFcns.Sfcn2.dWork;
+        struct _ssDWorkAuxRecord *dWorkAuxRecord = (struct _ssDWorkAuxRecord *)
+          &nCORTEx_M->NonInlinedSFcns.Sfcn2.dWorkAux;
+        ssSetSFcnDWork(rts, dWorkRecord);
+        ssSetSFcnDWorkAux(rts, dWorkAuxRecord);
+        ssSetNumDWorkAsInt(rts, 1);
+
+        /* PWORK */
+        ssSetDWorkWidthAsInt(rts, 0, 1);
+        ssSetDWorkDataType(rts, 0,SS_POINTER);
+        ssSetDWorkComplexSignal(rts, 0, 0);
+        ssSetDWork(rts, 0, &nCORTEx_DW.Digitalinput_PWORK);
+      }
+
+      /* registration */
+      sg_IO191_di_s(rts);
+      sfcnInitializeSizes(rts);
+      sfcnInitializeSampleTimes(rts);
+
+      /* adjust sample time */
+      ssSetSampleTime(rts, 0, 0.001);
+      ssSetOffsetTime(rts, 0, 0.0);
+      sfcnTsMap[0] = 1;
+
+      /* set compiled values of dynamic vector attributes */
+      ssSetNumNonsampledZCsAsInt(rts, 0);
+
+      /* Update connectivity flags for each port */
+      _ssSetOutputPortConnected(rts, 0, 1);
+      _ssSetOutputPortBeingMerged(rts, 0, 0);
+
+      /* Update the BufferDstPort flags for each input port */
     }
   }
 
@@ -770,6 +922,15 @@ void nCORTEx_initialize(void)
   /* Level2 S-Function Block: '<Root>/Digital output ' (sg_IO191_do_s) */
   {
     SimStruct *rts = nCORTEx_M->childSfunctions[1];
+    sfcnStart(rts);
+    if (ssGetErrorStatus(rts) != (NULL))
+      return;
+  }
+
+  /* Start for S-Function (sg_IO191_di_s): '<Root>/Digital input ' */
+  /* Level2 S-Function Block: '<Root>/Digital input ' (sg_IO191_di_s) */
+  {
+    SimStruct *rts = nCORTEx_M->childSfunctions[2];
     sfcnStart(rts);
     if (ssGetErrorStatus(rts) != (NULL))
       return;
@@ -793,11 +954,17 @@ void nCORTEx_initialize(void)
   /* InitializeConditions for Memory: '<Root>/Memory' */
   nCORTEx_DW.Memory_PreviousInput = nCORTEx_cal->Memory_InitialCondition;
 
+  /* InitializeConditions for Memory: '<Root>/Memory3' */
+  nCORTEx_DW.Memory3_PreviousInput = nCORTEx_cal->Memory3_InitialCondition;
+
+  /* InitializeConditions for Memory: '<Root>/Memory4' */
+  nCORTEx_DW.Memory4_PreviousInput = nCORTEx_cal->Memory4_InitialCondition;
+
   /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function' */
   nCORTEx_DW.sfEvent_e = nCORTEx_CALL_EVENT;
   nCORTEx_DW.is_active_c1_nCORTEx = 0U;
 
-  /* SystemInitialize for MATLAB Function: '<S3>/MATLAB Function1' */
+  /* SystemInitialize for MATLAB Function: '<S2>/MATLAB Function1' */
   nCORTEx_DW.sfEvent = nCORTEx_CALL_EVENT;
   nCORTEx_DW.t0_not_empty = false;
   nCORTEx_DW.is_active_c2_nCORTEx = 0U;
@@ -817,6 +984,13 @@ void nCORTEx_terminate(void)
   /* Level2 S-Function Block: '<Root>/Digital output ' (sg_IO191_do_s) */
   {
     SimStruct *rts = nCORTEx_M->childSfunctions[1];
+    sfcnTerminate(rts);
+  }
+
+  /* Terminate for S-Function (sg_IO191_di_s): '<Root>/Digital input ' */
+  /* Level2 S-Function Block: '<Root>/Digital input ' (sg_IO191_di_s) */
+  {
+    SimStruct *rts = nCORTEx_M->childSfunctions[2];
     sfcnTerminate(rts);
   }
 }
