@@ -28,6 +28,7 @@ function params = setBaseParams(opts)
     if ~isfield(opts.spinParams,'camSelect'), opts.spinParams.camSelect=0; end
     % pupilCam config
     if ~isfield(opts.spinParams,'pupilCam'), opts.spinParams.pupilCam=struct; end
+    if ~isfield(opts.spinParams,'pupilSN'), opts.spinParams.pupilSN='21277600'; end
     if ~isfield(opts.spinParams.pupilCam,'TriggerMode'), opts.spinParams.pupilCam.TriggerMode='On'; end
     if ~isfield(opts.spinParams.pupilCam,'TriggerSource'), opts.spinParams.pupilCam.TriggerSource='Line2'; end
     % if ~isfield(opts.spinParams,'pupilCv2'), opts.spinParams.pupilCv2=struct; end
@@ -41,6 +42,7 @@ function params = setBaseParams(opts)
     
     % whiskCam config
     if ~isfield(opts.spinParams,'whiskCam'), opts.spinParams.whiskCam=struct; end
+    if ~isfield(opts.spinParams,'whiskSN'), opts.spinParams.whiskSN='23248866'; end
     if ~isfield(opts.spinParams.whiskCam,'TriggerMode'), opts.spinParams.whiskCam.TriggerMode='On'; end
     if ~isfield(opts.spinParams.whiskCam,'TriggerSource'), opts.spinParams.whiskCam.TriggerSource='Line2'; end
     % if ~isfield(opts.spinParams,'whiskCv2'), opts.spinParams.whiskCv2=struct;

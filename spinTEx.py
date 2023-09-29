@@ -4,6 +4,7 @@ import json
 from simple_pyspin import Camera, list_cameras
 from PIL import Image
 import cv2
+import signal
 
 # MINI LIBRARY BUILT FROM SPINVIEW API (SPINNAKER SDK) TO CONFIGURE AND START A SPINVIEW ACQUISITION
 
@@ -23,8 +24,8 @@ def main():
     camSelect = spinParams["camSelect"]    
     
     # SN registry
-    pupilSN = '19133897'
-    wskSN='23248866'
+    pupilSN=spinParams["pupilSN"]
+    whiskSN=spinParams["whiskSN"]
 
     if execStatus=="start":
 
@@ -36,23 +37,28 @@ def main():
         print(str(numCameras) + ' camera(s) found')
 
         # Find pupil and whisker cameras if connected
-        for i in range(numCameras):
-            cam = Camera(i)
+        # for camera in cameras:            
+        #     SN = camera.GetUniqueID()
+        #     SN = convertHex2Dec()
             # cam.init()
             # serialNum = cam.get_info('DeviceSerialNumber')['value']
             # print('SN'+str(i)+': '+str(serialNum))
-            if camSelect==0:
-                print('Pupil Cam Selected')
-                cam.init()
-                cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
-                acqDir = os.path.join(saveDir,"Raw Pupil Data")
-                os.environ["pupilAcqPID"] = str(os.getpid())
-            elif camSelect==1:
-                print('Whisker Cam Selected')
-                cam.init()
-                cam = setSpinParams(cam, spinParams['whiskCam'])
-                acqDir = os.path.join(saveDir,"Raw Whisker Data")
-                os.environ["whiskAcqPID"] = str(os.getpid())
+        if camSelect==pupilSN:
+            cam = Camera(pupilSN)
+            print('Pupil Cam Selected')
+            cam.init()
+            cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
+            acqDir = os.path.join(saveDir,"Raw Pupil Data")
+            os.environ["pupilAcqPID"] = str(os.getpid())
+            print("pupilPID: ",os.getpid())
+        elif camSelect==whiskSN:
+            cam = Camera(whiskSN)
+            print('Whisker Cam Selected')
+            cam.init()
+            cam = setSpinParams(cam, spinParams['whiskCam'])
+            acqDir = os.path.join(saveDir,"Raw Whisker Data")
+            os.environ["whiskAcqPID"] = str(os.getpid())
+            print("whiskPID: ",os.getpid())
         
         if not os.path.exists(acqDir):
             os.mkdir(acqDir)        
@@ -69,10 +75,14 @@ def main():
             i+=1        
 
     elif execStatus=="stop":
-        pupPID = os.environ.get("pupilPID")                         
-        wskPID = os.environ.get("whiskPID")
-        os.kill(pupPID)        
-        os.kill(wskPID)
+        pupPID = os.environ.get("pupilPID")         
+        wskPID = os.environ.get("whiskPID")        
+        print("killing pupil PID", pupPID)                        
+        os.kill(pupPID, signal.SIGTERM)        
+        print("killing whisker PID", wskPID)                        
+        os.kill(wskPID, signal.SIGTERM)
+        print("exiting ...")
+        sys.exit(1)
     else:
         raise Exception("Missing ExecStatus!")  
 
