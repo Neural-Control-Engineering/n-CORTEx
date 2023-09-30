@@ -1,0 +1,2 @@
+function stream(params)
+end
