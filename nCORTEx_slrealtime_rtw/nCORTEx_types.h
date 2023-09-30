@@ -7,9 +7,9 @@
  *
  * Code generation for model "nCORTEx".
  *
- * Model version              : 1.115
+ * Model version              : 1.117
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Sep 27 19:38:48 2023
+ * C++ source code generated on : Fri Sep 29 23:30:33 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping

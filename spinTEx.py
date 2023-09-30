@@ -30,7 +30,7 @@ def main():
     if execStatus=="start":
 
         # Store the PID in an environment variable
-        os.environ["startPID"] = str(os.getpid())
+        # os.environ["startPID"] = str(os.getpid())
 
         cameras = list_cameras()
         numCameras = cameras.GetSize()
@@ -45,6 +45,8 @@ def main():
             # print('SN'+str(i)+': '+str(serialNum))
         if camSelect==pupilSN:
             cam = Camera(pupilSN)
+            # temporary: reset camera on startup
+            setattr(cam,'DeviceReset',1)
             print('Pupil Cam Selected')
             cam.init()
             cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
@@ -53,6 +55,8 @@ def main():
             print("pupilPID: ",os.getpid())
         elif camSelect==whiskSN:
             cam = Camera(whiskSN)
+            # temporary: reset camera on startup
+            setattr(cam,'DeviceReset',1)
             print('Whisker Cam Selected')
             cam.init()
             cam = setSpinParams(cam, spinParams['whiskCam'])
@@ -71,12 +75,13 @@ def main():
         while True: # continue triggered acquisition until 'stop' is called        
             # print('camStarted')
             frame = cam.get_array()
-            Image.fromarray(frame).save(os.path.join(acqDir,"frame_"+str(i)+".png"))            
+            cv2.imwrite(os.path.join(acqDir,"frame_"+str(i)+".png"),frame)
+            # Image.fromarray(frame).save(os.path.join(acqDir,"frame_"+str(i)+".png"))            
             i+=1        
 
     elif execStatus=="stop":
-        pupPID = os.environ.get("pupilPID")         
-        wskPID = os.environ.get("whiskPID")        
+        pupPID = os.environ.get("pupilAcqPID")         
+        wskPID = os.environ.get("whiskAcqPID")        
         print("killing pupil PID", pupPID)                        
         os.kill(pupPID, signal.SIGTERM)        
         print("killing whisker PID", wskPID)                        
@@ -93,7 +98,7 @@ def setSpinParams(camera, stgsDict):
     Parameters:
     - camera: PySpin camera instance
     - camDict: Dictionary containing camera parameter settings
-    """
+    """    
     for key, value in stgsDict.items():
         print('key: '+str(key))
         print('value: '+str(value))
