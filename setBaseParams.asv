@@ -42,8 +42,12 @@ function params = setBaseParams(opts)
     
     % whiskCam config
     if ~isfield(opts.spinParams,'whiskCam'), opts.spinParams.whiskCam=struct; end
+    if ~isfield(opts.spinParams,'whiskSN'), opts.spinParams.whiskSN='23248866'; end
     if ~isfield(opts.spinParams.whiskCam,'TriggerMode'), opts.spinParams.whiskCam.TriggerMode='On'; end
     if ~isfield(opts.spinParams.whiskCam,'TriggerSource'), opts.spinParams.whiskCam.TriggerSource='Line2'; end
+    if ~isfield(opts.spinParams.whiskCam,'DecimationHorizontal'), opts.spinParams.whiskCam.DecimationHorizontal=2; end
+    if ~isfield(opts.spinParams.whiskCam, 'DecimationVertical'), opts.spinParams.whiskCam.DecimationHorizontal=2; end
+    if ~isfield(opts.spinParams.whiskCam, 'ExposureTime')
     % if ~isfield(opts.spinParams,'whiskCv2'), opts.spinParams.whiskCv2=struct;
     % if ~isfield(opts.spinParams.whiskCv2,'fps'), opts.spinParams.whiskCv2.fps=50; end
     % if ~isfield(opts.spinParams.whiskCv2,'frameSizeW'), opts.spinParams.whiskCv2.frameSizeW=640; end
