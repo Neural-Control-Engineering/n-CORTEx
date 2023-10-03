@@ -12,7 +12,7 @@ from multiprocessing import Process
 # MINI LIBRARY BUILT FROM SPINVIEW API (SPINNAKER SDK) TO CONFIGURE AND START A SPINVIEW ACQUISITION
 
 BUFFERSIZE=1000
-COMPRESSIONLEVEL=6
+COMPRESSIONLEVEL=1
 
 def main():
     # Check if the required argument is provided
@@ -50,7 +50,7 @@ def main():
             print('Pupil Cam Selected')
             cam.init()
             cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
-            acqDir = os.path.join(saveDir,"Raw Pupil Data")
+            acqDir = os.path.join(saveDir,"Raw Pupil Frames")
             listenerPort=12345
             # isKillVar='ISPUPKILL'            
            
@@ -61,7 +61,7 @@ def main():
             print('Whisker Cam Selected')
             cam.init()
             cam = setSpinParams(cam, spinParams['whiskCam'])
-            acqDir = os.path.join(saveDir,"Raw Whisker Data")
+            acqDir = os.path.join(saveDir,"Raw Whisker Frames")
             listenerPort=23456
             # isKillVar='ISWSKKILL'
            
@@ -127,6 +127,10 @@ def setSpinParams(camera, stgsDict):
     - camDict: Dictionary containing camera parameter settings
     """    
     for key, value in stgsDict.items():
+        if value=='false':
+            value=False
+        elif value=='true':
+            value=True
         print('key: '+str(key))
         print('value: '+str(value))
         setattr(camera, key, value)
