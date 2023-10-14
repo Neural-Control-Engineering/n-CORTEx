@@ -1,1 +1,0 @@
-var reportPages = [["Summary","JOLT_survey.html"],["Subsystem Report","JOLT_subsystems.html"],["Code Interface Report","JOLT_interface.html"]];
