@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.186
+ * Model version              : 1.215
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Mon Oct 16 15:14:26 2023
+ * C++ source code generated on : Tue Oct 17 19:06:01 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -42,10 +42,11 @@
 #define rtmSetTPtr(rtm, val)           ((rtm)->Timing.t = (val))
 #endif
 
+extern real_T rt_roundd_snf(real_T u);
 extern void* slrtRegisterSignalToLoggingService(uintptr_t sigAddr);
 extern "C" void sg_IO191_setup_s(SimStruct *rts);
-extern "C" void sg_IO191_ad_s(SimStruct *rts);
 extern "C" void sg_IO191_do_s(SimStruct *rts);
+extern "C" void sg_IO191_ad_s(SimStruct *rts);
 extern "C" void sg_IO191_di_s(SimStruct *rts);
 
 #endif                                 /* RTW_HEADER_JOLT_private_h_ */

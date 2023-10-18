@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.186
+ * Model version              : 1.215
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Mon Oct 16 15:14:26 2023
+ * C++ source code generated on : Tue Oct 17 19:06:01 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -23,9 +23,7 @@
 #include "rtwtypes.h"
 #include "JOLT_cal.h"
 #include <cstring>
-#include <cstdlib>
-#include <stddef.h>
-#include "JOLT_private.h"
+#include <cmath>
 
 extern "C"
 {
@@ -33,6 +31,10 @@ extern "C"
 #include "rt_nonfinite.h"
 
 }
+
+#include "JOLT_private.h"
+#include <cstdlib>
+#include <stddef.h>
 
 /* Named constants for MATLAB Function: '<Root>/MATLAB Function1' */
 const int32_T JOLT_CALL_EVENT = -1;
@@ -185,6 +187,24 @@ static void JOLT_emxFree_real_T(emxArray_real_T_JOLT_T **pEmxArray)
   }
 }
 
+real_T rt_roundd_snf(real_T u)
+{
+  real_T y;
+  if (std::abs(u) < 4.503599627370496E+15) {
+    if (u >= 0.5) {
+      y = std::floor(u + 0.5);
+    } else if (u > -0.5) {
+      y = u * 0.0;
+    } else {
+      y = std::ceil(u - 0.5);
+    }
+  } else {
+    y = u;
+  }
+
+  return y;
+}
+
 /* Model step function */
 void JOLT_step(void)
 {
@@ -196,6 +216,7 @@ void JOLT_step(void)
   int32_T b_k;
   int32_T b_v_size;
   int32_T i;
+  uint8_T tmp;
 
   /* Memory: '<Root>/Memory2' */
   std::memcpy(&JOLT_B.Memory2[0], &JOLT_DW.Memory2_PreviousInput[0], 10000U *
@@ -267,14 +288,6 @@ void JOLT_step(void)
       rtmSetStopRequested(JOLT_M, 1);
       ;
     }
-  }
-
-  /* S-Function (sg_IO191_ad_s): '<Root>/Analog input ' */
-
-  /* Level2 S-Function Block: '<Root>/Analog input ' (sg_IO191_ad_s) */
-  {
-    SimStruct *rts = JOLT_M->childSfunctions[1];
-    sfcnOutputs(rts,0);
   }
 
   /* Memory: '<Root>/Memory1' */
@@ -425,18 +438,26 @@ void JOLT_step(void)
 
   /* End of MATLAB Function: '<Root>/MATLAB Function1' */
 
-  /* MATLAB Function: '<S5>/MATLAB Function' */
-  JOLT_DW.sfEvent = JOLT_CALL_EVENT;
-  std::memcpy(&JOLT_B.buffOut[0], &JOLT_B.monofilBaseBuffer_out[1], 9999U *
-              sizeof(real_T));
-  JOLT_B.buffOut[9999] = JOLT_B.monofilData;
+  /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
+  baseAvg = JOLT_cal->T_npxls / 2.0;
 
-  /* Clock: '<S3>/Clock' */
+  /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
+  JOLT_B.npxls_trig = (JOLT_DW.clockTickCounter < baseAvg) &&
+    (JOLT_DW.clockTickCounter >= 0) ? JOLT_cal->NpxlsTrig_Amp : 0.0;
+
+  /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
+  if (JOLT_DW.clockTickCounter >= JOLT_cal->T_npxls - 1.0) {
+    JOLT_DW.clockTickCounter = 0;
+  } else {
+    JOLT_DW.clockTickCounter++;
+  }
+
+  /* Clock: '<S4>/Clock' */
   JOLT_B.Clock = JOLT_M->Timing.t[0];
 
-  /* MATLAB Function: '<S3>/MATLAB Function4' incorporates:
-   *  Constant: '<S3>/Constant'
-   *  Constant: '<S3>/Constant1'
+  /* MATLAB Function: '<S4>/MATLAB Function4' incorporates:
+   *  Constant: '<S4>/Constant'
+   *  Constant: '<S4>/Constant1'
    */
   JOLT_DW.sfEvent_k = JOLT_CALL_EVENT;
   if (JOLT_B.npxlsAcq_trig != 0.0) {
@@ -453,7 +474,7 @@ void JOLT_step(void)
     JOLT_B.sigPulse_p = 0.0;
   }
 
-  /* End of MATLAB Function: '<S3>/MATLAB Function4' */
+  /* End of MATLAB Function: '<S4>/MATLAB Function4' */
 
   /* MATLAB Function: '<S2>/MATLAB Function' */
   JOLT_DW.sfEvent_e = JOLT_CALL_EVENT;
@@ -473,26 +494,12 @@ void JOLT_step(void)
 
   /* End of MATLAB Function: '<S2>/MATLAB Function' */
 
-  /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
-  baseAvg = JOLT_cal->T_npxls / 2.0;
-
-  /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
-  JOLT_B.npxls_trig = (JOLT_DW.clockTickCounter < baseAvg) &&
-    (JOLT_DW.clockTickCounter >= 0) ? JOLT_cal->NpxlsTrig_Amp : 0.0;
-
-  /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
-  if (JOLT_DW.clockTickCounter >= JOLT_cal->T_npxls - 1.0) {
-    JOLT_DW.clockTickCounter = 0;
-  } else {
-    JOLT_DW.clockTickCounter++;
-  }
-
-  /* Clock: '<S4>/Clock' */
+  /* Clock: '<S5>/Clock' */
   JOLT_B.Clock_j = JOLT_M->Timing.t[0];
 
-  /* MATLAB Function: '<S4>/MATLAB Function4' incorporates:
-   *  Constant: '<S4>/Constant'
-   *  Constant: '<S4>/Constant1'
+  /* MATLAB Function: '<S5>/MATLAB Function4' incorporates:
+   *  Constant: '<S5>/Constant'
+   *  Constant: '<S5>/Constant1'
    */
   JOLT_DW.sfEvent_m = JOLT_CALL_EVENT;
   if (JOLT_B.acqTone_trig != 0.0) {
@@ -509,14 +516,111 @@ void JOLT_step(void)
     JOLT_B.sigPulse = 0.0;
   }
 
-  /* End of MATLAB Function: '<S4>/MATLAB Function4' */
+  /* End of MATLAB Function: '<S5>/MATLAB Function4' */
 
   /* S-Function (sg_IO191_do_s): '<Root>/Digital output ' */
 
   /* Level2 S-Function Block: '<Root>/Digital output ' (sg_IO191_do_s) */
   {
+    SimStruct *rts = JOLT_M->childSfunctions[1];
+    sfcnOutputs(rts,0);
+  }
+
+  /* S-Function (sg_IO191_ad_s): '<Root>/Analog input ' */
+
+  /* Level2 S-Function Block: '<Root>/Analog input ' (sg_IO191_ad_s) */
+  {
     SimStruct *rts = JOLT_M->childSfunctions[2];
     sfcnOutputs(rts,0);
+  }
+
+  /* MATLAB Function: '<S6>/MATLAB Function' */
+  JOLT_DW.sfEvent = JOLT_CALL_EVENT;
+  std::memcpy(&JOLT_B.buffOut[0], &JOLT_B.monofilBaseBuffer_out[1], 9999U *
+              sizeof(real_T));
+  JOLT_B.buffOut[9999] = JOLT_B.monofilData;
+
+  /* Product: '<Root>/Product' incorporates:
+   *  Constant: '<Root>/Constant2'
+   */
+  JOLT_B.Product = JOLT_B.monofilData * JOLT_cal->Constant2_Value;
+
+  /* DataTypeConversion: '<Root>/Data Type Conversion' */
+  baseAvg = std::ceil(JOLT_B.Product);
+  if (rtIsNaN(baseAvg) || rtIsInf(baseAvg)) {
+    baseAvg = 0.0;
+  } else {
+    baseAvg = std::fmod(baseAvg, 256.0);
+  }
+
+  /* DataTypeConversion: '<Root>/Data Type Conversion' */
+  JOLT_B.convertedMonofil = static_cast<uint8_T>(baseAvg < 0.0 ?
+    static_cast<int32_T>(static_cast<uint8_T>(-static_cast<int8_T>(static_cast<
+    uint8_T>(-baseAvg)))) : static_cast<int32_T>(static_cast<uint8_T>(baseAvg)));
+
+  /* Sum: '<Root>/Add' incorporates:
+   *  Constant: '<Root>/Constant5'
+   */
+  JOLT_B.Add = JOLT_cal->Constant5_Value + static_cast<real_T>
+    (JOLT_B.convertedMonofil);
+
+  /* MATLAB Function: '<S3>/MATLAB Function' incorporates:
+   *  Constant: '<Root>/Constant4'
+   */
+  JOLT_DW.sfEvent_p = JOLT_CALL_EVENT;
+  if (static_cast<int32_T>(JOLT_B.sigPulse_p) == 0) {
+    baseAvg = rt_roundd_snf(JOLT_B.Add);
+    if (baseAvg < 256.0) {
+      if (baseAvg >= 0.0) {
+        tmp = static_cast<uint8_T>(baseAvg);
+      } else {
+        tmp = 0U;
+      }
+    } else {
+      tmp = MAX_uint8_T;
+    }
+
+    JOLT_B.out_j = tmp;
+  } else {
+    baseAvg = rt_roundd_snf(JOLT_cal->Constant4_Value);
+    if (baseAvg < 256.0) {
+      if (baseAvg >= 0.0) {
+        tmp = static_cast<uint8_T>(baseAvg);
+      } else {
+        tmp = 0U;
+      }
+    } else {
+      tmp = MAX_uint8_T;
+    }
+
+    JOLT_B.out_j = tmp;
+  }
+
+  /* End of MATLAB Function: '<S3>/MATLAB Function' */
+  /* S-Function (slrealtimeTCPSend): '<Root>/TCP Send' incorporates:
+   *  Constant: '<Root>/Constant3'
+   */
+  {
+    try {
+      size_t bytesSent = 0;
+      int enable = (int)JOLT_B.TCPServer;
+      char *sendBuf = (char *)&JOLT_B.out_j;
+      size_t bytesToSend = (size_t)JOLT_cal->Constant3_Value;
+      slrealtime::ip::tcp::Socket* sock = reinterpret_cast<slrealtime::ip::tcp::
+        Socket*>(JOLT_DW.TCPSend_PWORK);
+      if (!sock)
+        return;
+      if (enable > 0) {
+        bytesSent = sock->send(sendBuf, bytesToSend);
+        JOLT_B.TCPSend = (double)bytesSent;
+      }
+    } catch (std::exception& e) {
+      std::string tmp = std::string(e.what());
+      static std::string eMsg = tmp;
+      rtmSetErrorStatus(JOLT_M, eMsg.c_str());
+      rtmSetStopRequested(JOLT_M, 1);
+      ;
+    }
   }
 
   /* S-Function (sg_IO191_di_s): '<Root>/Digital input ' */
@@ -793,7 +897,7 @@ void JOLT_initialize(void)
       /* Update the BufferDstPort flags for each input port */
     }
 
-    /* Level2 S-Function Block: JOLT/<Root>/Analog input  (sg_IO191_ad_s) */
+    /* Level2 S-Function Block: JOLT/<Root>/Digital output  (sg_IO191_do_s) */
     {
       SimStruct *rts = JOLT_M->childSfunctions[1];
 
@@ -841,156 +945,15 @@ void JOLT_initialize(void)
           NonInlinedSFcns.periodicStatesInfo[1]);
       }
 
-      /* outputs */
-      {
-        ssSetPortInfoForOutputs(rts,
-          &JOLT_M->NonInlinedSFcns.Sfcn1.outputPortInfo[0]);
-        ssSetPortInfoForOutputs(rts,
-          &JOLT_M->NonInlinedSFcns.Sfcn1.outputPortInfo[0]);
-        _ssSetNumOutputPorts(rts, 1);
-        _ssSetPortInfo2ForOutputUnits(rts,
-          &JOLT_M->NonInlinedSFcns.Sfcn1.outputPortUnits[0]);
-        ssSetOutputPortUnit(rts, 0, 0);
-        _ssSetPortInfo2ForOutputCoSimAttribute(rts,
-          &JOLT_M->NonInlinedSFcns.Sfcn1.outputPortCoSimAttribute[0]);
-        ssSetOutputPortIsContinuousQuantity(rts, 0, 0);
-
-        /* port 0 */
-        {
-          _ssSetOutputPortNumDimensions(rts, 0, 1);
-          ssSetOutputPortWidthAsInt(rts, 0, 1);
-          ssSetOutputPortSignal(rts, 0, ((real_T *) &JOLT_B.monofilData));
-        }
-      }
-
-      /* path info */
-      ssSetModelName(rts, "Analog input ");
-      ssSetPath(rts, "JOLT/Analog input ");
-      ssSetRTModel(rts,JOLT_M);
-      ssSetParentSS(rts, (NULL));
-      ssSetRootSS(rts, rts);
-      ssSetVersion(rts, SIMSTRUCT_VERSION_LEVEL2);
-
-      /* parameters */
-      {
-        mxArray **sfcnParams = (mxArray **)
-          &JOLT_M->NonInlinedSFcns.Sfcn1.params;
-        ssSetSFcnParamsCount(rts, 9);
-        ssSetSFcnParamsPtr(rts, &sfcnParams[0]);
-        ssSetSFcnParam(rts, 0, (mxArray*)JOLT_cal->Analoginput_P1_Size);
-        ssSetSFcnParam(rts, 1, (mxArray*)JOLT_cal->Analoginput_P2_Size);
-        ssSetSFcnParam(rts, 2, (mxArray*)JOLT_cal->Analoginput_P3_Size);
-        ssSetSFcnParam(rts, 3, (mxArray*)JOLT_cal->Analoginput_P4_Size);
-        ssSetSFcnParam(rts, 4, (mxArray*)JOLT_cal->Analoginput_P5_Size);
-        ssSetSFcnParam(rts, 5, (mxArray*)JOLT_cal->Analoginput_P6_Size);
-        ssSetSFcnParam(rts, 6, (mxArray*)JOLT_cal->Analoginput_P7_Size);
-        ssSetSFcnParam(rts, 7, (mxArray*)JOLT_cal->Analoginput_P8_Size);
-        ssSetSFcnParam(rts, 8, (mxArray*)JOLT_cal->Analoginput_P9_Size);
-      }
-
-      /* work vectors */
-      ssSetIWork(rts, (int_T *) &JOLT_DW.Analoginput_IWORK[0]);
-      ssSetPWork(rts, (void **) &JOLT_DW.Analoginput_PWORK);
-
-      {
-        struct _ssDWorkRecord *dWorkRecord = (struct _ssDWorkRecord *)
-          &JOLT_M->NonInlinedSFcns.Sfcn1.dWork;
-        struct _ssDWorkAuxRecord *dWorkAuxRecord = (struct _ssDWorkAuxRecord *)
-          &JOLT_M->NonInlinedSFcns.Sfcn1.dWorkAux;
-        ssSetSFcnDWork(rts, dWorkRecord);
-        ssSetSFcnDWorkAux(rts, dWorkAuxRecord);
-        ssSetNumDWorkAsInt(rts, 2);
-
-        /* IWORK */
-        ssSetDWorkWidthAsInt(rts, 0, 2);
-        ssSetDWorkDataType(rts, 0,SS_INTEGER);
-        ssSetDWorkComplexSignal(rts, 0, 0);
-        ssSetDWork(rts, 0, &JOLT_DW.Analoginput_IWORK[0]);
-
-        /* PWORK */
-        ssSetDWorkWidthAsInt(rts, 1, 1);
-        ssSetDWorkDataType(rts, 1,SS_POINTER);
-        ssSetDWorkComplexSignal(rts, 1, 0);
-        ssSetDWork(rts, 1, &JOLT_DW.Analoginput_PWORK);
-      }
-
-      /* registration */
-      sg_IO191_ad_s(rts);
-      sfcnInitializeSizes(rts);
-      sfcnInitializeSampleTimes(rts);
-
-      /* adjust sample time */
-      ssSetSampleTime(rts, 0, 0.001);
-      ssSetOffsetTime(rts, 0, 0.0);
-      sfcnTsMap[0] = 1;
-
-      /* set compiled values of dynamic vector attributes */
-      ssSetNumNonsampledZCsAsInt(rts, 0);
-
-      /* Update connectivity flags for each port */
-      _ssSetOutputPortConnected(rts, 0, 1);
-      _ssSetOutputPortBeingMerged(rts, 0, 0);
-
-      /* Update the BufferDstPort flags for each input port */
-    }
-
-    /* Level2 S-Function Block: JOLT/<Root>/Digital output  (sg_IO191_do_s) */
-    {
-      SimStruct *rts = JOLT_M->childSfunctions[2];
-
-      /* timing info */
-      time_T *sfcnPeriod = JOLT_M->NonInlinedSFcns.Sfcn2.sfcnPeriod;
-      time_T *sfcnOffset = JOLT_M->NonInlinedSFcns.Sfcn2.sfcnOffset;
-      int_T *sfcnTsMap = JOLT_M->NonInlinedSFcns.Sfcn2.sfcnTsMap;
-      (void) std::memset(static_cast<void*>(sfcnPeriod), 0,
-                         sizeof(time_T)*1);
-      (void) std::memset(static_cast<void*>(sfcnOffset), 0,
-                         sizeof(time_T)*1);
-      ssSetSampleTimePtr(rts, &sfcnPeriod[0]);
-      ssSetOffsetTimePtr(rts, &sfcnOffset[0]);
-      ssSetSampleTimeTaskIDPtr(rts, sfcnTsMap);
-
-      {
-        ssSetBlkInfo2Ptr(rts, &JOLT_M->NonInlinedSFcns.blkInfo2[2]);
-      }
-
-      _ssSetBlkInfo2PortInfo2Ptr(rts,
-        &JOLT_M->NonInlinedSFcns.inputOutputPortInfo2[2]);
-
-      /* Set up the mdlInfo pointer */
-      ssSetRTWSfcnInfo(rts, JOLT_M->sfcnInfo);
-
-      /* Allocate memory of model methods 2 */
-      {
-        ssSetModelMethods2(rts, &JOLT_M->NonInlinedSFcns.methods2[2]);
-      }
-
-      /* Allocate memory of model methods 3 */
-      {
-        ssSetModelMethods3(rts, &JOLT_M->NonInlinedSFcns.methods3[2]);
-      }
-
-      /* Allocate memory of model methods 4 */
-      {
-        ssSetModelMethods4(rts, &JOLT_M->NonInlinedSFcns.methods4[2]);
-      }
-
-      /* Allocate memory for states auxilliary information */
-      {
-        ssSetStatesInfo2(rts, &JOLT_M->NonInlinedSFcns.statesInfo2[2]);
-        ssSetPeriodicStatesInfo(rts, &JOLT_M->
-          NonInlinedSFcns.periodicStatesInfo[2]);
-      }
-
       /* inputs */
       {
         _ssSetNumInputPorts(rts, 15);
         ssSetPortInfoForInputs(rts, &JOLT_M->
-          NonInlinedSFcns.Sfcn2.inputPortInfo[0]);
+          NonInlinedSFcns.Sfcn1.inputPortInfo[0]);
         ssSetPortInfoForInputs(rts, &JOLT_M->
-          NonInlinedSFcns.Sfcn2.inputPortInfo[0]);
+          NonInlinedSFcns.Sfcn1.inputPortInfo[0]);
         _ssSetPortInfo2ForInputUnits(rts,
-          &JOLT_M->NonInlinedSFcns.Sfcn2.inputPortUnits[0]);
+          &JOLT_M->NonInlinedSFcns.Sfcn1.inputPortUnits[0]);
         ssSetInputPortUnit(rts, 0, 0);
         ssSetInputPortUnit(rts, 1, 0);
         ssSetInputPortUnit(rts, 2, 0);
@@ -1007,7 +970,7 @@ void JOLT_initialize(void)
         ssSetInputPortUnit(rts, 13, 0);
         ssSetInputPortUnit(rts, 14, 0);
         _ssSetPortInfo2ForInputCoSimAttribute(rts,
-          &JOLT_M->NonInlinedSFcns.Sfcn2.inputPortCoSimAttribute[0]);
+          &JOLT_M->NonInlinedSFcns.Sfcn1.inputPortCoSimAttribute[0]);
         ssSetInputPortIsContinuousQuantity(rts, 0, 0);
         ssSetInputPortIsContinuousQuantity(rts, 1, 0);
         ssSetInputPortIsContinuousQuantity(rts, 2, 0);
@@ -1156,7 +1119,7 @@ void JOLT_initialize(void)
       /* parameters */
       {
         mxArray **sfcnParams = (mxArray **)
-          &JOLT_M->NonInlinedSFcns.Sfcn2.params;
+          &JOLT_M->NonInlinedSFcns.Sfcn1.params;
         ssSetSFcnParamsCount(rts, 6);
         ssSetSFcnParamsPtr(rts, &sfcnParams[0]);
         ssSetSFcnParam(rts, 0, (mxArray*)JOLT_cal->Digitaloutput_P1_Size);
@@ -1172,9 +1135,9 @@ void JOLT_initialize(void)
 
       {
         struct _ssDWorkRecord *dWorkRecord = (struct _ssDWorkRecord *)
-          &JOLT_M->NonInlinedSFcns.Sfcn2.dWork;
+          &JOLT_M->NonInlinedSFcns.Sfcn1.dWork;
         struct _ssDWorkAuxRecord *dWorkAuxRecord = (struct _ssDWorkAuxRecord *)
-          &JOLT_M->NonInlinedSFcns.Sfcn2.dWorkAux;
+          &JOLT_M->NonInlinedSFcns.Sfcn1.dWorkAux;
         ssSetSFcnDWork(rts, dWorkRecord);
         ssSetSFcnDWorkAux(rts, dWorkAuxRecord);
         ssSetNumDWorkAsInt(rts, 1);
@@ -1232,6 +1195,147 @@ void JOLT_initialize(void)
       ssSetInputPortBufferDstPort(rts, 12, -1);
       ssSetInputPortBufferDstPort(rts, 13, -1);
       ssSetInputPortBufferDstPort(rts, 14, -1);
+    }
+
+    /* Level2 S-Function Block: JOLT/<Root>/Analog input  (sg_IO191_ad_s) */
+    {
+      SimStruct *rts = JOLT_M->childSfunctions[2];
+
+      /* timing info */
+      time_T *sfcnPeriod = JOLT_M->NonInlinedSFcns.Sfcn2.sfcnPeriod;
+      time_T *sfcnOffset = JOLT_M->NonInlinedSFcns.Sfcn2.sfcnOffset;
+      int_T *sfcnTsMap = JOLT_M->NonInlinedSFcns.Sfcn2.sfcnTsMap;
+      (void) std::memset(static_cast<void*>(sfcnPeriod), 0,
+                         sizeof(time_T)*1);
+      (void) std::memset(static_cast<void*>(sfcnOffset), 0,
+                         sizeof(time_T)*1);
+      ssSetSampleTimePtr(rts, &sfcnPeriod[0]);
+      ssSetOffsetTimePtr(rts, &sfcnOffset[0]);
+      ssSetSampleTimeTaskIDPtr(rts, sfcnTsMap);
+
+      {
+        ssSetBlkInfo2Ptr(rts, &JOLT_M->NonInlinedSFcns.blkInfo2[2]);
+      }
+
+      _ssSetBlkInfo2PortInfo2Ptr(rts,
+        &JOLT_M->NonInlinedSFcns.inputOutputPortInfo2[2]);
+
+      /* Set up the mdlInfo pointer */
+      ssSetRTWSfcnInfo(rts, JOLT_M->sfcnInfo);
+
+      /* Allocate memory of model methods 2 */
+      {
+        ssSetModelMethods2(rts, &JOLT_M->NonInlinedSFcns.methods2[2]);
+      }
+
+      /* Allocate memory of model methods 3 */
+      {
+        ssSetModelMethods3(rts, &JOLT_M->NonInlinedSFcns.methods3[2]);
+      }
+
+      /* Allocate memory of model methods 4 */
+      {
+        ssSetModelMethods4(rts, &JOLT_M->NonInlinedSFcns.methods4[2]);
+      }
+
+      /* Allocate memory for states auxilliary information */
+      {
+        ssSetStatesInfo2(rts, &JOLT_M->NonInlinedSFcns.statesInfo2[2]);
+        ssSetPeriodicStatesInfo(rts, &JOLT_M->
+          NonInlinedSFcns.periodicStatesInfo[2]);
+      }
+
+      /* outputs */
+      {
+        ssSetPortInfoForOutputs(rts,
+          &JOLT_M->NonInlinedSFcns.Sfcn2.outputPortInfo[0]);
+        ssSetPortInfoForOutputs(rts,
+          &JOLT_M->NonInlinedSFcns.Sfcn2.outputPortInfo[0]);
+        _ssSetNumOutputPorts(rts, 1);
+        _ssSetPortInfo2ForOutputUnits(rts,
+          &JOLT_M->NonInlinedSFcns.Sfcn2.outputPortUnits[0]);
+        ssSetOutputPortUnit(rts, 0, 0);
+        _ssSetPortInfo2ForOutputCoSimAttribute(rts,
+          &JOLT_M->NonInlinedSFcns.Sfcn2.outputPortCoSimAttribute[0]);
+        ssSetOutputPortIsContinuousQuantity(rts, 0, 0);
+
+        /* port 0 */
+        {
+          _ssSetOutputPortNumDimensions(rts, 0, 1);
+          ssSetOutputPortWidthAsInt(rts, 0, 1);
+          ssSetOutputPortSignal(rts, 0, ((real_T *) &JOLT_B.monofilData));
+        }
+      }
+
+      /* path info */
+      ssSetModelName(rts, "Analog input ");
+      ssSetPath(rts, "JOLT/Analog input ");
+      ssSetRTModel(rts,JOLT_M);
+      ssSetParentSS(rts, (NULL));
+      ssSetRootSS(rts, rts);
+      ssSetVersion(rts, SIMSTRUCT_VERSION_LEVEL2);
+
+      /* parameters */
+      {
+        mxArray **sfcnParams = (mxArray **)
+          &JOLT_M->NonInlinedSFcns.Sfcn2.params;
+        ssSetSFcnParamsCount(rts, 9);
+        ssSetSFcnParamsPtr(rts, &sfcnParams[0]);
+        ssSetSFcnParam(rts, 0, (mxArray*)JOLT_cal->Analoginput_P1_Size);
+        ssSetSFcnParam(rts, 1, (mxArray*)JOLT_cal->Analoginput_P2_Size);
+        ssSetSFcnParam(rts, 2, (mxArray*)JOLT_cal->Analoginput_P3_Size);
+        ssSetSFcnParam(rts, 3, (mxArray*)JOLT_cal->Analoginput_P4_Size);
+        ssSetSFcnParam(rts, 4, (mxArray*)JOLT_cal->Analoginput_P5_Size);
+        ssSetSFcnParam(rts, 5, (mxArray*)JOLT_cal->Analoginput_P6_Size);
+        ssSetSFcnParam(rts, 6, (mxArray*)JOLT_cal->Analoginput_P7_Size);
+        ssSetSFcnParam(rts, 7, (mxArray*)JOLT_cal->Analoginput_P8_Size);
+        ssSetSFcnParam(rts, 8, (mxArray*)JOLT_cal->Analoginput_P9_Size);
+      }
+
+      /* work vectors */
+      ssSetIWork(rts, (int_T *) &JOLT_DW.Analoginput_IWORK[0]);
+      ssSetPWork(rts, (void **) &JOLT_DW.Analoginput_PWORK);
+
+      {
+        struct _ssDWorkRecord *dWorkRecord = (struct _ssDWorkRecord *)
+          &JOLT_M->NonInlinedSFcns.Sfcn2.dWork;
+        struct _ssDWorkAuxRecord *dWorkAuxRecord = (struct _ssDWorkAuxRecord *)
+          &JOLT_M->NonInlinedSFcns.Sfcn2.dWorkAux;
+        ssSetSFcnDWork(rts, dWorkRecord);
+        ssSetSFcnDWorkAux(rts, dWorkAuxRecord);
+        ssSetNumDWorkAsInt(rts, 2);
+
+        /* IWORK */
+        ssSetDWorkWidthAsInt(rts, 0, 2);
+        ssSetDWorkDataType(rts, 0,SS_INTEGER);
+        ssSetDWorkComplexSignal(rts, 0, 0);
+        ssSetDWork(rts, 0, &JOLT_DW.Analoginput_IWORK[0]);
+
+        /* PWORK */
+        ssSetDWorkWidthAsInt(rts, 1, 1);
+        ssSetDWorkDataType(rts, 1,SS_POINTER);
+        ssSetDWorkComplexSignal(rts, 1, 0);
+        ssSetDWork(rts, 1, &JOLT_DW.Analoginput_PWORK);
+      }
+
+      /* registration */
+      sg_IO191_ad_s(rts);
+      sfcnInitializeSizes(rts);
+      sfcnInitializeSampleTimes(rts);
+
+      /* adjust sample time */
+      ssSetSampleTime(rts, 0, 0.001);
+      ssSetOffsetTime(rts, 0, 0.0);
+      sfcnTsMap[0] = 1;
+
+      /* set compiled values of dynamic vector attributes */
+      ssSetNumNonsampledZCsAsInt(rts, 0);
+
+      /* Update connectivity flags for each port */
+      _ssSetOutputPortConnected(rts, 0, 1);
+      _ssSetOutputPortBeingMerged(rts, 0, 0);
+
+      /* Update the BufferDstPort flags for each input port */
     }
 
     /* Level2 S-Function Block: JOLT/<Root>/Digital input  (sg_IO191_di_s) */
@@ -1410,8 +1514,8 @@ void JOLT_initialize(void)
     }
   }
 
-  /* Start for S-Function (sg_IO191_ad_s): '<Root>/Analog input ' */
-  /* Level2 S-Function Block: '<Root>/Analog input ' (sg_IO191_ad_s) */
+  /* Start for S-Function (sg_IO191_do_s): '<Root>/Digital output ' */
+  /* Level2 S-Function Block: '<Root>/Digital output ' (sg_IO191_do_s) */
   {
     SimStruct *rts = JOLT_M->childSfunctions[1];
     sfcnStart(rts);
@@ -1419,13 +1523,30 @@ void JOLT_initialize(void)
       return;
   }
 
-  /* Start for S-Function (sg_IO191_do_s): '<Root>/Digital output ' */
-  /* Level2 S-Function Block: '<Root>/Digital output ' (sg_IO191_do_s) */
+  /* Start for S-Function (sg_IO191_ad_s): '<Root>/Analog input ' */
+  /* Level2 S-Function Block: '<Root>/Analog input ' (sg_IO191_ad_s) */
   {
     SimStruct *rts = JOLT_M->childSfunctions[2];
     sfcnStart(rts);
     if (ssGetErrorStatus(rts) != (NULL))
       return;
+  }
+
+  /* Start for S-Function (slrealtimeTCPSend): '<Root>/TCP Send' incorporates:
+   *  Constant: '<Root>/Constant3'
+   */
+  {
+    try {
+      slrealtime::ip::tcp::Socket* sock = (slrealtime::ip::tcp::Socket*)
+        slrealtime::ip::SocketFactory::getSocket("0.0.0.0", 8001U);
+      JOLT_DW.TCPSend_PWORK = reinterpret_cast<void*>(sock);
+    } catch (std::exception& e) {
+      std::string tmp = std::string(e.what());
+      static std::string eMsg = tmp;
+      rtmSetErrorStatus(JOLT_M, eMsg.c_str());
+      rtmSetStopRequested(JOLT_M, 1);
+      ;
+    }
   }
 
   /* Start for S-Function (sg_IO191_di_s): '<Root>/Digital input ' */
@@ -1457,11 +1578,7 @@ void JOLT_initialize(void)
     JOLT_DW.sfEvent_d = JOLT_CALL_EVENT;
     JOLT_DW.is_active_c2_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S5>/MATLAB Function' */
-    JOLT_DW.sfEvent = JOLT_CALL_EVENT;
-    JOLT_DW.is_active_c3_JOLT = 0U;
-
-    /* SystemInitialize for MATLAB Function: '<S3>/MATLAB Function4' */
+    /* SystemInitialize for MATLAB Function: '<S4>/MATLAB Function4' */
     JOLT_DW.sfEvent_k = JOLT_CALL_EVENT;
     JOLT_DW.t0_not_empty_p = false;
     JOLT_DW.is_active_c4_JOLT = 0U;
@@ -1470,10 +1587,18 @@ void JOLT_initialize(void)
     JOLT_DW.sfEvent_e = JOLT_CALL_EVENT;
     JOLT_DW.is_active_c1_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S4>/MATLAB Function4' */
+    /* SystemInitialize for MATLAB Function: '<S5>/MATLAB Function4' */
     JOLT_DW.sfEvent_m = JOLT_CALL_EVENT;
     JOLT_DW.t0_not_empty = false;
     JOLT_DW.is_active_c5_JOLT = 0U;
+
+    /* SystemInitialize for MATLAB Function: '<S6>/MATLAB Function' */
+    JOLT_DW.sfEvent = JOLT_CALL_EVENT;
+    JOLT_DW.is_active_c3_JOLT = 0U;
+
+    /* SystemInitialize for MATLAB Function: '<S3>/MATLAB Function' */
+    JOLT_DW.sfEvent_p = JOLT_CALL_EVENT;
+    JOLT_DW.is_active_c6_JOLT = 0U;
   }
 }
 
@@ -1508,18 +1633,24 @@ void JOLT_terminate(void)
     }
   }
 
-  /* Terminate for S-Function (sg_IO191_ad_s): '<Root>/Analog input ' */
-  /* Level2 S-Function Block: '<Root>/Analog input ' (sg_IO191_ad_s) */
+  /* Terminate for S-Function (sg_IO191_do_s): '<Root>/Digital output ' */
+  /* Level2 S-Function Block: '<Root>/Digital output ' (sg_IO191_do_s) */
   {
     SimStruct *rts = JOLT_M->childSfunctions[1];
     sfcnTerminate(rts);
   }
 
-  /* Terminate for S-Function (sg_IO191_do_s): '<Root>/Digital output ' */
-  /* Level2 S-Function Block: '<Root>/Digital output ' (sg_IO191_do_s) */
+  /* Terminate for S-Function (sg_IO191_ad_s): '<Root>/Analog input ' */
+  /* Level2 S-Function Block: '<Root>/Analog input ' (sg_IO191_ad_s) */
   {
     SimStruct *rts = JOLT_M->childSfunctions[2];
     sfcnTerminate(rts);
+  }
+
+  /* Terminate for S-Function (slrealtimeTCPSend): '<Root>/TCP Send' incorporates:
+   *  Constant: '<Root>/Constant3'
+   */
+  {
   }
 
   /* Terminate for S-Function (sg_IO191_di_s): '<Root>/Digital input ' */

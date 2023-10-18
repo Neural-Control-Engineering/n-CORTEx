@@ -1,4 +1,4 @@
-function sigPulse = holdSignal(onset_trig, sigAmp, sigPulseLen, t) 
+function [sigPulse] = holdSignal(onset_trig, sigAmp, sigPulseLen, t) 
     % When the trigger onset_trig is received, it sets sigPulse to sigAmp and 
     % stores the current time t in the persistent variable t0.   
     
@@ -14,15 +14,19 @@ function sigPulse = holdSignal(onset_trig, sigAmp, sigPulseLen, t)
     persistent t0;
     if onset_trig                
         sigPulse = sigAmp; % set tone pulse high until 1.5 s elapses            
+        % pulseEnd=0;
         t0 = t; % store current time 
     elseif ~isempty(t0) 
         if (t - t0) < sigPulseLen
             sigPulse = sigAmp;
+            % pulseEnd=0;
         else
             sigPulse = 0;
+            % pulseEnd=1;
             clear t0 % reset t0 to initial condition
         end        
     else % reset to 0 if no more trigger activity
-        sigPulse = 0;        
+        sigPulse = 0; 
+        % pulseEnd=0;
     end
 end
