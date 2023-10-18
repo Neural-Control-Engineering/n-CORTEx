@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.215
+ * Model version              : 1.222
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Tue Oct 17 19:06:01 2023
+ * C++ source code generated on : Wed Oct 18 00:05:24 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -36,7 +36,7 @@ extern "C"
 #include <cstdlib>
 #include <stddef.h>
 
-/* Named constants for MATLAB Function: '<Root>/MATLAB Function1' */
+/* Named constants for MATLAB Function: '<S1>/MATLAB Function' */
 const int32_T JOLT_CALL_EVENT = -1;
 const real_T JOLT_RGND = 0.0;          /* real_T ground */
 
@@ -452,12 +452,12 @@ void JOLT_step(void)
     JOLT_DW.clockTickCounter++;
   }
 
-  /* Clock: '<S4>/Clock' */
+  /* Clock: '<S5>/Clock' */
   JOLT_B.Clock = JOLT_M->Timing.t[0];
 
-  /* MATLAB Function: '<S4>/MATLAB Function4' incorporates:
-   *  Constant: '<S4>/Constant'
-   *  Constant: '<S4>/Constant1'
+  /* MATLAB Function: '<S5>/MATLAB Function4' incorporates:
+   *  Constant: '<S5>/Constant'
+   *  Constant: '<S5>/Constant1'
    */
   JOLT_DW.sfEvent_k = JOLT_CALL_EVENT;
   if (JOLT_B.npxlsAcq_trig != 0.0) {
@@ -465,7 +465,7 @@ void JOLT_step(void)
     JOLT_DW.t0_b = JOLT_B.Clock;
     JOLT_DW.t0_not_empty_p = true;
   } else if (JOLT_DW.t0_not_empty_p) {
-    if (JOLT_B.Clock - JOLT_DW.t0_b < JOLT_cal->Constant1_Value_c) {
+    if (JOLT_B.Clock - JOLT_DW.t0_b < JOLT_cal->Constant1_Value) {
       JOLT_B.sigPulse_p = JOLT_cal->Constant_Value_c;
     } else {
       JOLT_B.sigPulse_p = 0.0;
@@ -474,9 +474,9 @@ void JOLT_step(void)
     JOLT_B.sigPulse_p = 0.0;
   }
 
-  /* End of MATLAB Function: '<S4>/MATLAB Function4' */
+  /* End of MATLAB Function: '<S5>/MATLAB Function4' */
 
-  /* MATLAB Function: '<S2>/MATLAB Function' */
+  /* MATLAB Function: '<S3>/MATLAB Function' */
   JOLT_DW.sfEvent_e = JOLT_CALL_EVENT;
   switch (static_cast<int32_T>(JOLT_B.restingAcq)) {
    case 1:
@@ -492,16 +492,16 @@ void JOLT_step(void)
     break;
   }
 
-  /* End of MATLAB Function: '<S2>/MATLAB Function' */
+  /* End of MATLAB Function: '<S3>/MATLAB Function' */
 
-  /* Clock: '<S5>/Clock' */
+  /* Clock: '<S6>/Clock' */
   JOLT_B.Clock_j = JOLT_M->Timing.t[0];
 
-  /* MATLAB Function: '<S5>/MATLAB Function4' incorporates:
-   *  Constant: '<S5>/Constant'
-   *  Constant: '<S5>/Constant1'
+  /* MATLAB Function: '<S6>/MATLAB Function4' incorporates:
+   *  Constant: '<S6>/Constant'
+   *  Constant: '<S6>/Constant1'
    */
-  JOLT_DW.sfEvent_m = JOLT_CALL_EVENT;
+  JOLT_DW.sfEvent = JOLT_CALL_EVENT;
   if (JOLT_B.acqTone_trig != 0.0) {
     JOLT_B.sigPulse = JOLT_cal->Constant_Value_j;
     JOLT_DW.t0 = JOLT_B.Clock_j;
@@ -516,7 +516,7 @@ void JOLT_step(void)
     JOLT_B.sigPulse = 0.0;
   }
 
-  /* End of MATLAB Function: '<S5>/MATLAB Function4' */
+  /* End of MATLAB Function: '<S6>/MATLAB Function4' */
 
   /* S-Function (sg_IO191_do_s): '<Root>/Digital output ' */
 
@@ -534,18 +534,18 @@ void JOLT_step(void)
     sfcnOutputs(rts,0);
   }
 
-  /* MATLAB Function: '<S6>/MATLAB Function' */
-  JOLT_DW.sfEvent = JOLT_CALL_EVENT;
+  /* MATLAB Function: '<S1>/MATLAB Function' */
+  JOLT_DW.sfEvent_c = JOLT_CALL_EVENT;
   std::memcpy(&JOLT_B.buffOut[0], &JOLT_B.monofilBaseBuffer_out[1], 9999U *
               sizeof(real_T));
   JOLT_B.buffOut[9999] = JOLT_B.monofilData;
 
-  /* Product: '<Root>/Product' incorporates:
-   *  Constant: '<Root>/Constant2'
+  /* Product: '<S7>/Product' incorporates:
+   *  Constant: '<S7>/Constant2'
    */
-  JOLT_B.Product = JOLT_B.monofilData * JOLT_cal->Constant2_Value;
+  JOLT_B.Product = JOLT_cal->Constant2_Value * JOLT_B.monofilData;
 
-  /* DataTypeConversion: '<Root>/Data Type Conversion' */
+  /* DataTypeConversion: '<S7>/Data Type Conversion' */
   baseAvg = std::ceil(JOLT_B.Product);
   if (rtIsNaN(baseAvg) || rtIsInf(baseAvg)) {
     baseAvg = 0.0;
@@ -553,18 +553,18 @@ void JOLT_step(void)
     baseAvg = std::fmod(baseAvg, 256.0);
   }
 
-  /* DataTypeConversion: '<Root>/Data Type Conversion' */
+  /* DataTypeConversion: '<S7>/Data Type Conversion' */
   JOLT_B.convertedMonofil = static_cast<uint8_T>(baseAvg < 0.0 ?
     static_cast<int32_T>(static_cast<uint8_T>(-static_cast<int8_T>(static_cast<
     uint8_T>(-baseAvg)))) : static_cast<int32_T>(static_cast<uint8_T>(baseAvg)));
 
-  /* Sum: '<Root>/Add' incorporates:
-   *  Constant: '<Root>/Constant5'
+  /* Sum: '<S7>/Add' incorporates:
+   *  Constant: '<S7>/Constant5'
    */
   JOLT_B.Add = JOLT_cal->Constant5_Value + static_cast<real_T>
     (JOLT_B.convertedMonofil);
 
-  /* MATLAB Function: '<S3>/MATLAB Function' incorporates:
+  /* MATLAB Function: '<S4>/MATLAB Function' incorporates:
    *  Constant: '<Root>/Constant4'
    */
   JOLT_DW.sfEvent_p = JOLT_CALL_EVENT;
@@ -596,7 +596,7 @@ void JOLT_step(void)
     JOLT_B.out_j = tmp;
   }
 
-  /* End of MATLAB Function: '<S3>/MATLAB Function' */
+  /* End of MATLAB Function: '<S4>/MATLAB Function' */
   /* S-Function (slrealtimeTCPSend): '<Root>/TCP Send' incorporates:
    *  Constant: '<Root>/Constant3'
    */
@@ -1578,25 +1578,25 @@ void JOLT_initialize(void)
     JOLT_DW.sfEvent_d = JOLT_CALL_EVENT;
     JOLT_DW.is_active_c2_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S4>/MATLAB Function4' */
+    /* SystemInitialize for MATLAB Function: '<S5>/MATLAB Function4' */
     JOLT_DW.sfEvent_k = JOLT_CALL_EVENT;
     JOLT_DW.t0_not_empty_p = false;
     JOLT_DW.is_active_c4_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S2>/MATLAB Function' */
+    /* SystemInitialize for MATLAB Function: '<S3>/MATLAB Function' */
     JOLT_DW.sfEvent_e = JOLT_CALL_EVENT;
     JOLT_DW.is_active_c1_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S5>/MATLAB Function4' */
-    JOLT_DW.sfEvent_m = JOLT_CALL_EVENT;
+    /* SystemInitialize for MATLAB Function: '<S6>/MATLAB Function4' */
+    JOLT_DW.sfEvent = JOLT_CALL_EVENT;
     JOLT_DW.t0_not_empty = false;
     JOLT_DW.is_active_c5_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S6>/MATLAB Function' */
-    JOLT_DW.sfEvent = JOLT_CALL_EVENT;
+    /* SystemInitialize for MATLAB Function: '<S1>/MATLAB Function' */
+    JOLT_DW.sfEvent_c = JOLT_CALL_EVENT;
     JOLT_DW.is_active_c3_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S3>/MATLAB Function' */
+    /* SystemInitialize for MATLAB Function: '<S4>/MATLAB Function' */
     JOLT_DW.sfEvent_p = JOLT_CALL_EVENT;
     JOLT_DW.is_active_c6_JOLT = 0U;
   }

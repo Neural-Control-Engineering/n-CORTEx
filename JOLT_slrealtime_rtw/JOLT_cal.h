@@ -67,9 +67,6 @@ struct JOLT_cal_type {
   real_T Constant_Value;               /* Expression: 1
                                         * Referenced by: '<Root>/Constant'
                                         */
-  real_T Constant1_Value;              /* Expression: 0.1
-                                        * Referenced by: '<Root>/Constant1'
-                                        */
   real_T Memory1_InitialCondition;     /* Expression: 0
                                         * Referenced by: '<Root>/Memory1'
                                         */
@@ -80,16 +77,16 @@ struct JOLT_cal_type {
                                         * Referenced by: '<Root>/Npxls Trig'
                                         */
   real_T Constant_Value_c;             /* Expression: 2.5
-                                        * Referenced by: '<S4>/Constant'
-                                        */
-  real_T Constant1_Value_c;            /* Expression: 8
-                                        * Referenced by: '<S4>/Constant1'
-                                        */
-  real_T Constant_Value_j;             /* Expression: 1
                                         * Referenced by: '<S5>/Constant'
                                         */
-  real_T Constant1_Value_k;            /* Expression: 1
+  real_T Constant1_Value;              /* Expression: 8
                                         * Referenced by: '<S5>/Constant1'
+                                        */
+  real_T Constant_Value_j;             /* Expression: 1
+                                        * Referenced by: '<S6>/Constant'
+                                        */
+  real_T Constant1_Value_k;            /* Expression: 1
+                                        * Referenced by: '<S6>/Constant1'
                                         */
   real_T Digitaloutput_P1_Size[2];  /* Computed Parameter: Digitaloutput_P1_Size
                                      * Referenced by: '<Root>/Digital output '
@@ -181,11 +178,11 @@ struct JOLT_cal_type {
   real_T Analoginput_P9[2];            /* Expression: parAdcResets
                                         * Referenced by: '<Root>/Analog input '
                                         */
-  real_T Constant2_Value;              /* Expression: 1000
-                                        * Referenced by: '<Root>/Constant2'
+  real_T Constant2_Value;              /* Expression: 150
+                                        * Referenced by: '<S7>/Constant2'
                                         */
   real_T Constant5_Value;              /* Expression: 1
-                                        * Referenced by: '<Root>/Constant5'
+                                        * Referenced by: '<S7>/Constant5'
                                         */
   real_T Constant4_Value;              /* Expression: 0
                                         * Referenced by: '<Root>/Constant4'
