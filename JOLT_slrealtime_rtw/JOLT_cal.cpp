@@ -294,10 +294,10 @@ JOLT_cal_type JOLT_cal_impl = {
    */
   { 1.0, 1.0 },
 
-  /* Expression: 150
+  /* Expression: 100
    * Referenced by: '<S7>/Constant2'
    */
-  150.0,
+  100.0,
 
   /* Expression: 1
    * Referenced by: '<S7>/Constant5'
@@ -306,6 +306,11 @@ JOLT_cal_type JOLT_cal_impl = {
 
   /* Expression: 0
    * Referenced by: '<Root>/Constant4'
+   */
+  0.0,
+
+  /* Expression: 0
+   * Referenced by: '<Root>/Delay'
    */
   0.0,
 

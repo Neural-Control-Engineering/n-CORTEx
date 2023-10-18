@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.222
+ * Model version              : 1.225
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Oct 18 00:05:24 2023
+ * C++ source code generated on : Wed Oct 18 10:30:55 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -133,6 +133,7 @@ struct B_JOLT_T {
   real_T monofilData;                  /* '<Root>/Analog input ' */
   real_T Product;                      /* '<S7>/Product' */
   real_T Add;                          /* '<S7>/Add' */
+  real_T Delay;                        /* '<Root>/Delay' */
   real_T TCPSend;                      /* '<Root>/TCP Send' */
   real_T PulseGen1Hz;                  /* '<Root>/Digital input ' */
   real_T HiddenRateTransitionForToWks_In;
@@ -158,6 +159,7 @@ struct B_JOLT_T {
 
 /* Block states (default storage) for system '<Root>' */
 struct DW_JOLT_T {
+  real_T Delay_DSTATE[550];            /* '<Root>/Delay' */
   real_T Memory2_PreviousInput[10000]; /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
   real_T Add_DWORK1;                   /* '<S7>/Add' */

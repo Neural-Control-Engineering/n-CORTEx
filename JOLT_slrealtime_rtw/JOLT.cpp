@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.222
+ * Model version              : 1.225
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Oct 18 00:05:24 2023
+ * C++ source code generated on : Wed Oct 18 10:30:55 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -564,11 +564,14 @@ void JOLT_step(void)
   JOLT_B.Add = JOLT_cal->Constant5_Value + static_cast<real_T>
     (JOLT_B.convertedMonofil);
 
+  /* Delay: '<Root>/Delay' */
+  JOLT_B.Delay = JOLT_DW.Delay_DSTATE[0];
+
   /* MATLAB Function: '<S4>/MATLAB Function' incorporates:
    *  Constant: '<Root>/Constant4'
    */
   JOLT_DW.sfEvent_p = JOLT_CALL_EVENT;
-  if (static_cast<int32_T>(JOLT_B.sigPulse_p) == 0) {
+  if (static_cast<int32_T>(JOLT_B.Delay) == 0) {
     baseAvg = rt_roundd_snf(JOLT_B.Add);
     if (baseAvg < 256.0) {
       if (baseAvg >= 0.0) {
@@ -640,6 +643,15 @@ void JOLT_step(void)
 
   /* Update for Memory: '<Root>/Memory1' */
   JOLT_DW.Memory1_PreviousInput = JOLT_B.S_out;
+
+  /* Update for Delay: '<Root>/Delay' */
+  for (int32_T i = 0; i < 549; i++) {
+    JOLT_DW.Delay_DSTATE[i] = JOLT_DW.Delay_DSTATE[i + 1];
+  }
+
+  JOLT_DW.Delay_DSTATE[549] = JOLT_B.sigPulse_p;
+
+  /* End of Update for Delay: '<Root>/Delay' */
 
   /* Update absolute time for base rate */
   /* The "clockTick0" counts the number of times the code of this task has
@@ -1573,6 +1585,13 @@ void JOLT_initialize(void)
 
     /* InitializeConditions for DiscretePulseGenerator: '<Root>/Npxls Trig' */
     JOLT_DW.clockTickCounter = 0;
+
+    /* InitializeConditions for Delay: '<Root>/Delay' */
+    for (i = 0; i < 550; i++) {
+      JOLT_DW.Delay_DSTATE[i] = JOLT_cal->Delay_InitialCondition;
+    }
+
+    /* End of InitializeConditions for Delay: '<Root>/Delay' */
 
     /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function1' */
     JOLT_DW.sfEvent_d = JOLT_CALL_EVENT;
