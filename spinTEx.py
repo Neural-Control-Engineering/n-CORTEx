@@ -151,6 +151,7 @@ def saveFrames(frameBuffer, acqDir, isTerm):
         if len(frameBuffer)>0:
             frame = frameBuffer.pop(0)
             cv2.imwrite(os.path.join(acqDir, "frame_"+str(i)+".png"), frame, [cv2.IMWRITE_PNG_COMPRESSION, COMPRESSIONLEVEL])
+            # cv2.imwrite(os.path.join(acqDir, "frame_"+str(i)+".png"), frame)
             i+=1 
             print('frame_',i,' saved')
             print('BUFFERLEN: ', len(frameBuffer))            

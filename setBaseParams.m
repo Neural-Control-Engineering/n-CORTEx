@@ -59,6 +59,9 @@ function params = setBaseParams(opts)
     if ~isfield(opts.spinParams.whiskCam, 'DecimationVertical'), opts.spinParams.whiskCam.DecimationHorizontal=2; end
     if ~isfield(opts.spinParams.whiskCam, 'ExposureMode'), opts.spinParams.whiskCam.ExposureMode='TriggerWidth'; end
     if ~isfield(opts.spinParams.whiskCam, 'GammaEnable'), opts.spinParams.whiskCam.GammaEnable='false'; end
+    % if ~isfield(opts.spinParams.whiskCam, 'PixelFormat'), opts.spinParams.whiskCam.PixelFormat='BGRa8'; end
+    % if ~isfield(opts.spinParams.whiskCam, 'Width'), opts.spinParams.whiskCam.Width=500; end
+    % if ~isfield(opts.spinParams.whiskCam, 'Height'), opts.spinParams.whiskCam.Height=400; end
     
     % if ~isfield(opts.spinParams,'whiskCv2'), opts.spinParams.whiskCv2=struct;
     % if ~isfield(opts.spinParams.whiskCv2,'fps'), opts.spinParams.whiskCv2.fps=50; end

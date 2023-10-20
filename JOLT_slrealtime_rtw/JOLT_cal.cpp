@@ -134,6 +134,16 @@ JOLT_cal_type JOLT_cal_impl = {
   8.0,
 
   /* Expression: 1
+   * Referenced by: '<S7>/Constant'
+   */
+  1.0,
+
+  /* Expression: 8
+   * Referenced by: '<S7>/Constant1'
+   */
+  8.0,
+
+  /* Expression: 1
    * Referenced by: '<S6>/Constant'
    */
   1.0,
@@ -294,13 +304,13 @@ JOLT_cal_type JOLT_cal_impl = {
    */
   { 1.0, 1.0 },
 
-  /* Expression: 100
-   * Referenced by: '<S7>/Constant2'
+  /* Expression: 90
+   * Referenced by: '<S8>/Constant2'
    */
-  100.0,
+  90.0,
 
   /* Expression: 1
-   * Referenced by: '<S7>/Constant5'
+   * Referenced by: '<S8>/Constant5'
    */
   1.0,
 
