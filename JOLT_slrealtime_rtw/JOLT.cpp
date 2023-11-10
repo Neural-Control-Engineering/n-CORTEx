@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.240
+ * Model version              : 1.268
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Fri Oct 20 14:13:19 2023
+ * C++ source code generated on : Tue Oct 31 10:02:50 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -210,7 +210,7 @@ void JOLT_step(void)
 {
   emxArray_real_T_JOLT_T b_v_data_0;
   emxArray_real_T_JOLT_T *v;
-  real_T b_v_data[50];
+  real_T b_v_data[100];
   real_T baseAvg;
   real_T changeAvg;
   int32_T b_k;
@@ -377,16 +377,16 @@ void JOLT_step(void)
     baseAvg = JOLT_mean(v);
     JOLT_emxFree_real_T(&v);
     i = 0;
-    for (b_k = 0; b_k < 50; b_k++) {
-      if (JOLT_B.Memory2[b_k + 9950] != 0.0) {
+    for (b_k = 0; b_k < 100; b_k++) {
+      if (JOLT_B.Memory2[b_k + 9900] != 0.0) {
         i++;
       }
     }
 
     b_v_size = i;
     i = -1;
-    for (b_k = 0; b_k < 50; b_k++) {
-      changeAvg = JOLT_B.Memory2[b_k + 9950];
+    for (b_k = 0; b_k < 100; b_k++) {
+      changeAvg = JOLT_B.Memory2[b_k + 9900];
       if (changeAvg != 0.0) {
         i++;
         b_v_data[i] = changeAvg;
@@ -395,11 +395,11 @@ void JOLT_step(void)
 
     b_v_data_0.data = &b_v_data[0];
     b_v_data_0.size = &b_v_size;
-    b_v_data_0.allocatedSize = 50;
+    b_v_data_0.allocatedSize = 100;
     b_v_data_0.numDimensions = 1;
     b_v_data_0.canFreeData = false;
     changeAvg = JOLT_mean(&b_v_data_0);
-    if (changeAvg > baseAvg * 1.3) {
+    if (std::abs(changeAvg) / std::abs(baseAvg) > 1.3) {
       JOLT_B.S_out = 2.0;
     }
     break;
@@ -564,10 +564,15 @@ void JOLT_step(void)
               sizeof(real_T));
   JOLT_B.buffOut[9999] = JOLT_B.monofilData;
 
+  /* Sum: '<S8>/Add1' incorporates:
+   *  Constant: '<S8>/Constant1'
+   */
+  JOLT_B.Add1 = JOLT_cal->Constant1_Value_d + JOLT_B.monofilData;
+
   /* Product: '<S8>/Product' incorporates:
    *  Constant: '<S8>/Constant2'
    */
-  JOLT_B.Product = JOLT_cal->Constant2_Value * JOLT_B.monofilData;
+  JOLT_B.Product = JOLT_cal->Constant2_Value * JOLT_B.Add1;
 
   /* DataTypeConversion: '<S8>/Data Type Conversion' */
   baseAvg = std::ceil(JOLT_B.Product);

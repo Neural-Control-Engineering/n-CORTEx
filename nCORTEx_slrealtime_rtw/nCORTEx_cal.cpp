@@ -26,12 +26,12 @@ nCORTEx_cal_type nCORTEx_cal_impl = {
   /* Variable: maxFrames
    * Referenced by: '<Root>/Constant'
    */
-  60000.0,
+  1.8E+6,
 
   /* Variable: tStop
    * Referenced by: '<Root>/Constant2'
    */
-  60.0,
+  1800.0,
 
   /* Expression: 1
    * Referenced by: '<Root>/Whisker Trig'

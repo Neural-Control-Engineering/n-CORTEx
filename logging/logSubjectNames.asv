@@ -1,0 +1,7 @@
+function subjNameTable = logSubject(path)
+    if exist(path,"file")
+        subjNameTable = readtable(path,"Delimiter",",");        
+    else
+        subjNameTable = [];
+    end
+end

@@ -138,10 +138,10 @@ JOLT_cal_type JOLT_cal_impl = {
    */
   1.0,
 
-  /* Expression: 8
+  /* Expression: 4
    * Referenced by: '<S7>/Constant1'
    */
-  8.0,
+  4.0,
 
   /* Expression: 1
    * Referenced by: '<S6>/Constant'
@@ -303,6 +303,11 @@ JOLT_cal_type JOLT_cal_impl = {
    * Referenced by: '<Root>/Analog input '
    */
   { 1.0, 1.0 },
+
+  /* Expression: 0.1
+   * Referenced by: '<S8>/Constant1'
+   */
+  0.1,
 
   /* Expression: 90
    * Referenced by: '<S8>/Constant2'

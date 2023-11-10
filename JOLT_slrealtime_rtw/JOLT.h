@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.240
+ * Model version              : 1.268
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Fri Oct 20 14:13:19 2023
+ * C++ source code generated on : Tue Oct 31 10:02:50 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -132,6 +132,7 @@ struct B_JOLT_T {
   real_T Clock_p;                      /* '<S7>/Clock' */
   real_T Clock_j;                      /* '<S6>/Clock' */
   real_T monofilData;                  /* '<Root>/Analog input ' */
+  real_T Add1;                         /* '<S8>/Add1' */
   real_T Product;                      /* '<S8>/Product' */
   real_T Add;                          /* '<S8>/Add' */
   real_T Delay;                        /* '<Root>/Delay' */

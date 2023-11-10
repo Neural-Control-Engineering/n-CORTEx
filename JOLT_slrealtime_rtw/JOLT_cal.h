@@ -85,7 +85,7 @@ struct JOLT_cal_type {
   real_T Constant_Value_a;             /* Expression: 1
                                         * Referenced by: '<S7>/Constant'
                                         */
-  real_T Constant1_Value_p;            /* Expression: 8
+  real_T Constant1_Value_p;            /* Expression: 4
                                         * Referenced by: '<S7>/Constant1'
                                         */
   real_T Constant_Value_j;             /* Expression: 1
@@ -183,6 +183,9 @@ struct JOLT_cal_type {
                                        */
   real_T Analoginput_P9[2];            /* Expression: parAdcResets
                                         * Referenced by: '<Root>/Analog input '
+                                        */
+  real_T Constant1_Value_d;            /* Expression: 0.1
+                                        * Referenced by: '<S8>/Constant1'
                                         */
   real_T Constant2_Value;              /* Expression: 90
                                         * Referenced by: '<S8>/Constant2'
