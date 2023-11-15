@@ -304,15 +304,32 @@ JOLT_cal_type JOLT_cal_impl = {
    */
   { 1.0, 1.0 },
 
-  /* Expression: 0.1
+  /* Expression: [1.329372889875296e-05 5.317491559501185e-05 7.976237339251778e-05 5.317491559501185e-05 1.329372889875296e-05]
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  { 1.329372889875296E-5, 5.3174915595011852E-5, 7.9762373392517778E-5,
+    5.3174915595011852E-5, 1.329372889875296E-5 },
+
+  /* Expression: [1 -3.671729089161934 5.067998386734185 -3.115966925201742 0.719910327291870]
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  { 1.0, -3.6717290891619339, 5.0679983867341853, -3.1159669252017421,
+    0.71991032729187 },
+
+  /* Expression: 0
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  0.0,
+
+  /* Expression: -0.4
    * Referenced by: '<S10>/Constant1'
    */
-  0.1,
+  -0.4,
 
-  /* Expression: 500
+  /* Expression: 400
    * Referenced by: '<S10>/Constant2'
    */
-  500.0,
+  400.0,
 
   /* Expression: 2
    * Referenced by: '<S10>/Constant5'
@@ -344,10 +361,10 @@ JOLT_cal_type JOLT_cal_impl = {
    */
   1.0,
 
-  /* Expression: 0.005
+  /* Expression: 0.002
    * Referenced by: '<S9>/Constant1'
    */
-  0.005,
+  0.002,
 
   /* Expression: 1
    * Referenced by: '<Root>/Constant3'

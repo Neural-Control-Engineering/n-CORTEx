@@ -184,10 +184,21 @@ struct JOLT_cal_type {
   real_T Analoginput_P9[2];            /* Expression: parAdcResets
                                         * Referenced by: '<Root>/Analog input '
                                         */
-  real_T Constant1_Value_d;            /* Expression: 0.1
+  real_T DiscreteFilter_NumCoef[5];
+  /* Expression: [1.329372889875296e-05 5.317491559501185e-05 7.976237339251778e-05 5.317491559501185e-05 1.329372889875296e-05]
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  real_T DiscreteFilter_DenCoef[5];
+  /* Expression: [1 -3.671729089161934 5.067998386734185 -3.115966925201742 0.719910327291870]
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  real_T DiscreteFilter_InitialStates; /* Expression: 0
+                                        * Referenced by: '<Root>/Discrete Filter'
+                                        */
+  real_T Constant1_Value_d;            /* Expression: -0.4
                                         * Referenced by: '<S10>/Constant1'
                                         */
-  real_T Constant2_Value;              /* Expression: 500
+  real_T Constant2_Value;              /* Expression: 400
                                         * Referenced by: '<S10>/Constant2'
                                         */
   real_T Constant5_Value;              /* Expression: 2
@@ -208,7 +219,7 @@ struct JOLT_cal_type {
   real_T Constant_Value_n;             /* Expression: 1
                                         * Referenced by: '<S9>/Constant'
                                         */
-  real_T Constant1_Value_bz;           /* Expression: 0.005
+  real_T Constant1_Value_bz;           /* Expression: 0.002
                                         * Referenced by: '<S9>/Constant1'
                                         */
   real_T Constant3_Value;              /* Expression: 1
