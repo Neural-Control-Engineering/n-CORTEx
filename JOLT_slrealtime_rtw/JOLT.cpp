@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.268
+ * Model version              : 1.304
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Sat Nov 11 12:34:31 2023
+ * C++ source code generated on : Tue Nov 14 22:36:57 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -19,11 +19,10 @@
  */
 
 #include "JOLT.h"
-#include "JOLT_types.h"
 #include "rtwtypes.h"
+#include "JOLT_private.h"
 #include "JOLT_cal.h"
 #include <cstring>
-#include <cmath>
 
 extern "C"
 {
@@ -32,12 +31,13 @@ extern "C"
 
 }
 
-#include "JOLT_private.h"
-#include <cstdlib>
-#include <stddef.h>
+#include <cmath>
+
+/* Named constants for MATLAB Function: '<S8>/MATLAB Function4' */
+const int32_T JOLT_CALL_EVENT = -1;
 
 /* Named constants for MATLAB Function: '<S1>/MATLAB Function' */
-const int32_T JOLT_CALL_EVENT = -1;
+const int32_T JOLT_CALL_EVENT_l = -1;
 const real_T JOLT_RGND = 0.0;          /* real_T ground */
 
 /* Block signals (default storage) */
@@ -51,93 +51,90 @@ RT_MODEL_JOLT_T JOLT_M_ = RT_MODEL_JOLT_T();
 RT_MODEL_JOLT_T *const JOLT_M = &JOLT_M_;
 
 /* Forward declaration for local functions */
-static void JOLT_emxInit_real_T(emxArray_real_T_JOLT_T **pEmxArray, int32_T
-  numDimensions);
-static void JOLT_emxEnsureCapacity_real_T(emxArray_real_T_JOLT_T *emxArray,
-  int32_T oldNumel);
-static real_T JOLT_mean(const emxArray_real_T_JOLT_T *x);
-static void JOLT_emxFree_real_T(emxArray_real_T_JOLT_T **pEmxArray);
-static void JOLT_emxInit_real_T(emxArray_real_T_JOLT_T **pEmxArray, int32_T
-  numDimensions)
+static void JOLT_nonzeros(const real_T s[8000], real_T v_data[], int32_T *v_size);
+static real_T JOLT_blockedSummation(const real_T x_data[], const int32_T *x_size,
+  int32_T vlen);
+
+/*
+ * System initialize for atomic system:
+ *    '<S8>/MATLAB Function4'
+ *    '<S9>/MATLAB Function4'
+ */
+void JOLT_MATLABFunction4_Init(DW_MATLABFunction4_JOLT_T *localDW)
 {
-  emxArray_real_T_JOLT_T *emxArray;
-  *pEmxArray = static_cast<emxArray_real_T_JOLT_T *>(std::malloc(sizeof
-    (emxArray_real_T_JOLT_T)));
-  emxArray = *pEmxArray;
-  emxArray->data = static_cast<real_T *>(NULL);
-  emxArray->numDimensions = numDimensions;
-  emxArray->size = static_cast<int32_T *>(std::malloc(sizeof(int32_T) *
-    static_cast<uint32_T>(numDimensions)));
-  emxArray->allocatedSize = 0;
-  emxArray->canFreeData = true;
-  for (int32_T i = 0; i < numDimensions; i++) {
-    emxArray->size[i] = 0;
-  }
+  localDW->sfEvent = JOLT_CALL_EVENT;
+  localDW->t0_not_empty = false;
+  localDW->is_active_c7_JOLT = 0U;
 }
 
-static void JOLT_emxEnsureCapacity_real_T(emxArray_real_T_JOLT_T *emxArray,
-  int32_T oldNumel)
+/*
+ * Output and update for atomic system:
+ *    '<S8>/MATLAB Function4'
+ *    '<S9>/MATLAB Function4'
+ */
+void JOLT_MATLABFunction4(real_T rtu_onset_trig, real_T rtu_sigAmp, real_T
+  rtu_sigPulseLen, real_T rtu_t, B_MATLABFunction4_JOLT_T *localB,
+  DW_MATLABFunction4_JOLT_T *localDW)
 {
-  int32_T i;
-  int32_T newNumel;
-  void *newData;
-  if (oldNumel < 0) {
-    oldNumel = 0;
-  }
-
-  newNumel = 1;
-  for (i = 0; i < emxArray->numDimensions; i++) {
-    newNumel *= emxArray->size[i];
-  }
-
-  if (newNumel > emxArray->allocatedSize) {
-    i = emxArray->allocatedSize;
-    if (i < 16) {
-      i = 16;
+  localDW->sfEvent = JOLT_CALL_EVENT;
+  if (rtu_onset_trig != 0.0) {
+    localB->sigPulse = rtu_sigAmp;
+    localDW->t0 = rtu_t;
+    localDW->t0_not_empty = true;
+  } else if (localDW->t0_not_empty) {
+    if (rtu_t - localDW->t0 < rtu_sigPulseLen) {
+      localB->sigPulse = rtu_sigAmp;
+    } else {
+      localB->sigPulse = 0.0;
     }
-
-    while (i < newNumel) {
-      if (i > 1073741823) {
-        i = MAX_int32_T;
-      } else {
-        i <<= 1;
-      }
-    }
-
-    newData = std::calloc(static_cast<uint32_T>(i), sizeof(real_T));
-    if (emxArray->data != NULL) {
-      std::memcpy(newData, emxArray->data, sizeof(real_T) * static_cast<uint32_T>
-                  (oldNumel));
-      if (emxArray->canFreeData) {
-        std::free(emxArray->data);
-      }
-    }
-
-    emxArray->data = static_cast<real_T *>(newData);
-    emxArray->allocatedSize = i;
-    emxArray->canFreeData = true;
+  } else {
+    localB->sigPulse = 0.0;
   }
 }
 
 /* Function for MATLAB Function: '<Root>/MATLAB Function1' */
-static real_T JOLT_mean(const emxArray_real_T_JOLT_T *x)
+static void JOLT_nonzeros(const real_T s[8000], real_T v_data[], int32_T *v_size)
 {
-  real_T b_y;
-  if (x->size[0] == 0) {
-    b_y = 0.0;
+  int32_T i;
+  i = 0;
+  for (int32_T b_k = 0; b_k < 8000; b_k++) {
+    if (s[b_k] != 0.0) {
+      i++;
+    }
+  }
+
+  *v_size = i;
+  i = -1;
+  for (int32_T b_k = 0; b_k < 8000; b_k++) {
+    real_T s_0;
+    s_0 = s[b_k];
+    if (s_0 != 0.0) {
+      i++;
+      v_data[i] = s_0;
+    }
+  }
+}
+
+/* Function for MATLAB Function: '<Root>/MATLAB Function1' */
+static real_T JOLT_blockedSummation(const real_T x_data[], const int32_T *x_size,
+  int32_T vlen)
+{
+  real_T y;
+  if ((*x_size == 0) || (vlen == 0)) {
+    y = 0.0;
   } else {
     int32_T firstBlockLength;
     int32_T lastBlockLength;
     int32_T nblocks;
     int32_T xblockoffset;
-    if (x->size[0] <= 1024) {
-      firstBlockLength = x->size[0];
+    if (vlen <= 1024) {
+      firstBlockLength = vlen;
       lastBlockLength = 0;
       nblocks = 1;
     } else {
       firstBlockLength = 1024;
-      nblocks = static_cast<int32_T>(static_cast<uint32_T>(x->size[0]) >> 10);
-      lastBlockLength = x->size[0] - (nblocks << 10);
+      nblocks = static_cast<uint16_T>(vlen) >> 10;
+      lastBlockLength = vlen - (nblocks << 10);
       if (lastBlockLength > 0) {
         nblocks++;
       } else {
@@ -145,9 +142,9 @@ static real_T JOLT_mean(const emxArray_real_T_JOLT_T *x)
       }
     }
 
-    b_y = x->data[0];
+    y = x_data[0];
     for (xblockoffset = 2; xblockoffset <= firstBlockLength; xblockoffset++) {
-      b_y += x->data[xblockoffset - 1];
+      y += x_data[xblockoffset - 1];
     }
 
     for (firstBlockLength = 2; firstBlockLength <= nblocks; firstBlockLength++)
@@ -155,7 +152,7 @@ static real_T JOLT_mean(const emxArray_real_T_JOLT_T *x)
       real_T bsum;
       int32_T hi;
       xblockoffset = (firstBlockLength - 1) << 10;
-      bsum = x->data[xblockoffset];
+      bsum = x_data[xblockoffset];
       if (firstBlockLength == nblocks) {
         hi = lastBlockLength;
       } else {
@@ -163,28 +160,14 @@ static real_T JOLT_mean(const emxArray_real_T_JOLT_T *x)
       }
 
       for (int32_T b_k = 2; b_k <= hi; b_k++) {
-        bsum += x->data[(xblockoffset + b_k) - 1];
+        bsum += x_data[(xblockoffset + b_k) - 1];
       }
 
-      b_y += bsum;
+      y += bsum;
     }
   }
 
-  return b_y / static_cast<real_T>(x->size[0]);
-}
-
-static void JOLT_emxFree_real_T(emxArray_real_T_JOLT_T **pEmxArray)
-{
-  if (*pEmxArray != static_cast<emxArray_real_T_JOLT_T *>(NULL)) {
-    if (((*pEmxArray)->data != static_cast<real_T *>(NULL)) && (*pEmxArray)
-        ->canFreeData) {
-      std::free((*pEmxArray)->data);
-    }
-
-    std::free((*pEmxArray)->size);
-    std::free(*pEmxArray);
-    *pEmxArray = static_cast<emxArray_real_T_JOLT_T *>(NULL);
-  }
+  return y;
 }
 
 real_T rt_roundd_snf(real_T u)
@@ -208,18 +191,20 @@ real_T rt_roundd_snf(real_T u)
 /* Model step function */
 void JOLT_step(void)
 {
-  emxArray_real_T_JOLT_T b_v_data_0;
-  emxArray_real_T_JOLT_T *v;
-  real_T b_v_data[100];
+  real_T v_data[10];
+  real_T absdiff;
   real_T baseAvg;
-  real_T changeAvg;
-  int32_T b_k;
-  int32_T b_v_size;
+  real_T scale;
+  real_T t;
+  real_T xbar;
   int32_T i;
+  int32_T k;
+  int32_T v_size;
   uint8_T tmp;
+  boolean_T result;
 
   /* Memory: '<Root>/Memory2' */
-  std::memcpy(&JOLT_B.Memory2[0], &JOLT_DW.Memory2_PreviousInput[0], 10000U *
+  std::memcpy(&JOLT_B.Memory2[0], &JOLT_DW.Memory2_PreviousInput[0], 8000U *
               sizeof(real_T));
 
   /* S-Function (sg_IO191_setup_s): '<Root>/Setup ' */
@@ -296,7 +281,7 @@ void JOLT_step(void)
   /* MATLAB Function: '<Root>/MATLAB Function1' incorporates:
    *  Memory: '<Root>/Memory2'
    */
-  JOLT_DW.sfEvent_d = JOLT_CALL_EVENT;
+  JOLT_DW.sfEvent_d = JOLT_CALL_EVENT_l;
   switch (static_cast<int32_T>(JOLT_B.Memory1)) {
    case 0:
     switch (JOLT_B.buttonStat) {
@@ -339,9 +324,10 @@ void JOLT_step(void)
     JOLT_B.acqTone_trig = 0.0;
     JOLT_B.npxlsAcq_trig = 0.0;
     baseAvg = 0.0;
-    changeAvg = 0.0;
+    scale = 0.0;
     JOLT_B.baseBuffLen = 0.0;
-    std::memset(&JOLT_B.monofilBaseBuffer_out[0], 0, 10000U * sizeof(real_T));
+    JOLT_B.stimSig_sel = 0.0;
+    std::memset(&JOLT_B.monofilBaseBuffer_out[0], 0, 8000U * sizeof(real_T));
     break;
 
    case 1:
@@ -350,68 +336,81 @@ void JOLT_step(void)
     JOLT_B.npxlsAcq_out = 0.0;
     JOLT_B.npxlsAcq_trig = 0.0;
     JOLT_B.restingAcq = 0.0;
+    JOLT_B.stimSig_sel = 0.0;
     JOLT_B.S_out = 1.0;
-    std::memcpy(&JOLT_B.monofilBaseBuffer_out[0], &JOLT_B.Memory2[0], 10000U *
+    std::memcpy(&JOLT_B.monofilBaseBuffer_out[0], &JOLT_B.Memory2[0], 8000U *
                 sizeof(real_T));
-    JOLT_B.baseBuffLen = 10000.0;
-    JOLT_emxInit_real_T(&v, 1);
+    JOLT_B.baseBuffLen = 8000.0;
+    JOLT_nonzeros(&JOLT_B.Memory2[0], JOLT_B.x_data, &i);
+    baseAvg = JOLT_blockedSummation(JOLT_B.x_data, &i, i) / static_cast<real_T>
+      (i);
+    JOLT_nonzeros(&JOLT_B.Memory2[0], JOLT_B.x_data, &i);
+    if (i == 0) {
+      xbar = (rtNaN);
+    } else if (i == 1) {
+      if ((!rtIsInf(JOLT_B.x_data[0])) && (!rtIsNaN(JOLT_B.x_data[0]))) {
+        xbar = 0.0;
+      } else {
+        xbar = (rtNaN);
+      }
+    } else {
+      xbar = JOLT_blockedSummation(JOLT_B.x_data, &i, i) / static_cast<real_T>(i);
+      for (k = 0; k < i; k++) {
+        JOLT_B.absdiff_data[k] = std::abs(JOLT_B.x_data[k] - xbar);
+      }
+
+      xbar = 0.0;
+      scale = 3.3121686421112381E-170;
+      for (k = 0; k < i; k++) {
+        absdiff = JOLT_B.absdiff_data[k];
+        if (absdiff > scale) {
+          t = scale / absdiff;
+          xbar = xbar * t * t + 1.0;
+          scale = absdiff;
+        } else {
+          t = absdiff / scale;
+          xbar += t * t;
+        }
+      }
+
+      xbar = scale * std::sqrt(xbar);
+      xbar /= std::sqrt(static_cast<real_T>(i) - 1.0);
+    }
+
     i = 0;
-    for (b_k = 0; b_k < 10000; b_k++) {
-      if (JOLT_B.Memory2[b_k] != 0.0) {
+    for (k = 0; k < 10; k++) {
+      if (JOLT_B.Memory2[k + 7990] != 0.0) {
         i++;
       }
     }
 
-    b_k = v->size[0];
-    v->size[0] = i;
-    JOLT_emxEnsureCapacity_real_T(v, b_k);
+    v_size = i;
     i = -1;
-    for (b_k = 0; b_k < 10000; b_k++) {
-      changeAvg = JOLT_B.Memory2[b_k];
-      if (changeAvg != 0.0) {
+    for (k = 0; k < 10; k++) {
+      scale = JOLT_B.Memory2[k + 7990];
+      if (scale != 0.0) {
         i++;
-        v->data[i] = changeAvg;
+        v_data[i] = scale;
       }
     }
 
-    baseAvg = JOLT_mean(v);
-    JOLT_emxFree_real_T(&v);
-    i = 0;
-    for (b_k = 0; b_k < 100; b_k++) {
-      if (JOLT_B.Memory2[b_k + 9900] != 0.0) {
-        i++;
-      }
-    }
-
-    b_v_size = i;
-    i = -1;
-    for (b_k = 0; b_k < 100; b_k++) {
-      changeAvg = JOLT_B.Memory2[b_k + 9900];
-      if (changeAvg != 0.0) {
-        i++;
-        b_v_data[i] = changeAvg;
-      }
-    }
-
-    b_v_data_0.data = &b_v_data[0];
-    b_v_data_0.size = &b_v_size;
-    b_v_data_0.allocatedSize = 100;
-    b_v_data_0.numDimensions = 1;
-    b_v_data_0.canFreeData = false;
-    changeAvg = JOLT_mean(&b_v_data_0);
-    if (std::abs(changeAvg) / std::abs(baseAvg) > 1.3) {
+    scale = JOLT_blockedSummation(v_data, &v_size, v_size) / static_cast<real_T>
+      (v_size);
+    if (scale > 2.0 * xbar + baseAvg) {
+      JOLT_B.stimSig_sel = 1.0;
       JOLT_B.S_out = 2.0;
     }
     break;
 
    case 2:
-    std::memcpy(&JOLT_B.monofilBaseBuffer_out[0], &JOLT_B.Memory2[0], 10000U *
+    std::memcpy(&JOLT_B.monofilBaseBuffer_out[0], &JOLT_B.Memory2[0], 8000U *
                 sizeof(real_T));
     JOLT_B.baseBuffLen = 0.0;
     baseAvg = 0.0;
-    changeAvg = 0.0;
+    scale = 0.0;
     JOLT_B.acqStatus = 0.0;
     JOLT_B.restingAcq = 1.0;
+    JOLT_B.stimSig_sel = 0.0;
     JOLT_B.npxlsAcq_out = 0.0;
     JOLT_B.npxlsAcq_trig = 1.0;
     JOLT_B.acqTone_trig = 1.0;
@@ -419,13 +418,14 @@ void JOLT_step(void)
     break;
 
    default:
-    std::memcpy(&JOLT_B.monofilBaseBuffer_out[0], &JOLT_B.Memory2[0], 10000U *
+    std::memcpy(&JOLT_B.monofilBaseBuffer_out[0], &JOLT_B.Memory2[0], 8000U *
                 sizeof(real_T));
     JOLT_B.baseBuffLen = 0.0;
     baseAvg = 0.0;
-    changeAvg = 0.0;
+    scale = 0.0;
     JOLT_B.S_out = 0.0;
     JOLT_B.acqStatus = 0.0;
+    JOLT_B.stimSig_sel = 0.0;
     JOLT_B.acqTone_trig = 0.0;
     JOLT_B.npxlsAcq_out = 0.0;
     JOLT_B.npxlsAcq_trig = 0.0;
@@ -434,7 +434,7 @@ void JOLT_step(void)
   }
 
   JOLT_B.baseAvg = baseAvg;
-  JOLT_B.changeAvg = changeAvg;
+  JOLT_B.changeAvg = scale;
 
   /* End of MATLAB Function: '<Root>/MATLAB Function1' */
 
@@ -452,14 +452,14 @@ void JOLT_step(void)
     JOLT_DW.clockTickCounter++;
   }
 
-  /* Clock: '<S5>/Clock' */
+  /* Clock: '<S6>/Clock' */
   JOLT_B.Clock = JOLT_M->Timing.t[0];
 
-  /* MATLAB Function: '<S5>/MATLAB Function4' incorporates:
-   *  Constant: '<S5>/Constant'
-   *  Constant: '<S5>/Constant1'
+  /* MATLAB Function: '<S6>/MATLAB Function4' incorporates:
+   *  Constant: '<S6>/Constant'
+   *  Constant: '<S6>/Constant1'
    */
-  JOLT_DW.sfEvent_k = JOLT_CALL_EVENT;
+  JOLT_DW.sfEvent_k = JOLT_CALL_EVENT_l;
   if (JOLT_B.npxlsAcq_trig != 0.0) {
     JOLT_B.sigPulse_p = JOLT_cal->Constant_Value_c;
     JOLT_DW.t0_b = JOLT_B.Clock;
@@ -474,23 +474,53 @@ void JOLT_step(void)
     JOLT_B.sigPulse_p = 0.0;
   }
 
-  /* End of MATLAB Function: '<S5>/MATLAB Function4' */
+  /* End of MATLAB Function: '<S6>/MATLAB Function4' */
+
+  /* Clock: '<S8>/Clock' */
+  JOLT_B.Clock_p = JOLT_M->Timing.t[0];
+
+  /* MATLAB Function: '<S8>/MATLAB Function4' incorporates:
+   *  Constant: '<S8>/Constant'
+   *  Constant: '<S8>/Constant1'
+   */
+  JOLT_MATLABFunction4(JOLT_B.restingAcq, JOLT_cal->Constant_Value_a,
+                       JOLT_cal->Constant1_Value_p, JOLT_B.Clock_p,
+                       &JOLT_B.sf_MATLABFunction4_d,
+                       &JOLT_DW.sf_MATLABFunction4_d);
+
+  /* MATLAB Function: '<S3>/MATLAB Function' */
+  JOLT_DW.sfEvent_e = JOLT_CALL_EVENT_l;
+  switch (static_cast<int32_T>(JOLT_B.sf_MATLABFunction4_d.sigPulse)) {
+   case 1:
+    JOLT_B.out_c = JOLT_B.sigPulse_p;
+    break;
+
+   case 0:
+    JOLT_B.out_c = JOLT_B.npxlsAcq_out;
+    break;
+
+   default:
+    JOLT_B.out_c = 0.0;
+    break;
+  }
+
+  /* End of MATLAB Function: '<S3>/MATLAB Function' */
 
   /* Clock: '<S7>/Clock' */
-  JOLT_B.Clock_p = JOLT_M->Timing.t[0];
+  JOLT_B.Clock_j = JOLT_M->Timing.t[0];
 
   /* MATLAB Function: '<S7>/MATLAB Function4' incorporates:
    *  Constant: '<S7>/Constant'
    *  Constant: '<S7>/Constant1'
    */
-  JOLT_DW.sfEvent = JOLT_CALL_EVENT;
-  if (JOLT_B.restingAcq != 0.0) {
-    JOLT_B.sigPulse = JOLT_cal->Constant_Value_a;
-    JOLT_DW.t0 = JOLT_B.Clock_p;
+  JOLT_DW.sfEvent = JOLT_CALL_EVENT_l;
+  if (JOLT_B.acqTone_trig != 0.0) {
+    JOLT_B.sigPulse = JOLT_cal->Constant_Value_j;
+    JOLT_DW.t0 = JOLT_B.Clock_j;
     JOLT_DW.t0_not_empty = true;
   } else if (JOLT_DW.t0_not_empty) {
-    if (JOLT_B.Clock_p - JOLT_DW.t0 < JOLT_cal->Constant1_Value_p) {
-      JOLT_B.sigPulse = JOLT_cal->Constant_Value_a;
+    if (JOLT_B.Clock_j - JOLT_DW.t0 < JOLT_cal->Constant1_Value_k) {
+      JOLT_B.sigPulse = JOLT_cal->Constant_Value_j;
     } else {
       JOLT_B.sigPulse = 0.0;
     }
@@ -499,48 +529,6 @@ void JOLT_step(void)
   }
 
   /* End of MATLAB Function: '<S7>/MATLAB Function4' */
-
-  /* MATLAB Function: '<S3>/MATLAB Function' */
-  JOLT_DW.sfEvent_e = JOLT_CALL_EVENT;
-  switch (static_cast<int32_T>(JOLT_B.sigPulse)) {
-   case 1:
-    JOLT_B.out = JOLT_B.sigPulse_p;
-    break;
-
-   case 0:
-    JOLT_B.out = JOLT_B.npxlsAcq_out;
-    break;
-
-   default:
-    JOLT_B.out = 0.0;
-    break;
-  }
-
-  /* End of MATLAB Function: '<S3>/MATLAB Function' */
-
-  /* Clock: '<S6>/Clock' */
-  JOLT_B.Clock_j = JOLT_M->Timing.t[0];
-
-  /* MATLAB Function: '<S6>/MATLAB Function4' incorporates:
-   *  Constant: '<S6>/Constant'
-   *  Constant: '<S6>/Constant1'
-   */
-  JOLT_DW.sfEvent_m = JOLT_CALL_EVENT;
-  if (JOLT_B.acqTone_trig != 0.0) {
-    JOLT_B.sigPulse_l = JOLT_cal->Constant_Value_j;
-    JOLT_DW.t0_d = JOLT_B.Clock_j;
-    JOLT_DW.t0_not_empty_d = true;
-  } else if (JOLT_DW.t0_not_empty_d) {
-    if (JOLT_B.Clock_j - JOLT_DW.t0_d < JOLT_cal->Constant1_Value_k) {
-      JOLT_B.sigPulse_l = JOLT_cal->Constant_Value_j;
-    } else {
-      JOLT_B.sigPulse_l = 0.0;
-    }
-  } else {
-    JOLT_B.sigPulse_l = 0.0;
-  }
-
-  /* End of MATLAB Function: '<S6>/MATLAB Function4' */
 
   /* S-Function (sg_IO191_do_s): '<Root>/Digital output ' */
 
@@ -559,22 +547,22 @@ void JOLT_step(void)
   }
 
   /* MATLAB Function: '<S1>/MATLAB Function' */
-  JOLT_DW.sfEvent_c = JOLT_CALL_EVENT;
-  std::memcpy(&JOLT_B.buffOut[0], &JOLT_B.monofilBaseBuffer_out[1], 9999U *
+  JOLT_DW.sfEvent_c = JOLT_CALL_EVENT_l;
+  std::memcpy(&JOLT_B.buffOut[0], &JOLT_B.monofilBaseBuffer_out[1], 7999U *
               sizeof(real_T));
-  JOLT_B.buffOut[9999] = JOLT_B.monofilData;
+  JOLT_B.buffOut[7999] = JOLT_B.monofilData;
 
-  /* Sum: '<S8>/Add1' incorporates:
-   *  Constant: '<S8>/Constant1'
+  /* Sum: '<S10>/Add1' incorporates:
+   *  Constant: '<S10>/Constant1'
    */
   JOLT_B.Add1 = JOLT_cal->Constant1_Value_d + JOLT_B.monofilData;
 
-  /* Product: '<S8>/Product' incorporates:
-   *  Constant: '<S8>/Constant2'
+  /* Product: '<S10>/Product' incorporates:
+   *  Constant: '<S10>/Constant2'
    */
   JOLT_B.Product = JOLT_cal->Constant2_Value * JOLT_B.Add1;
 
-  /* DataTypeConversion: '<S8>/Data Type Conversion' */
+  /* DataTypeConversion: '<S10>/Data Type Conversion' */
   baseAvg = std::ceil(JOLT_B.Product);
   if (rtIsNaN(baseAvg) || rtIsInf(baseAvg)) {
     baseAvg = 0.0;
@@ -582,13 +570,14 @@ void JOLT_step(void)
     baseAvg = std::fmod(baseAvg, 256.0);
   }
 
-  /* DataTypeConversion: '<S8>/Data Type Conversion' */
+  /* DataTypeConversion: '<S10>/Data Type Conversion' */
   JOLT_B.convertedMonofil = static_cast<uint8_T>(baseAvg < 0.0 ?
-    static_cast<int32_T>(static_cast<uint8_T>(-static_cast<int8_T>(static_cast<
-    uint8_T>(-baseAvg)))) : static_cast<int32_T>(static_cast<uint8_T>(baseAvg)));
+    static_cast<int32_T>(static_cast<uint8_T>(-static_cast<int8_T>
+    (static_cast<uint8_T>(-baseAvg)))) : static_cast<int32_T>
+    (static_cast<uint8_T>(baseAvg)));
 
-  /* Sum: '<S8>/Add' incorporates:
-   *  Constant: '<S8>/Constant5'
+  /* Sum: '<S10>/Add' incorporates:
+   *  Constant: '<S10>/Constant5'
    */
   JOLT_B.Add = JOLT_cal->Constant5_Value + static_cast<real_T>
     (JOLT_B.convertedMonofil);
@@ -596,11 +585,62 @@ void JOLT_step(void)
   /* Delay: '<Root>/Delay' */
   JOLT_B.Delay = JOLT_DW.Delay_DSTATE[0];
 
+  /* Clock: '<S9>/Clock' */
+  JOLT_B.Clock_a = JOLT_M->Timing.t[0];
+
+  /* MATLAB Function: '<S9>/MATLAB Function4' incorporates:
+   *  Constant: '<S9>/Constant'
+   *  Constant: '<S9>/Constant1'
+   */
+  JOLT_MATLABFunction4(JOLT_B.stimSig_sel, JOLT_cal->Constant_Value_n,
+                       JOLT_cal->Constant1_Value_bz, JOLT_B.Clock_a,
+                       &JOLT_B.sf_MATLABFunction4_h,
+                       &JOLT_DW.sf_MATLABFunction4_h);
+
+  /* MATLAB Function: '<S5>/MATLAB Function' incorporates:
+   *  Constant: '<Root>/Constant1'
+   */
+  JOLT_DW.sfEvent_m = JOLT_CALL_EVENT_l;
+  switch (static_cast<int32_T>(JOLT_B.sf_MATLABFunction4_h.sigPulse)) {
+   case 1:
+    JOLT_B.out = JOLT_cal->Constant1_Value_b;
+    break;
+
+   case 0:
+    JOLT_B.out = JOLT_B.Delay;
+    break;
+
+   default:
+    JOLT_B.out = 0.0;
+    break;
+  }
+
+  /* End of MATLAB Function: '<S5>/MATLAB Function' */
+
   /* MATLAB Function: '<S4>/MATLAB Function' incorporates:
+   *  Constant: '<Root>/Constant2'
    *  Constant: '<Root>/Constant4'
    */
-  JOLT_DW.sfEvent_p = JOLT_CALL_EVENT;
-  if (static_cast<int32_T>(JOLT_B.Delay) == 0) {
+  JOLT_DW.sfEvent_p = JOLT_CALL_EVENT_l;
+  result = (JOLT_B.out == 0.0);
+  if (result) {
+    i = 0;
+  } else {
+    result = (JOLT_B.out == 2.5);
+    if (result) {
+      i = 1;
+    } else {
+      result = (JOLT_B.out == 2.0);
+      if (result) {
+        i = 2;
+      } else {
+        i = -1;
+      }
+    }
+  }
+
+  switch (i) {
+   case 0:
     baseAvg = rt_roundd_snf(JOLT_B.Add);
     if (baseAvg < 256.0) {
       if (baseAvg >= 0.0) {
@@ -613,7 +653,9 @@ void JOLT_step(void)
     }
 
     JOLT_B.out_j = tmp;
-  } else {
+    break;
+
+   case 1:
     baseAvg = rt_roundd_snf(JOLT_cal->Constant4_Value);
     if (baseAvg < 256.0) {
       if (baseAvg >= 0.0) {
@@ -626,10 +668,40 @@ void JOLT_step(void)
     }
 
     JOLT_B.out_j = tmp;
+    break;
+
+   case 2:
+    baseAvg = rt_roundd_snf(JOLT_cal->Constant2_Value_c);
+    if (baseAvg < 256.0) {
+      if (baseAvg >= 0.0) {
+        tmp = static_cast<uint8_T>(baseAvg);
+      } else {
+        tmp = 0U;
+      }
+    } else {
+      tmp = MAX_uint8_T;
+    }
+
+    JOLT_B.out_j = tmp;
+    break;
+
+   default:
+    baseAvg = rt_roundd_snf(JOLT_cal->Constant4_Value);
+    if (baseAvg < 256.0) {
+      if (baseAvg >= 0.0) {
+        tmp = static_cast<uint8_T>(baseAvg);
+      } else {
+        tmp = 0U;
+      }
+    } else {
+      tmp = MAX_uint8_T;
+    }
+
+    JOLT_B.out_j = tmp;
+    break;
   }
 
   /* End of MATLAB Function: '<S4>/MATLAB Function' */
-
   /* S-Function (slrealtimeTCPSend): '<Root>/TCP Send' incorporates:
    *  Constant: '<Root>/Constant3'
    */
@@ -668,7 +740,7 @@ void JOLT_step(void)
   JOLT_B.HiddenRateTransitionForToWks_In = JOLT_B.PulseGen1Hz;
 
   /* Update for Memory: '<Root>/Memory2' */
-  std::memcpy(&JOLT_DW.Memory2_PreviousInput[0], &JOLT_B.buffOut[0], 10000U *
+  std::memcpy(&JOLT_DW.Memory2_PreviousInput[0], &JOLT_B.buffOut[0], 8000U *
               sizeof(real_T));
 
   /* Update for Memory: '<Root>/Memory1' */
@@ -1056,7 +1128,7 @@ void JOLT_initialize(void)
         /* port 3 */
         {
           ssSetInputPortRequiredContiguous(rts, 3, 1);
-          ssSetInputPortSignal(rts, 3, &JOLT_B.out);
+          ssSetInputPortSignal(rts, 3, &JOLT_B.out_c);
           _ssSetInputPortNumDimensions(rts, 3, 1);
           ssSetInputPortWidthAsInt(rts, 3, 1);
         }
@@ -1144,7 +1216,7 @@ void JOLT_initialize(void)
         /* port 14 */
         {
           ssSetInputPortRequiredContiguous(rts, 14, 1);
-          ssSetInputPortSignal(rts, 14, &JOLT_B.sigPulse_l);
+          ssSetInputPortSignal(rts, 14, &JOLT_B.sigPulse);
           _ssSetInputPortNumDimensions(rts, 14, 1);
           ssSetInputPortWidthAsInt(rts, 14, 1);
         }
@@ -1293,19 +1365,28 @@ void JOLT_initialize(void)
           &JOLT_M->NonInlinedSFcns.Sfcn2.outputPortInfo[0]);
         ssSetPortInfoForOutputs(rts,
           &JOLT_M->NonInlinedSFcns.Sfcn2.outputPortInfo[0]);
-        _ssSetNumOutputPorts(rts, 1);
+        _ssSetNumOutputPorts(rts, 2);
         _ssSetPortInfo2ForOutputUnits(rts,
           &JOLT_M->NonInlinedSFcns.Sfcn2.outputPortUnits[0]);
         ssSetOutputPortUnit(rts, 0, 0);
+        ssSetOutputPortUnit(rts, 1, 0);
         _ssSetPortInfo2ForOutputCoSimAttribute(rts,
           &JOLT_M->NonInlinedSFcns.Sfcn2.outputPortCoSimAttribute[0]);
         ssSetOutputPortIsContinuousQuantity(rts, 0, 0);
+        ssSetOutputPortIsContinuousQuantity(rts, 1, 0);
 
         /* port 0 */
         {
           _ssSetOutputPortNumDimensions(rts, 0, 1);
           ssSetOutputPortWidthAsInt(rts, 0, 1);
           ssSetOutputPortSignal(rts, 0, ((real_T *) &JOLT_B.monofilData));
+        }
+
+        /* port 1 */
+        {
+          _ssSetOutputPortNumDimensions(rts, 1, 1);
+          ssSetOutputPortWidthAsInt(rts, 1, 1);
+          ssSetOutputPortSignal(rts, 1, ((real_T *) &JOLT_B.rawMonofilData));
         }
       }
 
@@ -1375,7 +1456,9 @@ void JOLT_initialize(void)
 
       /* Update connectivity flags for each port */
       _ssSetOutputPortConnected(rts, 0, 1);
+      _ssSetOutputPortConnected(rts, 1, 1);
       _ssSetOutputPortBeingMerged(rts, 0, 0);
+      _ssSetOutputPortBeingMerged(rts, 1, 0);
 
       /* Update the BufferDstPort flags for each input port */
     }
@@ -1604,7 +1687,7 @@ void JOLT_initialize(void)
     int32_T i;
 
     /* InitializeConditions for Memory: '<Root>/Memory2' */
-    for (i = 0; i < 10000; i++) {
+    for (i = 0; i < 8000; i++) {
       JOLT_DW.Memory2_PreviousInput[i] = JOLT_cal->Memory2_InitialCondition;
     }
 
@@ -1624,34 +1707,39 @@ void JOLT_initialize(void)
     /* End of InitializeConditions for Delay: '<Root>/Delay' */
 
     /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function1' */
-    JOLT_DW.sfEvent_d = JOLT_CALL_EVENT;
+    JOLT_DW.sfEvent_d = JOLT_CALL_EVENT_l;
     JOLT_DW.is_active_c2_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S5>/MATLAB Function4' */
-    JOLT_DW.sfEvent_k = JOLT_CALL_EVENT;
+    /* SystemInitialize for MATLAB Function: '<S6>/MATLAB Function4' */
+    JOLT_DW.sfEvent_k = JOLT_CALL_EVENT_l;
     JOLT_DW.t0_not_empty_p = false;
     JOLT_DW.is_active_c4_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S7>/MATLAB Function4' */
-    JOLT_DW.sfEvent = JOLT_CALL_EVENT;
-    JOLT_DW.t0_not_empty = false;
-    JOLT_DW.is_active_c7_JOLT = 0U;
+    /* SystemInitialize for MATLAB Function: '<S8>/MATLAB Function4' */
+    JOLT_MATLABFunction4_Init(&JOLT_DW.sf_MATLABFunction4_d);
 
     /* SystemInitialize for MATLAB Function: '<S3>/MATLAB Function' */
-    JOLT_DW.sfEvent_e = JOLT_CALL_EVENT;
+    JOLT_DW.sfEvent_e = JOLT_CALL_EVENT_l;
     JOLT_DW.is_active_c1_JOLT = 0U;
 
-    /* SystemInitialize for MATLAB Function: '<S6>/MATLAB Function4' */
-    JOLT_DW.sfEvent_m = JOLT_CALL_EVENT;
-    JOLT_DW.t0_not_empty_d = false;
+    /* SystemInitialize for MATLAB Function: '<S7>/MATLAB Function4' */
+    JOLT_DW.sfEvent = JOLT_CALL_EVENT_l;
+    JOLT_DW.t0_not_empty = false;
     JOLT_DW.is_active_c5_JOLT = 0U;
 
     /* SystemInitialize for MATLAB Function: '<S1>/MATLAB Function' */
-    JOLT_DW.sfEvent_c = JOLT_CALL_EVENT;
+    JOLT_DW.sfEvent_c = JOLT_CALL_EVENT_l;
     JOLT_DW.is_active_c3_JOLT = 0U;
 
+    /* SystemInitialize for MATLAB Function: '<S9>/MATLAB Function4' */
+    JOLT_MATLABFunction4_Init(&JOLT_DW.sf_MATLABFunction4_h);
+
+    /* SystemInitialize for MATLAB Function: '<S5>/MATLAB Function' */
+    JOLT_DW.sfEvent_m = JOLT_CALL_EVENT_l;
+    JOLT_DW.is_active_c8_JOLT = 0U;
+
     /* SystemInitialize for MATLAB Function: '<S4>/MATLAB Function' */
-    JOLT_DW.sfEvent_p = JOLT_CALL_EVENT;
+    JOLT_DW.sfEvent_p = JOLT_CALL_EVENT_l;
     JOLT_DW.is_active_c6_JOLT = 0U;
   }
 }

@@ -31,7 +31,7 @@ struct JOLT_cal_type {
   real_T Setup_P4_Size[2];             /* Computed Parameter: Setup_P4_Size
                                         * Referenced by: '<Root>/Setup '
                                         */
-  real_T Setup_P4;                     /* Expression: parAdcChannels
+  real_T Setup_P4[2];                  /* Expression: parAdcChannels
                                         * Referenced by: '<Root>/Setup '
                                         */
   real_T Setup_P5_Size[2];             /* Computed Parameter: Setup_P5_Size
@@ -43,7 +43,7 @@ struct JOLT_cal_type {
   real_T Setup_P6_Size[2];             /* Computed Parameter: Setup_P6_Size
                                         * Referenced by: '<Root>/Setup '
                                         */
-  real_T Setup_P6;                     /* Expression: parAdcRanges
+  real_T Setup_P6[2];                  /* Expression: parAdcRanges
                                         * Referenced by: '<Root>/Setup '
                                         */
   real_T Setup_P7_Size[2];             /* Computed Parameter: Setup_P7_Size
@@ -77,22 +77,22 @@ struct JOLT_cal_type {
                                         * Referenced by: '<Root>/Npxls Trig'
                                         */
   real_T Constant_Value_c;             /* Expression: 2.5
-                                        * Referenced by: '<S5>/Constant'
-                                        */
-  real_T Constant1_Value;              /* Expression: 8
-                                        * Referenced by: '<S5>/Constant1'
-                                        */
-  real_T Constant_Value_a;             /* Expression: 1
-                                        * Referenced by: '<S7>/Constant'
-                                        */
-  real_T Constant1_Value_p;            /* Expression: 4
-                                        * Referenced by: '<S7>/Constant1'
-                                        */
-  real_T Constant_Value_j;             /* Expression: 1
                                         * Referenced by: '<S6>/Constant'
                                         */
-  real_T Constant1_Value_k;            /* Expression: 1
+  real_T Constant1_Value;              /* Expression: 8
                                         * Referenced by: '<S6>/Constant1'
+                                        */
+  real_T Constant_Value_a;             /* Expression: 1
+                                        * Referenced by: '<S8>/Constant'
+                                        */
+  real_T Constant1_Value_p;            /* Expression: 4
+                                        * Referenced by: '<S8>/Constant1'
+                                        */
+  real_T Constant_Value_j;             /* Expression: 1
+                                        * Referenced by: '<S7>/Constant'
+                                        */
+  real_T Constant1_Value_k;            /* Expression: 1
+                                        * Referenced by: '<S7>/Constant1'
                                         */
   real_T Digitaloutput_P1_Size[2];  /* Computed Parameter: Digitaloutput_P1_Size
                                      * Referenced by: '<Root>/Digital output '
@@ -151,7 +151,7 @@ struct JOLT_cal_type {
   real_T Analoginput_P4_Size[2];      /* Computed Parameter: Analoginput_P4_Size
                                        * Referenced by: '<Root>/Analog input '
                                        */
-  real_T Analoginput_P4;               /* Expression: parAdcChannels
+  real_T Analoginput_P4[2];            /* Expression: parAdcChannels
                                         * Referenced by: '<Root>/Analog input '
                                         */
   real_T Analoginput_P5_Size[2];      /* Computed Parameter: Analoginput_P5_Size
@@ -169,7 +169,7 @@ struct JOLT_cal_type {
   real_T Analoginput_P7_Size[2];      /* Computed Parameter: Analoginput_P7_Size
                                        * Referenced by: '<Root>/Analog input '
                                        */
-  real_T Analoginput_P7;               /* Expression: parAdcRanges
+  real_T Analoginput_P7[2];            /* Expression: parAdcRanges
                                         * Referenced by: '<Root>/Analog input '
                                         */
   real_T Analoginput_P8_Size[2];      /* Computed Parameter: Analoginput_P8_Size
@@ -185,19 +185,31 @@ struct JOLT_cal_type {
                                         * Referenced by: '<Root>/Analog input '
                                         */
   real_T Constant1_Value_d;            /* Expression: 0.1
-                                        * Referenced by: '<S8>/Constant1'
+                                        * Referenced by: '<S10>/Constant1'
                                         */
-  real_T Constant2_Value;              /* Expression: 90
-                                        * Referenced by: '<S8>/Constant2'
+  real_T Constant2_Value;              /* Expression: 500
+                                        * Referenced by: '<S10>/Constant2'
                                         */
-  real_T Constant5_Value;              /* Expression: 1
-                                        * Referenced by: '<S8>/Constant5'
+  real_T Constant5_Value;              /* Expression: 2
+                                        * Referenced by: '<S10>/Constant5'
                                         */
   real_T Constant4_Value;              /* Expression: 0
                                         * Referenced by: '<Root>/Constant4'
                                         */
+  real_T Constant2_Value_c;            /* Expression: 1
+                                        * Referenced by: '<Root>/Constant2'
+                                        */
+  real_T Constant1_Value_b;            /* Expression: 2
+                                        * Referenced by: '<Root>/Constant1'
+                                        */
   real_T Delay_InitialCondition;       /* Expression: 0
                                         * Referenced by: '<Root>/Delay'
+                                        */
+  real_T Constant_Value_n;             /* Expression: 1
+                                        * Referenced by: '<S9>/Constant'
+                                        */
+  real_T Constant1_Value_bz;           /* Expression: 0.005
+                                        * Referenced by: '<S9>/Constant1'
                                         */
   real_T Constant3_Value;              /* Expression: 1
                                         * Referenced by: '<Root>/Constant3'

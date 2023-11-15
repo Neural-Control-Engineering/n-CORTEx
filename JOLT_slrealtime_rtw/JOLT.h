@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.268
+ * Model version              : 1.304
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Sat Nov 11 12:34:31 2023
+ * C++ source code generated on : Tue Nov 14 22:36:57 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -30,8 +30,6 @@
 #include "slrealtime/libsrc/IP/socketFactory.hpp"
 #include "JOLT_types.h"
 #include <stddef.h>
-#include <cstring>
-#include "JOLT_cal.h"
 
 extern "C"
 {
@@ -39,6 +37,16 @@ extern "C"
 #include "rt_nonfinite.h"
 
 }
+
+extern "C"
+{
+
+#include "rtGetNaN.h"
+
+}
+
+#include <cstring>
+#include "JOLT_cal.h"
 
 /* Macros for accessing real-time model data structure */
 #ifndef rtmGetContTimeOutputInconsistentWithStateAtMajorStepFlag
@@ -121,54 +129,74 @@ extern "C"
 #define rtmGetTimeOfLastOutput(rtm)    ((rtm)->Timing.timeOfLastOutput)
 #endif
 
+/* Block signals for system '<S8>/MATLAB Function4' */
+struct B_MATLABFunction4_JOLT_T {
+  real_T sigPulse;                     /* '<S8>/MATLAB Function4' */
+};
+
+/* Block states (default storage) for system '<S8>/MATLAB Function4' */
+struct DW_MATLABFunction4_JOLT_T {
+  real_T t0;                           /* '<S8>/MATLAB Function4' */
+  int32_T sfEvent;                     /* '<S8>/MATLAB Function4' */
+  uint8_T is_active_c7_JOLT;           /* '<S8>/MATLAB Function4' */
+  boolean_T doneDoubleBufferReInit;    /* '<S8>/MATLAB Function4' */
+  boolean_T t0_not_empty;              /* '<S8>/MATLAB Function4' */
+};
+
 /* Block signals (default storage) */
 struct B_JOLT_T {
-  real_T Memory2[10000];               /* '<Root>/Memory2' */
+  real_T Memory2[8000];                /* '<Root>/Memory2' */
+  real_T x_data[8000];
+  real_T absdiff_data[8000];
   real_T TCPServer;                    /* '<Root>/TCP Server' */
   real_T TCPReceive_o2;                /* '<Root>/TCP Receive' */
   real_T Memory1;                      /* '<Root>/Memory1' */
   real_T npxls_trig;                   /* '<Root>/Npxls Trig' */
-  real_T Clock;                        /* '<S5>/Clock' */
-  real_T Clock_p;                      /* '<S7>/Clock' */
-  real_T Clock_j;                      /* '<S6>/Clock' */
+  real_T Clock;                        /* '<S6>/Clock' */
+  real_T Clock_p;                      /* '<S8>/Clock' */
+  real_T Clock_j;                      /* '<S7>/Clock' */
   real_T monofilData;                  /* '<Root>/Analog input ' */
-  real_T Add1;                         /* '<S8>/Add1' */
-  real_T Product;                      /* '<S8>/Product' */
-  real_T Add;                          /* '<S8>/Add' */
+  real_T rawMonofilData;               /* '<Root>/Analog input ' */
+  real_T Add1;                         /* '<S10>/Add1' */
+  real_T Product;                      /* '<S10>/Product' */
+  real_T Add;                          /* '<S10>/Add' */
   real_T Delay;                        /* '<Root>/Delay' */
+  real_T Clock_a;                      /* '<S9>/Clock' */
   real_T TCPSend;                      /* '<Root>/TCP Send' */
   real_T PulseGen1Hz;                  /* '<Root>/Digital input ' */
   real_T HiddenRateTransitionForToWks_In;
   /* '<Root>/HiddenRateTransitionForToWks_InsertedFor_TAQSigLogging_InsertedFor_Digital input _at_outport_0_at_inport_0' */
   real_T sigPulse;                     /* '<S7>/MATLAB Function4' */
-  real_T sigPulse_l;                   /* '<S6>/MATLAB Function4' */
-  real_T sigPulse_p;                   /* '<S5>/MATLAB Function4' */
-  real_T out;                          /* '<S3>/MATLAB Function' */
+  real_T sigPulse_p;                   /* '<S6>/MATLAB Function4' */
+  real_T out;                          /* '<S5>/MATLAB Function' */
+  real_T out_c;                        /* '<S3>/MATLAB Function' */
   real_T npxlsAcq_trig;                /* '<Root>/MATLAB Function1' */
   real_T acqStatus;                    /* '<Root>/MATLAB Function1' */
   real_T S_out;                        /* '<Root>/MATLAB Function1' */
   real_T acqTone_trig;                 /* '<Root>/MATLAB Function1' */
   real_T npxlsAcq_out;                 /* '<Root>/MATLAB Function1' */
   real_T restingAcq;                   /* '<Root>/MATLAB Function1' */
-  real_T monofilBaseBuffer_out[10000]; /* '<Root>/MATLAB Function1' */
+  real_T stimSig_sel;                  /* '<Root>/MATLAB Function1' */
+  real_T monofilBaseBuffer_out[8000];  /* '<Root>/MATLAB Function1' */
   real_T baseAvg;                      /* '<Root>/MATLAB Function1' */
   real_T changeAvg;                    /* '<Root>/MATLAB Function1' */
   real_T baseBuffLen;                  /* '<Root>/MATLAB Function1' */
-  real_T buffOut[10000];               /* '<S1>/MATLAB Function' */
+  real_T buffOut[8000];                /* '<S1>/MATLAB Function' */
   uint8_T buttonStat;                  /* '<Root>/TCP Receive' */
-  uint8_T convertedMonofil;            /* '<S8>/Data Type Conversion' */
+  uint8_T convertedMonofil;            /* '<S10>/Data Type Conversion' */
   uint8_T out_j;                       /* '<S4>/MATLAB Function' */
+  B_MATLABFunction4_JOLT_T sf_MATLABFunction4_h;/* '<S9>/MATLAB Function4' */
+  B_MATLABFunction4_JOLT_T sf_MATLABFunction4_d;/* '<S8>/MATLAB Function4' */
 };
 
 /* Block states (default storage) for system '<Root>' */
 struct DW_JOLT_T {
   real_T Delay_DSTATE[550];            /* '<Root>/Delay' */
-  real_T Memory2_PreviousInput[10000]; /* '<Root>/Memory2' */
+  real_T Memory2_PreviousInput[8000];  /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
-  real_T Add_DWORK1;                   /* '<S8>/Add' */
+  real_T Add_DWORK1;                   /* '<S10>/Add' */
   real_T t0;                           /* '<S7>/MATLAB Function4' */
-  real_T t0_d;                         /* '<S6>/MATLAB Function4' */
-  real_T t0_b;                         /* '<S5>/MATLAB Function4' */
+  real_T t0_b;                         /* '<S6>/MATLAB Function4' */
   real_T Setup_RWORK[2];               /* '<Root>/Setup ' */
   void *Setup_PWORK;                   /* '<Root>/Setup ' */
   void *TCPServer_PWORK;               /* '<Root>/TCP Server' */
@@ -179,6 +207,14 @@ struct DW_JOLT_T {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Analo;   /* synthesized block */
 
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_Ana_p;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_MUX1_;   /* synthesized block */
+
   void *TCPSend_PWORK;                 /* '<Root>/TCP Send' */
   void *Digitalinput_PWORK;            /* '<Root>/Digital input ' */
   struct {
@@ -187,11 +223,19 @@ struct DW_JOLT_T {
 
   struct {
     void *AQHandles;
-  } TAQSigLogging_InsertedFor_DataT;   /* synthesized block */
+  } TAQSigLogging_InsertedFor_MUX2_;   /* synthesized block */
 
   struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Subsy;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_DataT;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_Sub_a;   /* synthesized block */
 
   struct {
     void *AQHandles;
@@ -211,6 +255,10 @@ struct DW_JOLT_T {
 
   struct {
     void *AQHandles;
+  } TAQSigLogging_InsertedFor_MAT_a;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
   } TAQSigLogging_InsertedFor_MAT_j;   /* synthesized block */
 
   struct {
@@ -219,7 +267,7 @@ struct DW_JOLT_T {
 
   struct {
     void *AQHandles;
-  } TAQSigLogging_InsertedFor_MAT_p;   /* synthesized block */
+  } TAQSigLogging_InsertedFor_MAT_f;   /* synthesized block */
 
   struct {
     void *AQHandles;
@@ -235,31 +283,32 @@ struct DW_JOLT_T {
 
   int32_T clockTickCounter;            /* '<Root>/Npxls Trig' */
   int32_T sfEvent;                     /* '<S7>/MATLAB Function4' */
-  int32_T sfEvent_m;                   /* '<S6>/MATLAB Function4' */
-  int32_T sfEvent_k;                   /* '<S5>/MATLAB Function4' */
+  int32_T sfEvent_k;                   /* '<S6>/MATLAB Function4' */
+  int32_T sfEvent_m;                   /* '<S5>/MATLAB Function' */
   int32_T sfEvent_p;                   /* '<S4>/MATLAB Function' */
   int32_T sfEvent_e;                   /* '<S3>/MATLAB Function' */
   int32_T sfEvent_d;                   /* '<Root>/MATLAB Function1' */
   int32_T sfEvent_c;                   /* '<S1>/MATLAB Function' */
   int_T TCPReceive_IWORK;              /* '<Root>/TCP Receive' */
   int_T Analoginput_IWORK[2];          /* '<Root>/Analog input ' */
-  uint8_T is_active_c7_JOLT;           /* '<S7>/MATLAB Function4' */
-  uint8_T is_active_c5_JOLT;           /* '<S6>/MATLAB Function4' */
-  uint8_T is_active_c4_JOLT;           /* '<S5>/MATLAB Function4' */
+  uint8_T is_active_c5_JOLT;           /* '<S7>/MATLAB Function4' */
+  uint8_T is_active_c4_JOLT;           /* '<S6>/MATLAB Function4' */
+  uint8_T is_active_c8_JOLT;           /* '<S5>/MATLAB Function' */
   uint8_T is_active_c6_JOLT;           /* '<S4>/MATLAB Function' */
   uint8_T is_active_c1_JOLT;           /* '<S3>/MATLAB Function' */
   uint8_T is_active_c2_JOLT;           /* '<Root>/MATLAB Function1' */
   uint8_T is_active_c3_JOLT;           /* '<S1>/MATLAB Function' */
   boolean_T doneDoubleBufferReInit;    /* '<S7>/MATLAB Function4' */
   boolean_T t0_not_empty;              /* '<S7>/MATLAB Function4' */
-  boolean_T doneDoubleBufferReInit_e;  /* '<S6>/MATLAB Function4' */
-  boolean_T t0_not_empty_d;            /* '<S6>/MATLAB Function4' */
-  boolean_T doneDoubleBufferReInit_f;  /* '<S5>/MATLAB Function4' */
-  boolean_T t0_not_empty_p;            /* '<S5>/MATLAB Function4' */
+  boolean_T doneDoubleBufferReInit_f;  /* '<S6>/MATLAB Function4' */
+  boolean_T t0_not_empty_p;            /* '<S6>/MATLAB Function4' */
+  boolean_T doneDoubleBufferReInit_m;  /* '<S5>/MATLAB Function' */
   boolean_T doneDoubleBufferReInit_c;  /* '<S4>/MATLAB Function' */
   boolean_T doneDoubleBufferReInit_fa; /* '<S3>/MATLAB Function' */
   boolean_T doneDoubleBufferReInit_d;  /* '<Root>/MATLAB Function1' */
   boolean_T doneDoubleBufferReInit_h;  /* '<S1>/MATLAB Function' */
+  DW_MATLABFunction4_JOLT_T sf_MATLABFunction4_h;/* '<S9>/MATLAB Function4' */
+  DW_MATLABFunction4_JOLT_T sf_MATLABFunction4_d;/* '<S8>/MATLAB Function4' */
 };
 
 /* Real-time Model Data Structure */
@@ -315,9 +364,9 @@ struct tag_RTM_JOLT_T {
       time_T sfcnPeriod[1];
       time_T sfcnOffset[1];
       int_T sfcnTsMap[1];
-      struct _ssPortOutputs outputPortInfo[1];
-      struct _ssOutPortUnit outputPortUnits[1];
-      struct _ssOutPortCoSimAttribute outputPortCoSimAttribute[1];
+      struct _ssPortOutputs outputPortInfo[2];
+      struct _ssOutPortUnit outputPortUnits[2];
+      struct _ssOutPortCoSimAttribute outputPortCoSimAttribute[2];
       uint_T attribs[9];
       mxArray *params[9];
       struct _ssDWorkRecord dWork[2];
@@ -475,15 +524,19 @@ extern "C"
  * '<S2>'   : 'JOLT/MATLAB Function1'
  * '<S3>'   : 'JOLT/MUX'
  * '<S4>'   : 'JOLT/MUX1'
- * '<S5>'   : 'JOLT/Subsystem'
- * '<S6>'   : 'JOLT/Subsystem1'
- * '<S7>'   : 'JOLT/Subsystem2'
- * '<S8>'   : 'JOLT/tcpConversion'
- * '<S9>'   : 'JOLT/Buffer/MATLAB Function'
- * '<S10>'  : 'JOLT/MUX/MATLAB Function'
- * '<S11>'  : 'JOLT/MUX1/MATLAB Function'
- * '<S12>'  : 'JOLT/Subsystem/MATLAB Function4'
- * '<S13>'  : 'JOLT/Subsystem1/MATLAB Function4'
- * '<S14>'  : 'JOLT/Subsystem2/MATLAB Function4'
+ * '<S5>'   : 'JOLT/MUX2'
+ * '<S6>'   : 'JOLT/Subsystem'
+ * '<S7>'   : 'JOLT/Subsystem1'
+ * '<S8>'   : 'JOLT/Subsystem2'
+ * '<S9>'   : 'JOLT/Subsystem3'
+ * '<S10>'  : 'JOLT/tcpConversion'
+ * '<S11>'  : 'JOLT/Buffer/MATLAB Function'
+ * '<S12>'  : 'JOLT/MUX/MATLAB Function'
+ * '<S13>'  : 'JOLT/MUX1/MATLAB Function'
+ * '<S14>'  : 'JOLT/MUX2/MATLAB Function'
+ * '<S15>'  : 'JOLT/Subsystem/MATLAB Function4'
+ * '<S16>'  : 'JOLT/Subsystem1/MATLAB Function4'
+ * '<S17>'  : 'JOLT/Subsystem2/MATLAB Function4'
+ * '<S18>'  : 'JOLT/Subsystem3/MATLAB Function4'
  */
 #endif                                 /* RTW_HEADER_JOLT_h_ */

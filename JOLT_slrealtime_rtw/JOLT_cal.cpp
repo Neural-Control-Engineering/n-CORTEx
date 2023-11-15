@@ -46,12 +46,12 @@ JOLT_cal_type JOLT_cal_impl = {
   /* Computed Parameter: Setup_P4_Size
    * Referenced by: '<Root>/Setup '
    */
-  { 1.0, 1.0 },
+  { 1.0, 2.0 },
 
   /* Expression: parAdcChannels
    * Referenced by: '<Root>/Setup '
    */
-  1.0,
+  { 1.0, 2.0 },
 
   /* Computed Parameter: Setup_P5_Size
    * Referenced by: '<Root>/Setup '
@@ -66,12 +66,12 @@ JOLT_cal_type JOLT_cal_impl = {
   /* Computed Parameter: Setup_P6_Size
    * Referenced by: '<Root>/Setup '
    */
-  { 1.0, 1.0 },
+  { 1.0, 2.0 },
 
   /* Expression: parAdcRanges
    * Referenced by: '<Root>/Setup '
    */
-  4.0,
+  { 4.0, 4.0 },
 
   /* Computed Parameter: Setup_P7_Size
    * Referenced by: '<Root>/Setup '
@@ -124,32 +124,32 @@ JOLT_cal_type JOLT_cal_impl = {
   0.0,
 
   /* Expression: 2.5
-   * Referenced by: '<S5>/Constant'
+   * Referenced by: '<S6>/Constant'
    */
   2.5,
 
   /* Expression: 8
-   * Referenced by: '<S5>/Constant1'
+   * Referenced by: '<S6>/Constant1'
    */
   8.0,
+
+  /* Expression: 1
+   * Referenced by: '<S8>/Constant'
+   */
+  1.0,
+
+  /* Expression: 4
+   * Referenced by: '<S8>/Constant1'
+   */
+  4.0,
 
   /* Expression: 1
    * Referenced by: '<S7>/Constant'
    */
   1.0,
 
-  /* Expression: 4
+  /* Expression: 1
    * Referenced by: '<S7>/Constant1'
-   */
-  4.0,
-
-  /* Expression: 1
-   * Referenced by: '<S6>/Constant'
-   */
-  1.0,
-
-  /* Expression: 1
-   * Referenced by: '<S6>/Constant1'
    */
   1.0,
 
@@ -247,12 +247,12 @@ JOLT_cal_type JOLT_cal_impl = {
   /* Computed Parameter: Analoginput_P4_Size
    * Referenced by: '<Root>/Analog input '
    */
-  { 1.0, 1.0 },
+  { 1.0, 2.0 },
 
   /* Expression: parAdcChannels
    * Referenced by: '<Root>/Analog input '
    */
-  1.0,
+  { 1.0, 2.0 },
 
   /* Computed Parameter: Analoginput_P5_Size
    * Referenced by: '<Root>/Analog input '
@@ -277,12 +277,12 @@ JOLT_cal_type JOLT_cal_impl = {
   /* Computed Parameter: Analoginput_P7_Size
    * Referenced by: '<Root>/Analog input '
    */
-  { 1.0, 1.0 },
+  { 1.0, 2.0 },
 
   /* Expression: parAdcRanges
    * Referenced by: '<Root>/Analog input '
    */
-  4.0,
+  { 4.0, 4.0 },
 
   /* Computed Parameter: Analoginput_P8_Size
    * Referenced by: '<Root>/Analog input '
@@ -305,29 +305,49 @@ JOLT_cal_type JOLT_cal_impl = {
   { 1.0, 1.0 },
 
   /* Expression: 0.1
-   * Referenced by: '<S8>/Constant1'
+   * Referenced by: '<S10>/Constant1'
    */
   0.1,
 
-  /* Expression: 90
-   * Referenced by: '<S8>/Constant2'
+  /* Expression: 500
+   * Referenced by: '<S10>/Constant2'
    */
-  90.0,
+  500.0,
 
-  /* Expression: 1
-   * Referenced by: '<S8>/Constant5'
+  /* Expression: 2
+   * Referenced by: '<S10>/Constant5'
    */
-  1.0,
+  2.0,
 
   /* Expression: 0
    * Referenced by: '<Root>/Constant4'
    */
   0.0,
 
+  /* Expression: 1
+   * Referenced by: '<Root>/Constant2'
+   */
+  1.0,
+
+  /* Expression: 2
+   * Referenced by: '<Root>/Constant1'
+   */
+  2.0,
+
   /* Expression: 0
    * Referenced by: '<Root>/Delay'
    */
   0.0,
+
+  /* Expression: 1
+   * Referenced by: '<S9>/Constant'
+   */
+  1.0,
+
+  /* Expression: 0.005
+   * Referenced by: '<S9>/Constant1'
+   */
+  0.005,
 
   /* Expression: 1
    * Referenced by: '<Root>/Constant3'

@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.268
+ * Model version              : 1.304
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Sat Nov 11 12:34:31 2023
+ * C++ source code generated on : Tue Nov 14 22:36:57 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -20,22 +20,6 @@
 
 #ifndef RTW_HEADER_JOLT_types_h_
 #define RTW_HEADER_JOLT_types_h_
-#include "rtwtypes.h"
-#ifndef struct_emxArray_real_T_JOLT_T
-#define struct_emxArray_real_T_JOLT_T
-
-struct emxArray_real_T_JOLT_T
-{
-  real_T *data;
-  int32_T *size;
-  int32_T allocatedSize;
-  int32_T numDimensions;
-  boolean_T canFreeData;
-}
-
-;
-
-#endif                                 /* struct_emxArray_real_T_JOLT_T */
 
 /* Forward declaration for rtModel */
 typedef struct tag_RTM_JOLT_T RT_MODEL_JOLT_T;
