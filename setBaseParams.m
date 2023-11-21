@@ -15,11 +15,11 @@ function params = setBaseParams(opts)
         case 'electro'
             if ~isfield(opts.paths,'stem'), opts.paths.stem='/home/electro'; end
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = '/home/electro/Code_Repo/n-CORTEx'; end
-            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_root = '/home/electro/NEC_Drive'; end            
+            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = '/home/electro/NEC_Drive'; end            
         case 'genoma'
             if ~isfield(opts.paths,'stem'), opts.paths.stem='/home/genoma'; end
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = '/home/genoma/Code_Repo/n-CORTEx'; end
-            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_root = '/home/genoma/NEC_Drive'; end
+            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = '/home/genoma/NEC_Drive'; end
     end
 
     if ~isfield(opts.paths,'tempDir'), opts.paths.tempDir=fullfile(opts.paths.stem,'nCORTExTmp'); end

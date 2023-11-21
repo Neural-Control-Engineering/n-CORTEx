@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.322
+ * Model version              : 1.352
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Nov 15 00:39:33 2023
+ * C++ source code generated on : Tue Nov 21 14:43:03 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -156,13 +156,13 @@ struct B_JOLT_T {
   real_T Clock;                        /* '<S6>/Clock' */
   real_T Clock_p;                      /* '<S8>/Clock' */
   real_T Clock_j;                      /* '<S7>/Clock' */
-  real_T monofilData_raw;              /* '<Root>/Analog input ' */
+  real_T stim_raw;                     /* '<Root>/Analog input ' */
   real_T rawMonofilData;               /* '<Root>/Analog input ' */
-  real_T monofilData_filt;             /* '<Root>/Discrete Filter' */
+  real_T stim_filt;                    /* '<Root>/Discrete Filter' */
   real_T Add1;                         /* '<S10>/Add1' */
   real_T Product;                      /* '<S10>/Product' */
   real_T Add;                          /* '<S10>/Add' */
-  real_T Delay;                        /* '<Root>/Delay' */
+  real_T npxlsAcqCutoff;               /* '<Root>/Delay' */
   real_T Clock_a;                      /* '<S9>/Clock' */
   real_T TCPSend;                      /* '<Root>/TCP Send' */
   real_T PulseGen1Hz;                  /* '<Root>/Digital input ' */
@@ -192,8 +192,8 @@ struct B_JOLT_T {
 
 /* Block states (default storage) for system '<Root>' */
 struct DW_JOLT_T {
-  real_T DiscreteFilter_states[4];     /* '<Root>/Discrete Filter' */
-  real_T Delay_DSTATE[550];            /* '<Root>/Delay' */
+  real_T DiscreteFilter_states[500];   /* '<Root>/Discrete Filter' */
+  real_T Delay_DSTATE[700];            /* '<Root>/Delay' */
   real_T Memory2_PreviousInput[8000];  /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
   real_T DiscreteFilter_tmp;           /* '<Root>/Discrete Filter' */
@@ -227,6 +227,10 @@ struct DW_JOLT_T {
   struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Subsy;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_Delay;   /* synthesized block */
 
   struct {
     void *AQHandles;

@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.322
+ * Model version              : 1.352
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Nov 15 00:39:33 2023
+ * C++ source code generated on : Tue Nov 21 14:43:03 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -399,7 +399,7 @@ void JOLT_step(void)
 
     scale = JOLT_blockedSummation(v_data, &x_size, x_size) / static_cast<real_T>
       (x_size);
-    if (scale > 3.0 * xbar + baseAvg) {
+    if (scale > 2.8 * xbar + baseAvg) {
       JOLT_B.stimSig_sel = 1.0;
       JOLT_B.S_out = 2.0;
     }
@@ -550,40 +550,30 @@ void JOLT_step(void)
   }
 
   /* DiscreteFilter: '<Root>/Discrete Filter' */
-  baseAvg = JOLT_B.monofilData_raw;
-  baseAvg -= JOLT_DW.DiscreteFilter_states[0] * JOLT_cal->
-    DiscreteFilter_DenCoef[1];
-  baseAvg -= JOLT_DW.DiscreteFilter_states[1] * JOLT_cal->
-    DiscreteFilter_DenCoef[2];
-  baseAvg -= JOLT_DW.DiscreteFilter_states[2] * JOLT_cal->
-    DiscreteFilter_DenCoef[3];
-  baseAvg -= JOLT_DW.DiscreteFilter_states[3] * JOLT_cal->
-    DiscreteFilter_DenCoef[4];
-  baseAvg /= JOLT_cal->DiscreteFilter_DenCoef[0];
+  baseAvg = JOLT_B.stim_raw;
+  baseAvg /= JOLT_cal->DiscreteFilter_DenCoef;
   JOLT_DW.DiscreteFilter_tmp = baseAvg;
   baseAvg = JOLT_cal->DiscreteFilter_NumCoef[0] * JOLT_DW.DiscreteFilter_tmp;
-  baseAvg += JOLT_DW.DiscreteFilter_states[0] * JOLT_cal->
-    DiscreteFilter_NumCoef[1];
-  baseAvg += JOLT_DW.DiscreteFilter_states[1] * JOLT_cal->
-    DiscreteFilter_NumCoef[2];
-  baseAvg += JOLT_DW.DiscreteFilter_states[2] * JOLT_cal->
-    DiscreteFilter_NumCoef[3];
-  baseAvg += JOLT_DW.DiscreteFilter_states[3] * JOLT_cal->
-    DiscreteFilter_NumCoef[4];
+  i = 1;
+  for (b = 0; b < 500; b++) {
+    baseAvg += JOLT_cal->DiscreteFilter_NumCoef[i] *
+      JOLT_DW.DiscreteFilter_states[b];
+    i++;
+  }
 
   /* DiscreteFilter: '<Root>/Discrete Filter' */
-  JOLT_B.monofilData_filt = baseAvg;
+  JOLT_B.stim_filt = baseAvg;
 
   /* MATLAB Function: '<S1>/MATLAB Function' */
   JOLT_DW.sfEvent_c = JOLT_CALL_EVENT_l;
   std::memcpy(&JOLT_B.buffOut[0], &JOLT_B.monofilBaseBuffer_out[1], 7999U *
               sizeof(real_T));
-  JOLT_B.buffOut[7999] = JOLT_B.monofilData_filt;
+  JOLT_B.buffOut[7999] = JOLT_B.stim_filt;
 
   /* Sum: '<S10>/Add1' incorporates:
    *  Constant: '<S10>/Constant1'
    */
-  JOLT_B.Add1 = JOLT_cal->Constant1_Value_d + JOLT_B.monofilData_filt;
+  JOLT_B.Add1 = JOLT_cal->Constant1_Value_d + JOLT_B.stim_filt;
 
   /* Product: '<S10>/Product' incorporates:
    *  Constant: '<S10>/Constant2'
@@ -611,7 +601,7 @@ void JOLT_step(void)
     (JOLT_B.convertedMonofil);
 
   /* Delay: '<Root>/Delay' */
-  JOLT_B.Delay = JOLT_DW.Delay_DSTATE[0];
+  JOLT_B.npxlsAcqCutoff = JOLT_DW.Delay_DSTATE[0];
 
   /* Clock: '<S9>/Clock' */
   JOLT_B.Clock_a = JOLT_M->Timing.t[0];
@@ -635,7 +625,7 @@ void JOLT_step(void)
     break;
 
    case 0:
-    JOLT_B.out = JOLT_B.Delay;
+    JOLT_B.out = JOLT_B.npxlsAcqCutoff;
     break;
 
    default:
@@ -775,17 +765,21 @@ void JOLT_step(void)
   JOLT_DW.Memory1_PreviousInput = JOLT_B.S_out;
 
   /* Update for DiscreteFilter: '<Root>/Discrete Filter' */
-  JOLT_DW.DiscreteFilter_states[3] = JOLT_DW.DiscreteFilter_states[2];
-  JOLT_DW.DiscreteFilter_states[2] = JOLT_DW.DiscreteFilter_states[1];
-  JOLT_DW.DiscreteFilter_states[1] = JOLT_DW.DiscreteFilter_states[0];
+  for (int32_T i = 0; i < 499; i++) {
+    JOLT_DW.DiscreteFilter_states[499 - i] = JOLT_DW.DiscreteFilter_states[498 -
+      i];
+  }
+
   JOLT_DW.DiscreteFilter_states[0] = JOLT_DW.DiscreteFilter_tmp;
 
+  /* End of Update for DiscreteFilter: '<Root>/Discrete Filter' */
+
   /* Update for Delay: '<Root>/Delay' */
-  for (int32_T i = 0; i < 549; i++) {
+  for (int32_T i = 0; i < 699; i++) {
     JOLT_DW.Delay_DSTATE[i] = JOLT_DW.Delay_DSTATE[i + 1];
   }
 
-  JOLT_DW.Delay_DSTATE[549] = JOLT_B.sigPulse_p;
+  JOLT_DW.Delay_DSTATE[699] = JOLT_B.sigPulse_p;
 
   /* End of Update for Delay: '<Root>/Delay' */
 
@@ -1413,7 +1407,7 @@ void JOLT_initialize(void)
         {
           _ssSetOutputPortNumDimensions(rts, 0, 1);
           ssSetOutputPortWidthAsInt(rts, 0, 1);
-          ssSetOutputPortSignal(rts, 0, ((real_T *) &JOLT_B.monofilData_raw));
+          ssSetOutputPortSignal(rts, 0, ((real_T *) &JOLT_B.stim_raw));
         }
 
         /* port 1 */
@@ -1734,13 +1728,14 @@ void JOLT_initialize(void)
     JOLT_DW.clockTickCounter = 0;
 
     /* InitializeConditions for DiscreteFilter: '<Root>/Discrete Filter' */
-    JOLT_DW.DiscreteFilter_states[0] = JOLT_cal->DiscreteFilter_InitialStates;
-    JOLT_DW.DiscreteFilter_states[1] = JOLT_cal->DiscreteFilter_InitialStates;
-    JOLT_DW.DiscreteFilter_states[2] = JOLT_cal->DiscreteFilter_InitialStates;
-    JOLT_DW.DiscreteFilter_states[3] = JOLT_cal->DiscreteFilter_InitialStates;
+    for (i = 0; i < 500; i++) {
+      JOLT_DW.DiscreteFilter_states[i] = JOLT_cal->DiscreteFilter_InitialStates;
+    }
+
+    /* End of InitializeConditions for DiscreteFilter: '<Root>/Discrete Filter' */
 
     /* InitializeConditions for Delay: '<Root>/Delay' */
-    for (i = 0; i < 550; i++) {
+    for (i = 0; i < 700; i++) {
       JOLT_DW.Delay_DSTATE[i] = JOLT_cal->Delay_InitialCondition;
     }
 
