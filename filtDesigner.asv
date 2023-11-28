@@ -1,0 +1,28 @@
+% Bandpass filter design parameters
+low_freq = 0.2;  % Lower cutoff frequency in Hz
+high_freq = 10;  % Upper cutoff frequency in Hz
+sampling_rate = 1000;  % Sampling rate in Hz
+filter_order = 500;  % Filter order (an even number for linear phase)
+
+% Normalize frequencies
+normalized_low_freq = low_freq / (0.5 * sampling_rate);
+normalized_high_freq = high_freq / (0.5 * sampling_rate);
+
+% Design the bandpass filter
+b = fir1(filter_order, [normalized_low_freq, normalized_high_freq], 'bandpass');
+
+figure
+% Plot the frequency response of the filter
+freqz(b, 1, 1024, sampling_rate);
+
+%% RLC CIRCUIT
+R1 = 890;
+R2 = 890;
+C1 = 10e-6;
+C2 = 10e-6;
+num0 = 0;
+num1 = -R2*C1;
+den0 = 1;
+den1 = R1*(C1+C2);
+den2 = R1*R2*C1*C2;
+b_circ = []
