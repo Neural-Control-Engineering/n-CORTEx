@@ -23,7 +23,7 @@ function sessionAnalysis(logsout, stage)
             sprintf('Trial %i target: correct', i)
         elseif was_target
             sprintf('Trial %i target: incorrect', i)
-        elseif sum(numLicks)% need to distinguish correct rejection from false alarm
+        elseif sum(numLicks(trial_starts(i):trial_ends(i)))% need to distinguish correct rejection from false alarm
             sprintf('Trial %i distractor: incorrect', i)
         else
             sprintf('Trial %i distractor: correct', i)
