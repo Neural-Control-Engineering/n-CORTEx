@@ -34,13 +34,8 @@ struct ATTN_cal_type {
   real_T triangleDuration;             /* Variable: triangleDuration
                                         * Referenced by: '<Root>/triangleDuration'
                                         */
-<<<<<<< HEAD
   real_T Memory8_InitialCondition;     /* Expression: 0
                                         * Referenced by: '<Root>/Memory8'
-=======
-  real_T Memory6_InitialCondition;     /* Expression: 0
-                                        * Referenced by: '<Root>/Memory6'
->>>>>>> ATTN_integration
                                         */
   real_T Memory2_InitialCondition;     /* Expression: 1
                                         * Referenced by: '<Root>/Memory2'
@@ -159,7 +154,16 @@ struct ATTN_cal_type {
   real_T Analoginput_P9[2];            /* Expression: parAdcResets
                                         * Referenced by: '<Root>/Analog input '
                                         */
-  real_T Thrd_Value;                   /* Expression: 0.15
+  real_T DiscreteFilter_NumCoef;       /* Expression: [1]
+                                        * Referenced by: '<Root>/Discrete Filter'
+                                        */
+  real_T DiscreteFilter_DenCoef[2];    /* Expression: [1 0.004]
+                                        * Referenced by: '<Root>/Discrete Filter'
+                                        */
+  real_T DiscreteFilter_InitialStates; /* Expression: 0
+                                        * Referenced by: '<Root>/Discrete Filter'
+                                        */
+  real_T Thrd_Value;                   /* Expression: 0.25
                                         * Referenced by: '<Root>/Thrd'
                                         */
   real_T Memory11_InitialCondition;    /* Expression: 0
@@ -180,23 +184,12 @@ struct ATTN_cal_type {
   real_T Memory5_InitialCondition;     /* Expression: 0
                                         * Referenced by: '<Root>/Memory5'
                                         */
-<<<<<<< HEAD
   real_T Memory6_InitialCondition;     /* Expression: 0
                                         * Referenced by: '<Root>/Memory6'
-=======
-  real_T Memory8_InitialCondition;     /* Expression: 0
-                                        * Referenced by: '<Root>/Memory8'
->>>>>>> ATTN_integration
                                         */
   real_T Memory10_InitialCondition;    /* Expression: 0
                                         * Referenced by: '<Root>/Memory10'
                                         */
-<<<<<<< HEAD
-=======
-  real_T y_InitialCondition;           /* Expression: 0
-                                        * Referenced by:
-                                        */
->>>>>>> ATTN_integration
   real_T Analogoutput_P1_Size[2];    /* Computed Parameter: Analogoutput_P1_Size
                                       * Referenced by: '<Root>/Analog output '
                                       */
@@ -320,30 +313,6 @@ struct ATTN_cal_type {
   real_T Digitalinput_P4;              /* Expression: parDiChannels
                                         * Referenced by: '<Root>/Digital input '
                                         */
-<<<<<<< HEAD
-  real_T DiscreteFilter_NumCoef;       /* Expression: [1]
-                                        * Referenced by: '<Root>/Discrete Filter'
-                                        */
-  real_T DiscreteFilter_DenCoef[2];    /* Expression: [1 0.1]
-                                        * Referenced by: '<Root>/Discrete Filter'
-                                        */
-  real_T DiscreteFilter_InitialStates; /* Expression: 0
-                                        * Referenced by: '<Root>/Discrete Filter'
-                                        */
-=======
-  real_T TmpRTBAtMATLABFunction1Inport3_;/* Expression: 0
-                                          * Referenced by:
-                                          */
-  real_T stim_duration_out_InitialCondit;/* Expression: 0
-                                          * Referenced by:
-                                          */
-  real_T TmpRTBAtMATLABFunction1Inport1_;/* Expression: 0
-                                          * Referenced by:
-                                          */
-  real_T TmpRTBAtMATLABFunction1Inport4_;/* Expression: 0
-                                          * Referenced by:
-                                          */
->>>>>>> ATTN_integration
 };
 
 /* Storage class 'PageSwitching' */

@@ -1,5 +1,5 @@
-function log4Extraction(projPath,extractionRow)
-    extractionLogDir = dir(fullfile(projPath,"Extraction-Logs"));
+function log4Extraction(expmntPath,extractionRow)
+    extractionLogDir = dir(fullfile(expmntPath,"Extraction-Logs"));
     for i = 3:length(extractionLogDir)
         extractionLogFile = extractionLogDir(i);        
         load(fullfile(extractionLogFile.folder,extractionLogFile.name),'extractionLog');
