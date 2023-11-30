@@ -5,7 +5,12 @@
 #include "rte_ATTN_parameters.h"
 
 /* Task descriptors */
+<<<<<<< HEAD
 slrealtime::TaskInfo task_1( 0u, std::bind(ATTN_step), slrealtime::TaskInfo::PERIODIC, 0.001, 0, 40);
+=======
+slrealtime::TaskInfo task_1( 0u, std::bind(ATTN_step0), slrealtime::TaskInfo::PERIODIC, 0.001, 0, 40);
+slrealtime::TaskInfo task_2( 1u, std::bind(ATTN_step2), slrealtime::TaskInfo::PERIODIC, 1000, 0, 39);
+>>>>>>> ATTN_integration
 
 /* Executable base address for XCP */
 #ifdef __linux__
@@ -24,7 +29,11 @@ slrealtime::ModelInfo ATTN_Info =
     ATTN_terminate,
     []()->char const*& { return ATTN_M->errorStatus; },
     []()->unsigned char& { return ATTN_M->Timing.stopRequestedFlag; },
+<<<<<<< HEAD
     { task_1 },
+=======
+    { task_1, task_2 },
+>>>>>>> ATTN_integration
     slrealtime::getSegmentVector()
 };
 

@@ -26,7 +26,11 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: maxFrame
    * Referenced by: '<Root>/Constant'
    */
+<<<<<<< HEAD
   600000.0,
+=======
+  120000.0,
+>>>>>>> ATTN_integration
 
   /* Variable: rewardDuration
    * Referenced by: '<Root>/rewardDuration'
@@ -54,7 +58,11 @@ ATTN_cal_type ATTN_cal_impl = {
   0.1,
 
   /* Expression: 0
+<<<<<<< HEAD
    * Referenced by: '<Root>/Memory8'
+=======
+   * Referenced by: '<Root>/Memory6'
+>>>>>>> ATTN_integration
    */
   0.0,
 
@@ -289,7 +297,11 @@ ATTN_cal_type ATTN_cal_impl = {
   0.0,
 
   /* Expression: 0
+<<<<<<< HEAD
    * Referenced by: '<Root>/Memory6'
+=======
+   * Referenced by: '<Root>/Memory8'
+>>>>>>> ATTN_integration
    */
   0.0,
 
@@ -298,6 +310,14 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   0.0,
 
+<<<<<<< HEAD
+=======
+  /* Expression: 0
+   * Referenced by:
+   */
+  0.0,
+
+>>>>>>> ATTN_integration
   /* Computed Parameter: Analogoutput_P1_Size
    * Referenced by: '<Root>/Analog output '
    */
@@ -504,6 +524,7 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   14.0,
 
+<<<<<<< HEAD
   /* Expression: [1]
    * Referenced by: '<Root>/Discrete Filter'
    */
@@ -516,6 +537,25 @@ ATTN_cal_type ATTN_cal_impl = {
 
   /* Expression: 0
    * Referenced by: '<Root>/Discrete Filter'
+=======
+  /* Expression: 0
+   * Referenced by:
+   */
+  0.0,
+
+  /* Expression: 0
+   * Referenced by:
+   */
+  0.0,
+
+  /* Expression: 0
+   * Referenced by:
+   */
+  0.0,
+
+  /* Expression: 0
+   * Referenced by:
+>>>>>>> ATTN_integration
    */
   0.0
 };

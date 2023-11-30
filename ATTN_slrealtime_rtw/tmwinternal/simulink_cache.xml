@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <MF0 version="1.1" packageUris="http://schema.mathworks.com/mf0/SlCache/19700101">
+<<<<<<< HEAD
   <slcache.FileAttributes type="slcache.FileAttributes" uuid="1ddbe700-1354-4e44-b765-9b1353056480">
     <checksum>Jyt8lieGIlAhVEY2hNu7DPYf5/krSKA701W89iGRVBw57E9KqE4r4lZ/YdplADfi/O6B7p/fazr1qDBb3CL7Ew==</checksum>
+=======
+  <slcache.FileAttributes type="slcache.FileAttributes" uuid="2a8aff9a-2a72-4430-8bba-3a3bcbf1df71">
+    <checksum>96RdIXz5CacmrjwIsozsNs2m0ToNBs78fVyUI5Qv+ZmIJruUBF4VpfR6rE2WdlNsW3k18OQQJ6WZFhnyugTMDA==</checksum>
+>>>>>>> ATTN_integration
   </slcache.FileAttributes>
 </MF0>
