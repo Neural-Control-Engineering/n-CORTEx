@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.353
+ * Model version              : 1.371
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Tue Nov 28 13:13:38 2023
+ * C++ source code generated on : Wed Nov 29 20:50:32 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -549,8 +549,13 @@ void JOLT_step(void)
     sfcnOutputs(rts,0);
   }
 
+  /* Product: '<Root>/Product' incorporates:
+   *  Constant: '<Root>/Constant5'
+   */
+  JOLT_B.Product = JOLT_B.stim_raw * JOLT_cal->Constant5_Value;
+
   /* DiscreteFilter: '<Root>/Discrete Filter' */
-  baseAvg = JOLT_B.stim_raw;
+  baseAvg = JOLT_B.Product;
   baseAvg /= JOLT_cal->DiscreteFilter_DenCoef;
   JOLT_DW.DiscreteFilter_tmp = baseAvg;
   baseAvg = JOLT_cal->DiscreteFilter_NumCoef[0] * JOLT_DW.DiscreteFilter_tmp;
@@ -578,10 +583,10 @@ void JOLT_step(void)
   /* Product: '<S10>/Product' incorporates:
    *  Constant: '<S10>/Constant2'
    */
-  JOLT_B.Product = JOLT_cal->Constant2_Value * JOLT_B.Add1;
+  JOLT_B.Product_o = JOLT_cal->Constant2_Value * JOLT_B.Add1;
 
   /* DataTypeConversion: '<S10>/Data Type Conversion' */
-  baseAvg = std::ceil(JOLT_B.Product);
+  baseAvg = std::ceil(JOLT_B.Product_o);
   if (rtIsNaN(baseAvg) || rtIsInf(baseAvg)) {
     baseAvg = 0.0;
   } else {
@@ -597,7 +602,7 @@ void JOLT_step(void)
   /* Sum: '<S10>/Add' incorporates:
    *  Constant: '<S10>/Constant5'
    */
-  JOLT_B.Add = JOLT_cal->Constant5_Value + static_cast<real_T>
+  JOLT_B.Add = JOLT_cal->Constant5_Value_k + static_cast<real_T>
     (JOLT_B.convertedMonofil);
 
   /* Delay: '<Root>/Delay' */

@@ -304,6 +304,15 @@ struct ATTN_cal_type {
   real_T Digitalinput_P4;              /* Expression: parDiChannels
                                         * Referenced by: '<Root>/Digital input '
                                         */
+  real_T DiscreteFilter_NumCoef;       /* Expression: [1]
+                                        * Referenced by: '<Root>/Discrete Filter'
+                                        */
+  real_T DiscreteFilter_DenCoef[2];    /* Expression: [1 0.1]
+                                        * Referenced by: '<Root>/Discrete Filter'
+                                        */
+  real_T DiscreteFilter_InitialStates; /* Expression: 0
+                                        * Referenced by: '<Root>/Discrete Filter'
+                                        */
 };
 
 /* Storage class 'PageSwitching' */

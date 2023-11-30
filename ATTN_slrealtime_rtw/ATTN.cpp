@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.441
+ * Model version              : 1.451
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Tue Nov 28 08:59:33 2023
+ * C++ source code generated on : Wed Nov 29 15:48:43 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -916,11 +916,11 @@ void ATTN_step(void)
       ATTN_B.trialNum_out = 1.0;
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
-      ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
+      ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
       ATTN_B.numLicks_out = 0.0;
       ATTN_B.reward_trigger_out = 1.0;
       ATTN_B.was_target_out = 0.0;
-      ATTN_B.reward_duration_out = 0.5;
+      ATTN_B.reward_duration_out = 0.02;
       ATTN_B.state_out = 2.0;
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
       ATTN_B.onsetTone_trig = 0.0;
@@ -929,12 +929,12 @@ void ATTN_step(void)
         ATTN_B.state_out = ATTN_B.Memory2;
         ATTN_B.reward_trigger_out = 0.0;
         ATTN_B.delay_out = ATTN_B.Memory5;
-        ATTN_B.reward_duration_out = 0.5;
+        ATTN_B.reward_duration_out = 0.02;
       } else {
         ATTN_B.state_out = ATTN_B.Memory2 + 1.0;
         ATTN_B.reward_trigger_out = 1.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
-        ATTN_B.reward_duration_out = 0.5;
+        ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
+        ATTN_B.reward_duration_out = 0.02;
       }
 
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
@@ -1197,6 +1197,15 @@ void ATTN_step(void)
   }
 
   /* End of Stop: '<Root>/Stop Simulation' */
+  /* DiscreteFilter: '<Root>/Discrete Filter' */
+  b_y1 = ATTN_B.Analoginput_o2;
+  b_y1 -= ATTN_cal->DiscreteFilter_DenCoef[1] * ATTN_DW.DiscreteFilter_states;
+  b_y1 /= ATTN_cal->DiscreteFilter_DenCoef[0];
+  ATTN_DW.DiscreteFilter_tmp = b_y1;
+  b_y1 = ATTN_cal->DiscreteFilter_NumCoef * ATTN_DW.DiscreteFilter_tmp;
+
+  /* DiscreteFilter: '<Root>/Discrete Filter' */
+  ATTN_B.DiscreteFilter = b_y1;
 
   /* Update for Memory: '<Root>/Memory8' */
   ATTN_DW.Memory8_PreviousInput = ATTN_B.right_trigger_out;
@@ -1233,6 +1242,9 @@ void ATTN_step(void)
 
   /* Update for Memory: '<Root>/Memory10' */
   ATTN_DW.Memory10_PreviousInput = ATTN_B.was_target_out;
+
+  /* Update for DiscreteFilter: '<Root>/Discrete Filter' */
+  ATTN_DW.DiscreteFilter_states = ATTN_DW.DiscreteFilter_tmp;
 
   /* Update absolute time for base rate */
   /* The "clockTick0" counts the number of times the code of this task has
@@ -2425,6 +2437,9 @@ void ATTN_initialize(void)
 
     /* InitializeConditions for DiscretePulseGenerator: '<Root>/Pupil Trig' */
     ATTN_DW.clockTickCounter_c = 0;
+
+    /* InitializeConditions for DiscreteFilter: '<Root>/Discrete Filter' */
+    ATTN_DW.DiscreteFilter_states = ATTN_cal->DiscreteFilter_InitialStates;
 
     /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function1' */
     ATTN_DW.sfEvent_b = ATTN_CALL_EVENT_n;

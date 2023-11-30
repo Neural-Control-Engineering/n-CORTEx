@@ -1,6 +1,6 @@
 % Bandpass filter design parameters
-low_freq = 0.1;  % Lower cutoff frequency in Hz
-high_freq = 7;  % Upper cutoff frequency in Hz
+low_freq = 0.2;  % Lower cutoff frequency in Hz
+high_freq = 5;  % Upper cutoff frequency in Hz
 sampling_rate = 1000;  % Sampling rate in Hz
 filter_order = 500;  % Filter order (an even number for linear phase)
 

@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.353
+ * Model version              : 1.371
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Tue Nov 28 13:13:38 2023
+ * C++ source code generated on : Wed Nov 29 20:50:32 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -146,7 +146,6 @@ struct DW_MATLABFunction4_JOLT_T {
 /* Block signals (default storage) */
 struct B_JOLT_T {
   real_T Memory2[8000];                /* '<Root>/Memory2' */
-  real_T monofilBaseBuffer_out[8000];  /* '<Root>/MATLAB Function1' */
   real_T x_data[8000];
   real_T absdiff_data[8000];
   real_T TCPServer;                    /* '<Root>/TCP Server' */
@@ -158,9 +157,10 @@ struct B_JOLT_T {
   real_T Clock_j;                      /* '<S7>/Clock' */
   real_T stim_raw;                     /* '<Root>/Analog input ' */
   real_T rawMonofilData;               /* '<Root>/Analog input ' */
+  real_T Product;                      /* '<Root>/Product' */
   real_T stim_filt;                    /* '<Root>/Discrete Filter' */
   real_T Add1;                         /* '<S10>/Add1' */
-  real_T Product;                      /* '<S10>/Product' */
+  real_T Product_o;                    /* '<S10>/Product' */
   real_T Add;                          /* '<S10>/Add' */
   real_T npxlsAcqCutoff;               /* '<Root>/Delay' */
   real_T Clock_a;                      /* '<S9>/Clock' */
@@ -179,6 +179,7 @@ struct B_JOLT_T {
   real_T npxlsAcq_out;                 /* '<Root>/MATLAB Function1' */
   real_T restingAcq;                   /* '<Root>/MATLAB Function1' */
   real_T stimSig_sel;                  /* '<Root>/MATLAB Function1' */
+  real_T monofilBaseBuffer_out[8000];  /* '<Root>/MATLAB Function1' */
   real_T baseAvg;                      /* '<Root>/MATLAB Function1' */
   real_T changeAvg;                    /* '<Root>/MATLAB Function1' */
   real_T baseBuffLen;                  /* '<Root>/MATLAB Function1' */

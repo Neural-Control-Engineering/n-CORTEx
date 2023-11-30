@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.441
+ * Model version              : 1.451
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Tue Nov 28 08:59:33 2023
+ * C++ source code generated on : Wed Nov 29 15:48:43 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -161,6 +161,7 @@ struct B_ATTN_T {
   real_T PulseGen1Hz;                  /* '<Root>/Digital input ' */
   real_T HiddenRateTransitionForToWks_In;
   /* '<Root>/HiddenRateTransitionForToWks_InsertedFor_TAQSigLogging_InsertedFor_Digital input _at_outport_0_at_inport_0' */
+  real_T DiscreteFilter;               /* '<Root>/Discrete Filter' */
   real_T tonePulse;                    /* '<S6>/MATLAB Function1' */
   real_T y;                            /* '<S5>/MATLAB Function1' */
   real_T Lick;                         /* '<Root>/MATLAB Function1' */
@@ -187,6 +188,7 @@ struct B_ATTN_T {
 
 /* Block states (default storage) for system '<Root>' */
 struct DW_ATTN_T {
+  real_T DiscreteFilter_states;        /* '<Root>/Discrete Filter' */
   real_T Memory8_PreviousInput;        /* '<Root>/Memory8' */
   real_T Memory2_PreviousInput;        /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
@@ -199,6 +201,7 @@ struct DW_ATTN_T {
   real_T Memory5_PreviousInput;        /* '<Root>/Memory5' */
   real_T Memory6_PreviousInput;        /* '<Root>/Memory6' */
   real_T Memory10_PreviousInput;       /* '<Root>/Memory10' */
+  real_T DiscreteFilter_tmp;           /* '<Root>/Discrete Filter' */
   real_T t0;                           /* '<S6>/MATLAB Function1' */
   real_T t0_p;                         /* '<S5>/MATLAB Function1' */
   real_T Setup_RWORK[2];               /* '<Root>/Setup ' */
@@ -298,6 +301,10 @@ struct DW_ATTN_T {
   struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_MAT_a;   /* synthesized block */
+
+  struct {
+    void *LoggedData;
+  } Scope1_PWORK;                      /* '<Root>/Scope1' */
 
   int32_T clockTickCounter;            /* '<Root>/Whisker Trig' */
   int32_T clockTickCounter_n;          /* '<Root>/Npxls Trig' */

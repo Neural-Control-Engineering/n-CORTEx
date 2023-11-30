@@ -26,7 +26,7 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: maxFrame
    * Referenced by: '<Root>/Constant'
    */
-  20000.0,
+  600000.0,
 
   /* Variable: rewardDuration
    * Referenced by: '<Root>/rewardDuration'
@@ -41,7 +41,7 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: trainingStage
    * Referenced by: '<Root>/trainingStage'
    */
-  2.0,
+  111.0,
 
   /* Variable: triangleAmplitude
    * Referenced by: '<Root>/triangleAmplitude'
@@ -502,7 +502,22 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Expression: parDiChannels
    * Referenced by: '<Root>/Digital input '
    */
-  14.0
+  14.0,
+
+  /* Expression: [1]
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  1.0,
+
+  /* Expression: [1 0.1]
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  { 1.0, 0.1 },
+
+  /* Expression: 0
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  0.0
 };
 
 ATTN_cal_type *ATTN_cal = &ATTN_cal_impl;
