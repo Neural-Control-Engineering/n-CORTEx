@@ -7,15 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
-<<<<<<< HEAD
- * Model version              : 1.451
+ * Model version              : 1.455
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Nov 29 15:48:43 2023
-=======
- * Model version              : 1.464
- * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Thu Nov 30 09:52:34 2023
->>>>>>> ATTN_integration
+ * C++ source code generated on : Fri Dec  1 09:35:43 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -28,13 +22,8 @@
 #define RTW_HEADER_ATTN_private_h_
 #include "rtwtypes.h"
 #include "multiword_types.h"
-<<<<<<< HEAD
 #include "ATTN.h"
 #include "ATTN_types.h"
-=======
-#include "ATTN_types.h"
-#include "ATTN.h"
->>>>>>> ATTN_integration
 
 /* Private macros used by the generated code to access rtModel */
 #ifndef rtmIsMajorTimeStep
@@ -59,12 +48,9 @@ extern "C" void sg_IO191_ad_s(SimStruct *rts);
 extern "C" void sg_IO191_da_s(SimStruct *rts);
 extern "C" void sg_IO191_do_s(SimStruct *rts);
 extern "C" void sg_IO191_di_s(SimStruct *rts);
-<<<<<<< HEAD
 extern void ATTN_MATLABFunction2_Init(DW_MATLABFunction2_ATTN_T *localDW);
 extern void ATTN_MATLABFunction2(real_T rtu_trigger, real_T rtu_duration, real_T
   rtu_amp, real_T rtu_t, B_MATLABFunction2_ATTN_T *localB,
   DW_MATLABFunction2_ATTN_T *localDW);
-=======
->>>>>>> ATTN_integration
 
 #endif                                 /* RTW_HEADER_ATTN_private_h_ */

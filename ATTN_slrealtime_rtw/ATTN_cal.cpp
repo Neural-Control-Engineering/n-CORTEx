@@ -26,11 +26,7 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: maxFrame
    * Referenced by: '<Root>/Constant'
    */
-<<<<<<< HEAD
   600000.0,
-=======
-  120000.0,
->>>>>>> ATTN_integration
 
   /* Variable: rewardDuration
    * Referenced by: '<Root>/rewardDuration'
@@ -40,17 +36,17 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: targetSide
    * Referenced by: '<Root>/targetSide'
    */
-  1.0,
+  0.0,
 
   /* Variable: trainingStage
    * Referenced by: '<Root>/trainingStage'
    */
-  111.0,
+  1.0,
 
   /* Variable: triangleAmplitude
    * Referenced by: '<Root>/triangleAmplitude'
    */
-  5.0,
+  10.0,
 
   /* Variable: triangleDuration
    * Referenced by: '<Root>/triangleDuration'
@@ -58,11 +54,7 @@ ATTN_cal_type ATTN_cal_impl = {
   0.1,
 
   /* Expression: 0
-<<<<<<< HEAD
    * Referenced by: '<Root>/Memory8'
-=======
-   * Referenced by: '<Root>/Memory6'
->>>>>>> ATTN_integration
    */
   0.0,
 
@@ -261,6 +253,21 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   { 1.0, 1.0 },
 
+  /* Expression: [1]
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  1.0,
+
+  /* Expression: [1 0.004]
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  { 1.0, 0.004 },
+
+  /* Expression: 0
+   * Referenced by: '<Root>/Discrete Filter'
+   */
+  0.0,
+
   /* Expression: 0.15
    * Referenced by: '<Root>/Thrd'
    */
@@ -297,11 +304,7 @@ ATTN_cal_type ATTN_cal_impl = {
   0.0,
 
   /* Expression: 0
-<<<<<<< HEAD
    * Referenced by: '<Root>/Memory6'
-=======
-   * Referenced by: '<Root>/Memory8'
->>>>>>> ATTN_integration
    */
   0.0,
 
@@ -310,14 +313,6 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   0.0,
 
-<<<<<<< HEAD
-=======
-  /* Expression: 0
-   * Referenced by:
-   */
-  0.0,
-
->>>>>>> ATTN_integration
   /* Computed Parameter: Analogoutput_P1_Size
    * Referenced by: '<Root>/Analog output '
    */
@@ -522,42 +517,7 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Expression: parDiChannels
    * Referenced by: '<Root>/Digital input '
    */
-  14.0,
-
-<<<<<<< HEAD
-  /* Expression: [1]
-   * Referenced by: '<Root>/Discrete Filter'
-   */
-  1.0,
-
-  /* Expression: [1 0.1]
-   * Referenced by: '<Root>/Discrete Filter'
-   */
-  { 1.0, 0.1 },
-
-  /* Expression: 0
-   * Referenced by: '<Root>/Discrete Filter'
-=======
-  /* Expression: 0
-   * Referenced by:
-   */
-  0.0,
-
-  /* Expression: 0
-   * Referenced by:
-   */
-  0.0,
-
-  /* Expression: 0
-   * Referenced by:
-   */
-  0.0,
-
-  /* Expression: 0
-   * Referenced by:
->>>>>>> ATTN_integration
-   */
-  0.0
+  14.0
 };
 
 ATTN_cal_type *ATTN_cal = &ATTN_cal_impl;

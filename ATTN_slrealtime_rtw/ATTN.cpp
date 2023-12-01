@@ -7,15 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
-<<<<<<< HEAD
- * Model version              : 1.451
+ * Model version              : 1.455
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Nov 29 15:48:43 2023
-=======
- * Model version              : 1.464
- * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Thu Nov 30 09:52:34 2023
->>>>>>> ATTN_integration
+ * C++ source code generated on : Fri Dec  1 09:35:43 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -26,18 +20,10 @@
 
 #include "ATTN.h"
 #include "rtwtypes.h"
-<<<<<<< HEAD
 #include "ATTN_private.h"
 #include "ATTN_cal.h"
 #include <cstring>
 #include <cmath>
-=======
-#include "crl_mutex.hpp"
-#include "ATTN_cal.h"
-#include <cstring>
-#include <cmath>
-#include "ATTN_private.h"
->>>>>>> ATTN_integration
 
 extern "C"
 {
@@ -46,16 +32,11 @@ extern "C"
 
 }
 
-<<<<<<< HEAD
 /* Named constants for MATLAB Function: '<S3>/MATLAB Function2' */
 const int32_T ATTN_CALL_EVENT = -1;
 
 /* Named constants for MATLAB Function: '<Root>/MATLAB Function' */
 const int32_T ATTN_CALL_EVENT_n = -1;
-=======
-/* Named constants for MATLAB Function: '<Root>/MATLAB Function' */
-const int32_T ATTN_CALL_EVENT = -1;
->>>>>>> ATTN_integration
 const real_T ATTN_RGND = 0.0;          /* real_T ground */
 
 /* Block signals (default storage) */
@@ -71,7 +52,6 @@ RT_MODEL_ATTN_T *const ATTN_M = &ATTN_M_;
 /* Forward declaration for local functions */
 static real_T ATTN_rand(void);
 
-<<<<<<< HEAD
 /*
  * System initialize for atomic system:
  *    '<S3>/MATLAB Function2'
@@ -127,8 +107,6 @@ void ATTN_MATLABFunction2(real_T rtu_trigger, real_T rtu_duration, real_T
   }
 }
 
-=======
->>>>>>> ATTN_integration
 /* Function for MATLAB Function: '<Root>/MATLAB Function' */
 static real_T ATTN_rand(void)
 {
@@ -292,7 +270,6 @@ static real_T ATTN_rand(void)
   return r;
 }
 
-<<<<<<< HEAD
 /* Model step function */
 void ATTN_step(void)
 {
@@ -300,26 +277,6 @@ void ATTN_step(void)
 
   /* Memory: '<Root>/Memory8' */
   ATTN_B.Memory8 = ATTN_DW.Memory8_PreviousInput;
-=======
-/* Model step function for TID0 */
-void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
-{
-  real_T increment;
-  real_T tmp;
-  int8_T wrBufIdx;
-
-  /* Update the flag to indicate when data transfers from
-   *  Sample time: [0.001s, 0.0s] to Sample time: [1000.0s, 0.0s]  */
-  ATTN_M->Timing.perTaskSampleHits[5] = (ATTN_M->Timing.RateInteraction.TID1_2 ==
-    0);
-  (ATTN_M->Timing.RateInteraction.TID1_2)++;
-  if ((ATTN_M->Timing.RateInteraction.TID1_2) > 999999) {
-    ATTN_M->Timing.RateInteraction.TID1_2 = 0;
-  }
-
-  /* Memory: '<Root>/Memory6' */
-  ATTN_B.Memory6 = ATTN_DW.Memory6_PreviousInput;
->>>>>>> ATTN_integration
 
   /* Memory: '<Root>/Memory2' */
   ATTN_B.Memory2 = ATTN_DW.Memory2_PreviousInput;
@@ -346,6 +303,16 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
     sfcnOutputs(rts,0);
   }
 
+  /* DiscreteFilter: '<Root>/Discrete Filter' */
+  b_y1 = ATTN_B.lickometer_piezo;
+  b_y1 -= ATTN_cal->DiscreteFilter_DenCoef[1] * ATTN_DW.DiscreteFilter_states;
+  b_y1 /= ATTN_cal->DiscreteFilter_DenCoef[0];
+  ATTN_DW.DiscreteFilter_tmp = b_y1;
+  b_y1 = ATTN_cal->DiscreteFilter_NumCoef * ATTN_DW.DiscreteFilter_tmp;
+
+  /* DiscreteFilter: '<Root>/Discrete Filter' */
+  ATTN_B.DiscreteFilter = b_y1;
+
   /* Memory: '<Root>/Memory11' */
   ATTN_B.Memory11 = ATTN_DW.Memory11_PreviousInput;
 
@@ -355,9 +322,8 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   /* MATLAB Function: '<Root>/MATLAB Function1' incorporates:
    *  Constant: '<Root>/Thrd'
    */
-<<<<<<< HEAD
   ATTN_DW.sfEvent_b = ATTN_CALL_EVENT_n;
-  if (std::abs(ATTN_B.Analoginput_o2) > ATTN_cal->Thrd_Value) {
+  if (std::abs(ATTN_B.DiscreteFilter) > ATTN_cal->Thrd_Value) {
     b_y1 = ATTN_B.Memory11 + 1.0;
     ATTN_B.y2 = ATTN_B.Memory7;
   } else {
@@ -366,29 +332,13 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   }
 
   if ((b_y1 > 20.0) && (ATTN_B.Memory7 == 0.0)) {
-=======
-  ATTN_DW.sfEvent_b = ATTN_CALL_EVENT;
-  if (std::abs(ATTN_B.lick_piezo_signal) > ATTN_cal->Thrd_Value) {
-    increment = ATTN_B.Memory11 + 1.0;
-    ATTN_B.y2 = ATTN_B.Memory7;
-  } else {
-    increment = 0.0;
-    ATTN_B.y2 = 0.0;
-  }
-
-  if ((increment > 20.0) && (ATTN_B.Memory7 == 0.0)) {
->>>>>>> ATTN_integration
     ATTN_B.Lick = 1.0;
     ATTN_B.y2 = 1.0;
   } else {
     ATTN_B.Lick = 0.0;
   }
 
-<<<<<<< HEAD
   ATTN_B.y1 = b_y1;
-=======
-  ATTN_B.y1 = increment;
->>>>>>> ATTN_integration
 
   /* End of MATLAB Function: '<Root>/MATLAB Function1' */
 
@@ -407,13 +357,8 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   /* Memory: '<Root>/Memory5' */
   ATTN_B.Memory5 = ATTN_DW.Memory5_PreviousInput;
 
-<<<<<<< HEAD
   /* Memory: '<Root>/Memory6' */
   ATTN_B.Memory6 = ATTN_DW.Memory6_PreviousInput;
-=======
-  /* Memory: '<Root>/Memory8' */
-  ATTN_B.Memory8 = ATTN_DW.Memory8_PreviousInput;
->>>>>>> ATTN_integration
 
   /* Memory: '<Root>/Memory10' */
   ATTN_B.Memory10 = ATTN_DW.Memory10_PreviousInput;
@@ -424,11 +369,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
    *  Constant: '<Root>/trainingStage'
    *  Constant: '<Root>/triangleDuration'
    */
-<<<<<<< HEAD
   ATTN_DW.sfEvent_e = ATTN_CALL_EVENT_n;
-=======
-  ATTN_DW.sfEvent_e = ATTN_CALL_EVENT;
->>>>>>> ATTN_integration
   ATTN_B.counter_out = ATTN_B.Memory4 + 1.0;
   switch (static_cast<int32_T>(ATTN_cal->trainingStage)) {
    case 1:
@@ -441,7 +382,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
       ATTN_B.numLicks_out = 0.0;
-<<<<<<< HEAD
       b_y1 = 4.0;
       while ((b_y1 >= 9.0) || (b_y1 <= 5.0)) {
         b_y1 = ATTN_rand();
@@ -454,20 +394,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.was_target_out = 0.0;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      increment = 4.0;
-      while ((increment >= 9.0) || (increment <= 5.0)) {
-        increment = ATTN_rand();
-        increment = std::log(increment);
-        increment *= -7.0;
-      }
-
-      ATTN_B.delay_out = ATTN_B.clock_time + increment;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.was_target_out = 0.0;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -488,11 +414,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -527,11 +449,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.numLicks_out = ATTN_B.Memory9;
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -556,11 +474,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -576,11 +490,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.left_trigger_out = ATTN_B.Memory6;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -601,11 +511,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -621,11 +527,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
     }
@@ -641,7 +543,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
       ATTN_B.numLicks_out = 0.0;
-<<<<<<< HEAD
       b_y1 = 4.0;
       while ((b_y1 >= 9.0) || (b_y1 <= 5.0)) {
         b_y1 = ATTN_rand();
@@ -654,20 +555,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      increment = 4.0;
-      while ((increment >= 9.0) || (increment <= 5.0)) {
-        increment = ATTN_rand();
-        increment = std::log(increment);
-        increment *= -7.0;
-      }
-
-      ATTN_B.delay_out = ATTN_B.clock_time + increment;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.was_target_out = ATTN_B.Memory10;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -688,7 +575,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
       ATTN_B.onsetTone_trig = 0.0;
       break;
@@ -888,9 +774,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -925,60 +808,33 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.numLicks_out = ATTN_B.Memory9;
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
      case 4:
-<<<<<<< HEAD
       if (ATTN_B.clock_time < ATTN_B.Memory5) {
         ATTN_B.state_out = ATTN_B.Memory2;
         ATTN_B.delay_out = ATTN_B.Memory5;
       } else {
         ATTN_B.state_out = 5.0;
         ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
-=======
-      if (ATTN_B.Lick != 0.0) {
-        ATTN_B.state_out = 7.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else if (ATTN_B.clock_time < ATTN_B.Memory5) {
-        ATTN_B.state_out = ATTN_B.Memory2;
-        ATTN_B.delay_out = ATTN_B.Memory5;
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      } else {
-        ATTN_B.state_out = 5.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 1.5;
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
->>>>>>> ATTN_integration
       }
 
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
       ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
       ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-<<<<<<< HEAD
       ATTN_B.numLicks_out = ATTN_B.Memory9;
-=======
->>>>>>> ATTN_integration
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
      case 5:
-<<<<<<< HEAD
       if ((ATTN_B.Memory10 != 0.0) && (ATTN_rand() < 0.2)) {
         ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
       } else if ((!(ATTN_B.Memory10 != 0.0)) && (ATTN_rand() < 0.001)) {
@@ -993,20 +849,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
         ATTN_B.state_out = 6.0;
       } else {
         ATTN_B.state_out = 1.0;
-=======
-      if ((ATTN_B.Lick != 0.0) && (ATTN_B.Memory10 != 0.0)) {
-        ATTN_B.state_out = 6.0;
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else if ((ATTN_B.Lick != 0.0) && (ATTN_B.clock_time < ATTN_B.Memory5)) {
-        ATTN_B.state_out = ATTN_B.Memory2;
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else if (ATTN_B.clock_time < ATTN_B.Memory5) {
-        ATTN_B.state_out = ATTN_B.Memory2;
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      } else {
-        ATTN_B.state_out = 1.0;
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
->>>>>>> ATTN_integration
       }
 
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
@@ -1018,11 +860,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.left_trigger_out = ATTN_B.Memory6;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -1033,25 +871,12 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
       ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
       ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-<<<<<<< HEAD
       ATTN_B.numLicks_out = ATTN_B.Memory9;
-=======
-      if (ATTN_B.Lick != 0.0) {
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else {
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      }
-
->>>>>>> ATTN_integration
       ATTN_B.right_trigger_out = ATTN_B.Memory8;
       ATTN_B.left_trigger_out = ATTN_B.Memory6;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -1067,25 +892,12 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
       ATTN_B.left_trigger_out = ATTN_B.Memory6;
       ATTN_B.right_trigger_out = ATTN_B.Memory8;
-<<<<<<< HEAD
       ATTN_B.numLicks_out = ATTN_B.Memory9;
-=======
-      if (ATTN_B.Lick != 0.0) {
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else {
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      }
-
->>>>>>> ATTN_integration
       ATTN_B.delay_out = ATTN_B.Memory5;
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
 
@@ -1101,224 +913,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
-      ATTN_B.onsetTone_trig = 0.0;
-      break;
-    }
-    break;
-
-   case 3:
-    switch (static_cast<int32_T>(ATTN_B.Memory2)) {
-     case 1:
-      ATTN_B.npxlsAcq_out = 1.0;
-      ATTN_B.state_out = 2.0;
-      ATTN_B.localTime_out = 1.0;
-      ATTN_B.trialNum_out = 1.0;
-      ATTN_B.right_trigger_out = 0.0;
-      ATTN_B.left_trigger_out = 0.0;
-      if ((!(ATTN_B.Memory10 != 0.0)) && (!(ATTN_B.Memory9 != 0.0))) {
-        increment = 1.0;
-        while ((increment >= 4.0) || (increment <= 2.0)) {
-          increment = ATTN_rand();
-          increment = std::log(increment);
-          increment *= -3.0;
-        }
-
-        ATTN_B.delay_out = ATTN_B.clock_time + increment;
-      } else {
-        increment = 4.0;
-        while ((increment >= 9.0) || (increment <= 5.0)) {
-          increment = ATTN_rand();
-          increment = std::log(increment);
-          increment *= -7.0;
-        }
-
-        ATTN_B.delay_out = ATTN_B.clock_time + increment;
-      }
-
-      ATTN_B.numLicks_out = 0.0;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.was_target_out = 0.0;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
-      ATTN_B.onsetTone_trig = 0.0;
-      break;
-
-     case 2:
-      if (ATTN_B.clock_time < ATTN_B.Memory5) {
-        ATTN_B.state_out = ATTN_B.Memory2;
-      } else {
-        ATTN_B.state_out = 3.0;
-      }
-
-      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
-      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
-      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-      ATTN_B.right_trigger_out = ATTN_B.Memory8;
-      ATTN_B.left_trigger_out = ATTN_B.Memory6;
-      ATTN_B.numLicks_out = ATTN_B.Memory9;
-      ATTN_B.delay_out = ATTN_B.Memory5;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.was_target_out = ATTN_B.Memory10;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
-      ATTN_B.onsetTone_trig = 0.0;
-      break;
-
-     case 3:
-      if (ATTN_rand() <= 0.8) {
-        if (ATTN_cal->targetSide != 0.0) {
-          ATTN_B.right_trigger_out = 1.0;
-          ATTN_B.left_trigger_out = 0.0;
-        } else {
-          ATTN_B.left_trigger_out = 1.0;
-          ATTN_B.right_trigger_out = 0.0;
-        }
-
-        ATTN_B.was_target_out = 0.0;
-      } else {
-        if (ATTN_cal->targetSide != 0.0) {
-          ATTN_B.left_trigger_out = 1.0;
-          ATTN_B.right_trigger_out = 0.0;
-        } else {
-          ATTN_B.right_trigger_out = 1.0;
-          ATTN_B.left_trigger_out = 0.0;
-        }
-
-        ATTN_B.was_target_out = 1.0;
-      }
-
-      ATTN_B.state_out = 4.0;
-      ATTN_B.delay_out = ATTN_B.clock_time + 0.2;
-      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
-      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
-      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-      ATTN_B.numLicks_out = ATTN_B.Memory9;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
-      ATTN_B.onsetTone_trig = 0.0;
-      break;
-
-     case 4:
-      if (ATTN_B.Lick != 0.0) {
-        ATTN_B.state_out = 7.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else if (ATTN_B.clock_time < ATTN_B.Memory5) {
-        ATTN_B.state_out = ATTN_B.Memory2;
-        ATTN_B.delay_out = ATTN_B.Memory5;
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      } else {
-        ATTN_B.state_out = 5.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      }
-
-      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
-      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
-      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.left_trigger_out = 0.0;
-      ATTN_B.right_trigger_out = 0.0;
-      ATTN_B.was_target_out = ATTN_B.Memory10;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
-      ATTN_B.onsetTone_trig = 0.0;
-      break;
-
-     case 5:
-      if ((ATTN_B.Lick != 0.0) && (ATTN_B.Memory10 != 0.0)) {
-        ATTN_B.state_out = 6.0;
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else if ((ATTN_B.Lick != 0.0) && (ATTN_B.clock_time < ATTN_B.Memory5)) {
-        ATTN_B.state_out = ATTN_B.Memory2;
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else if (ATTN_B.clock_time < ATTN_B.Memory5) {
-        ATTN_B.state_out = ATTN_B.Memory2;
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      } else {
-        ATTN_B.state_out = 1.0;
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      }
-
-      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
-      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
-      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-      ATTN_B.right_trigger_out = ATTN_B.Memory8;
-      ATTN_B.delay_out = ATTN_B.Memory5;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.left_trigger_out = ATTN_B.Memory6;
-      ATTN_B.was_target_out = ATTN_B.Memory10;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
-      ATTN_B.onsetTone_trig = 0.0;
-      break;
-
-     case 6:
-      ATTN_B.reward_trigger_out = 1.0;
-      ATTN_B.state_out = 7.0;
-      ATTN_B.delay_out = ATTN_B.clock_time + 0.5;
-      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
-      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
-      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-      if (ATTN_B.Lick != 0.0) {
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else {
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      }
-
-      ATTN_B.right_trigger_out = ATTN_B.Memory8;
-      ATTN_B.left_trigger_out = ATTN_B.Memory6;
-      ATTN_B.was_target_out = ATTN_B.Memory10;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
-      ATTN_B.onsetTone_trig = 0.0;
-      break;
-
-     case 7:
-      if (ATTN_B.clock_time < ATTN_B.Memory5) {
-        ATTN_B.state_out = ATTN_B.Memory2;
-      } else {
-        ATTN_B.state_out = 1.0;
-      }
-
-      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
-      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
-      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-      ATTN_B.left_trigger_out = ATTN_B.Memory6;
-      ATTN_B.right_trigger_out = ATTN_B.Memory8;
-      if (ATTN_B.Lick != 0.0) {
-        ATTN_B.numLicks_out = ATTN_B.Memory9 + 1.0;
-      } else {
-        ATTN_B.numLicks_out = ATTN_B.Memory9;
-      }
-
-      ATTN_B.delay_out = ATTN_B.Memory5;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.was_target_out = ATTN_B.Memory10;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
-      ATTN_B.onsetTone_trig = 0.0;
-      break;
-
-     default:
-      ATTN_B.state_out = ATTN_B.Memory2;
-      ATTN_B.localTime_out = ATTN_B.Memory1;
-      ATTN_B.trialNum_out = ATTN_B.Memory;
-      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
-      ATTN_B.left_trigger_out = ATTN_B.Memory6;
-      ATTN_B.right_trigger_out = ATTN_B.Memory8;
-      ATTN_B.numLicks_out = ATTN_B.Memory9;
-      ATTN_B.delay_out = ATTN_B.Memory5;
-      ATTN_B.reward_trigger_out = 0.0;
-      ATTN_B.was_target_out = ATTN_B.Memory10;
-      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
       break;
     }
@@ -1331,7 +926,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.trialNum_out = 1.0;
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
-<<<<<<< HEAD
       ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
       ATTN_B.numLicks_out = 0.0;
       ATTN_B.reward_trigger_out = 1.0;
@@ -1339,36 +933,18 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.reward_duration_out = 0.02;
       ATTN_B.state_out = 2.0;
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.delay_out = ATTN_B.clock_time + 5.0;
-      ATTN_B.numLicks_out = 0.0;
-      ATTN_B.reward_trigger_out = 1.0;
-      ATTN_B.was_target_out = 0.0;
-      ATTN_B.reward_duration_out = 0.05;
-      ATTN_B.state_out = 2.0;
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
     } else {
       if (ATTN_B.clock_time < ATTN_B.Memory5) {
         ATTN_B.state_out = ATTN_B.Memory2;
         ATTN_B.reward_trigger_out = 0.0;
         ATTN_B.delay_out = ATTN_B.Memory5;
-<<<<<<< HEAD
         ATTN_B.reward_duration_out = 0.02;
       } else {
         ATTN_B.state_out = ATTN_B.Memory2 + 1.0;
         ATTN_B.reward_trigger_out = 1.0;
         ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
         ATTN_B.reward_duration_out = 0.02;
-=======
-        ATTN_B.reward_duration_out = 0.05;
-      } else {
-        ATTN_B.state_out = ATTN_B.Memory2 + 1.0;
-        ATTN_B.reward_trigger_out = 1.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 5.0;
-        ATTN_B.reward_duration_out = 0.05;
->>>>>>> ATTN_integration
       }
 
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
@@ -1378,11 +954,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.right_trigger_out = ATTN_B.Memory8;
       ATTN_B.numLicks_out = ATTN_B.Memory9;
       ATTN_B.was_target_out = ATTN_B.Memory10;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
     }
     break;
@@ -1406,11 +978,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.was_target_out = 0.0;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
       ATTN_B.state_out = 2.0;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
     } else {
       if (ATTN_B.clock_time < ATTN_B.Memory5) {
@@ -1437,11 +1005,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.numLicks_out = ATTN_B.Memory9;
       ATTN_B.was_target_out = ATTN_B.Memory10;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
-=======
-      ATTN_B.stim_duration_out_a = ATTN_cal->triangleDuration;
->>>>>>> ATTN_integration
       ATTN_B.onsetTone_trig = 0.0;
     }
     break;
@@ -1463,11 +1027,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
       ATTN_B.numLicks_out = 0.0;
       ATTN_B.reward_trigger_out = 0.0;
       ATTN_B.was_target_out = 0.0;
-<<<<<<< HEAD
       ATTN_B.stim_duration_out = 0.05;
-=======
-      ATTN_B.stim_duration_out_a = 0.05;
->>>>>>> ATTN_integration
       ATTN_B.state_out = 2.0;
       ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
       ATTN_B.onsetTone_trig = 0.0;
@@ -1477,11 +1037,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
         ATTN_B.delay_out = ATTN_B.Memory5;
         ATTN_B.left_trigger_out = 0.0;
         ATTN_B.right_trigger_out = 0.0;
-<<<<<<< HEAD
         ATTN_B.stim_duration_out = (ATTN_B.Memory2 - 1.0) * 0.05;
-=======
-        ATTN_B.stim_duration_out_a = (ATTN_B.Memory2 - 1.0) * 0.05;
->>>>>>> ATTN_integration
       } else {
         ATTN_B.state_out = ATTN_B.Memory2 + 1.0;
         ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
@@ -1493,11 +1049,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
           ATTN_B.right_trigger_out = 0.0;
         }
 
-<<<<<<< HEAD
         ATTN_B.stim_duration_out = 0.05 * ATTN_B.Memory2;
-=======
-        ATTN_B.stim_duration_out_a = 0.05 * ATTN_B.Memory2;
->>>>>>> ATTN_integration
       }
 
       ATTN_B.reward_trigger_out = 0.0;
@@ -1514,7 +1066,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
 
   /* End of MATLAB Function: '<Root>/MATLAB Function' */
 
-<<<<<<< HEAD
   /* Clock: '<S4>/Clock1' */
   ATTN_B.Clock1 = ATTN_M->Timing.t[0];
 
@@ -1526,60 +1077,15 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
                        &ATTN_B.sf_MATLABFunction1_d,
                        &ATTN_DW.sf_MATLABFunction1_d);
 
-=======
->>>>>>> ATTN_integration
   /* Clock: '<S3>/Clock2' */
   ATTN_B.Clock2 = ATTN_M->Timing.t[0];
 
   /* MATLAB Function: '<S3>/MATLAB Function2' incorporates:
    *  Constant: '<Root>/triangleAmplitude'
    */
-<<<<<<< HEAD
   ATTN_MATLABFunction2(ATTN_B.Memory6, ATTN_B.stim_duration_out,
                        ATTN_cal->triangleAmplitude, ATTN_B.Clock2,
                        &ATTN_B.sf_MATLABFunction2, &ATTN_DW.sf_MATLABFunction2);
-=======
-  ATTN_DW.sfEvent_n = ATTN_CALL_EVENT;
-  increment = ATTN_cal->triangleAmplitude / (ATTN_B.stim_duration_out_a * 1000.0
-    / 2.0);
-  if (ATTN_B.Memory6 != 0.0) {
-    ATTN_DW.t0_b = ATTN_B.Clock2;
-    ATTN_DW.t0_not_empty_d = true;
-    ATTN_B.y_j = 0.0;
-    ATTN_DW.y0_n = 0.0;
-    ATTN_DW.y0_not_empty_n = true;
-  } else if (ATTN_DW.t0_not_empty_d) {
-    tmp = ATTN_B.Clock2 - ATTN_DW.t0_b;
-    if (tmp <= ATTN_B.stim_duration_out_a / 2.0) {
-      ATTN_B.y_j = ATTN_DW.y0_n + increment;
-      ATTN_DW.y0_n = ATTN_B.y_j;
-    } else if (tmp <= ATTN_B.stim_duration_out_a) {
-      ATTN_B.y_j = ATTN_DW.y0_n - increment;
-      increment = ATTN_B.y_j;
-      if (increment > 0.0) {
-        ATTN_B.y_j = increment;
-      } else {
-        ATTN_B.y_j = 0.0;
-      }
-
-      ATTN_DW.y0_n = ATTN_B.y_j;
-    } else {
-      ATTN_B.y_j = 0.0;
-    }
-  } else {
-    ATTN_B.y_j = 0.0;
-  }
-
-  /* End of MATLAB Function: '<S3>/MATLAB Function2' */
-
-  /* RateTransition generated from: '<Root>/Analog output ' */
-  if (ATTN_M->Timing.RateInteraction.TID1_2 == 1) {
-    ATTN_DW.y_RdBufIdx = static_cast<int8_T>(ATTN_DW.y_RdBufIdx == 0);
-  }
-
-  /* RateTransition generated from: '<Root>/Analog output ' */
-  ATTN_B.y = ATTN_DW.y_Buf[ATTN_DW.y_RdBufIdx];
->>>>>>> ATTN_integration
 
   /* S-Function (sg_IO191_da_s): '<Root>/Analog output ' */
 
@@ -1590,17 +1096,10 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   }
 
   /* DiscretePulseGenerator: '<Root>/Whisker Trig' */
-<<<<<<< HEAD
   b_y1 = ATTN_cal->T_whisk / 2.0;
 
   /* DiscretePulseGenerator: '<Root>/Whisker Trig' */
   ATTN_B.whiskCam_trig = (ATTN_DW.clockTickCounter < b_y1) &&
-=======
-  increment = ATTN_cal->T_whisk / 2.0;
-
-  /* DiscretePulseGenerator: '<Root>/Whisker Trig' */
-  ATTN_B.whiskCam_trig = (ATTN_DW.clockTickCounter < increment) &&
->>>>>>> ATTN_integration
     (ATTN_DW.clockTickCounter >= 0) ? ATTN_cal->WhiskerTrig_Amp : 0.0;
 
   /* DiscretePulseGenerator: '<Root>/Whisker Trig' */
@@ -1611,17 +1110,10 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   }
 
   /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
-<<<<<<< HEAD
   b_y1 = ATTN_cal->T_npxls / 2.0;
 
   /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
   ATTN_B.npxls_trig = (ATTN_DW.clockTickCounter_n < b_y1) &&
-=======
-  increment = ATTN_cal->T_npxls / 2.0;
-
-  /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
-  ATTN_B.npxls_trig = (ATTN_DW.clockTickCounter_n < increment) &&
->>>>>>> ATTN_integration
     (ATTN_DW.clockTickCounter_n >= 0) ? ATTN_cal->NpxlsTrig_Amp : 0.0;
 
   /* DiscretePulseGenerator: '<Root>/Npxls Trig' */
@@ -1632,17 +1124,10 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   }
 
   /* DiscretePulseGenerator: '<Root>/Pupil Trig' */
-<<<<<<< HEAD
   b_y1 = ATTN_cal->T_pupil / 2.0;
 
   /* DiscretePulseGenerator: '<Root>/Pupil Trig' */
   ATTN_B.pupilCam_trig = (ATTN_DW.clockTickCounter_c < b_y1) &&
-=======
-  increment = ATTN_cal->T_pupil / 2.0;
-
-  /* DiscretePulseGenerator: '<Root>/Pupil Trig' */
-  ATTN_B.pupilCam_trig = (ATTN_DW.clockTickCounter_c < increment) &&
->>>>>>> ATTN_integration
     (ATTN_DW.clockTickCounter_c >= 0) ? ATTN_cal->PupilTrig_Amp : 0.0;
 
   /* DiscretePulseGenerator: '<Root>/Pupil Trig' */
@@ -1653,16 +1138,11 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   }
 
   /* Clock: '<S5>/Clock1' */
-<<<<<<< HEAD
   ATTN_B.Clock1_b = ATTN_M->Timing.t[0];
-=======
-  ATTN_B.Clock1 = ATTN_M->Timing.t[0];
->>>>>>> ATTN_integration
 
   /* MATLAB Function: '<S5>/MATLAB Function1' incorporates:
    *  Constant: '<S5>/Constant4'
    */
-<<<<<<< HEAD
   ATTN_DW.sfEvent_a = ATTN_CALL_EVENT_n;
   if (ATTN_B.reward_trigger_out != 0.0) {
     ATTN_DW.t0_p = ATTN_B.Clock1_b;
@@ -1676,21 +1156,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
     }
   } else {
     ATTN_B.y = 0.0;
-=======
-  ATTN_DW.sfEvent_a = ATTN_CALL_EVENT;
-  if (ATTN_B.reward_trigger_out != 0.0) {
-    ATTN_DW.t0_p = ATTN_B.Clock1;
-    ATTN_DW.t0_not_empty_p = true;
-    ATTN_B.y_o = ATTN_cal->Constant4_Value;
-  } else if (ATTN_DW.t0_not_empty_p) {
-    if (ATTN_B.Clock1 - ATTN_DW.t0_p <= ATTN_B.reward_duration_out) {
-      ATTN_B.y_o = ATTN_cal->Constant4_Value;
-    } else {
-      ATTN_B.y_o = 0.0;
-    }
-  } else {
-    ATTN_B.y_o = 0.0;
->>>>>>> ATTN_integration
   }
 
   /* End of MATLAB Function: '<S5>/MATLAB Function1' */
@@ -1699,11 +1164,7 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   ATTN_B.Clock1_l = ATTN_M->Timing.t[0];
 
   /* MATLAB Function: '<S6>/MATLAB Function1' */
-<<<<<<< HEAD
   ATTN_DW.sfEvent = ATTN_CALL_EVENT_n;
-=======
-  ATTN_DW.sfEvent = ATTN_CALL_EVENT;
->>>>>>> ATTN_integration
   if (ATTN_B.onsetTone_trig != 0.0) {
     ATTN_B.tonePulse = 1.0;
     ATTN_DW.t0 = ATTN_B.Clock1_l;
@@ -1735,44 +1196,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   /* RateTransition generated from: '<Root>/Digital input ' */
   ATTN_B.HiddenRateTransitionForToWks_In = ATTN_B.PulseGen1Hz;
 
-<<<<<<< HEAD
-=======
-  /* RateTransition generated from: '<S4>/MATLAB Function1' incorporates:
-   *  Constant: '<Root>/triangleAmplitude'
-   */
-  rtw_slrealtime_mutex_lock(ATTN_DW.TmpRTBAtMATLABFunction1Inport_k);
-  wrBufIdx = static_cast<int8_T>(ATTN_DW.TmpRTBAtMATLABFunction1Inpor_oh + 1);
-  if (wrBufIdx == 3) {
-    wrBufIdx = 0;
-  }
-
-  if (wrBufIdx == ATTN_DW.TmpRTBAtMATLABFunction1Inport_b) {
-    wrBufIdx = static_cast<int8_T>(wrBufIdx + 1);
-    if (wrBufIdx == 3) {
-      wrBufIdx = 0;
-    }
-  }
-
-  rtw_slrealtime_mutex_unlock(ATTN_DW.TmpRTBAtMATLABFunction1Inport_k);
-  switch (wrBufIdx) {
-   case 0:
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport3_ = ATTN_cal->triangleAmplitude;
-    break;
-
-   case 1:
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport_f = ATTN_cal->triangleAmplitude;
-    break;
-
-   case 2:
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport_o = ATTN_cal->triangleAmplitude;
-    break;
-  }
-
-  ATTN_DW.TmpRTBAtMATLABFunction1Inpor_oh = wrBufIdx;
-
-  /* End of RateTransition generated from: '<S4>/MATLAB Function1' */
-
->>>>>>> ATTN_integration
   /* RelationalOperator: '<Root>/Relational Operator' incorporates:
    *  Constant: '<Root>/Constant'
    */
@@ -1784,58 +1207,9 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   }
 
   /* End of Stop: '<Root>/Stop Simulation' */
-<<<<<<< HEAD
-  /* DiscreteFilter: '<Root>/Discrete Filter' */
-  b_y1 = ATTN_B.Analoginput_o2;
-  b_y1 -= ATTN_cal->DiscreteFilter_DenCoef[1] * ATTN_DW.DiscreteFilter_states;
-  b_y1 /= ATTN_cal->DiscreteFilter_DenCoef[0];
-  ATTN_DW.DiscreteFilter_tmp = b_y1;
-  b_y1 = ATTN_cal->DiscreteFilter_NumCoef * ATTN_DW.DiscreteFilter_tmp;
-
-  /* DiscreteFilter: '<Root>/Discrete Filter' */
-  ATTN_B.DiscreteFilter = b_y1;
 
   /* Update for Memory: '<Root>/Memory8' */
   ATTN_DW.Memory8_PreviousInput = ATTN_B.right_trigger_out;
-=======
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  if (ATTN_M->Timing.RateInteraction.TID1_2 == 1) {
-    ATTN_DW.stim_duration_out_WrBufIdx = static_cast<int8_T>
-      (ATTN_DW.stim_duration_out_WrBufIdx == 0);
-  }
-
-  ATTN_DW.stim_duration_out_Buf[ATTN_DW.stim_duration_out_WrBufIdx] =
-    ATTN_B.stim_duration_out_a;
-
-  /* End of RateTransition generated from: '<S4>/MATLAB Function1' */
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  if (ATTN_M->Timing.RateInteraction.TID1_2 == 1) {
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport_j = static_cast<int8_T>
-      (ATTN_DW.TmpRTBAtMATLABFunction1Inport_j == 0);
-  }
-
-  ATTN_DW.TmpRTBAtMATLABFunction1Inport1_[ATTN_DW.TmpRTBAtMATLABFunction1Inport_j]
-    = ATTN_B.Memory8;
-
-  /* End of RateTransition generated from: '<S4>/MATLAB Function1' */
-  /* Clock: '<S4>/Clock1' */
-  ATTN_B.Clock1_k = ATTN_M->Timing.t[0];
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  if (ATTN_M->Timing.RateInteraction.TID1_2 == 1) {
-    ATTN_DW.TmpRTBAtMATLABFunction1Inpor_hh = static_cast<int8_T>
-      (ATTN_DW.TmpRTBAtMATLABFunction1Inpor_hh == 0);
-  }
-
-  ATTN_DW.TmpRTBAtMATLABFunction1Inport4_[ATTN_DW.TmpRTBAtMATLABFunction1Inpor_hh]
-    = ATTN_B.Clock1_k;
-
-  /* End of RateTransition generated from: '<S4>/MATLAB Function1' */
-
-  /* Update for Memory: '<Root>/Memory6' */
-  ATTN_DW.Memory6_PreviousInput = ATTN_B.left_trigger_out;
->>>>>>> ATTN_integration
 
   /* Update for Memory: '<Root>/Memory2' */
   ATTN_DW.Memory2_PreviousInput = ATTN_B.state_out;
@@ -1845,6 +1219,9 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
 
   /* Update for Memory: '<Root>/Memory' */
   ATTN_DW.Memory_PreviousInput = ATTN_B.trialNum_out;
+
+  /* Update for DiscreteFilter: '<Root>/Discrete Filter' */
+  ATTN_DW.DiscreteFilter_states = ATTN_DW.DiscreteFilter_tmp;
 
   /* Update for Memory: '<Root>/Memory11' */
   ATTN_DW.Memory11_PreviousInput = ATTN_B.y1;
@@ -1864,25 +1241,13 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   /* Update for Memory: '<Root>/Memory5' */
   ATTN_DW.Memory5_PreviousInput = ATTN_B.delay_out;
 
-<<<<<<< HEAD
   /* Update for Memory: '<Root>/Memory6' */
   ATTN_DW.Memory6_PreviousInput = ATTN_B.left_trigger_out;
-=======
-  /* Update for Memory: '<Root>/Memory8' */
-  ATTN_DW.Memory8_PreviousInput = ATTN_B.right_trigger_out;
->>>>>>> ATTN_integration
 
   /* Update for Memory: '<Root>/Memory10' */
   ATTN_DW.Memory10_PreviousInput = ATTN_B.was_target_out;
 
-<<<<<<< HEAD
-  /* Update for DiscreteFilter: '<Root>/Discrete Filter' */
-  ATTN_DW.DiscreteFilter_states = ATTN_DW.DiscreteFilter_tmp;
-
   /* Update absolute time for base rate */
-=======
-  /* Update absolute time */
->>>>>>> ATTN_integration
   /* The "clockTick0" counts the number of times the code of this task has
    * been executed. The absolute time is the multiplication of "clockTick0"
    * and "Timing.stepSize0". Size of "clockTick0" ensures timer will not
@@ -1898,7 +1263,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
   ATTN_M->Timing.t[0] = ATTN_M->Timing.clockTick0 * ATTN_M->Timing.stepSize0 +
     ATTN_M->Timing.clockTickH0 * ATTN_M->Timing.stepSize0 * 4294967296.0;
 
-<<<<<<< HEAD
   {
     /* Update absolute timer for sample time: [0.001s, 0.0s] */
     /* The "clockTick1" counts the number of times the code of this task has
@@ -1915,131 +1279,6 @@ void ATTN_step0(void)                  /* Sample time: [0.0s, 0.0s] */
 
     ATTN_M->Timing.t[1] = ATTN_M->Timing.clockTick1 * ATTN_M->Timing.stepSize1 +
       ATTN_M->Timing.clockTickH1 * ATTN_M->Timing.stepSize1 * 4294967296.0;
-=======
-  /* Update absolute time */
-  /* The "clockTick1" counts the number of times the code of this task has
-   * been executed. The absolute time is the multiplication of "clockTick1"
-   * and "Timing.stepSize1". Size of "clockTick1" ensures timer will not
-   * overflow during the application lifespan selected.
-   * Timer of this task consists of two 32 bit unsigned integers.
-   * The two integers represent the low bits Timing.clockTick1 and the high bits
-   * Timing.clockTickH1. When the low bit overflows to 0, the high bits increment.
-   */
-  if (!(++ATTN_M->Timing.clockTick1)) {
-    ++ATTN_M->Timing.clockTickH1;
-  }
-
-  ATTN_M->Timing.t[1] = ATTN_M->Timing.clockTick1 * ATTN_M->Timing.stepSize1 +
-    ATTN_M->Timing.clockTickH1 * ATTN_M->Timing.stepSize1 * 4294967296.0;
-}
-
-/* Model step function for TID2 */
-void ATTN_step2(void)                  /* Sample time: [1000.0s, 0.0s] */
-{
-  real_T increment;
-  real_T tmp;
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  ATTN_DW.TmpRTBAtMATLABFunction1Inport_h = static_cast<int8_T>
-    (ATTN_DW.TmpRTBAtMATLABFunction1Inport_h == 0);
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  ATTN_B.TmpRTBAtMATLABFunction1Inport1 =
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport1_[ATTN_DW.TmpRTBAtMATLABFunction1Inport_h];
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  ATTN_DW.stim_duration_out_RdBufIdx = static_cast<int8_T>
-    (ATTN_DW.stim_duration_out_RdBufIdx == 0);
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  ATTN_B.stim_duration_out =
-    ATTN_DW.stim_duration_out_Buf[ATTN_DW.stim_duration_out_RdBufIdx];
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  rtw_slrealtime_mutex_lock(ATTN_DW.TmpRTBAtMATLABFunction1Inport_k);
-  ATTN_DW.TmpRTBAtMATLABFunction1Inport_b =
-    ATTN_DW.TmpRTBAtMATLABFunction1Inpor_oh;
-  rtw_slrealtime_mutex_unlock(ATTN_DW.TmpRTBAtMATLABFunction1Inport_k);
-  switch (ATTN_DW.TmpRTBAtMATLABFunction1Inport_b) {
-   case 0:
-    /* RateTransition generated from: '<S4>/MATLAB Function1' */
-    ATTN_B.TmpRTBAtMATLABFunction1Inport3 =
-      ATTN_DW.TmpRTBAtMATLABFunction1Inport3_;
-    break;
-
-   case 1:
-    /* RateTransition generated from: '<S4>/MATLAB Function1' */
-    ATTN_B.TmpRTBAtMATLABFunction1Inport3 =
-      ATTN_DW.TmpRTBAtMATLABFunction1Inport_f;
-    break;
-
-   case 2:
-    /* RateTransition generated from: '<S4>/MATLAB Function1' */
-    ATTN_B.TmpRTBAtMATLABFunction1Inport3 =
-      ATTN_DW.TmpRTBAtMATLABFunction1Inport_o;
-    break;
-  }
-
-  /* End of RateTransition generated from: '<S4>/MATLAB Function1' */
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  ATTN_DW.TmpRTBAtMATLABFunction1Inpor_b3 = static_cast<int8_T>
-    (ATTN_DW.TmpRTBAtMATLABFunction1Inpor_b3 == 0);
-
-  /* RateTransition generated from: '<S4>/MATLAB Function1' */
-  ATTN_B.TmpRTBAtMATLABFunction1Inport4 =
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport4_[ATTN_DW.TmpRTBAtMATLABFunction1Inpor_b3];
-
-  /* MATLAB Function: '<S4>/MATLAB Function1' */
-  ATTN_DW.sfEvent_c = ATTN_CALL_EVENT;
-  increment = ATTN_B.TmpRTBAtMATLABFunction1Inport3 / (ATTN_B.stim_duration_out *
-    1000.0 / 2.0);
-  if (ATTN_B.TmpRTBAtMATLABFunction1Inport1 != 0.0) {
-    ATTN_DW.t0_j = ATTN_B.TmpRTBAtMATLABFunction1Inport4;
-    ATTN_DW.t0_not_empty_f = true;
-    ATTN_B.y_i = 0.0;
-    ATTN_DW.y0 = 0.0;
-    ATTN_DW.y0_not_empty = true;
-  } else if (ATTN_DW.t0_not_empty_f) {
-    tmp = ATTN_B.TmpRTBAtMATLABFunction1Inport4 - ATTN_DW.t0_j;
-    if (tmp <= ATTN_B.stim_duration_out / 2.0) {
-      ATTN_B.y_i = ATTN_DW.y0 + increment;
-      ATTN_DW.y0 = ATTN_B.y_i;
-    } else if (tmp <= ATTN_B.stim_duration_out) {
-      ATTN_B.y_i = ATTN_DW.y0 - increment;
-      increment = ATTN_B.y_i;
-      if (increment > 0.0) {
-        ATTN_B.y_i = increment;
-      } else {
-        ATTN_B.y_i = 0.0;
-      }
-
-      ATTN_DW.y0 = ATTN_B.y_i;
-    } else {
-      ATTN_B.y_i = 0.0;
-    }
-  } else {
-    ATTN_B.y_i = 0.0;
-  }
-
-  /* End of MATLAB Function: '<S4>/MATLAB Function1' */
-  /* RateTransition generated from: '<Root>/Analog output ' */
-  ATTN_DW.y_WrBufIdx = static_cast<int8_T>(ATTN_DW.y_WrBufIdx == 0);
-  ATTN_DW.y_Buf[ATTN_DW.y_WrBufIdx] = ATTN_B.y_i;
-
-  /* Update absolute time */
-  /* The "clockTick2" counts the number of times the code of this task has
-   * been executed. The resolution of this integer timer is 1000.0, which is the step size
-   * of the task. Size of "clockTick2" ensures timer will not overflow during the
-   * application lifespan selected.
-   * Timer of this task consists of two 32 bit unsigned integers.
-   * The two integers represent the low bits Timing.clockTick2 and the high bits
-   * Timing.clockTickH2. When the low bit overflows to 0, the high bits increment.
-   */
-  ATTN_M->Timing.clockTick2++;
-  if (!ATTN_M->Timing.clockTick2) {
-    ATTN_M->Timing.clockTickH2++;
->>>>>>> ATTN_integration
   }
 }
 
@@ -2051,14 +1290,6 @@ void ATTN_initialize(void)
   /* initialize non-finites */
   rt_InitInfAndNaN(sizeof(real_T));
 
-<<<<<<< HEAD
-=======
-  /* Set task counter limit used by the static main program */
-  (ATTN_M)->Timing.TaskCounters.cLimit[0] = 1;
-  (ATTN_M)->Timing.TaskCounters.cLimit[1] = 1;
-  (ATTN_M)->Timing.TaskCounters.cLimit[2] = 1000000;
-
->>>>>>> ATTN_integration
   {
     /* Setup solver object */
     rtsiSetSimTimeStepPtr(&ATTN_M->solverInfo, &ATTN_M->Timing.simTimeStep);
@@ -2077,10 +1308,6 @@ void ATTN_initialize(void)
     int_T *mdlTsMap = ATTN_M->Timing.sampleTimeTaskIDArray;
     mdlTsMap[0] = 0;
     mdlTsMap[1] = 1;
-<<<<<<< HEAD
-=======
-    mdlTsMap[2] = 2;
->>>>>>> ATTN_integration
 
     /* polyspace +2 MISRA2012:D4.1 [Justified:Low] "ATTN_M points to
        static memory which is guaranteed to be non-NULL" */
@@ -2091,32 +1318,18 @@ void ATTN_initialize(void)
     /* task periods */
     ATTN_M->Timing.sampleTimes[0] = (0.0);
     ATTN_M->Timing.sampleTimes[1] = (0.001);
-<<<<<<< HEAD
-=======
-    ATTN_M->Timing.sampleTimes[2] = (1000.0);
->>>>>>> ATTN_integration
 
     /* task offsets */
     ATTN_M->Timing.offsetTimes[0] = (0.0);
     ATTN_M->Timing.offsetTimes[1] = (0.0);
-<<<<<<< HEAD
-=======
-    ATTN_M->Timing.offsetTimes[2] = (0.0);
->>>>>>> ATTN_integration
   }
 
   rtmSetTPtr(ATTN_M, &ATTN_M->Timing.tArray[0]);
 
   {
     int_T *mdlSampleHits = ATTN_M->Timing.sampleHitArray;
-<<<<<<< HEAD
     mdlSampleHits[0] = 1;
     mdlSampleHits[1] = 1;
-=======
-    int_T *mdlPerTaskSampleHits = ATTN_M->Timing.perTaskSampleHitsArray;
-    ATTN_M->Timing.perTaskSampleHits = (&mdlPerTaskSampleHits[0]);
-    mdlSampleHits[0] = 1;
->>>>>>> ATTN_integration
     ATTN_M->Timing.sampleHits = (&mdlSampleHits[0]);
   }
 
@@ -2126,11 +1339,7 @@ void ATTN_initialize(void)
   ATTN_M->solverInfoPtr = (&ATTN_M->solverInfo);
   ATTN_M->Timing.stepSize = (0.001);
   rtsiSetFixedStepSize(&ATTN_M->solverInfo, 0.001);
-<<<<<<< HEAD
   rtsiSetSolverMode(&ATTN_M->solverInfo, SOLVER_MODE_SINGLETASKING);
-=======
-  rtsiSetSolverMode(&ATTN_M->solverInfo, SOLVER_MODE_MULTITASKING);
->>>>>>> ATTN_integration
 
   /* block I/O */
   (void) std::memset((static_cast<void *>(&ATTN_B)), 0,
@@ -2145,18 +1354,10 @@ void ATTN_initialize(void)
     RTWSfcnInfo *sfcnInfo = &ATTN_M->NonInlinedSFcns.sfcnInfo;
     ATTN_M->sfcnInfo = (sfcnInfo);
     rtssSetErrorStatusPtr(sfcnInfo, (&rtmGetErrorStatus(ATTN_M)));
-<<<<<<< HEAD
     ATTN_M->Sizes.numSampTimes = (2);
     rtssSetNumRootSampTimesPtr(sfcnInfo, &ATTN_M->Sizes.numSampTimes);
     ATTN_M->NonInlinedSFcns.taskTimePtrs[0] = (&rtmGetTPtr(ATTN_M)[0]);
     ATTN_M->NonInlinedSFcns.taskTimePtrs[1] = (&rtmGetTPtr(ATTN_M)[1]);
-=======
-    ATTN_M->Sizes.numSampTimes = (3);
-    rtssSetNumRootSampTimesPtr(sfcnInfo, &ATTN_M->Sizes.numSampTimes);
-    ATTN_M->NonInlinedSFcns.taskTimePtrs[0] = (&rtmGetTPtr(ATTN_M)[0]);
-    ATTN_M->NonInlinedSFcns.taskTimePtrs[1] = (&rtmGetTPtr(ATTN_M)[1]);
-    ATTN_M->NonInlinedSFcns.taskTimePtrs[2] = (&rtmGetTPtr(ATTN_M)[2]);
->>>>>>> ATTN_integration
     rtssSetTPtrPtr(sfcnInfo,ATTN_M->NonInlinedSFcns.taskTimePtrs);
     rtssSetTStartPtr(sfcnInfo, &rtmGetTStart(ATTN_M));
     rtssSetTFinalPtr(sfcnInfo, &rtmGetTFinal(ATTN_M));
@@ -2380,11 +1581,7 @@ void ATTN_initialize(void)
         {
           _ssSetOutputPortNumDimensions(rts, 1, 1);
           ssSetOutputPortWidthAsInt(rts, 1, 1);
-<<<<<<< HEAD
-          ssSetOutputPortSignal(rts, 1, ((real_T *) &ATTN_B.Analoginput_o2));
-=======
-          ssSetOutputPortSignal(rts, 1, ((real_T *) &ATTN_B.lick_piezo_signal));
->>>>>>> ATTN_integration
+          ssSetOutputPortSignal(rts, 1, ((real_T *) &ATTN_B.lickometer_piezo));
         }
       }
 
@@ -2528,11 +1725,7 @@ void ATTN_initialize(void)
         /* port 0 */
         {
           ssSetInputPortRequiredContiguous(rts, 0, 1);
-<<<<<<< HEAD
           ssSetInputPortSignal(rts, 0, &ATTN_B.sf_MATLABFunction1_d.y);
-=======
-          ssSetInputPortSignal(rts, 0, &ATTN_B.y);
->>>>>>> ATTN_integration
           _ssSetInputPortNumDimensions(rts, 0, 1);
           ssSetInputPortWidthAsInt(rts, 0, 1);
         }
@@ -2540,11 +1733,7 @@ void ATTN_initialize(void)
         /* port 1 */
         {
           ssSetInputPortRequiredContiguous(rts, 1, 1);
-<<<<<<< HEAD
           ssSetInputPortSignal(rts, 1, &ATTN_B.sf_MATLABFunction2.y);
-=======
-          ssSetInputPortSignal(rts, 1, &ATTN_B.y_j);
->>>>>>> ATTN_integration
           _ssSetInputPortNumDimensions(rts, 1, 1);
           ssSetInputPortWidthAsInt(rts, 1, 1);
         }
@@ -2739,11 +1928,7 @@ void ATTN_initialize(void)
         /* port 4 */
         {
           ssSetInputPortRequiredContiguous(rts, 4, 1);
-<<<<<<< HEAD
           ssSetInputPortSignal(rts, 4, &ATTN_B.y);
-=======
-          ssSetInputPortSignal(rts, 4, &ATTN_B.y_o);
->>>>>>> ATTN_integration
           _ssSetInputPortNumDimensions(rts, 4, 1);
           ssSetInputPortWidthAsInt(rts, 4, 1);
         }
@@ -3093,16 +2278,6 @@ void ATTN_initialize(void)
       return;
   }
 
-<<<<<<< HEAD
-=======
-  /* Start for RateTransition generated from: '<S4>/MATLAB Function1' */
-  ATTN_B.TmpRTBAtMATLABFunction1Inport3 =
-    ATTN_cal->TmpRTBAtMATLABFunction1Inport3_;
-
-  /* Start for RateTransition generated from: '<S4>/MATLAB Function1' */
-  rtw_slrealtime_mutex_init(&ATTN_DW.TmpRTBAtMATLABFunction1Inport_k);
-
->>>>>>> ATTN_integration
   {
     static const uint32_T tmp[625] = { 5489U, 1301868182U, 2938499221U,
       2950281878U, 1875628136U, 751856242U, 944701696U, 2243192071U, 694061057U,
@@ -3219,13 +2394,8 @@ void ATTN_initialize(void)
       2199989172U, 1987356470U, 4026755612U, 2147252133U, 270400031U,
       1367820199U, 2369854699U, 2844269403U, 79981964U, 624U };
 
-<<<<<<< HEAD
     /* InitializeConditions for Memory: '<Root>/Memory8' */
     ATTN_DW.Memory8_PreviousInput = ATTN_cal->Memory8_InitialCondition;
-=======
-    /* InitializeConditions for Memory: '<Root>/Memory6' */
-    ATTN_DW.Memory6_PreviousInput = ATTN_cal->Memory6_InitialCondition;
->>>>>>> ATTN_integration
 
     /* InitializeConditions for Memory: '<Root>/Memory2' */
     ATTN_DW.Memory2_PreviousInput = ATTN_cal->Memory2_InitialCondition;
@@ -3235,6 +2405,9 @@ void ATTN_initialize(void)
 
     /* InitializeConditions for Memory: '<Root>/Memory' */
     ATTN_DW.Memory_PreviousInput = ATTN_cal->Memory_InitialCondition;
+
+    /* InitializeConditions for DiscreteFilter: '<Root>/Discrete Filter' */
+    ATTN_DW.DiscreteFilter_states = ATTN_cal->DiscreteFilter_InitialStates;
 
     /* InitializeConditions for Memory: '<Root>/Memory11' */
     ATTN_DW.Memory11_PreviousInput = ATTN_cal->Memory11_InitialCondition;
@@ -3254,25 +2427,12 @@ void ATTN_initialize(void)
     /* InitializeConditions for Memory: '<Root>/Memory5' */
     ATTN_DW.Memory5_PreviousInput = ATTN_cal->Memory5_InitialCondition;
 
-<<<<<<< HEAD
     /* InitializeConditions for Memory: '<Root>/Memory6' */
     ATTN_DW.Memory6_PreviousInput = ATTN_cal->Memory6_InitialCondition;
-=======
-    /* InitializeConditions for Memory: '<Root>/Memory8' */
-    ATTN_DW.Memory8_PreviousInput = ATTN_cal->Memory8_InitialCondition;
->>>>>>> ATTN_integration
 
     /* InitializeConditions for Memory: '<Root>/Memory10' */
     ATTN_DW.Memory10_PreviousInput = ATTN_cal->Memory10_InitialCondition;
 
-<<<<<<< HEAD
-=======
-    /* InitializeConditions for RateTransition generated from: '<Root>/Analog output ' */
-    ATTN_DW.y_Buf[0] = ATTN_cal->y_InitialCondition;
-    ATTN_DW.y_WrBufIdx = 0;
-    ATTN_DW.y_RdBufIdx = 1;
-
->>>>>>> ATTN_integration
     /* InitializeConditions for DiscretePulseGenerator: '<Root>/Whisker Trig' */
     ATTN_DW.clockTickCounter = 0;
 
@@ -3282,10 +2442,6 @@ void ATTN_initialize(void)
     /* InitializeConditions for DiscretePulseGenerator: '<Root>/Pupil Trig' */
     ATTN_DW.clockTickCounter_c = 0;
 
-<<<<<<< HEAD
-    /* InitializeConditions for DiscreteFilter: '<Root>/Discrete Filter' */
-    ATTN_DW.DiscreteFilter_states = ATTN_cal->DiscreteFilter_InitialStates;
-
     /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function1' */
     ATTN_DW.sfEvent_b = ATTN_CALL_EVENT_n;
     ATTN_DW.is_active_c6_ATTN = 0U;
@@ -3293,32 +2449,6 @@ void ATTN_initialize(void)
     /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function' */
     std::memcpy(&ATTN_DW.state_k[0], &tmp[0], 625U * sizeof(uint32_T));
     ATTN_DW.sfEvent_e = ATTN_CALL_EVENT_n;
-=======
-    /* InitializeConditions for RateTransition generated from: '<S4>/MATLAB Function1' */
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport3_ =
-      ATTN_cal->TmpRTBAtMATLABFunction1Inport3_;
-
-    /* InitializeConditions for RateTransition generated from: '<S4>/MATLAB Function1' */
-    ATTN_DW.stim_duration_out_Buf[0] = ATTN_cal->stim_duration_out_InitialCondit;
-    ATTN_DW.stim_duration_out_WrBufIdx = 0;
-    ATTN_DW.stim_duration_out_RdBufIdx = 1;
-
-    /* InitializeConditions for RateTransition generated from: '<S4>/MATLAB Function1' */
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport1_[0] =
-      ATTN_cal->TmpRTBAtMATLABFunction1Inport1_;
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport_j = 0;
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport_h = 1;
-
-    /* InitializeConditions for RateTransition generated from: '<S4>/MATLAB Function1' */
-    ATTN_DW.TmpRTBAtMATLABFunction1Inport4_[0] =
-      ATTN_cal->TmpRTBAtMATLABFunction1Inport4_;
-    ATTN_DW.TmpRTBAtMATLABFunction1Inpor_hh = 0;
-    ATTN_DW.TmpRTBAtMATLABFunction1Inpor_b3 = 1;
-
-    /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function' */
-    std::memcpy(&ATTN_DW.state_k[0], &tmp[0], 625U * sizeof(uint32_T));
-    ATTN_DW.sfEvent_e = ATTN_CALL_EVENT;
->>>>>>> ATTN_integration
     ATTN_DW.is_active_c1_ATTN = 0U;
     ATTN_DW.method = 7U;
     ATTN_DW.method_not_empty = true;
@@ -3329,7 +2459,6 @@ void ATTN_initialize(void)
     ATTN_DW.state_not_empty_k = true;
     ATTN_DW.state_not_empty_d = true;
 
-<<<<<<< HEAD
     /* SystemInitialize for MATLAB Function: '<S4>/MATLAB Function1' */
     ATTN_MATLABFunction2_Init(&ATTN_DW.sf_MATLABFunction1_d);
 
@@ -3338,35 +2467,11 @@ void ATTN_initialize(void)
 
     /* SystemInitialize for MATLAB Function: '<S5>/MATLAB Function1' */
     ATTN_DW.sfEvent_a = ATTN_CALL_EVENT_n;
-=======
-    /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function1' */
-    ATTN_DW.sfEvent_b = ATTN_CALL_EVENT;
-    ATTN_DW.is_active_c6_ATTN = 0U;
-
-    /* SystemInitialize for MATLAB Function: '<S3>/MATLAB Function2' */
-    ATTN_DW.sfEvent_n = ATTN_CALL_EVENT;
-    ATTN_DW.t0_not_empty_d = false;
-    ATTN_DW.y0_not_empty_n = false;
-    ATTN_DW.is_active_c3_ATTN = 0U;
-
-    /* SystemInitialize for MATLAB Function: '<S4>/MATLAB Function1' */
-    ATTN_DW.sfEvent_c = ATTN_CALL_EVENT;
-    ATTN_DW.t0_not_empty_f = false;
-    ATTN_DW.y0_not_empty = false;
-    ATTN_DW.is_active_c4_ATTN = 0U;
-
-    /* SystemInitialize for MATLAB Function: '<S5>/MATLAB Function1' */
-    ATTN_DW.sfEvent_a = ATTN_CALL_EVENT;
->>>>>>> ATTN_integration
     ATTN_DW.t0_not_empty_p = false;
     ATTN_DW.is_active_c5_ATTN = 0U;
 
     /* SystemInitialize for MATLAB Function: '<S6>/MATLAB Function1' */
-<<<<<<< HEAD
     ATTN_DW.sfEvent = ATTN_CALL_EVENT_n;
-=======
-    ATTN_DW.sfEvent = ATTN_CALL_EVENT;
->>>>>>> ATTN_integration
     ATTN_DW.t0_not_empty = false;
     ATTN_DW.is_active_c2_ATTN = 0U;
   }
@@ -3409,10 +2514,4 @@ void ATTN_terminate(void)
     SimStruct *rts = ATTN_M->childSfunctions[4];
     sfcnTerminate(rts);
   }
-<<<<<<< HEAD
-=======
-
-  /* Terminate for RateTransition generated from: '<S4>/MATLAB Function1' */
-  rtw_slrealtime_mutex_destroy(ATTN_DW.TmpRTBAtMATLABFunction1Inport_k);
->>>>>>> ATTN_integration
 }

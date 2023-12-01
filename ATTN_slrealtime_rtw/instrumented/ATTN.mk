@@ -2,11 +2,7 @@
 ## Makefile generated for component 'ATTN'. 
 ## 
 ## Makefile     : ATTN.mk
-<<<<<<< HEAD
-## Generated on : Wed Nov 29 15:48:45 2023
-=======
-## Generated on : Thu Nov 30 09:52:39 2023
->>>>>>> ATTN_integration
+## Generated on : Fri Dec 01 09:35:45 2023
 ## Final product: $(START_DIR)/ATTN_slrealtime_rtw/ATTN
 ## Product type : executable
 ## 
@@ -141,17 +137,10 @@ INCLUDES = $(INCLUDES_BUILDINFO)
 ###########################################################################
 
 DEFINES_ = -DSIMULINK_REAL_TIME -D_QNX_SOURCE
-<<<<<<< HEAD
 DEFINES_BUILD_ARGS = -DCLASSIC_INTERFACE=0 -DALLOCATIONFCN=0 -DEXT_MODE=1 -DMAT_FILE=0 -DONESTEPFCN=1 -DTERMFCN=1 -DMULTI_INSTANCE_CODE=0 -DINTEGER_CODE=0 -DMT=0
 DEFINES_CUSTOM = 
 DEFINES_OPTS = -DTID01EQ=1
 DEFINES_STANDARD = -DMODEL=ATTN -DNUMST=2 -DNCSTATES=0 -DHAVESTDIO -DRT -DUSE_RTMODEL
-=======
-DEFINES_BUILD_ARGS = -DCLASSIC_INTERFACE=0 -DALLOCATIONFCN=0 -DEXT_MODE=1 -DMAT_FILE=0 -DONESTEPFCN=1 -DTERMFCN=1 -DMULTI_INSTANCE_CODE=0 -DINTEGER_CODE=0 -DMT=1
-DEFINES_CUSTOM = 
-DEFINES_OPTS = -DTID01EQ=1
-DEFINES_STANDARD = -DMODEL=ATTN -DNUMST=3 -DNCSTATES=0 -DHAVESTDIO -DRT -DUSE_RTMODEL
->>>>>>> ATTN_integration
 
 DEFINES = $(DEFINES_) $(DEFINES_BUILD_ARGS) $(DEFINES_CUSTOM) $(DEFINES_OPTS) $(DEFINES_STANDARD)
 
@@ -159,11 +148,7 @@ DEFINES = $(DEFINES_) $(DEFINES_BUILD_ARGS) $(DEFINES_CUSTOM) $(DEFINES_OPTS) $(
 ## SOURCE FILES
 ###########################################################################
 
-<<<<<<< HEAD
 SRCS = $(MATLAB_ROOT)/rtw/c/src/rt_matrx.c $(MATLAB_ROOT)/rtw/c/src/rt_printf.c $(START_DIR)/ATTN_slrealtime_rtw/ATTN.cpp $(START_DIR)/ATTN_slrealtime_rtw/ATTN_cal.cpp $(START_DIR)/ATTN_slrealtime_rtw/rtGetInf.cpp $(START_DIR)/ATTN_slrealtime_rtw/rtGetNaN.cpp $(START_DIR)/ATTN_slrealtime_rtw/rt_nonfinite.cpp $(START_DIR)/ATTN_slrealtime_rtw/slrealtime_datatype_ground.cpp $(START_DIR)/ATTN_slrealtime_rtw/rte_ATTN_parameters.cpp $(START_DIR)/ATTN_slrealtime_rtw/main.cpp /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_ad_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_da_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_di_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_do_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_setup_s.c host_timer_x86.c slrealtime_code_profiling_utility_functions.cpp
-=======
-SRCS = $(MATLAB_ROOT)/rtw/c/src/rt_matrx.c $(MATLAB_ROOT)/rtw/c/src/rt_printf.c $(START_DIR)/ATTN_slrealtime_rtw/ATTN.cpp $(START_DIR)/ATTN_slrealtime_rtw/ATTN_cal.cpp $(START_DIR)/ATTN_slrealtime_rtw/rtGetInf.cpp $(START_DIR)/ATTN_slrealtime_rtw/rtGetNaN.cpp $(START_DIR)/ATTN_slrealtime_rtw/rt_nonfinite.cpp $(START_DIR)/ATTN_slrealtime_rtw/rtmodel.cpp $(START_DIR)/ATTN_slrealtime_rtw/slrealtime_datatype_ground.cpp $(START_DIR)/ATTN_slrealtime_rtw/rte_ATTN_parameters.cpp $(START_DIR)/ATTN_slrealtime_rtw/main.cpp /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_ad_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_da_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_di_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_do_s.c /home/electro/.speedgoat/speedgoatlib/R2023a/9.6.1.1_4/sg_blocks/analog/sg_IO191_setup_s.c host_timer_x86.c slrealtime_code_profiling_utility_functions.cpp
->>>>>>> ATTN_integration
 
 ALL_SRCS = $(SRCS)
 
@@ -171,11 +156,7 @@ ALL_SRCS = $(SRCS)
 ## OBJECTS
 ###########################################################################
 
-<<<<<<< HEAD
 OBJS = rt_matrx.o rt_printf.o ATTN.o ATTN_cal.o rtGetInf.o rtGetNaN.o rt_nonfinite.o slrealtime_datatype_ground.o rte_ATTN_parameters.o main.o sg_IO191_ad_s.o sg_IO191_da_s.o sg_IO191_di_s.o sg_IO191_do_s.o sg_IO191_setup_s.o host_timer_x86.o slrealtime_code_profiling_utility_functions.o
-=======
-OBJS = rt_matrx.o rt_printf.o ATTN.o ATTN_cal.o rtGetInf.o rtGetNaN.o rt_nonfinite.o rtmodel.o slrealtime_datatype_ground.o rte_ATTN_parameters.o main.o sg_IO191_ad_s.o sg_IO191_da_s.o sg_IO191_di_s.o sg_IO191_do_s.o sg_IO191_setup_s.o host_timer_x86.o slrealtime_code_profiling_utility_functions.o
->>>>>>> ATTN_integration
 
 ALL_OBJS = $(OBJS)
 
@@ -412,13 +393,6 @@ rt_nonfinite.o : $(START_DIR)/ATTN_slrealtime_rtw/rt_nonfinite.cpp
 	$(CPP) $(CPPFLAGS) -o $@ $<
 
 
-<<<<<<< HEAD
-=======
-rtmodel.o : $(START_DIR)/ATTN_slrealtime_rtw/rtmodel.cpp
-	$(CPP) $(CPPFLAGS) -o $@ $<
-
-
->>>>>>> ATTN_integration
 slrealtime_datatype_ground.o : $(START_DIR)/ATTN_slrealtime_rtw/slrealtime_datatype_ground.cpp
 	$(CPP) $(CPPFLAGS) -o $@ $<
 
