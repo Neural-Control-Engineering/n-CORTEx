@@ -7,9 +7,15 @@
  *
  * Code generation for model "ATTN".
  *
+<<<<<<< HEAD
  * Model version              : 1.461
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
  * C++ source code generated on : Thu Nov 30 11:48:11 2023
+=======
+ * Model version              : 1.455
+ * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
+ * C++ source code generated on : Fri Dec  1 09:35:43 2023
+>>>>>>> ATTN_integration
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping

@@ -7,9 +7,15 @@
  *
  * Code generation for model "ATTN".
  *
+<<<<<<< HEAD
  * Model version              : 1.461
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
  * C++ source code generated on : Thu Nov 30 11:48:11 2023
+=======
+ * Model version              : 1.455
+ * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
+ * C++ source code generated on : Fri Dec  1 09:35:43 2023
+>>>>>>> ATTN_integration
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -928,11 +934,19 @@ void ATTN_step(void)
       ATTN_B.trialNum_out = 1.0;
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
+<<<<<<< HEAD
       ATTN_B.delay_out = ATTN_B.clock_time + 5.0;
       ATTN_B.numLicks_out = 0.0;
       ATTN_B.reward_trigger_out = 1.0;
       ATTN_B.was_target_out = 0.0;
       ATTN_B.reward_duration_out = 0.03;
+=======
+      ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
+      ATTN_B.numLicks_out = 0.0;
+      ATTN_B.reward_trigger_out = 1.0;
+      ATTN_B.was_target_out = 0.0;
+      ATTN_B.reward_duration_out = 0.02;
+>>>>>>> ATTN_integration
       ATTN_B.state_out = 2.0;
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
       ATTN_B.onsetTone_trig = 0.0;
@@ -941,12 +955,21 @@ void ATTN_step(void)
         ATTN_B.state_out = ATTN_B.Memory2;
         ATTN_B.reward_trigger_out = 0.0;
         ATTN_B.delay_out = ATTN_B.Memory5;
+<<<<<<< HEAD
         ATTN_B.reward_duration_out = 0.03;
       } else {
         ATTN_B.state_out = ATTN_B.Memory2 + 1.0;
         ATTN_B.reward_trigger_out = 1.0;
         ATTN_B.delay_out = ATTN_B.clock_time + 5.0;
         ATTN_B.reward_duration_out = 0.03;
+=======
+        ATTN_B.reward_duration_out = 0.02;
+      } else {
+        ATTN_B.state_out = ATTN_B.Memory2 + 1.0;
+        ATTN_B.reward_trigger_out = 1.0;
+        ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
+        ATTN_B.reward_duration_out = 0.02;
+>>>>>>> ATTN_integration
       }
 
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;

@@ -2,7 +2,11 @@
 ## Makefile generated for component 'ATTN'. 
 ## 
 ## Makefile     : ATTN.mk
+<<<<<<< HEAD
 ## Generated on : Thu Nov 30 11:48:13 2023
+=======
+## Generated on : Fri Dec 01 09:35:45 2023
+>>>>>>> ATTN_integration
 ## Final product: $(START_DIR)/ATTN_slrealtime_rtw/ATTN
 ## Product type : executable
 ## 

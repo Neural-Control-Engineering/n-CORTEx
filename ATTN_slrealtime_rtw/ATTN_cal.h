@@ -163,7 +163,11 @@ struct ATTN_cal_type {
   real_T DiscreteFilter_InitialStates; /* Expression: 0
                                         * Referenced by: '<Root>/Discrete Filter'
                                         */
+<<<<<<< HEAD
   real_T Thrd_Value;                   /* Expression: 0.25
+=======
+  real_T Thrd_Value;                   /* Expression: 0.15
+>>>>>>> ATTN_integration
                                         * Referenced by: '<Root>/Thrd'
                                         */
   real_T Memory11_InitialCondition;    /* Expression: 0
