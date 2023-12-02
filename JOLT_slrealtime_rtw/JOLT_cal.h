@@ -184,7 +184,7 @@ struct JOLT_cal_type {
   real_T Analoginput_P9[2];            /* Expression: parAdcResets
                                         * Referenced by: '<Root>/Analog input '
                                         */
-  real_T Constant5_Value;              /* Expression: 2
+  real_T Constant5_Value;              /* Expression: 1.5
                                         * Referenced by: '<Root>/Constant5'
                                         */
   real_T DiscreteFilter_NumCoef[501];
@@ -200,7 +200,7 @@ struct JOLT_cal_type {
   real_T Constant1_Value_d;            /* Expression: 0.5
                                         * Referenced by: '<S10>/Constant1'
                                         */
-  real_T Constant2_Value;              /* Expression: 130
+  real_T Constant2_Value;              /* Expression: 80
                                         * Referenced by: '<S10>/Constant2'
                                         */
   real_T Constant5_Value_k;            /* Expression: 2
