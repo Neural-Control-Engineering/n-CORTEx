@@ -1,0 +1,15 @@
+function numEdges = countEdges(params, trace, cycleTimes)
+    if isempty(cycleTimes)
+        edges = diff(trace);
+        % posEdges = edges(edges>0);
+        negEdges = edges(edges<0);
+        numEdges = sum(abs(negEdges))/abs(mode(negEdges)); 
+    else
+        numEdges = [];
+        for i= 1 : (length(cycleTimes)-1)
+            cycleTime = cycleTimes(i,:);
+            subTrace = trace(cycleTime(1):cycleTime(2),:);
+            numEdges = [numEdges; countEdges(params, subTrace, [])];
+        end                
+    end        
+end
