@@ -3,6 +3,9 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
     wasTarget = logsout.getElement('was_target').Values.Data;
     rewardTrigger = logsout.getElement('reward_trigger').Values.Data;
     numLicks = logsout.getElement('numLicks').Values.Data;
+    leftTrigger = logsout.getElement('left_trigger').Values.Data;
+    rightTrigger = logsout.getElement('right_trigger').Values.Data;
+    lickDetector = logsout.getElement('lick_detector').Values.Data;
     % get inds for the start of each trial
     trial_starts = find(trialNum == 1);
     trial_ends = zeros(length(trial_starts),1);
@@ -12,6 +15,7 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
     target_count = 0;
     fa_count = 0;
     distractor_count = 0;
+    lick_raster = figure();
     for i = 1:length(trial_starts)
         % get end of each trial
         if i == length(trial_starts)
@@ -26,26 +30,46 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
         else
             distractor_count = distractor_count + 1;
         end
+        % determine stimulus time 
+        stim_ind = find(rightTrigger(trial_starts(i):trial_ends(i))==1);
+        if isempty(stim_ind)
+            stim_ind = find(leftTrigger(trial_starts(i):trial_ends(i))==1);
+        end
+        stim_ind = stim_ind + trial_starts(i);
         % determine outcome 
         if was_target(i) && sum(rewardTrigger(trial_starts(i):trial_ends(i)))
+            % Hit
             %sprintf('Trial %i target: correct', i)
             categorical_outcome{i} = 'Hit';
             hit_count = hit_count + 1;
+            lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1)-3000;
+            subplot(1,2,1)
+            hold on
+            % if hit_count == 19
+            %     keyboard
+            % end
+            plot(lick_inds, repmat(hit_count,length(lick_inds),1), 'k|')
         elseif was_target(i)
+            % Miss
             %sprintf('Trial %i target: incorrect', i)
             categorical_outcome{i} = 'Miss';
-        elseif sum(numLicks(trial_starts(i):trial_ends(i)))% need to distinguish correct rejection from false alarm
+        elseif sum(lickDetector(stim_ind:trial_ends(i))) % need to distinguish correct rejection from false alarm
+            % False Alarm
             %sprintf('Trial %i distractor: incorrect', i)
             categorical_outcome{i} = 'FA';
             fa_count = fa_count + 1;
+            lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1)-3000;
+            subplot(1,2,2)
+            hold on
+            plot(lick_inds, repmat(fa_count, length(lick_inds),1), 'k|')
         else
+            % Correct Rejection
             %sprintf('Trial %i distractor: correct', i)
             categorical_outcome{i} = 'CR';
         end
     end
     sprintf('Hit rate: %.3f', hit_count/target_count)
     sprintf('False alarm rate: %.3f', fa_count/distractor_count)
-    keyboard
     dprime = norminv(hit_count/target_count) - norminv(fa_count/distractor_count);
     sprintf('d-prime = %.2f', dprime)
 end
