@@ -28,23 +28,24 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
         end
         % determine outcome 
         if was_target(i) && sum(rewardTrigger(trial_starts(i):trial_ends(i)))
-            sprintf('Trial %i target: correct', i)
+            %sprintf('Trial %i target: correct', i)
             categorical_outcome{i} = 'Hit';
             hit_count = hit_count + 1;
         elseif was_target(i)
-            sprintf('Trial %i target: incorrect', i)
+            %sprintf('Trial %i target: incorrect', i)
             categorical_outcome{i} = 'Miss';
         elseif sum(numLicks(trial_starts(i):trial_ends(i)))% need to distinguish correct rejection from false alarm
-            sprintf('Trial %i distractor: incorrect', i)
+            %sprintf('Trial %i distractor: incorrect', i)
             categorical_outcome{i} = 'FA';
             fa_count = fa_count + 1;
         else
-            sprintf('Trial %i distractor: correct', i)
+            %sprintf('Trial %i distractor: correct', i)
             categorical_outcome{i} = 'CR';
         end
     end
     sprintf('Hit rate: %.3f', hit_count/target_count)
     sprintf('False alarm rate: %.3f', fa_count/distractor_count)
-    dprime = norminv(hit_count/target_count) - norminv(fa_count/distractor_count)
+    keyboard
+    dprime = norminv(hit_count/target_count) - norminv(fa_count/distractor_count);
     sprintf('d-prime = %.2f', dprime)
 end
