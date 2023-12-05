@@ -1,4 +1,4 @@
-function [categorical_outcome, was_target] = sessionAnalysis(logsout, stage)
+function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, stage)
     trialNum = logsout.getElement('trialNum').Values.Data;
     wasTarget = logsout.getElement('was_target').Values.Data;
     rewardTrigger = logsout.getElement('reward_trigger').Values.Data;
@@ -45,4 +45,6 @@ function [categorical_outcome, was_target] = sessionAnalysis(logsout, stage)
     end
     sprintf('Hit rate: %.3f', hit_count/target_count)
     sprintf('False alarm rate: %.3f', fa_count/distractor_count)
+    dprime = norminv(hit_count/target_count) - norminv(fa_count/distractor_count)
+    sprintf('d-prime = %.2f', dprime)
 end
