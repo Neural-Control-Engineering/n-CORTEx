@@ -43,6 +43,9 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
             categorical_outcome{i} = 'Hit';
             hit_count = hit_count + 1;
             lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1)-3000;
+            if isempty(lick_inds)
+                keyboard
+            end
             subplot(1,2,1)
             hold on
             % if hit_count == 19
