@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.375
+ * Model version              : 1.386
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Mon Dec  4 22:32:15 2023
+ * C++ source code generated on : Thu Dec  7 20:02:31 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -146,8 +146,6 @@ struct DW_MATLABFunction4_JOLT_T {
 /* Block signals (default storage) */
 struct B_JOLT_T {
   real_T Memory2[8000];                /* '<Root>/Memory2' */
-  real_T x_data[8000];
-  real_T absdiff_data[8000];
   real_T TCPServer;                    /* '<Root>/TCP Server' */
   real_T TCPReceive_o2;                /* '<Root>/TCP Receive' */
   real_T Memory1;                      /* '<Root>/Memory1' */
@@ -166,8 +164,8 @@ struct B_JOLT_T {
   real_T Clock_a;                      /* '<S9>/Clock' */
   real_T TCPSend;                      /* '<Root>/TCP Send' */
   real_T PulseGen1Hz;                  /* '<Root>/Digital input ' */
-  real_T HiddenRateTransitionForToWks_In;
-  /* '<Root>/HiddenRateTransitionForToWks_InsertedFor_TAQSigLogging_InsertedFor_Digital input _at_outport_0_at_inport_0' */
+  real_T PulseGen1Hz_a;                /* '<Root>/Digital input ' */
+  real_T Digitalinput_o3;              /* '<Root>/Digital input ' */
   real_T sigPulse;                     /* '<S7>/MATLAB Function4' */
   real_T sigPulse_p;                   /* '<S6>/MATLAB Function4' */
   real_T out;                          /* '<S5>/MATLAB Function' */
@@ -180,6 +178,8 @@ struct B_JOLT_T {
   real_T restingAcq;                   /* '<Root>/MATLAB Function1' */
   real_T stimSig_sel;                  /* '<Root>/MATLAB Function1' */
   real_T monofilBaseBuffer_out[8000];  /* '<Root>/MATLAB Function1' */
+  real_T x_data[8000];
+  real_T absdiff_data[8000];
   real_T baseAvg;                      /* '<Root>/MATLAB Function1' */
   real_T changeAvg;                    /* '<Root>/MATLAB Function1' */
   real_T baseBuffLen;                  /* '<Root>/MATLAB Function1' */
@@ -194,7 +194,7 @@ struct B_JOLT_T {
 /* Block states (default storage) for system '<Root>' */
 struct DW_JOLT_T {
   real_T DiscreteFilter_states[500];   /* '<Root>/Discrete Filter' */
-  real_T Delay_DSTATE[700];            /* '<Root>/Delay' */
+  real_T Delay_DSTATE[1500];           /* '<Root>/Delay' */
   real_T Memory2_PreviousInput[8000];  /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
   real_T DiscreteFilter_tmp;           /* '<Root>/Discrete Filter' */
@@ -240,10 +240,6 @@ struct DW_JOLT_T {
   struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Analo;   /* synthesized block */
-
-  struct {
-    void *AQHandles;
-  } TAQSigLogging_InsertedFor_Ana_p;   /* synthesized block */
 
   struct {
     void *AQHandles;
@@ -363,9 +359,9 @@ struct tag_RTM_JOLT_T {
       time_T sfcnPeriod[1];
       time_T sfcnOffset[1];
       int_T sfcnTsMap[1];
-      struct _ssPortInputs inputPortInfo[15];
-      struct _ssInPortUnit inputPortUnits[15];
-      struct _ssInPortCoSimAttribute inputPortCoSimAttribute[15];
+      struct _ssPortInputs inputPortInfo[13];
+      struct _ssInPortUnit inputPortUnits[13];
+      struct _ssInPortCoSimAttribute inputPortCoSimAttribute[13];
       uint_T attribs[6];
       mxArray *params[6];
       struct _ssDWorkRecord dWork[1];
@@ -389,9 +385,9 @@ struct tag_RTM_JOLT_T {
       time_T sfcnPeriod[1];
       time_T sfcnOffset[1];
       int_T sfcnTsMap[1];
-      struct _ssPortOutputs outputPortInfo[1];
-      struct _ssOutPortUnit outputPortUnits[1];
-      struct _ssOutPortCoSimAttribute outputPortCoSimAttribute[1];
+      struct _ssPortOutputs outputPortInfo[3];
+      struct _ssOutPortUnit outputPortUnits[3];
+      struct _ssOutPortCoSimAttribute outputPortCoSimAttribute[3];
       uint_T attribs[4];
       mxArray *params[4];
       struct _ssDWorkRecord dWork[1];

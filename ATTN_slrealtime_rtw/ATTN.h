@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.477
+ * Model version              : 1.506
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Tue Dec  5 12:02:58 2023
+ * C++ source code generated on : Tue Dec 12 16:07:50 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -118,20 +118,20 @@ extern "C"
 #define rtmGetTimeOfLastOutput(rtm)    ((rtm)->Timing.timeOfLastOutput)
 #endif
 
-/* Block signals for system '<S4>/MATLAB Function2' */
+/* Block signals for system '<S3>/MATLAB Function2' */
 struct B_MATLABFunction2_ATTN_T {
-  real_T y;                            /* '<S4>/MATLAB Function2' */
+  real_T y;                            /* '<S3>/MATLAB Function2' */
 };
 
-/* Block states (default storage) for system '<S4>/MATLAB Function2' */
+/* Block states (default storage) for system '<S3>/MATLAB Function2' */
 struct DW_MATLABFunction2_ATTN_T {
-  real_T t0;                           /* '<S4>/MATLAB Function2' */
-  real_T y0;                           /* '<S4>/MATLAB Function2' */
-  int32_T sfEvent;                     /* '<S4>/MATLAB Function2' */
-  uint8_T is_active_c3_ATTN;           /* '<S4>/MATLAB Function2' */
-  boolean_T doneDoubleBufferReInit;    /* '<S4>/MATLAB Function2' */
-  boolean_T t0_not_empty;              /* '<S4>/MATLAB Function2' */
-  boolean_T y0_not_empty;              /* '<S4>/MATLAB Function2' */
+  real_T t0;                           /* '<S3>/MATLAB Function2' */
+  real_T y0;                           /* '<S3>/MATLAB Function2' */
+  int32_T sfEvent;                     /* '<S3>/MATLAB Function2' */
+  uint8_T is_active_c3_ATTN;           /* '<S3>/MATLAB Function2' */
+  boolean_T doneDoubleBufferReInit;    /* '<S3>/MATLAB Function2' */
+  boolean_T t0_not_empty;              /* '<S3>/MATLAB Function2' */
+  boolean_T y0_not_empty;              /* '<S3>/MATLAB Function2' */
 };
 
 /* Block signals (default storage) */
@@ -142,7 +142,7 @@ struct B_ATTN_T {
   real_T Memory;                       /* '<Root>/Memory' */
   real_T Analoginput_o1;               /* '<Root>/Analog input ' */
   real_T lickometer_piezo;             /* '<Root>/Analog input ' */
-  real_T GeneratedFilterBlock;         /* '<S1>/Generated Filter Block' */
+  real_T filtered_lickometer;          /* '<Root>/Discrete FIR Filter1' */
   real_T Memory11;                     /* '<Root>/Memory11' */
   real_T Memory7;                      /* '<Root>/Memory7' */
   real_T clock_time;                   /* '<Root>/Clock' */
@@ -152,18 +152,18 @@ struct B_ATTN_T {
   real_T Memory5;                      /* '<Root>/Memory5' */
   real_T Memory6;                      /* '<Root>/Memory6' */
   real_T Memory10;                     /* '<Root>/Memory10' */
-  real_T Clock1;                       /* '<S5>/Clock1' */
-  real_T Clock2;                       /* '<S4>/Clock2' */
+  real_T Clock1;                       /* '<S4>/Clock1' */
+  real_T Clock2;                       /* '<S3>/Clock2' */
   real_T whiskCam_trig;                /* '<Root>/Whisker Trig' */
   real_T npxls_trig;                   /* '<Root>/Npxls Trig' */
   real_T pupilCam_trig;                /* '<Root>/Pupil Trig' */
-  real_T Clock1_b;                     /* '<S6>/Clock1' */
-  real_T Clock1_l;                     /* '<S7>/Clock1' */
+  real_T Clock1_b;                     /* '<S5>/Clock1' */
+  real_T Clock1_l;                     /* '<S6>/Clock1' */
   real_T PulseGen1Hz;                  /* '<Root>/Digital input ' */
   real_T HiddenRateTransitionForToWks_In;
   /* '<Root>/HiddenRateTransitionForToWks_InsertedFor_TAQSigLogging_InsertedFor_Digital input _at_outport_0_at_inport_0' */
-  real_T tonePulse;                    /* '<S7>/MATLAB Function1' */
-  real_T y;                            /* '<S6>/MATLAB Function1' */
+  real_T tonePulse;                    /* '<S6>/MATLAB Function1' */
+  real_T y;                            /* '<S5>/MATLAB Function1' */
   real_T Lick;                         /* '<Root>/MATLAB Function1' */
   real_T y1;                           /* '<Root>/MATLAB Function1' */
   real_T y2;                           /* '<Root>/MATLAB Function1' */
@@ -182,13 +182,13 @@ struct B_ATTN_T {
   real_T stim_duration_out;            /* '<Root>/MATLAB Function' */
   real_T onsetTone_trig;               /* '<Root>/MATLAB Function' */
   boolean_T RelationalOperator;        /* '<Root>/Relational Operator' */
-  B_MATLABFunction2_ATTN_T sf_MATLABFunction1_d;/* '<S5>/MATLAB Function1' */
-  B_MATLABFunction2_ATTN_T sf_MATLABFunction2;/* '<S4>/MATLAB Function2' */
+  B_MATLABFunction2_ATTN_T sf_MATLABFunction1_d;/* '<S4>/MATLAB Function1' */
+  B_MATLABFunction2_ATTN_T sf_MATLABFunction2;/* '<S3>/MATLAB Function2' */
 };
 
 /* Block states (default storage) for system '<Root>' */
 struct DW_ATTN_T {
-  real_T GeneratedFilterBlock_states[4029];/* '<S1>/Generated Filter Block' */
+  real_T DiscreteFIRFilter1_states[1500];/* '<Root>/Discrete FIR Filter1' */
   real_T Memory8_PreviousInput;        /* '<Root>/Memory8' */
   real_T Memory2_PreviousInput;        /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
@@ -201,8 +201,8 @@ struct DW_ATTN_T {
   real_T Memory5_PreviousInput;        /* '<Root>/Memory5' */
   real_T Memory6_PreviousInput;        /* '<Root>/Memory6' */
   real_T Memory10_PreviousInput;       /* '<Root>/Memory10' */
-  real_T t0;                           /* '<S7>/MATLAB Function1' */
-  real_T t0_p;                         /* '<S6>/MATLAB Function1' */
+  real_T t0;                           /* '<S6>/MATLAB Function1' */
+  real_T t0_p;                         /* '<S5>/MATLAB Function1' */
   real_T Setup_RWORK[2];               /* '<Root>/Setup ' */
   void *Setup_PWORK;                   /* '<Root>/Setup ' */
   void *Analoginput_PWORK;             /* '<Root>/Analog input ' */
@@ -311,7 +311,7 @@ struct DW_ATTN_T {
 
   struct {
     void *AQHandles;
-  } TAQSigLogging_InsertedFor_Bandp;   /* synthesized block */
+  } TAQSigLogging_InsertedFor_Discr;   /* synthesized block */
 
   struct {
     void *LoggedData;
@@ -321,12 +321,12 @@ struct DW_ATTN_T {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Analo;   /* synthesized block */
 
-  int32_T GeneratedFilterBlock_circBuf;/* '<S1>/Generated Filter Block' */
+  int32_T DiscreteFIRFilter1_circBuf;  /* '<Root>/Discrete FIR Filter1' */
   int32_T clockTickCounter;            /* '<Root>/Whisker Trig' */
   int32_T clockTickCounter_n;          /* '<Root>/Npxls Trig' */
   int32_T clockTickCounter_c;          /* '<Root>/Pupil Trig' */
-  int32_T sfEvent;                     /* '<S7>/MATLAB Function1' */
-  int32_T sfEvent_a;                   /* '<S6>/MATLAB Function1' */
+  int32_T sfEvent;                     /* '<S6>/MATLAB Function1' */
+  int32_T sfEvent_a;                   /* '<S5>/MATLAB Function1' */
   int32_T sfEvent_b;                   /* '<Root>/MATLAB Function1' */
   int32_T sfEvent_e;                   /* '<Root>/MATLAB Function' */
   uint32_T method;                     /* '<Root>/MATLAB Function' */
@@ -334,22 +334,22 @@ struct DW_ATTN_T {
   uint32_T state_p[2];                 /* '<Root>/MATLAB Function' */
   uint32_T state_k[625];               /* '<Root>/MATLAB Function' */
   int_T Analoginput_IWORK[2];          /* '<Root>/Analog input ' */
-  uint8_T is_active_c2_ATTN;           /* '<S7>/MATLAB Function1' */
-  uint8_T is_active_c5_ATTN;           /* '<S6>/MATLAB Function1' */
+  uint8_T is_active_c2_ATTN;           /* '<S6>/MATLAB Function1' */
+  uint8_T is_active_c5_ATTN;           /* '<S5>/MATLAB Function1' */
   uint8_T is_active_c6_ATTN;           /* '<Root>/MATLAB Function1' */
   uint8_T is_active_c1_ATTN;           /* '<Root>/MATLAB Function' */
-  boolean_T doneDoubleBufferReInit;    /* '<S7>/MATLAB Function1' */
-  boolean_T t0_not_empty;              /* '<S7>/MATLAB Function1' */
-  boolean_T doneDoubleBufferReInit_i;  /* '<S6>/MATLAB Function1' */
-  boolean_T t0_not_empty_p;            /* '<S6>/MATLAB Function1' */
+  boolean_T doneDoubleBufferReInit;    /* '<S6>/MATLAB Function1' */
+  boolean_T t0_not_empty;              /* '<S6>/MATLAB Function1' */
+  boolean_T doneDoubleBufferReInit_i;  /* '<S5>/MATLAB Function1' */
+  boolean_T t0_not_empty_p;            /* '<S5>/MATLAB Function1' */
   boolean_T doneDoubleBufferReInit_j;  /* '<Root>/MATLAB Function1' */
   boolean_T doneDoubleBufferReInit_e;  /* '<Root>/MATLAB Function' */
   boolean_T method_not_empty;          /* '<Root>/MATLAB Function' */
   boolean_T state_not_empty;           /* '<Root>/MATLAB Function' */
   boolean_T state_not_empty_k;         /* '<Root>/MATLAB Function' */
   boolean_T state_not_empty_d;         /* '<Root>/MATLAB Function' */
-  DW_MATLABFunction2_ATTN_T sf_MATLABFunction1_d;/* '<S5>/MATLAB Function1' */
-  DW_MATLABFunction2_ATTN_T sf_MATLABFunction2;/* '<S4>/MATLAB Function2' */
+  DW_MATLABFunction2_ATTN_T sf_MATLABFunction1_d;/* '<S4>/MATLAB Function1' */
+  DW_MATLABFunction2_ATTN_T sf_MATLABFunction2;/* '<S3>/MATLAB Function2' */
 };
 
 /* Real-time Model Data Structure */
@@ -574,16 +574,15 @@ extern "C"
  * Here is the system hierarchy for this model
  *
  * '<Root>' : 'ATTN'
- * '<S1>'   : 'ATTN/Bandpass Filter'
- * '<S2>'   : 'ATTN/MATLAB Function'
- * '<S3>'   : 'ATTN/MATLAB Function1'
- * '<S4>'   : 'ATTN/PiezoDriver_1'
- * '<S5>'   : 'ATTN/PiezoDriver_2'
- * '<S6>'   : 'ATTN/RewardDriver'
- * '<S7>'   : 'ATTN/onsetToneDriver'
- * '<S8>'   : 'ATTN/PiezoDriver_1/MATLAB Function2'
- * '<S9>'   : 'ATTN/PiezoDriver_2/MATLAB Function1'
- * '<S10>'  : 'ATTN/RewardDriver/MATLAB Function1'
- * '<S11>'  : 'ATTN/onsetToneDriver/MATLAB Function1'
+ * '<S1>'   : 'ATTN/MATLAB Function'
+ * '<S2>'   : 'ATTN/MATLAB Function1'
+ * '<S3>'   : 'ATTN/PiezoDriver_1'
+ * '<S4>'   : 'ATTN/PiezoDriver_2'
+ * '<S5>'   : 'ATTN/RewardDriver'
+ * '<S6>'   : 'ATTN/onsetToneDriver'
+ * '<S7>'   : 'ATTN/PiezoDriver_1/MATLAB Function2'
+ * '<S8>'   : 'ATTN/PiezoDriver_2/MATLAB Function1'
+ * '<S9>'   : 'ATTN/RewardDriver/MATLAB Function1'
+ * '<S10>'  : 'ATTN/onsetToneDriver/MATLAB Function1'
  */
 #endif                                 /* RTW_HEADER_ATTN_h_ */

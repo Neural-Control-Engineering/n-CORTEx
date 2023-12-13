@@ -16,6 +16,7 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
     fa_count = 0;
     distractor_count = 0;
     lick_raster = figure();
+    t = linspace(-3,5,8000);
     for i = 1:length(trial_starts)
         % get end of each trial
         if i == length(trial_starts)
@@ -42,7 +43,7 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
             %sprintf('Trial %i target: correct', i)
             categorical_outcome{i} = 'Hit';
             hit_count = hit_count + 1;
-            lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1)-3000;
+            lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1);
             if isempty(lick_inds)
                 keyboard
             end
@@ -51,7 +52,7 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
             % if hit_count == 19
             %     keyboard
             % end
-            plot(lick_inds, repmat(hit_count,length(lick_inds),1), 'k|')
+            plot(t(lick_inds), repmat(hit_count,length(lick_inds),1), 'k|')
         elseif was_target(i)
             % Miss
             %sprintf('Trial %i target: incorrect', i)
@@ -61,10 +62,10 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
             %sprintf('Trial %i distractor: incorrect', i)
             categorical_outcome{i} = 'FA';
             fa_count = fa_count + 1;
-            lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1)-3000;
+            lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1);
             subplot(1,2,2)
             hold on
-            plot(lick_inds, repmat(fa_count, length(lick_inds),1), 'k|')
+            plot(t(lick_inds), repmat(fa_count, length(lick_inds),1), 'k|')
         else
             % Correct Rejection
             %sprintf('Trial %i distractor: correct', i)

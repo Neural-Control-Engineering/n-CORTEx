@@ -96,12 +96,12 @@ JOLT_cal_type JOLT_cal_impl = {
   /* Computed Parameter: Setup_P9_Size
    * Referenced by: '<Root>/Setup '
    */
-  { 1.0, 8.0 },
+  { 1.0, 6.0 },
 
   /* Expression: parDioFirstControl
    * Referenced by: '<Root>/Setup '
    */
-  { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 9.0 },
+  { 1.0, 5.0, 6.0, 7.0, 8.0, 9.0 },
 
   /* Expression: 1
    * Referenced by: '<Root>/Constant'
@@ -186,33 +186,32 @@ JOLT_cal_type JOLT_cal_impl = {
   /* Computed Parameter: Digitaloutput_P4_Size
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 15.0 },
+  { 1.0, 13.0 },
 
   /* Expression: parDoChannels
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 15.0,
-    16.0 },
+  { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 12.0, 13.0, 14.0, 15.0, 16.0 },
 
   /* Computed Parameter: Digitaloutput_P5_Size
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 15.0 },
+  { 1.0, 13.0 },
 
   /* Expression: parDoInitValues
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 },
+  { 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 },
 
   /* Computed Parameter: Digitaloutput_P6_Size
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 15.0 },
+  { 1.0, 13.0 },
 
   /* Expression: parDoResets
    * Referenced by: '<Root>/Digital output '
    */
-  { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
+  { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
 
   /* Computed Parameter: Analoginput_P1_Size
    * Referenced by: '<Root>/Analog input '
@@ -568,12 +567,12 @@ JOLT_cal_type JOLT_cal_impl = {
   /* Computed Parameter: Digitalinput_P4_Size
    * Referenced by: '<Root>/Digital input '
    */
-  { 1.0, 1.0 },
+  { 1.0, 3.0 },
 
   /* Expression: parDiChannels
    * Referenced by: '<Root>/Digital input '
    */
-  14.0
+  { 9.0, 10.0, 11.0 }
 };
 
 JOLT_cal_type *JOLT_cal = &JOLT_cal_impl;

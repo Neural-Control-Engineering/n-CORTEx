@@ -61,7 +61,7 @@ struct JOLT_cal_type {
   real_T Setup_P9_Size[2];             /* Computed Parameter: Setup_P9_Size
                                         * Referenced by: '<Root>/Setup '
                                         */
-  real_T Setup_P9[8];                  /* Expression: parDioFirstControl
+  real_T Setup_P9[6];                  /* Expression: parDioFirstControl
                                         * Referenced by: '<Root>/Setup '
                                         */
   real_T Constant_Value;               /* Expression: 1
@@ -115,19 +115,19 @@ struct JOLT_cal_type {
   real_T Digitaloutput_P4_Size[2];  /* Computed Parameter: Digitaloutput_P4_Size
                                      * Referenced by: '<Root>/Digital output '
                                      */
-  real_T Digitaloutput_P4[15];         /* Expression: parDoChannels
+  real_T Digitaloutput_P4[13];         /* Expression: parDoChannels
                                         * Referenced by: '<Root>/Digital output '
                                         */
   real_T Digitaloutput_P5_Size[2];  /* Computed Parameter: Digitaloutput_P5_Size
                                      * Referenced by: '<Root>/Digital output '
                                      */
-  real_T Digitaloutput_P5[15];         /* Expression: parDoInitValues
+  real_T Digitaloutput_P5[13];         /* Expression: parDoInitValues
                                         * Referenced by: '<Root>/Digital output '
                                         */
   real_T Digitaloutput_P6_Size[2];  /* Computed Parameter: Digitaloutput_P6_Size
                                      * Referenced by: '<Root>/Digital output '
                                      */
-  real_T Digitaloutput_P6[15];         /* Expression: parDoResets
+  real_T Digitaloutput_P6[13];         /* Expression: parDoResets
                                         * Referenced by: '<Root>/Digital output '
                                         */
   real_T Analoginput_P1_Size[2];      /* Computed Parameter: Analoginput_P1_Size
@@ -248,7 +248,7 @@ struct JOLT_cal_type {
   real_T Digitalinput_P4_Size[2];    /* Computed Parameter: Digitalinput_P4_Size
                                       * Referenced by: '<Root>/Digital input '
                                       */
-  real_T Digitalinput_P4;              /* Expression: parDiChannels
+  real_T Digitalinput_P4[3];           /* Expression: parDiChannels
                                         * Referenced by: '<Root>/Digital input '
                                         */
 };

@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.375
+ * Model version              : 1.386
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Mon Dec  4 22:32:15 2023
+ * C++ source code generated on : Thu Dec  7 20:02:31 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -759,9 +759,6 @@ void JOLT_step(void)
     sfcnOutputs(rts,0);
   }
 
-  /* RateTransition generated from: '<Root>/Digital input ' */
-  JOLT_B.HiddenRateTransitionForToWks_In = JOLT_B.PulseGen1Hz;
-
   /* Update for Memory: '<Root>/Memory2' */
   std::memcpy(&JOLT_DW.Memory2_PreviousInput[0], &JOLT_B.buffOut[0], 8000U *
               sizeof(real_T));
@@ -780,11 +777,11 @@ void JOLT_step(void)
   /* End of Update for DiscreteFilter: '<Root>/Discrete Filter' */
 
   /* Update for Delay: '<Root>/Delay' */
-  for (int32_T i = 0; i < 699; i++) {
+  for (int32_T i = 0; i < 1499; i++) {
     JOLT_DW.Delay_DSTATE[i] = JOLT_DW.Delay_DSTATE[i + 1];
   }
 
-  JOLT_DW.Delay_DSTATE[699] = JOLT_B.sigPulse_p;
+  JOLT_DW.Delay_DSTATE[1499] = JOLT_B.sigPulse_p;
 
   /* End of Update for Delay: '<Root>/Delay' */
 
@@ -1094,7 +1091,7 @@ void JOLT_initialize(void)
 
       /* inputs */
       {
-        _ssSetNumInputPorts(rts, 15);
+        _ssSetNumInputPorts(rts, 13);
         ssSetPortInfoForInputs(rts, &JOLT_M->
           NonInlinedSFcns.Sfcn1.inputPortInfo[0]);
         ssSetPortInfoForInputs(rts, &JOLT_M->
@@ -1114,8 +1111,6 @@ void JOLT_initialize(void)
         ssSetInputPortUnit(rts, 10, 0);
         ssSetInputPortUnit(rts, 11, 0);
         ssSetInputPortUnit(rts, 12, 0);
-        ssSetInputPortUnit(rts, 13, 0);
-        ssSetInputPortUnit(rts, 14, 0);
         _ssSetPortInfo2ForInputCoSimAttribute(rts,
           &JOLT_M->NonInlinedSFcns.Sfcn1.inputPortCoSimAttribute[0]);
         ssSetInputPortIsContinuousQuantity(rts, 0, 0);
@@ -1131,8 +1126,6 @@ void JOLT_initialize(void)
         ssSetInputPortIsContinuousQuantity(rts, 10, 0);
         ssSetInputPortIsContinuousQuantity(rts, 11, 0);
         ssSetInputPortIsContinuousQuantity(rts, 12, 0);
-        ssSetInputPortIsContinuousQuantity(rts, 13, 0);
-        ssSetInputPortIsContinuousQuantity(rts, 14, 0);
 
         /* port 0 */
         {
@@ -1201,7 +1194,7 @@ void JOLT_initialize(void)
         /* port 8 */
         {
           ssSetInputPortRequiredContiguous(rts, 8, 1);
-          ssSetInputPortSignal(rts, 8, (const_cast<real_T*>(&JOLT_RGND)));
+          ssSetInputPortSignal(rts, 8, &JOLT_B.sigPulse);
           _ssSetInputPortNumDimensions(rts, 8, 1);
           ssSetInputPortWidthAsInt(rts, 8, 1);
         }
@@ -1236,22 +1229,6 @@ void JOLT_initialize(void)
           ssSetInputPortSignal(rts, 12, (const_cast<real_T*>(&JOLT_RGND)));
           _ssSetInputPortNumDimensions(rts, 12, 1);
           ssSetInputPortWidthAsInt(rts, 12, 1);
-        }
-
-        /* port 13 */
-        {
-          ssSetInputPortRequiredContiguous(rts, 13, 1);
-          ssSetInputPortSignal(rts, 13, (const_cast<real_T*>(&JOLT_RGND)));
-          _ssSetInputPortNumDimensions(rts, 13, 1);
-          ssSetInputPortWidthAsInt(rts, 13, 1);
-        }
-
-        /* port 14 */
-        {
-          ssSetInputPortRequiredContiguous(rts, 14, 1);
-          ssSetInputPortSignal(rts, 14, &JOLT_B.sigPulse);
-          _ssSetInputPortNumDimensions(rts, 14, 1);
-          ssSetInputPortWidthAsInt(rts, 14, 1);
         }
       }
 
@@ -1318,13 +1295,11 @@ void JOLT_initialize(void)
       _ssSetInputPortConnected(rts, 5, 0);
       _ssSetInputPortConnected(rts, 6, 0);
       _ssSetInputPortConnected(rts, 7, 0);
-      _ssSetInputPortConnected(rts, 8, 0);
+      _ssSetInputPortConnected(rts, 8, 1);
       _ssSetInputPortConnected(rts, 9, 0);
       _ssSetInputPortConnected(rts, 10, 0);
       _ssSetInputPortConnected(rts, 11, 0);
       _ssSetInputPortConnected(rts, 12, 0);
-      _ssSetInputPortConnected(rts, 13, 0);
-      _ssSetInputPortConnected(rts, 14, 1);
 
       /* Update the BufferDstPort flags for each input port */
       ssSetInputPortBufferDstPort(rts, 0, -1);
@@ -1340,8 +1315,6 @@ void JOLT_initialize(void)
       ssSetInputPortBufferDstPort(rts, 10, -1);
       ssSetInputPortBufferDstPort(rts, 11, -1);
       ssSetInputPortBufferDstPort(rts, 12, -1);
-      ssSetInputPortBufferDstPort(rts, 13, -1);
-      ssSetInputPortBufferDstPort(rts, 14, -1);
     }
 
     /* Level2 S-Function Block: JOLT/<Root>/Analog input  (sg_IO191_ad_s) */
@@ -1489,7 +1462,7 @@ void JOLT_initialize(void)
 
       /* Update connectivity flags for each port */
       _ssSetOutputPortConnected(rts, 0, 1);
-      _ssSetOutputPortConnected(rts, 1, 1);
+      _ssSetOutputPortConnected(rts, 1, 0);
       _ssSetOutputPortBeingMerged(rts, 0, 0);
       _ssSetOutputPortBeingMerged(rts, 1, 0);
 
@@ -1550,19 +1523,37 @@ void JOLT_initialize(void)
           &JOLT_M->NonInlinedSFcns.Sfcn3.outputPortInfo[0]);
         ssSetPortInfoForOutputs(rts,
           &JOLT_M->NonInlinedSFcns.Sfcn3.outputPortInfo[0]);
-        _ssSetNumOutputPorts(rts, 1);
+        _ssSetNumOutputPorts(rts, 3);
         _ssSetPortInfo2ForOutputUnits(rts,
           &JOLT_M->NonInlinedSFcns.Sfcn3.outputPortUnits[0]);
         ssSetOutputPortUnit(rts, 0, 0);
+        ssSetOutputPortUnit(rts, 1, 0);
+        ssSetOutputPortUnit(rts, 2, 0);
         _ssSetPortInfo2ForOutputCoSimAttribute(rts,
           &JOLT_M->NonInlinedSFcns.Sfcn3.outputPortCoSimAttribute[0]);
         ssSetOutputPortIsContinuousQuantity(rts, 0, 0);
+        ssSetOutputPortIsContinuousQuantity(rts, 1, 0);
+        ssSetOutputPortIsContinuousQuantity(rts, 2, 0);
 
         /* port 0 */
         {
           _ssSetOutputPortNumDimensions(rts, 0, 1);
           ssSetOutputPortWidthAsInt(rts, 0, 1);
           ssSetOutputPortSignal(rts, 0, ((real_T *) &JOLT_B.PulseGen1Hz));
+        }
+
+        /* port 1 */
+        {
+          _ssSetOutputPortNumDimensions(rts, 1, 1);
+          ssSetOutputPortWidthAsInt(rts, 1, 1);
+          ssSetOutputPortSignal(rts, 1, ((real_T *) &JOLT_B.PulseGen1Hz_a));
+        }
+
+        /* port 2 */
+        {
+          _ssSetOutputPortNumDimensions(rts, 2, 1);
+          ssSetOutputPortWidthAsInt(rts, 2, 1);
+          ssSetOutputPortSignal(rts, 2, ((real_T *) &JOLT_B.Digitalinput_o3));
         }
       }
 
@@ -1619,8 +1610,12 @@ void JOLT_initialize(void)
       ssSetNumNonsampledZCsAsInt(rts, 0);
 
       /* Update connectivity flags for each port */
-      _ssSetOutputPortConnected(rts, 0, 1);
+      _ssSetOutputPortConnected(rts, 0, 0);
+      _ssSetOutputPortConnected(rts, 1, 1);
+      _ssSetOutputPortConnected(rts, 2, 0);
       _ssSetOutputPortBeingMerged(rts, 0, 0);
+      _ssSetOutputPortBeingMerged(rts, 1, 0);
+      _ssSetOutputPortBeingMerged(rts, 2, 0);
 
       /* Update the BufferDstPort flags for each input port */
     }
@@ -1740,7 +1735,7 @@ void JOLT_initialize(void)
     /* End of InitializeConditions for DiscreteFilter: '<Root>/Discrete Filter' */
 
     /* InitializeConditions for Delay: '<Root>/Delay' */
-    for (i = 0; i < 700; i++) {
+    for (i = 0; i < 1500; i++) {
       JOLT_DW.Delay_DSTATE[i] = JOLT_cal->Delay_InitialCondition;
     }
 
