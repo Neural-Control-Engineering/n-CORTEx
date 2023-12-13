@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.506
+ * Model version              : 1.516
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Tue Dec 12 16:07:50 2023
+ * C++ source code generated on : Wed Dec 13 15:25:21 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -167,6 +167,7 @@ struct B_ATTN_T {
   real_T Lick;                         /* '<Root>/MATLAB Function1' */
   real_T y1;                           /* '<Root>/MATLAB Function1' */
   real_T y2;                           /* '<Root>/MATLAB Function1' */
+  real_T ADOut;                        /* '<Root>/MATLAB Function1' */
   real_T state_out;                    /* '<Root>/MATLAB Function' */
   real_T localTime_out;                /* '<Root>/MATLAB Function' */
   real_T trialNum_out;                 /* '<Root>/MATLAB Function' */
@@ -188,7 +189,7 @@ struct B_ATTN_T {
 
 /* Block states (default storage) for system '<Root>' */
 struct DW_ATTN_T {
-  real_T DiscreteFIRFilter1_states[1500];/* '<Root>/Discrete FIR Filter1' */
+  real_T DiscreteFIRFilter1_states[300];/* '<Root>/Discrete FIR Filter1' */
   real_T Memory8_PreviousInput;        /* '<Root>/Memory8' */
   real_T Memory2_PreviousInput;        /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
@@ -302,8 +303,16 @@ struct DW_ATTN_T {
   } Scope2_PWORK;                      /* '<Root>/Scope2' */
 
   struct {
+    void *LoggedData;
+  } Scope4_PWORK;                      /* '<Root>/Scope4' */
+
+  struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_MAT_a;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_MA_bd;   /* synthesized block */
 
   struct {
     void *LoggedData;
