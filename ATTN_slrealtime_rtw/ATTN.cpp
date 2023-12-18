@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.516
+ * Model version              : 1.534
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Dec 13 15:25:21 2023
+ * C++ source code generated on : Mon Dec 18 14:57:34 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -350,7 +350,7 @@ void ATTN_step(void)
     ATTN_B.y2 = 0.0;
   }
 
-  if ((b_y1 > 10.0) && (ATTN_B.Memory7 == 0.0)) {
+  if (((b_y1 > 10.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.17)) {
     ATTN_B.Lick = 1.0;
     ATTN_B.y2 = 1.0;
   } else {
@@ -439,7 +439,7 @@ void ATTN_step(void)
       break;
 
      case 3:
-      if (ATTN_rand() <= 0.5) {
+      if (ATTN_rand() <= 0.6) {
         if (ATTN_cal->targetSide != 0.0) {
           ATTN_B.right_trigger_out = 1.0;
           ATTN_B.left_trigger_out = 0.0;
@@ -563,11 +563,11 @@ void ATTN_step(void)
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
       ADIn = 0.0;
-      b_y1 = 4.0;
-      while ((b_y1 >= 9.0) || (b_y1 <= 5.0)) {
+      b_y1 = 7.0;
+      while ((b_y1 >= 12.0) || (b_y1 <= 8.0)) {
         b_y1 = ATTN_rand();
         b_y1 = std::log(b_y1);
-        b_y1 *= -7.0;
+        b_y1 *= -10.0;
       }
 
       ATTN_B.delay_out = ATTN_B.clock_time + b_y1;
@@ -600,7 +600,7 @@ void ATTN_step(void)
       break;
 
      case 3:
-      if (ATTN_rand() <= 0.8) {
+      if (ATTN_rand() <= 0.6) {
         if (ATTN_cal->targetSide != 0.0) {
           ATTN_B.right_trigger_out = 1.0;
           ATTN_B.left_trigger_out = 0.0;
@@ -649,7 +649,7 @@ void ATTN_step(void)
         ATTN_B.delay_out = ATTN_B.Memory5;
       } else {
         ATTN_B.state_out = 5.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 1.5;
+        ATTN_B.delay_out = ATTN_B.clock_time + 1.65;
       }
 
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
@@ -759,20 +759,20 @@ void ATTN_step(void)
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
       if ((!(ATTN_B.Memory10 != 0.0)) && (!(ATTN_B.Memory9 != 0.0))) {
-        ADIn = 1.0;
-        while ((ADIn >= 4.0) || (ADIn <= 2.0)) {
+        ADIn = 3.0;
+        while ((ADIn >= 6.0) || (ADIn <= 4.0)) {
           ADIn = ATTN_rand();
           ADIn = std::log(ADIn);
-          ADIn *= -3.0;
+          ADIn *= -5.0;
         }
 
         ATTN_B.delay_out = ATTN_B.clock_time + ADIn;
       } else {
-        ADIn = 4.0;
-        while ((ADIn >= 9.0) || (ADIn <= 5.0)) {
+        ADIn = 7.0;
+        while ((ADIn >= 12.0) || (ADIn <= 8.0)) {
           ADIn = ATTN_rand();
           ADIn = std::log(ADIn);
-          ADIn *= -7.0;
+          ADIn *= -10.0;
         }
 
         ATTN_B.delay_out = ATTN_B.clock_time + ADIn;
@@ -808,7 +808,7 @@ void ATTN_step(void)
       break;
 
      case 3:
-      if (ATTN_rand() <= 0.8) {
+      if (ATTN_rand() <= 0.6) {
         if (ATTN_cal->targetSide != 0.0) {
           ATTN_B.right_trigger_out = 1.0;
           ATTN_B.left_trigger_out = 0.0;
@@ -965,11 +965,11 @@ void ATTN_step(void)
       ATTN_B.trialNum_out = 1.0;
       ATTN_B.right_trigger_out = 0.0;
       ATTN_B.left_trigger_out = 0.0;
-      ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
+      ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
       ADIn = 0.0;
       ATTN_B.reward_trigger_out = 1.0;
       ATTN_B.was_target_out = 0.0;
-      ATTN_B.reward_duration_out = 0.05;
+      ATTN_B.reward_duration_out = 0.03;
       ATTN_B.state_out = 2.0;
       ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
       ATTN_B.onsetTone_trig = 0.0;
@@ -978,12 +978,12 @@ void ATTN_step(void)
         ATTN_B.state_out = ATTN_B.Memory2;
         ATTN_B.reward_trigger_out = 0.0;
         ATTN_B.delay_out = ATTN_B.Memory5;
-        ATTN_B.reward_duration_out = 0.05;
+        ATTN_B.reward_duration_out = 0.03;
       } else {
         ATTN_B.state_out = ATTN_B.Memory2 + 1.0;
         ATTN_B.reward_trigger_out = 1.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 10.0;
-        ATTN_B.reward_duration_out = 0.05;
+        ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
+        ATTN_B.reward_duration_out = 0.03;
       }
 
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;

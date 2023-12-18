@@ -1,4 +1,4 @@
-function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, stage)
+function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, stage, tbounds)
     trialNum = logsout.getElement('trialNum').Values.Data;
     wasTarget = logsout.getElement('was_target').Values.Data;
     rewardTrigger = logsout.getElement('reward_trigger').Values.Data;
@@ -6,6 +6,16 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
     leftTrigger = logsout.getElement('left_trigger').Values.Data;
     rightTrigger = logsout.getElement('right_trigger').Values.Data;
     lickDetector = logsout.getElement('lick_detector').Values.Data;
+    time = logsout.getElement('lick_detector').Values.Time;
+    if ~isempty(tbounds)
+        trialNum = trialNum(time >= tbounds(1) & time <= tbounds(2));
+        wasTarget = wasTarget(time >= tbounds(1) & time <= tbounds(2));
+        rewardTrigger = rewardTrigger(time >= tbounds(1) & time <= tbounds(2));
+        numLicks = numLicks(time >= tbounds(1) & time <= tbounds(2));
+        leftTrigger = leftTrigger(time >= tbounds(1) & time <= tbounds(2));
+        rightTrigger = rightTrigger(time >= tbounds(1) & time <= tbounds(2));
+        lickDetector = lickDetector(time >= tbounds(1) & time <= tbounds(2));
+    end
     % get inds for the start of each trial
     trial_starts = find(trialNum == 1);
     trial_ends = zeros(length(trial_starts),1);
@@ -16,7 +26,7 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
     fa_count = 0;
     distractor_count = 0;
     lick_raster = figure();
-    t = linspace(-3,5,8000);
+    t = linspace(-3,5,8001);
     for i = 1:length(trial_starts)
         % get end of each trial
         if i == length(trial_starts)
@@ -43,7 +53,11 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
             %sprintf('Trial %i target: correct', i)
             categorical_outcome{i} = 'Hit';
             hit_count = hit_count + 1;
-            lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1);
+            try
+                lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1);
+            catch
+                lick_inds = find(lickDetector(stim_ind-3000:end)==1);
+            end
             if isempty(lick_inds)
                 keyboard
             end
@@ -57,7 +71,7 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
             % Miss
             %sprintf('Trial %i target: incorrect', i)
             categorical_outcome{i} = 'Miss';
-        elseif sum(lickDetector(stim_ind:trial_ends(i))) % need to distinguish correct rejection from false alarm
+        elseif sum(lickDetector(stim_ind:stim_ind+1650)) % need to distinguish correct rejection from false alarm
             % False Alarm
             %sprintf('Trial %i distractor: incorrect', i)
             categorical_outcome{i} = 'FA';

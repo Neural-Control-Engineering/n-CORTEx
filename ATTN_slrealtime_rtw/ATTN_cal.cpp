@@ -31,7 +31,7 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: rewardDuration
    * Referenced by: '<Root>/rewardDuration'
    */
-  0.05,
+  0.02,
 
   /* Variable: targetSide
    * Referenced by: '<Root>/targetSide'
@@ -41,7 +41,7 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: trainingStage
    * Referenced by: '<Root>/trainingStage'
    */
-  1.0,
+  3.0,
 
   /* Variable: triangleAmplitude
    * Referenced by: '<Root>/triangleAmplitude'
