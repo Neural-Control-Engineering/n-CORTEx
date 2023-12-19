@@ -1,4 +1,4 @@
-function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, stage, tbounds)
+function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnalysis(logsout, stage, tbounds)
     trialNum = logsout.getElement('trialNum').Values.Data;
     wasTarget = logsout.getElement('was_target').Values.Data;
     rewardTrigger = logsout.getElement('reward_trigger').Values.Data;
@@ -25,7 +25,11 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
     target_count = 0;
     fa_count = 0;
     distractor_count = 0;
-    lick_raster = figure();
+    reaction_times = [];
+    lick_raster = figure('Position', [1220, 1389, 1056, 449]);
+    tl = tiledlayout(1,2);
+    axs(1) = nexttile; hold on;
+    axs(2) = nexttile; hold on;
     t = linspace(-3,5,8001);
     for i = 1:length(trial_starts)
         % get end of each trial
@@ -58,14 +62,24 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
             catch
                 lick_inds = find(lickDetector(stim_ind-3000:end)==1);
             end
+            lick_inds = lick_inds - 150;
+            lick_inds = lick_inds(lick_inds > 1);
             if isempty(lick_inds)
                 keyboard
             end
-            subplot(1,2,1)
-            hold on
+            try
+                react_inds = find(lickDetector(stim_ind:stim_ind+5000)==1);
+            catch
+                react_inds = find(lickDetector(stim_ind:end)==1);
+            end
+            react_inds = react_inds - 150;
+            reaction_times = [reaction_times; t(react_inds(1)+3000)];
+            % subplot(1,2,1)
+            % hold on
             % if hit_count == 19
             %     keyboard
             % end
+            axes(axs(1))
             plot(t(lick_inds), repmat(hit_count,length(lick_inds),1), 'k|')
         elseif was_target(i)
             % Miss
@@ -77,8 +91,9 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
             categorical_outcome{i} = 'FA';
             fa_count = fa_count + 1;
             lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1);
-            subplot(1,2,2)
-            hold on
+            % subplot(1,2,2)
+            % hold on
+            axes(axs(2))
             plot(t(lick_inds), repmat(fa_count, length(lick_inds),1), 'k|')
         else
             % Correct Rejection
@@ -89,5 +104,21 @@ function [categorical_outcome, was_target, dprime] = sessionAnalysis(logsout, st
     sprintf('Hit rate: %.3f', hit_count/target_count)
     sprintf('False alarm rate: %.3f', fa_count/distractor_count)
     dprime = norminv(hit_count/target_count) - norminv(fa_count/distractor_count);
-    sprintf('d-prime = %.2f', dprime)
+    sprintf('d'' = %.2f', dprime)
+    title(tl, sprintf('d'' = %.2f', dprime), 'FontSize', 16)
+    set(lick_raster, 'Visible', 'on')
+    axes(axs(1))
+    xlim([-3,5])
+    title('Hit', 'FontSize', 16, 'FontWeight','normal')
+    axes(axs(2))
+    title('False Alarm', 'FontSize', 16, 'FontWeight','normal')
+    xlim([-3,5])
+    ylabel(tl, 'Trial #', 'FontSize', 16)
+    xlabel(tl, 'Time (s)', 'FontSize', 16)
+
+    figure()
+    histogram(reaction_times, 7, 'FaceColor', 'k', 'EdgeColor', 'k', 'Normalization', 'probability')
+    xlabel('Reaction Time (s)', 'FontSize', 16)
+    ylabel('Proportion of trials', 'FontSize', 16)
+    sprintf('Mean reaction time: %.2f', mean(reaction_times))
 end
