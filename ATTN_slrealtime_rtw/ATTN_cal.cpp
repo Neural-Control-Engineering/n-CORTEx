@@ -33,15 +33,20 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   0.02,
 
+  /* Variable: switchTime
+   * Referenced by: '<Root>/swtichTime'
+   */
+  5.0,
+
   /* Variable: targetSide
    * Referenced by: '<Root>/targetSide'
    */
-  0.0,
+  1.0,
 
   /* Variable: trainingStage
    * Referenced by: '<Root>/trainingStage'
    */
-  3.0,
+  4.0,
 
   /* Variable: triangleAmplitude
    * Referenced by: '<Root>/triangleAmplitude'

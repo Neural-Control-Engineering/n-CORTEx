@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.534
+ * Model version              : 1.541
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Mon Dec 18 14:57:34 2023
+ * C++ source code generated on : Wed Dec 20 10:24:15 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -385,6 +385,7 @@ void ATTN_step(void)
 
   /* MATLAB Function: '<Root>/MATLAB Function' incorporates:
    *  Constant: '<Root>/rewardDuration'
+   *  Constant: '<Root>/swtichTime'
    *  Constant: '<Root>/targetSide'
    *  Constant: '<Root>/trainingStage'
    *  Constant: '<Root>/triangleDuration'
@@ -825,6 +826,237 @@ void ATTN_step(void)
         } else {
           ATTN_B.right_trigger_out = 1.0;
           ATTN_B.left_trigger_out = 0.0;
+        }
+
+        ATTN_B.was_target_out = 1.0;
+      }
+
+      ATTN_B.state_out = 4.0;
+      ATTN_B.delay_out = ATTN_B.clock_time + 0.2;
+      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
+      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
+      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
+      ADIn = ATTN_B.Memory9;
+      ATTN_B.reward_trigger_out = 0.0;
+      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
+      ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
+      ATTN_B.onsetTone_trig = 0.0;
+      break;
+
+     case 4:
+      if (ATTN_B.Lick != 0.0) {
+        ADIn = ATTN_B.Memory9 + 1.0;
+      } else {
+        ADIn = ATTN_B.Memory9;
+      }
+
+      if (ADIn != 0.0) {
+        ATTN_B.state_out = 7.0;
+        ATTN_B.delay_out = ATTN_B.clock_time + 1.5;
+      } else if (ATTN_B.clock_time < ATTN_B.Memory5) {
+        ATTN_B.state_out = ATTN_B.Memory2;
+        ATTN_B.delay_out = ATTN_B.Memory5;
+      } else {
+        ATTN_B.state_out = 5.0;
+        ATTN_B.delay_out = ATTN_B.clock_time + 1.0;
+      }
+
+      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
+      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
+      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
+      ADIn = ATTN_B.Memory9;
+      ATTN_B.reward_trigger_out = 0.0;
+      ATTN_B.left_trigger_out = 0.0;
+      ATTN_B.right_trigger_out = 0.0;
+      ATTN_B.was_target_out = ATTN_B.Memory10;
+      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
+      ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
+      ATTN_B.onsetTone_trig = 0.0;
+      break;
+
+     case 5:
+      if (ATTN_B.Lick != 0.0) {
+        ADIn = ATTN_B.Memory9 + 1.0;
+      } else {
+        ADIn = ATTN_B.Memory9;
+      }
+
+      if (ATTN_B.clock_time < ATTN_B.Memory5) {
+        ATTN_B.state_out = ATTN_B.Memory2;
+        ATTN_B.delay_out = ATTN_B.Memory5;
+      } else if ((ATTN_B.Memory9 != 0.0) && (ATTN_B.Memory10 != 0.0)) {
+        ATTN_B.state_out = 6.0;
+        ATTN_B.delay_out = ATTN_B.Memory5;
+      } else {
+        ATTN_B.state_out = 7.0;
+        ATTN_B.delay_out = ATTN_B.clock_time + 0.5;
+      }
+
+      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
+      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
+      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
+      ATTN_B.right_trigger_out = ATTN_B.Memory8;
+      ATTN_B.reward_trigger_out = 0.0;
+      ATTN_B.left_trigger_out = ATTN_B.Memory6;
+      ATTN_B.was_target_out = ATTN_B.Memory10;
+      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
+      ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
+      ATTN_B.onsetTone_trig = 0.0;
+      break;
+
+     case 6:
+      ATTN_B.reward_trigger_out = 1.0;
+      ATTN_B.state_out = 7.0;
+      ATTN_B.delay_out = ATTN_B.clock_time + 0.5;
+      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
+      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
+      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
+      ADIn = ATTN_B.Memory9;
+      ATTN_B.right_trigger_out = ATTN_B.Memory8;
+      ATTN_B.left_trigger_out = ATTN_B.Memory6;
+      ATTN_B.was_target_out = ATTN_B.Memory10;
+      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
+      ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
+      ATTN_B.onsetTone_trig = 0.0;
+      break;
+
+     case 7:
+      if (ATTN_B.clock_time < ATTN_B.Memory5) {
+        ATTN_B.state_out = ATTN_B.Memory2;
+      } else {
+        ATTN_B.state_out = 1.0;
+      }
+
+      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
+      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
+      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
+      ATTN_B.left_trigger_out = ATTN_B.Memory6;
+      ATTN_B.right_trigger_out = ATTN_B.Memory8;
+      ADIn = ATTN_B.Memory9;
+      ATTN_B.delay_out = ATTN_B.Memory5;
+      ATTN_B.reward_trigger_out = 0.0;
+      ATTN_B.was_target_out = ATTN_B.Memory10;
+      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
+      ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
+      ATTN_B.onsetTone_trig = 0.0;
+      break;
+
+     default:
+      ATTN_B.state_out = ATTN_B.Memory2;
+      ATTN_B.localTime_out = ATTN_B.Memory1;
+      ATTN_B.trialNum_out = ATTN_B.Memory;
+      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
+      ATTN_B.left_trigger_out = ATTN_B.Memory6;
+      ATTN_B.right_trigger_out = ATTN_B.Memory8;
+      ADIn = ATTN_B.Memory9;
+      ATTN_B.delay_out = ATTN_B.Memory5;
+      ATTN_B.reward_trigger_out = 0.0;
+      ATTN_B.was_target_out = ATTN_B.Memory10;
+      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
+      ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
+      ATTN_B.onsetTone_trig = 0.0;
+      break;
+    }
+    break;
+
+   case 4:
+    switch (static_cast<int32_T>(ATTN_B.Memory2)) {
+     case 1:
+      ATTN_B.npxlsAcq_out = 1.0;
+      ATTN_B.state_out = 2.0;
+      ATTN_B.localTime_out = 1.0;
+      ATTN_B.trialNum_out = 1.0;
+      ATTN_B.right_trigger_out = 0.0;
+      ATTN_B.left_trigger_out = 0.0;
+      if ((!(ATTN_B.Memory10 != 0.0)) && (!(ATTN_B.Memory9 != 0.0))) {
+        ADIn = 3.0;
+        while ((ADIn >= 6.0) || (ADIn <= 4.0)) {
+          ADIn = ATTN_rand();
+          ADIn = std::log(ADIn);
+          ADIn *= -5.0;
+        }
+
+        ATTN_B.delay_out = ATTN_B.clock_time + ADIn;
+      } else {
+        ADIn = 7.0;
+        while ((ADIn >= 12.0) || (ADIn <= 8.0)) {
+          ADIn = ATTN_rand();
+          ADIn = std::log(ADIn);
+          ADIn *= -10.0;
+        }
+
+        ATTN_B.delay_out = ATTN_B.clock_time + ADIn;
+      }
+
+      ADIn = 0.0;
+      ATTN_B.reward_trigger_out = 0.0;
+      ATTN_B.was_target_out = 0.0;
+      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
+      ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
+      ATTN_B.onsetTone_trig = 0.0;
+      break;
+
+     case 2:
+      if (ATTN_B.clock_time < ATTN_B.Memory5) {
+        ATTN_B.state_out = ATTN_B.Memory2;
+      } else {
+        ATTN_B.state_out = 3.0;
+      }
+
+      ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
+      ATTN_B.trialNum_out = ATTN_B.Memory + 1.0;
+      ATTN_B.npxlsAcq_out = ATTN_B.Memory3;
+      ATTN_B.right_trigger_out = ATTN_B.Memory8;
+      ATTN_B.left_trigger_out = ATTN_B.Memory6;
+      ADIn = ATTN_B.Memory9;
+      ATTN_B.delay_out = ATTN_B.Memory5;
+      ATTN_B.reward_trigger_out = 0.0;
+      ATTN_B.was_target_out = ATTN_B.Memory10;
+      ATTN_B.reward_duration_out = ATTN_cal->rewardDuration;
+      ATTN_B.stim_duration_out = ATTN_cal->triangleDuration;
+      ATTN_B.onsetTone_trig = 0.0;
+      break;
+
+     case 3:
+      if (ATTN_B.clock_time < ATTN_cal->switchTime * 60.0) {
+        if (ATTN_rand() <= 0.6) {
+          if (ATTN_cal->targetSide != 0.0) {
+            ATTN_B.right_trigger_out = 1.0;
+            ATTN_B.left_trigger_out = 0.0;
+          } else {
+            ATTN_B.left_trigger_out = 1.0;
+            ATTN_B.right_trigger_out = 0.0;
+          }
+
+          ATTN_B.was_target_out = 0.0;
+        } else {
+          if (ATTN_cal->targetSide != 0.0) {
+            ATTN_B.left_trigger_out = 1.0;
+            ATTN_B.right_trigger_out = 0.0;
+          } else {
+            ATTN_B.right_trigger_out = 1.0;
+            ATTN_B.left_trigger_out = 0.0;
+          }
+
+          ATTN_B.was_target_out = 1.0;
+        }
+      } else if (ATTN_rand() <= 0.6) {
+        if (ATTN_cal->targetSide != 0.0) {
+          ATTN_B.left_trigger_out = 1.0;
+          ATTN_B.right_trigger_out = 0.0;
+        } else {
+          ATTN_B.right_trigger_out = 1.0;
+          ATTN_B.left_trigger_out = 0.0;
+        }
+
+        ATTN_B.was_target_out = 0.0;
+      } else {
+        if (ATTN_cal->targetSide != 0.0) {
+          ATTN_B.right_trigger_out = 1.0;
+          ATTN_B.left_trigger_out = 0.0;
+        } else {
+          ATTN_B.left_trigger_out = 1.0;
+          ATTN_B.right_trigger_out = 0.0;
         }
 
         ATTN_B.was_target_out = 1.0;

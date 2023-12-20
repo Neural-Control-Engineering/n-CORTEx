@@ -22,6 +22,9 @@ struct ATTN_cal_type {
   real_T rewardDuration;               /* Variable: rewardDuration
                                         * Referenced by: '<Root>/rewardDuration'
                                         */
+  real_T switchTime;                   /* Variable: switchTime
+                                        * Referenced by: '<Root>/swtichTime'
+                                        */
   real_T targetSide;                   /* Variable: targetSide
                                         * Referenced by: '<Root>/targetSide'
                                         */

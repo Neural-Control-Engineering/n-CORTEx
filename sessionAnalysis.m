@@ -15,6 +15,7 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
         leftTrigger = leftTrigger(time >= tbounds(1) & time <= tbounds(2));
         rightTrigger = rightTrigger(time >= tbounds(1) & time <= tbounds(2));
         lickDetector = lickDetector(time >= tbounds(1) & time <= tbounds(2));
+        time = time(time >= tbounds(1) & time <= tbounds(2));
     end
     % get inds for the start of each trial
     trial_starts = find(trialNum == 1);
