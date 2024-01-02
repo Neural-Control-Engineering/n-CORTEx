@@ -11,4 +11,4 @@ Configure and drive research experiments with a designated realtime target
 >> cortex
 ```
 
-![alt text]([http://url/to/img.png](https://github.com/Neural-Control-Engineering/n-CORTEx/blob/main/cortexProjDir)https://github.com/Neural-Control-Engineering/n-CORTEx/blob/main/cortexProjDir)
+![alt text](https://github.com/Neural-Control-Engineering/n-CORTEx/blob/main/cortexProjDir/image.png)
