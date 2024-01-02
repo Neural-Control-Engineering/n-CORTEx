@@ -1,4 +1,4 @@
-Configure and drive research experiments
+Configure and drive research experiments with a designated realtime target
 
 ## STARTUP
 -> Start matlab, navigate to the n-CORTEx repository
@@ -9,3 +9,5 @@ Configure and drive research experiments
 
 ```matlab
 >> cortex
+
+
