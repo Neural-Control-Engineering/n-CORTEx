@@ -9,3 +9,5 @@ Configure and drive research experiments with a designated realtime target
 
 ```matlab
 >> cortex
+
+![image](https://github.com/Neural-Control-Engineering/n-CORTEx/assets/108840201/fee28701-8990-4ec4-8857-366eb850261f)
