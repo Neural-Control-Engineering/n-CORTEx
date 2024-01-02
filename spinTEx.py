@@ -26,6 +26,7 @@ def main():
 
     # retrieve video save location
     saveDir = spinParams["saveDir"]
+    sessionLabel = spinParams["sessionLabel"]
     execStatus = spinParams["execStatus"]
     camSelect = spinParams["camSelect"]    
     
@@ -50,7 +51,10 @@ def main():
             print('Pupil Cam Selected')
             cam.init()
             cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
-            acqDir = os.path.join(saveDir,"Raw Pupil Frames")
+            rawPupilFldr = os.path.join(saveDir,"Raw Pupil Data")
+            if not os.path.exists(rawPupilFldr):
+                os.mkdir(rawPupilFldr)
+            acqDir = os.path.join(rawPupilFldr, sessionLabel)
             listenerPort=12345
             # isKillVar='ISPUPKILL'            
            
@@ -61,7 +65,10 @@ def main():
             print('Whisker Cam Selected')
             cam.init()
             cam = setSpinParams(cam, spinParams['whiskCam'])
-            acqDir = os.path.join(saveDir,"Raw Whisker Frames")
+            rawWhiskFldr = os.path.join(saveDir,"Raw Whisker Data")
+            if not os.path.exists(rawWhiskFldr):
+                os.mkdir(rawWhiskFldr)
+            acqDir = os.path.join(rawWhiskFldr, sessionLabel)
             listenerPort=23456
             # isKillVar='ISWSKKILL'
            
@@ -144,6 +151,7 @@ def saveFrames(frameBuffer, acqDir, isTerm):
         if len(frameBuffer)>0:
             frame = frameBuffer.pop(0)
             cv2.imwrite(os.path.join(acqDir, "frame_"+str(i)+".png"), frame, [cv2.IMWRITE_PNG_COMPRESSION, COMPRESSIONLEVEL])
+            # cv2.imwrite(os.path.join(acqDir, "frame_"+str(i)+".png"), frame)
             i+=1 
             print('frame_',i,' saved')
             print('BUFFERLEN: ', len(frameBuffer))            

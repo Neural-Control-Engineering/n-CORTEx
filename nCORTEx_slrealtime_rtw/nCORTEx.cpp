@@ -7,9 +7,9 @@
  *
  * Code generation for model "nCORTEx".
  *
- * Model version              : 1.117
+ * Model version              : 1.119
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Mon Oct  2 22:46:05 2023
+ * C++ source code generated on : Sun Oct 22 13:35:46 2023
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -114,7 +114,7 @@ void nCORTEx_step(void)
   nCORTEx_DW.sfEvent_e = nCORTEx_CALL_EVENT;
   switch (static_cast<int32_T>(nCORTEx_B.Memory2)) {
    case 1:
-    nCORTEx_B.npxlsAcq_out = 1.0;
+    nCORTEx_B.npxlsAcq_out = 2.5;
     nCORTEx_B.onsetTone_trig = 1.0;
     nCORTEx_B.state_out = 2.0;
     nCORTEx_B.localTime_out = 1.0;
