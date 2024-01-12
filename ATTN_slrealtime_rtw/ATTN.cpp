@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.541
+ * Model version              : 1.551
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Dec 20 10:24:15 2023
+ * C++ source code generated on : Thu Jan 11 16:33:30 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -336,12 +336,7 @@ void ATTN_step(void)
    *  Constant: '<Root>/Thrd'
    */
   ATTN_DW.sfEvent_b = ATTN_CALL_EVENT_n;
-  ADIn = ATTN_B.filtered_lickometer;
-  if (ATTN_B.filtered_lickometer > 0.0) {
-    ADIn = 0.0;
-  }
-
-  ADIn = std::abs(ADIn);
+  ADIn = std::abs(ATTN_B.filtered_lickometer);
   if (ADIn > ATTN_cal->Thrd_Value) {
     b_y1 = ATTN_B.Memory11 + 1.0;
     ATTN_B.y2 = ATTN_B.Memory7;
@@ -350,7 +345,7 @@ void ATTN_step(void)
     ATTN_B.y2 = 0.0;
   }
 
-  if (((b_y1 > 10.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.17)) {
+  if (((b_y1 > 10.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.06)) {
     ATTN_B.Lick = 1.0;
     ATTN_B.y2 = 1.0;
   } else {
@@ -809,7 +804,7 @@ void ATTN_step(void)
       break;
 
      case 3:
-      if (ATTN_rand() <= 0.6) {
+      if (ATTN_rand() <= 0.8) {
         if (ATTN_cal->targetSide != 0.0) {
           ATTN_B.right_trigger_out = 1.0;
           ATTN_B.left_trigger_out = 0.0;
