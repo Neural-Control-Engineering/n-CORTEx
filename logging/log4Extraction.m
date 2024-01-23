@@ -1,9 +1,18 @@
-function log4Extraction(expmntPath,extractionRow)
+function log4Extraction(expmntPath,extractionRow,ftype)
     extractionLogDir = dir(fullfile(expmntPath,"Extraction-Logs"));
     for i = 3:length(extractionLogDir)
-        extractionLogFile = extractionLogDir(i);        
-        load(fullfile(extractionLogFile.folder,extractionLogFile.name),'extractionLog');
-        extractionLog = [extractionLog; extractionRow];
-        save(fullfile(extractionLogFile.folder,extractionLogFile.name),'extractionLog');
+        extractionLogFile = extractionLogDir(i); 
+        switch ftype
+            case 'mat'
+                load(fullfile(extractionLogFile.folder,extractionLogFile.name),'extractionLog');
+                extractionLog = [extractionLog; extractionRow];
+                save(fullfile(extractionLogFile.folder,extractionLogFile.name),'extractionLog');
+            case 'csv'
+                extractionLog = readtable(fullfile(extractionLogFile.folder,extractionLogFile.name),"Delimiter",',');
+                extractionLog = [extractionLog; extractionRow];
+                writetable(extractionLog,fullfile(extractionLogFile.folder,extractionLogFile.name));
+            otherwise
+        end
+           
     end
 end

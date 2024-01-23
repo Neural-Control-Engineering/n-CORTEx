@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.551
+ * Model version              : 1.576
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Thu Jan 11 16:33:30 2024
+ * C++ source code generated on : Fri Jan 19 12:47:19 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -275,8 +275,6 @@ void ATTN_step(void)
 {
   real_T ADIn;
   real_T b_y1;
-  int32_T cff;
-  int32_T j;
 
   /* Memory: '<Root>/Memory8' */
   ATTN_B.Memory8 = ATTN_DW.Memory8_PreviousInput;
@@ -306,26 +304,6 @@ void ATTN_step(void)
     sfcnOutputs(rts,0);
   }
 
-  /* DiscreteFir: '<Root>/Discrete FIR Filter1' */
-  cff = 1;
-  ADIn = ATTN_B.lickometer_piezo * ATTN_cal->DiscreteFIRFilter1_Coefficients[0];
-  for (j = ATTN_DW.DiscreteFIRFilter1_circBuf; j < 300; j++) {
-    b_y1 = ATTN_DW.DiscreteFIRFilter1_states[j] *
-      ATTN_cal->DiscreteFIRFilter1_Coefficients[cff];
-    ADIn += b_y1;
-    cff++;
-  }
-
-  for (j = 0; j < ATTN_DW.DiscreteFIRFilter1_circBuf; j++) {
-    b_y1 = ATTN_DW.DiscreteFIRFilter1_states[j] *
-      ATTN_cal->DiscreteFIRFilter1_Coefficients[cff];
-    ADIn += b_y1;
-    cff++;
-  }
-
-  /* DiscreteFir: '<Root>/Discrete FIR Filter1' */
-  ATTN_B.filtered_lickometer = ADIn;
-
   /* Memory: '<Root>/Memory11' */
   ATTN_B.Memory11 = ATTN_DW.Memory11_PreviousInput;
 
@@ -333,10 +311,11 @@ void ATTN_step(void)
   ATTN_B.Memory7 = ATTN_DW.Memory7_PreviousInput;
 
   /* MATLAB Function: '<Root>/MATLAB Function1' incorporates:
+   *  Constant: '<Root>/Constant1'
    *  Constant: '<Root>/Thrd'
    */
   ATTN_DW.sfEvent_b = ATTN_CALL_EVENT_n;
-  ADIn = std::abs(ATTN_B.filtered_lickometer);
+  ADIn = std::abs(ATTN_B.lickometer_piezo - ATTN_cal->Constant1_Value);
   if (ADIn > ATTN_cal->Thrd_Value) {
     b_y1 = ATTN_B.Memory11 + 1.0;
     ATTN_B.y2 = ATTN_B.Memory7;
@@ -345,7 +324,7 @@ void ATTN_step(void)
     ATTN_B.y2 = 0.0;
   }
 
-  if (((b_y1 > 10.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.06)) {
+  if (((b_y1 > 5.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.035)) {
     ATTN_B.Lick = 1.0;
     ATTN_B.y2 = 1.0;
   } else {
@@ -645,7 +624,7 @@ void ATTN_step(void)
         ATTN_B.delay_out = ATTN_B.Memory5;
       } else {
         ATTN_B.state_out = 5.0;
-        ATTN_B.delay_out = ATTN_B.clock_time + 1.65;
+        ATTN_B.delay_out = ATTN_B.clock_time + 1.5;
       }
 
       ATTN_B.localTime_out = ATTN_B.Memory1 + 1.0;
@@ -1487,19 +1466,6 @@ void ATTN_step(void)
 
   /* Update for Memory: '<Root>/Memory' */
   ATTN_DW.Memory_PreviousInput = ATTN_B.trialNum_out;
-
-  /* Update for DiscreteFir: '<Root>/Discrete FIR Filter1' */
-  /* Update circular buffer index */
-  ATTN_DW.DiscreteFIRFilter1_circBuf--;
-  if (ATTN_DW.DiscreteFIRFilter1_circBuf < 0) {
-    ATTN_DW.DiscreteFIRFilter1_circBuf = 299;
-  }
-
-  /* Update circular buffer */
-  ATTN_DW.DiscreteFIRFilter1_states[ATTN_DW.DiscreteFIRFilter1_circBuf] =
-    ATTN_B.lickometer_piezo;
-
-  /* End of Update for DiscreteFir: '<Root>/Discrete FIR Filter1' */
 
   /* Update for Memory: '<Root>/Memory11' */
   ATTN_DW.Memory11_PreviousInput = ATTN_B.y1;
@@ -2557,7 +2523,6 @@ void ATTN_initialize(void)
   }
 
   {
-    int32_T i;
     static const uint32_T tmp[625] = { 5489U, 1301868182U, 2938499221U,
       2950281878U, 1875628136U, 751856242U, 944701696U, 2243192071U, 694061057U,
       219885934U, 2066767472U, 3182869408U, 485472502U, 2336857883U, 1071588843U,
@@ -2684,15 +2649,6 @@ void ATTN_initialize(void)
 
     /* InitializeConditions for Memory: '<Root>/Memory' */
     ATTN_DW.Memory_PreviousInput = ATTN_cal->Memory_InitialCondition;
-
-    /* InitializeConditions for DiscreteFir: '<Root>/Discrete FIR Filter1' */
-    ATTN_DW.DiscreteFIRFilter1_circBuf = 0;
-    for (i = 0; i < 300; i++) {
-      ATTN_DW.DiscreteFIRFilter1_states[i] =
-        ATTN_cal->DiscreteFIRFilter1_InitialState;
-    }
-
-    /* End of InitializeConditions for DiscreteFir: '<Root>/Discrete FIR Filter1' */
 
     /* InitializeConditions for Memory: '<Root>/Memory11' */
     ATTN_DW.Memory11_PreviousInput = ATTN_cal->Memory11_InitialCondition;

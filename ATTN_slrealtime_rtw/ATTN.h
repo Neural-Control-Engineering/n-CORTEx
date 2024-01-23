@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.551
+ * Model version              : 1.576
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Thu Jan 11 16:33:30 2024
+ * C++ source code generated on : Fri Jan 19 12:47:19 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -142,7 +142,6 @@ struct B_ATTN_T {
   real_T Memory;                       /* '<Root>/Memory' */
   real_T Analoginput_o1;               /* '<Root>/Analog input ' */
   real_T lickometer_piezo;             /* '<Root>/Analog input ' */
-  real_T filtered_lickometer;          /* '<Root>/Discrete FIR Filter1' */
   real_T Memory11;                     /* '<Root>/Memory11' */
   real_T Memory7;                      /* '<Root>/Memory7' */
   real_T clock_time;                   /* '<Root>/Clock' */
@@ -189,7 +188,6 @@ struct B_ATTN_T {
 
 /* Block states (default storage) for system '<Root>' */
 struct DW_ATTN_T {
-  real_T DiscreteFIRFilter1_states[300];/* '<Root>/Discrete FIR Filter1' */
   real_T Memory8_PreviousInput;        /* '<Root>/Memory8' */
   real_T Memory2_PreviousInput;        /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
@@ -316,21 +314,12 @@ struct DW_ATTN_T {
 
   struct {
     void *LoggedData;
-  } Scope1_PWORK;                      /* '<Root>/Scope1' */
-
-  struct {
-    void *AQHandles;
-  } TAQSigLogging_InsertedFor_Discr;   /* synthesized block */
-
-  struct {
-    void *LoggedData;
   } Scope3_PWORK;                      /* '<Root>/Scope3' */
 
   struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Analo;   /* synthesized block */
 
-  int32_T DiscreteFIRFilter1_circBuf;  /* '<Root>/Discrete FIR Filter1' */
   int32_T clockTickCounter;            /* '<Root>/Whisker Trig' */
   int32_T clockTickCounter_n;          /* '<Root>/Npxls Trig' */
   int32_T clockTickCounter_c;          /* '<Root>/Pupil Trig' */

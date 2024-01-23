@@ -73,7 +73,7 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
             catch
                 react_inds = find(lickDetector(stim_ind:end)==1);
             end
-            react_inds = react_inds - 150;
+            %react_inds = react_inds - 150;
             reaction_times = [reaction_times; t(react_inds(1)+3000)];
             % subplot(1,2,1)
             % hold on
@@ -102,9 +102,9 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
             categorical_outcome{i} = 'CR';
         end
     end
-    sprintf('Hit rate: %.3f', hit_count/target_count)
-    sprintf('False alarm rate: %.3f', fa_count/distractor_count)
-    dprime = norminv(hit_count/target_count) - norminv(fa_count/distractor_count);
+    sprintf('Hit rate: %.3f', (hit_count+0.5)/(target_count+1.0))
+    sprintf('False alarm rate: %.3f', (fa_count+0.5)/(distractor_count+1.0))
+    dprime = norminv((hit_count+0.5)/(target_count+1.0)) - norminv((fa_count+0.5)/(distractor_count+1.0));
     sprintf('d'' = %.2f', dprime)
     title(tl, sprintf('d'' = %.2f', dprime), 'FontSize', 16)
     set(lick_raster, 'Visible', 'on')
