@@ -1,6 +1,8 @@
-function ctx = initNPXLS(ctx)
+function ctx = initNPXLS(ctx, ctxInitCfg)
+    modality = 'npxls';
     % append NPXLS Panel handle to ctx session
-    ctx.npxls.type = {'label','panel'};
-    ctx.npxls.label = '';
-    ctx.npxls.
+    ctx.(modality).type = {'label','panel'};
+    ctx.(modality).label.value = '';
+    
+
 end
