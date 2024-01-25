@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.576
+ * Model version              : 1.582
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Fri Jan 19 12:47:19 2024
+ * C++ source code generated on : Thu Jan 25 09:54:22 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -42,6 +42,7 @@
 #define rtmSetTPtr(rtm, val)           ((rtm)->Timing.t = (val))
 #endif
 
+extern real_T rt_roundd_snf(real_T u);
 extern void* slrtRegisterSignalToLoggingService(uintptr_t sigAddr);
 extern "C" void sg_IO191_setup_s(SimStruct *rts);
 extern "C" void sg_IO191_ad_s(SimStruct *rts);
