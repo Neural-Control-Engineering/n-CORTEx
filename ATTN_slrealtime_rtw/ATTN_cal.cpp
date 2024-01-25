@@ -258,15 +258,15 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   { 1.0, 1.0 },
 
-  /* Expression: 0.022
+  /* Expression: 0.024
    * Referenced by: '<Root>/Thrd'
    */
-  0.022,
+  0.024,
 
-  /* Expression: -0.0336
+  /* Expression: -0.0239
    * Referenced by: '<Root>/Constant1'
    */
-  -0.0336,
+  -0.0239,
 
   /* Expression: 0
    * Referenced by: '<Root>/Memory11'
