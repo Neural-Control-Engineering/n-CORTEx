@@ -42,9 +42,9 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
         % was stimulus target or distractor
         if sum(wasTarget(trial_starts(i):trial_ends(i)))
             was_target(i) = 1;
-            target_count = target_count + 1;
-        else
             distractor_count = distractor_count + 1;
+        else
+            target_count = target_count + 1;
         end
         % determine stimulus time 
         stim_ind = find(rightTrigger(trial_starts(i):trial_ends(i))==1);
@@ -102,6 +102,7 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
             categorical_outcome{i} = 'CR';
         end
     end
+    keyboard
     sprintf('Hit rate: %.3f', (hit_count+0.5)/(target_count+1.0))
     sprintf('False alarm rate: %.3f', (fa_count+0.5)/(distractor_count+1.0))
     dprime = norminv((hit_count+0.5)/(target_count+1.0)) - norminv((fa_count+0.5)/(distractor_count+1.0));
