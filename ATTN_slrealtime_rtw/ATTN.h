@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.584
+ * Model version              : 1.593
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Fri Jan 26 08:51:41 2024
+ * C++ source code generated on : Sat Jan 27 10:54:02 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -161,6 +161,8 @@ struct B_ATTN_T {
   real_T Memory5;                      /* '<Root>/Memory5' */
   real_T Memory6;                      /* '<Root>/Memory6' */
   real_T Memory10;                     /* '<Root>/Memory10' */
+  real_T swtichTime;                   /* '<Root>/swtichTime' */
+  real_T trainingStage;                /* '<Root>/trainingStage' */
   real_T Clock1;                       /* '<S4>/Clock1' */
   real_T Clock2;                       /* '<S3>/Clock2' */
   real_T whiskCam_trig;                /* '<Root>/Whisker Trig' */
@@ -301,6 +303,14 @@ struct DW_ATTN_T {
   struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_MAT_b;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_train;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_swtic;   /* synthesized block */
 
   struct {
     void *AQHandles;

@@ -157,10 +157,10 @@ struct ATTN_cal_type {
   real_T Analoginput_P9[2];            /* Expression: parAdcResets
                                         * Referenced by: '<Root>/Analog input '
                                         */
-  real_T Thrd_Value;                   /* Expression: 0.019
+  real_T Thrd_Value;                   /* Expression: .018
                                         * Referenced by: '<Root>/Thrd'
                                         */
-  real_T Constant1_Value;              /* Expression: -0.0357
+  real_T Constant1_Value;              /* Expression: -0.0224
                                         * Referenced by: '<Root>/Constant1'
                                         */
   real_T Memory11_InitialCondition;    /* Expression: 0

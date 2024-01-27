@@ -46,7 +46,7 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: trainingStage
    * Referenced by: '<Root>/trainingStage'
    */
-  2.0,
+  3.0,
 
   /* Variable: triangleAmplitude
    * Referenced by: '<Root>/triangleAmplitude'
@@ -258,15 +258,15 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   { 1.0, 1.0 },
 
-  /* Expression: 0.019
+  /* Expression: .018
    * Referenced by: '<Root>/Thrd'
    */
-  0.019,
+  0.018,
 
-  /* Expression: -0.0357
+  /* Expression: -0.0224
    * Referenced by: '<Root>/Constant1'
    */
-  -0.0357,
+  -0.0224,
 
   /* Expression: 0
    * Referenced by: '<Root>/Memory11'

@@ -34,17 +34,18 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
     t = linspace(-3,5,8001);
     for i = 1:length(trial_starts)
         % get end of each trial
-        if i == length(trial_starts)
-            trial_ends(i) = max(trialNum);
+        if i == length(trial_starts) 
+            trial_ends(i) = length(trialNum);
         else
             trial_ends(i) = trial_starts(i+1)-1;
         end
+       
         % was stimulus target or distractor
         if sum(wasTarget(trial_starts(i):trial_ends(i)))
             was_target(i) = 1;
-            distractor_count = distractor_count + 1;
-        else
             target_count = target_count + 1;
+        else
+            distractor_count = distractor_count + 1;
         end
         % determine stimulus time 
         stim_ind = find(rightTrigger(trial_starts(i):trial_ends(i))==1);
@@ -102,7 +103,6 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
             categorical_outcome{i} = 'CR';
         end
     end
-    keyboard
     sprintf('Hit rate: %.3f', (hit_count+0.5)/(target_count+1.0))
     sprintf('False alarm rate: %.3f', (fa_count+0.5)/(distractor_count+1.0))
     dprime = norminv((hit_count+0.5)/(target_count+1.0)) - norminv((fa_count+0.5)/(distractor_count+1.0));
