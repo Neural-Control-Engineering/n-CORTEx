@@ -1,0 +1,13 @@
+classdef ctxModality
+    properties        
+        sessionLabel
+        panel
+    end
+    methods
+        function modality = ctxModality(label)
+            if nargin > 0
+                
+            end
+        end
+    end
+end
