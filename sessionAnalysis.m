@@ -34,11 +34,12 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
     t = linspace(-3,5,8001);
     for i = 1:length(trial_starts)
         % get end of each trial
-        if i == length(trial_starts)
-            trial_ends(i) = max(trialNum);
+        if i == length(trial_starts) 
+            trial_ends(i) = length(trialNum);
         else
             trial_ends(i) = trial_starts(i+1)-1;
         end
+       
         % was stimulus target or distractor
         if sum(wasTarget(trial_starts(i):trial_ends(i)))
             was_target(i) = 1;

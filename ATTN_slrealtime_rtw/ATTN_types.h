@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.576
+ * Model version              : 1.596
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Fri Jan 19 12:47:19 2024
+ * C++ source code generated on : Sun Jan 28 09:35:40 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -20,6 +20,10 @@
 
 #ifndef RTW_HEADER_ATTN_types_h_
 #define RTW_HEADER_ATTN_types_h_
+
+/* Custom Type definition for MATLAB Function: '<Root>/MATLAB Function' */
+#include <ctime>
+#include <ctime>
 
 /* Forward declaration for rtModel */
 typedef struct tag_RTM_ATTN_T RT_MODEL_ATTN_T;

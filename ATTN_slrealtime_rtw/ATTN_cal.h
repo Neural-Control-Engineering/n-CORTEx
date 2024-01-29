@@ -40,7 +40,7 @@ struct ATTN_cal_type {
   real_T Memory8_InitialCondition;     /* Expression: 0
                                         * Referenced by: '<Root>/Memory8'
                                         */
-  real_T Memory2_InitialCondition;     /* Expression: 1
+  real_T Memory2_InitialCondition;     /* Expression: 0
                                         * Referenced by: '<Root>/Memory2'
                                         */
   real_T Memory1_InitialCondition;     /* Expression: 0
@@ -157,10 +157,10 @@ struct ATTN_cal_type {
   real_T Analoginput_P9[2];            /* Expression: parAdcResets
                                         * Referenced by: '<Root>/Analog input '
                                         */
-  real_T Thrd_Value;                   /* Expression: 0.035
+  real_T Thrd_Value;                   /* Expression: .0175
                                         * Referenced by: '<Root>/Thrd'
                                         */
-  real_T Constant1_Value;              /* Expression: -0.0319
+  real_T Constant1_Value;              /* Expression: -0.0229
                                         * Referenced by: '<Root>/Constant1'
                                         */
   real_T Memory11_InitialCondition;    /* Expression: 0

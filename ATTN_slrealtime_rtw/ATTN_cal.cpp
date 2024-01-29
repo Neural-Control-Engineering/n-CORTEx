@@ -36,7 +36,7 @@ ATTN_cal_type ATTN_cal_impl = {
   /* Variable: switchTime
    * Referenced by: '<Root>/swtichTime'
    */
-  15.0,
+  0.0,
 
   /* Variable: targetSide
    * Referenced by: '<Root>/targetSide'
@@ -63,10 +63,10 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   0.0,
 
-  /* Expression: 1
+  /* Expression: 0
    * Referenced by: '<Root>/Memory2'
    */
-  1.0,
+  0.0,
 
   /* Expression: 0
    * Referenced by: '<Root>/Memory1'
@@ -258,15 +258,15 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   { 1.0, 1.0 },
 
-  /* Expression: 0.035
+  /* Expression: .0175
    * Referenced by: '<Root>/Thrd'
    */
-  0.035,
+  0.0175,
 
-  /* Expression: -0.0319
+  /* Expression: -0.0229
    * Referenced by: '<Root>/Constant1'
    */
-  -0.0319,
+  -0.0229,
 
   /* Expression: 0
    * Referenced by: '<Root>/Memory11'
