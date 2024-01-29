@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.596
+ * Model version              : 1.602
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Sun Jan 28 09:35:40 2024
+ * C++ source code generated on : Mon Jan 29 16:40:12 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -531,7 +531,7 @@ void ATTN_step(void)
     ATTN_B.y2 = 0.0;
   }
 
-  if (((b_y1 > 5.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.018)) {
+  if (((b_y1 > 5.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.021)) {
     ATTN_B.Lick = 1.0;
     ATTN_B.y2 = 1.0;
   } else {

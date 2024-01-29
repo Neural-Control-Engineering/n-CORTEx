@@ -64,7 +64,7 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
             catch
                 lick_inds = find(lickDetector(stim_ind-3000:end)==1);
             end
-            lick_inds = lick_inds - 150;
+            %lick_inds = lick_inds - 150;
             lick_inds = lick_inds(lick_inds > 1);
             if isempty(lick_inds)
                 keyboard
