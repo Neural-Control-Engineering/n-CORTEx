@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.602
+ * Model version              : 1.612
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Mon Jan 29 16:40:12 2024
+ * C++ source code generated on : Tue Jan 30 11:55:57 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -531,7 +531,7 @@ void ATTN_step(void)
     ATTN_B.y2 = 0.0;
   }
 
-  if (((b_y1 > 5.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.021)) {
+  if (((b_y1 > 5.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.0195)) {
     ATTN_B.Lick = 1.0;
     ATTN_B.y2 = 1.0;
   } else {
@@ -894,7 +894,7 @@ void ATTN_step(void)
       if (ATTN_B.clock_time < ATTN_B.Memory5) {
         ATTN_B.state_out = ATTN_B.Memory2;
         ATTN_B.delay_out = ATTN_B.Memory5;
-      } else if ((ATTN_B.Memory9 != 0.0) && (ATTN_B.Memory10 != 0.0)) {
+      } else if ((ADIn != 0.0) && (ATTN_B.Memory10 != 0.0)) {
         ATTN_B.state_out = 6.0;
         ATTN_B.delay_out = ATTN_B.Memory5;
       } else {
@@ -1120,7 +1120,7 @@ void ATTN_step(void)
       if (ATTN_B.clock_time < ATTN_B.Memory5) {
         ATTN_B.state_out = ATTN_B.Memory2;
         ATTN_B.delay_out = ATTN_B.Memory5;
-      } else if ((ATTN_B.Memory9 != 0.0) && (ATTN_B.Memory10 != 0.0)) {
+      } else if ((ADIn != 0.0) && (ATTN_B.Memory10 != 0.0)) {
         ATTN_B.state_out = 6.0;
         ATTN_B.delay_out = ATTN_B.Memory5;
       } else {
@@ -1368,7 +1368,7 @@ void ATTN_step(void)
       if (ATTN_B.clock_time < ATTN_B.Memory5) {
         ATTN_B.state_out = ATTN_B.Memory2;
         ATTN_B.delay_out = ATTN_B.Memory5;
-      } else if ((ATTN_B.Memory9 != 0.0) && (ATTN_B.Memory10 != 0.0)) {
+      } else if ((ADIn != 0.0) && (ATTN_B.Memory10 != 0.0)) {
         ATTN_B.state_out = 6.0;
         ATTN_B.delay_out = ATTN_B.Memory5;
       } else {
