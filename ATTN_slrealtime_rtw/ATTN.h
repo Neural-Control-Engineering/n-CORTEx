@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.541
+ * Model version              : 1.623
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Dec 20 10:24:15 2023
+ * C++ source code generated on : Wed Jan 31 15:31:45 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -20,15 +20,13 @@
 
 #ifndef RTW_HEADER_ATTN_h_
 #define RTW_HEADER_ATTN_h_
+#include <ctime>
 #include <logsrv.h>
 #include "rtwtypes.h"
 #include "simstruc.h"
 #include "fixedpoint.h"
 #include "verify/verifyIntrf.h"
 #include "ATTN_types.h"
-#include <stddef.h>
-#include <cstring>
-#include "ATTN_cal.h"
 
 extern "C"
 {
@@ -36,6 +34,18 @@ extern "C"
 #include "rt_nonfinite.h"
 
 }
+
+#include <stddef.h>
+
+extern "C"
+{
+
+#include "rtGetNaN.h"
+
+}
+
+#include <cstring>
+#include "ATTN_cal.h"
 
 /* Macros for accessing real-time model data structure */
 #ifndef rtmGetContTimeOutputInconsistentWithStateAtMajorStepFlag
@@ -142,7 +152,6 @@ struct B_ATTN_T {
   real_T Memory;                       /* '<Root>/Memory' */
   real_T Analoginput_o1;               /* '<Root>/Analog input ' */
   real_T lickometer_piezo;             /* '<Root>/Analog input ' */
-  real_T filtered_lickometer;          /* '<Root>/Discrete FIR Filter1' */
   real_T Memory11;                     /* '<Root>/Memory11' */
   real_T Memory7;                      /* '<Root>/Memory7' */
   real_T clock_time;                   /* '<Root>/Clock' */
@@ -152,6 +161,8 @@ struct B_ATTN_T {
   real_T Memory5;                      /* '<Root>/Memory5' */
   real_T Memory6;                      /* '<Root>/Memory6' */
   real_T Memory10;                     /* '<Root>/Memory10' */
+  real_T swtichTime;                   /* '<Root>/swtichTime' */
+  real_T trainingStage;                /* '<Root>/trainingStage' */
   real_T Clock1;                       /* '<S4>/Clock1' */
   real_T Clock2;                       /* '<S3>/Clock2' */
   real_T whiskCam_trig;                /* '<Root>/Whisker Trig' */
@@ -189,7 +200,6 @@ struct B_ATTN_T {
 
 /* Block states (default storage) for system '<Root>' */
 struct DW_ATTN_T {
-  real_T DiscreteFIRFilter1_states[300];/* '<Root>/Discrete FIR Filter1' */
   real_T Memory8_PreviousInput;        /* '<Root>/Memory8' */
   real_T Memory2_PreviousInput;        /* '<Root>/Memory2' */
   real_T Memory1_PreviousInput;        /* '<Root>/Memory1' */
@@ -296,6 +306,14 @@ struct DW_ATTN_T {
 
   struct {
     void *AQHandles;
+  } TAQSigLogging_InsertedFor_train;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_swtic;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
   } TAQSigLogging_InsertedFor_Clock;   /* synthesized block */
 
   struct {
@@ -316,21 +334,12 @@ struct DW_ATTN_T {
 
   struct {
     void *LoggedData;
-  } Scope1_PWORK;                      /* '<Root>/Scope1' */
-
-  struct {
-    void *AQHandles;
-  } TAQSigLogging_InsertedFor_Discr;   /* synthesized block */
-
-  struct {
-    void *LoggedData;
   } Scope3_PWORK;                      /* '<Root>/Scope3' */
 
   struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Analo;   /* synthesized block */
 
-  int32_T DiscreteFIRFilter1_circBuf;  /* '<Root>/Discrete FIR Filter1' */
   int32_T clockTickCounter;            /* '<Root>/Whisker Trig' */
   int32_T clockTickCounter_n;          /* '<Root>/Npxls Trig' */
   int32_T clockTickCounter_c;          /* '<Root>/Pupil Trig' */
@@ -338,10 +347,11 @@ struct DW_ATTN_T {
   int32_T sfEvent_a;                   /* '<S5>/MATLAB Function1' */
   int32_T sfEvent_b;                   /* '<Root>/MATLAB Function1' */
   int32_T sfEvent_e;                   /* '<Root>/MATLAB Function' */
+  uint32_T seed;                       /* '<Root>/MATLAB Function' */
   uint32_T method;                     /* '<Root>/MATLAB Function' */
-  uint32_T state;                      /* '<Root>/MATLAB Function' */
-  uint32_T state_p[2];                 /* '<Root>/MATLAB Function' */
-  uint32_T state_k[625];               /* '<Root>/MATLAB Function' */
+  uint32_T state[625];                 /* '<Root>/MATLAB Function' */
+  uint32_T state_k[2];                 /* '<Root>/MATLAB Function' */
+  uint32_T state_j;                    /* '<Root>/MATLAB Function' */
   int_T Analoginput_IWORK[2];          /* '<Root>/Analog input ' */
   uint8_T is_active_c2_ATTN;           /* '<S6>/MATLAB Function1' */
   uint8_T is_active_c5_ATTN;           /* '<S5>/MATLAB Function1' */
@@ -353,10 +363,11 @@ struct DW_ATTN_T {
   boolean_T t0_not_empty_p;            /* '<S5>/MATLAB Function1' */
   boolean_T doneDoubleBufferReInit_j;  /* '<Root>/MATLAB Function1' */
   boolean_T doneDoubleBufferReInit_e;  /* '<Root>/MATLAB Function' */
+  boolean_T seed_not_empty;            /* '<Root>/MATLAB Function' */
   boolean_T method_not_empty;          /* '<Root>/MATLAB Function' */
   boolean_T state_not_empty;           /* '<Root>/MATLAB Function' */
-  boolean_T state_not_empty_k;         /* '<Root>/MATLAB Function' */
   boolean_T state_not_empty_d;         /* '<Root>/MATLAB Function' */
+  boolean_T state_not_empty_n;         /* '<Root>/MATLAB Function' */
   DW_MATLABFunction2_ATTN_T sf_MATLABFunction1_d;/* '<S4>/MATLAB Function1' */
   DW_MATLABFunction2_ATTN_T sf_MATLABFunction2;/* '<S3>/MATLAB Function2' */
 };

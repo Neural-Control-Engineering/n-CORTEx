@@ -1,0 +1,21 @@
+function ctx = initCortexSession(ctxInitCfg)
+    
+
+    % DATE HANDLE
+
+    % SUBJECT HANDLE
+    
+    % PANEL
+    cortexPanels = upper(fieldnames(ctxInitCfg));
+    for i = 1:length(cortexPanels)
+        panel = cortexPanels{i};
+        initHndl = str2func(sprintf("init%s",panel));
+        ctx = initHndl(ctx);
+    end
+
+    % NEUROPIXELS PANEL
+    ctx = initNPXLS(ctx);
+    % GENOMICS PANEL
+    ctx = initGENOM(ctx);
+    % 
+end

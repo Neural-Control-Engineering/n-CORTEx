@@ -1,0 +1,3 @@
+function configureCortexSession(cortexCfg)
+       
+end
