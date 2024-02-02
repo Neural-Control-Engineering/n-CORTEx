@@ -54,53 +54,55 @@ function [categorical_outcome, was_target, dprime, reaction_times] = sessionAnal
         end
         stim_ind = stim_ind + trial_starts(i);
         % determine outcome 
-        if was_target(i) && sum(rewardTrigger(trial_starts(i):trial_ends(i)))
-            % Hit
-            %sprintf('Trial %i target: correct', i)
-            categorical_outcome{i} = 'Hit';
-            hit_count = hit_count + 1;
-            try
+        if length(lickDetector) >= stim_ind+5000
+            if was_target(i) && sum(rewardTrigger(trial_starts(i):trial_ends(i)))
+                % Hit
+                %sprintf('Trial %i target: correct', i)
+                categorical_outcome{i} = 'Hit';
+                hit_count = hit_count + 1;
+                try
+                    lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1);
+                catch
+                    lick_inds = find(lickDetector(stim_ind-3000:end)==1);
+                end
+                %lick_inds = lick_inds - 150;
+                lick_inds = lick_inds(lick_inds > 1);
+                if isempty(lick_inds)
+                    keyboard
+                end
+                try
+                    react_inds = find(lickDetector(stim_ind:stim_ind+5000)==1);
+                catch
+                    react_inds = find(lickDetector(stim_ind:end)==1);
+                end
+                %react_inds = react_inds - 150;
+                reaction_times = [reaction_times; t(react_inds(1)+3000)];
+                % subplot(1,2,1)
+                % hold on
+                % if hit_count == 19
+                %     keyboard
+                % end
+                axes(axs(1))
+                plot(t(lick_inds), repmat(hit_count,length(lick_inds),1), 'k|')
+            elseif was_target(i)
+                % Miss
+                %sprintf('Trial %i target: incorrect', i)
+                categorical_outcome{i} = 'Miss';
+            elseif sum(lickDetector(stim_ind:stim_ind+1500)) % need to distinguish correct rejection from false alarm
+                % False Alarm
+                %sprintf('Trial %i distractor: incorrect', i)
+                categorical_outcome{i} = 'FA';
+                fa_count = fa_count + 1;
                 lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1);
-            catch
-                lick_inds = find(lickDetector(stim_ind-3000:end)==1);
+                % subplot(1,2,2)
+                % hold on
+                axes(axs(2))
+                plot(t(lick_inds), repmat(fa_count, length(lick_inds),1), 'k|')
+            else
+                % Correct Rejection
+                %sprintf('Trial %i distractor: correct', i)
+                categorical_outcome{i} = 'CR';
             end
-            %lick_inds = lick_inds - 150;
-            lick_inds = lick_inds(lick_inds > 1);
-            if isempty(lick_inds)
-                keyboard
-            end
-            try
-                react_inds = find(lickDetector(stim_ind:stim_ind+5000)==1);
-            catch
-                react_inds = find(lickDetector(stim_ind:end)==1);
-            end
-            %react_inds = react_inds - 150;
-            reaction_times = [reaction_times; t(react_inds(1)+3000)];
-            % subplot(1,2,1)
-            % hold on
-            % if hit_count == 19
-            %     keyboard
-            % end
-            axes(axs(1))
-            plot(t(lick_inds), repmat(hit_count,length(lick_inds),1), 'k|')
-        elseif was_target(i)
-            % Miss
-            %sprintf('Trial %i target: incorrect', i)
-            categorical_outcome{i} = 'Miss';
-        elseif sum(lickDetector(stim_ind:stim_ind+1650)) % need to distinguish correct rejection from false alarm
-            % False Alarm
-            %sprintf('Trial %i distractor: incorrect', i)
-            categorical_outcome{i} = 'FA';
-            fa_count = fa_count + 1;
-            lick_inds = find(lickDetector(stim_ind-3000:stim_ind+5000)==1);
-            % subplot(1,2,2)
-            % hold on
-            axes(axs(2))
-            plot(t(lick_inds), repmat(fa_count, length(lick_inds),1), 'k|')
-        else
-            % Correct Rejection
-            %sprintf('Trial %i distractor: correct', i)
-            categorical_outcome{i} = 'CR';
         end
     end
     sprintf('Hit rate: %.3f', (hit_count+0.5)/(target_count+1.0))

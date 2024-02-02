@@ -9,7 +9,9 @@ ATTN_cal_type ATTN_cal_impl = {
   0.001,
 
   /* Variable: T_npxls
-   * Referenced by: '<Root>/Npxls Trig'
+   * Referenced by:
+   *   '<Root>/Npxls Trig'
+   *   '<Root>/Photometry_Trigger'
    */
   4.0,
 
@@ -258,15 +260,15 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   { 1.0, 1.0 },
 
-  /* Expression: .028
+  /* Expression: .019
    * Referenced by: '<Root>/Thrd'
    */
-  0.028,
+  0.019,
 
-  /* Expression: -0.0221
+  /* Expression: -0.0254
    * Referenced by: '<Root>/Constant1'
    */
-  -0.0221,
+  -0.0254,
 
   /* Expression: 0
    * Referenced by: '<Root>/Memory11'
@@ -412,6 +414,16 @@ ATTN_cal_type ATTN_cal_impl = {
    * Referenced by: '<S5>/Constant4'
    */
   1.0,
+
+  /* Expression: 2.5
+   * Referenced by: '<Root>/Photometry_Trigger'
+   */
+  2.5,
+
+  /* Expression: 0
+   * Referenced by: '<Root>/Photometry_Trigger'
+   */
+  0.0,
 
   /* Computed Parameter: Digitaloutput_P1_Size
    * Referenced by: '<Root>/Digital output '

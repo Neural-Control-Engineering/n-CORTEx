@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.635
+ * Model version              : 1.647
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Thu Feb  1 14:26:36 2024
+ * C++ source code generated on : Fri Feb  2 13:43:02 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -169,6 +169,7 @@ struct B_ATTN_T {
   real_T npxls_trig;                   /* '<Root>/Npxls Trig' */
   real_T pupilCam_trig;                /* '<Root>/Pupil Trig' */
   real_T Clock1_b;                     /* '<S5>/Clock1' */
+  real_T npxls_trig_j;                 /* '<Root>/Photometry_Trigger' */
   real_T Clock1_l;                     /* '<S6>/Clock1' */
   real_T PulseGen1Hz;                  /* '<Root>/Digital input ' */
   real_T HiddenRateTransitionForToWks_In;
@@ -227,6 +228,10 @@ struct DW_ATTN_T {
   struct {
     void *AQHandles;
   } TAQSigLogging_InsertedFor_Digit;   /* synthesized block */
+
+  struct {
+    void *AQHandles;
+  } TAQSigLogging_InsertedFor_Photo;   /* synthesized block */
 
   struct {
     void *AQHandles;
@@ -343,6 +348,7 @@ struct DW_ATTN_T {
   int32_T clockTickCounter;            /* '<Root>/Whisker Trig' */
   int32_T clockTickCounter_n;          /* '<Root>/Npxls Trig' */
   int32_T clockTickCounter_c;          /* '<Root>/Pupil Trig' */
+  int32_T clockTickCounter_o;          /* '<Root>/Photometry_Trigger' */
   int32_T sfEvent;                     /* '<S6>/MATLAB Function1' */
   int32_T sfEvent_a;                   /* '<S5>/MATLAB Function1' */
   int32_T sfEvent_b;                   /* '<Root>/MATLAB Function1' */

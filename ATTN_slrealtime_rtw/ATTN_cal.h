@@ -8,7 +8,9 @@ struct ATTN_cal_type {
                                         * Referenced by: '<Root>/SampleTime'
                                         */
   real_T T_npxls;                      /* Variable: T_npxls
-                                        * Referenced by: '<Root>/Npxls Trig'
+                                        * Referenced by:
+                                        *   '<Root>/Npxls Trig'
+                                        *   '<Root>/Photometry_Trigger'
                                         */
   real_T T_pupil;                      /* Variable: T_pupil
                                         * Referenced by: '<Root>/Pupil Trig'
@@ -157,10 +159,10 @@ struct ATTN_cal_type {
   real_T Analoginput_P9[2];            /* Expression: parAdcResets
                                         * Referenced by: '<Root>/Analog input '
                                         */
-  real_T Thrd_Value;                   /* Expression: .028
+  real_T Thrd_Value;                   /* Expression: .019
                                         * Referenced by: '<Root>/Thrd'
                                         */
-  real_T Constant1_Value;              /* Expression: -0.0221
+  real_T Constant1_Value;              /* Expression: -0.0254
                                         * Referenced by: '<Root>/Constant1'
                                         */
   real_T Memory11_InitialCondition;    /* Expression: 0
@@ -249,6 +251,12 @@ struct ATTN_cal_type {
                                         */
   real_T Constant4_Value;              /* Expression: 1
                                         * Referenced by: '<S5>/Constant4'
+                                        */
+  real_T Photometry_Trigger_Amp;       /* Expression: 2.5
+                                        * Referenced by: '<Root>/Photometry_Trigger'
+                                        */
+  real_T Photometry_Trigger_PhaseDelay;/* Expression: 0
+                                        * Referenced by: '<Root>/Photometry_Trigger'
                                         */
   real_T Digitaloutput_P1_Size[2];  /* Computed Parameter: Digitaloutput_P1_Size
                                      * Referenced by: '<Root>/Digital output '
