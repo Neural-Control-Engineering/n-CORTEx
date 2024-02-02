@@ -7,9 +7,9 @@
  *
  * Code generation for model "ATTN".
  *
- * Model version              : 1.623
+ * Model version              : 1.647
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Wed Jan 31 15:31:45 2024
+ * C++ source code generated on : Fri Feb  2 13:43:02 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping
@@ -531,7 +531,7 @@ void ATTN_step(void)
     ATTN_B.y2 = 0.0;
   }
 
-  if (((b_y1 > 5.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.019)) {
+  if (((b_y1 > 5.0) && (ATTN_B.Memory7 == 0.0)) || (ADIn > 0.021)) {
     ATTN_B.Lick = 1.0;
     ATTN_B.y2 = 1.0;
   } else {
@@ -1749,6 +1749,20 @@ void ATTN_step(void)
 
   /* End of MATLAB Function: '<S5>/MATLAB Function1' */
 
+  /* DiscretePulseGenerator: '<Root>/Photometry_Trigger' */
+  ADIn = ATTN_cal->T_npxls / 2.0;
+
+  /* DiscretePulseGenerator: '<Root>/Photometry_Trigger' */
+  ATTN_B.npxls_trig_j = (ATTN_DW.clockTickCounter_o < ADIn) &&
+    (ATTN_DW.clockTickCounter_o >= 0) ? ATTN_cal->Photometry_Trigger_Amp : 0.0;
+
+  /* DiscretePulseGenerator: '<Root>/Photometry_Trigger' */
+  if (ATTN_DW.clockTickCounter_o >= ATTN_cal->T_npxls - 1.0) {
+    ATTN_DW.clockTickCounter_o = 0;
+  } else {
+    ATTN_DW.clockTickCounter_o++;
+  }
+
   /* Clock: '<S6>/Clock1' */
   ATTN_B.Clock1_l = ATTN_M->Timing.t[0];
 
@@ -2530,7 +2544,7 @@ void ATTN_initialize(void)
         /* port 6 */
         {
           ssSetInputPortRequiredContiguous(rts, 6, 1);
-          ssSetInputPortSignal(rts, 6, (const_cast<real_T*>(&ATTN_RGND)));
+          ssSetInputPortSignal(rts, 6, &ATTN_B.npxlsAcq_out);
           _ssSetInputPortNumDimensions(rts, 6, 1);
           ssSetInputPortWidthAsInt(rts, 6, 1);
         }
@@ -2538,7 +2552,7 @@ void ATTN_initialize(void)
         /* port 7 */
         {
           ssSetInputPortRequiredContiguous(rts, 7, 1);
-          ssSetInputPortSignal(rts, 7, (const_cast<real_T*>(&ATTN_RGND)));
+          ssSetInputPortSignal(rts, 7, &ATTN_B.npxls_trig_j);
           _ssSetInputPortNumDimensions(rts, 7, 1);
           ssSetInputPortWidthAsInt(rts, 7, 1);
         }
@@ -2661,8 +2675,8 @@ void ATTN_initialize(void)
       _ssSetInputPortConnected(rts, 3, 1);
       _ssSetInputPortConnected(rts, 4, 1);
       _ssSetInputPortConnected(rts, 5, 0);
-      _ssSetInputPortConnected(rts, 6, 0);
-      _ssSetInputPortConnected(rts, 7, 0);
+      _ssSetInputPortConnected(rts, 6, 1);
+      _ssSetInputPortConnected(rts, 7, 1);
       _ssSetInputPortConnected(rts, 8, 0);
       _ssSetInputPortConnected(rts, 9, 0);
       _ssSetInputPortConnected(rts, 10, 0);
@@ -3030,6 +3044,9 @@ void ATTN_initialize(void)
 
     /* InitializeConditions for DiscretePulseGenerator: '<Root>/Pupil Trig' */
     ATTN_DW.clockTickCounter_c = 0;
+
+    /* InitializeConditions for DiscretePulseGenerator: '<Root>/Photometry_Trigger' */
+    ATTN_DW.clockTickCounter_o = 0;
 
     /* SystemInitialize for MATLAB Function: '<Root>/MATLAB Function1' */
     ATTN_DW.sfEvent_b = ATTN_CALL_EVENT_n;
