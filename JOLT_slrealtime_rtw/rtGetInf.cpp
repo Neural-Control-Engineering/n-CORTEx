@@ -7,9 +7,9 @@
  *
  * Code generation for model "JOLT".
  *
- * Model version              : 1.388
+ * Model version              : 1.396
  * Simulink Coder version : 9.9 (R2023a) 19-Nov-2022
- * C++ source code generated on : Thu Feb  1 18:24:33 2024
+ * C++ source code generated on : Sun Feb  4 16:31:41 2024
  *
  * Target selection: slrealtime.tlc
  * Note: GRT includes extra infrastructure and instrumentation for prototyping

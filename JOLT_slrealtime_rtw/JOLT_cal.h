@@ -7,6 +7,9 @@ struct JOLT_cal_type {
   real_T T_npxls;                      /* Variable: T_npxls
                                         * Referenced by: '<Root>/Npxls Trig'
                                         */
+  real_T npxlsAcqLen;                  /* Variable: npxlsAcqLen
+                                        * Referenced by: '<S8>/Constant1'
+                                        */
   real_T Memory2_InitialCondition;     /* Expression: 0
                                         * Referenced by: '<Root>/Memory2'
                                         */
@@ -84,9 +87,6 @@ struct JOLT_cal_type {
                                         */
   real_T Constant_Value_a;             /* Expression: 1
                                         * Referenced by: '<S8>/Constant'
-                                        */
-  real_T Constant1_Value_p;            /* Expression: 4
-                                        * Referenced by: '<S8>/Constant1'
                                         */
   real_T Constant_Value_j;             /* Expression: 1
                                         * Referenced by: '<S7>/Constant'

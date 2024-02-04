@@ -8,6 +8,11 @@ JOLT_cal_type JOLT_cal_impl = {
    */
   4.0,
 
+  /* Variable: npxlsAcqLen
+   * Referenced by: '<S8>/Constant1'
+   */
+  500.0,
+
   /* Expression: 0
    * Referenced by: '<Root>/Memory2'
    */
@@ -137,11 +142,6 @@ JOLT_cal_type JOLT_cal_impl = {
    * Referenced by: '<S8>/Constant'
    */
   1.0,
-
-  /* Expression: 4
-   * Referenced by: '<S8>/Constant1'
-   */
-  4.0,
 
   /* Expression: 1
    * Referenced by: '<S7>/Constant'
