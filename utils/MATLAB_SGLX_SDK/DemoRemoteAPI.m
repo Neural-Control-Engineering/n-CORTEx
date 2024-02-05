@@ -70,7 +70,7 @@ for i=1:numCalls
 %     SetParams(hSGL, param);
 
 %     count = GetStreamSampleCount(hSGL, 2, 0)
-%     file = GetDataDir(hSGL)
+    file = GetDataDir(hSGL)
 %     IsConsoleHidden(hSGL)
 %     ConsoleShow(hSGL);
 %     EnumDataDir(hSGL)
