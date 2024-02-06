@@ -19,11 +19,11 @@ function params = setBaseParams(opts)
         case 'genoma'
             if ~isfield(opts.paths,'stem'), opts.paths.stem='/home/genoma'; end
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = '/home/genoma/Code_Repo/n-CORTEx'; end
-            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_root = '/home/genoma/NEC_Drive'; end
+            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = '/home/genoma/NEC_Drive'; end    
         otherwise
-            if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('/home/%s', hostName); end
-            if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = sprintf('/home/%s/Code_Repo/n-CORTEx', hostName); end
-            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_root = sprintf('/home/%s/NEC_Drive', hostName); end
+            if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('/home/%s',hostName); end
+            if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = sprintf('/home/%s/Code_Repo/n-CORTEx',hostName); end
+            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = sprintf('/home/%s/NEC_Drive',hostName); end    
     end
 
     if ~isfield(opts.paths,'tempDir'), opts.paths.tempDir=fullfile(opts.paths.stem,'nCORTExTmp'); end
