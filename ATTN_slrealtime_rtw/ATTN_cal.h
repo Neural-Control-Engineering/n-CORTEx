@@ -162,7 +162,7 @@ struct ATTN_cal_type {
   real_T Thrd_Value;                   /* Expression: .019
                                         * Referenced by: '<Root>/Thrd'
                                         */
-  real_T Constant1_Value;              /* Expression: -0.0339
+  real_T Constant1_Value;              /* Expression: -0.0405
                                         * Referenced by: '<Root>/Constant1'
                                         */
   real_T Memory11_InitialCondition;    /* Expression: 0

@@ -265,10 +265,10 @@ ATTN_cal_type ATTN_cal_impl = {
    */
   0.019,
 
-  /* Expression: -0.0339
+  /* Expression: -0.0405
    * Referenced by: '<Root>/Constant1'
    */
-  -0.0339,
+  -0.0405,
 
   /* Expression: 0
    * Referenced by: '<Root>/Memory11'
