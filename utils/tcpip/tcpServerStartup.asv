@@ -1,0 +1,3 @@
+address = '128.59.87.69';
+readDataFcnHandle = str2func('')
+server = tcpserver(adress, 5000, )
