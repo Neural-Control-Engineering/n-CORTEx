@@ -1,4 +1,4 @@
-function readDataFcn(src, ~)
+function readDataFcn_photon(src, ~)
     disp("Data was received from the client.")
     % src.UserData = read(src,src.NumBytesAvailable,"uint8");
     readline(src);
