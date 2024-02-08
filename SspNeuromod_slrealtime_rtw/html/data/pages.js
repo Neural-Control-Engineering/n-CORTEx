@@ -1,1 +1,0 @@
-var reportPages = [["Summary","SspNeuromod_survey.html"],["Subsystem Report","SspNeuromod_subsystems.html"],["Code Interface Report","SspNeuromod_interface.html"]];

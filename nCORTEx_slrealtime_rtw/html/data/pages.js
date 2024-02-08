@@ -1,1 +1,0 @@
-var reportPages = [["Summary","nCORTEx_survey.html"],["Subsystem Report","nCORTEx_subsystems.html"],["Code Interface Report","nCORTEx_interface.html"]];

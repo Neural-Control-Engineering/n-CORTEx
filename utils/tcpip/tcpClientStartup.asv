@@ -1,8 +1,0 @@
-address = '192.169.10.10';
-% model = 'SSpNeuromod_SW';
-% load_system(model);
-% mdlWks = get_param(model,'ModelWorkspace');
-client = tcpclient(address,5000,"Timeout",5)
-% writeline(client,"donothing")
-assignin(mdlWks,'client',client)
-save_system(model);
