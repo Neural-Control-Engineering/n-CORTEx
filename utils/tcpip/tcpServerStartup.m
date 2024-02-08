@@ -1,11 +1,13 @@
 % address = '128.59.87.69';
-address = '169.254.103.3';
+% address = '169.254.103.3';
+address = "164.254.103.9"
 % address = '192.168.8.10';
 modality = 'photon';
 readDataFcnHandle = str2func(sprintf('readDataFcn_%s',modality));
-server = tcpserver(address, 5000);
-configureCallback(server,"terminator",readDataFcnHandle);
-configureTerminator(server,"CR/LF");
+server = tcpserver(address, 8001);
+configureCallback(server,"byte",1,@readDataFcn);
+% configureCallback(server,"terminator",readDataFcnHandle);
+% configureTerminator(server,"CR/LF");
 
 
 % ETHERNET
