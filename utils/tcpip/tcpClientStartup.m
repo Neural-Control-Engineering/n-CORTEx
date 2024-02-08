@@ -4,7 +4,7 @@ model = 'SSpNeuromod';
 load_system(model);
 mdlWks = get_param(model,'ModelWorkspace');
 
-address = '192.169.10.10';
+address = '169.254.103.10';
 % model = 'SSpNeuromod_SW';
 % load_system(model);
 % mdlWks = get_param(model,'ModelWorkspace');
