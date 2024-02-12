@@ -1,1 +1,0 @@
-var modelInfo = {model:"JOLT"};var modelHierarchy=[{model:"JOLT",relativePath:"_internal.html",parent:"null"},];
