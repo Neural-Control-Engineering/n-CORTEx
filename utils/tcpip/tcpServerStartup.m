@@ -1,7 +1,7 @@
 % address = '128.59.87.69';
-address = '169.254.103.3';
+address = '169.254.149.124';
 % address = '192.168.8.10';
-modality = 'photon';
+modality = 'npxls';
 readDataFcnHandle = str2func(sprintf('readDataFcn_%s',modality));
 server = tcpserver(address, 5000);
 configureCallback(server,"terminator",readDataFcnHandle);
