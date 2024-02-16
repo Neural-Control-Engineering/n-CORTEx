@@ -1,0 +1,20 @@
+function segData = segmentSeries(data, segLen)
+    % break a series of data points into n-sample segments of length n given by
+    % segLen
+    data = data';
+    numSegs = floor(size(data,1) / segLen);  
+    dataCell = 
+    
+    segEnum = [1:numSegs]';
+    segEnumCell = num2cell(segEnum);
+
+    segMask = repelem(1:numSegs, segLen)';
+    segMaskCell = cell(numSegs,1);
+    segMaskCell = cellfun(@(~) segMask, segMaskCell, 'UniformOutput', false);    
+
+    segData = cell(numSegs,1);        
+    segData_new = cellfun(@(data, segEnum, segMask) data(segMask==segEnum,:), segData, segEnumCell, segMaskCell, 'UniformOutput', false);
+
+    segData_new = cellfun(@(data, segEnum, segMask) segData_new(idx) = data(segMask==idx,:), segData_new);
+
+end

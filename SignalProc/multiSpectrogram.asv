@@ -1,0 +1,12 @@
+function multiSpectrogram(dataStream, fs, windowSize, overlap, dim)
+    for i = 1:size(dataStream, dim)
+        switch dim
+            case 1
+                dataChan = dataStream(i,:);
+            case 2
+            case 3
+        end
+        
+        [lfp_spectrogram, f, t] = spectrogram(dataChan, windowSize, overlap, [], lfp_fs);
+    end
+end
