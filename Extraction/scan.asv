@@ -1,0 +1,7 @@
+function scan(params, data)
+    % convert to fieldtrip
+    [data, cfg] = raw2ft(params, data);
+    % browse datastream, scanning for artifacts / features
+    % apply segmentation (if specified)
+
+end

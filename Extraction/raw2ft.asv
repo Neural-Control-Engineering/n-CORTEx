@@ -1,0 +1,7 @@
+function data_ft = raw2ft(params, data_raw, fsample)
+    cfg = params.ftCfg_preproc;
+    data_ft.trial = data_raw;
+    data_ft.fsample = fsample;
+    data_ft.time = 
+    % data_ft = ft_preprocessing(cfg, data_raw);
+end
