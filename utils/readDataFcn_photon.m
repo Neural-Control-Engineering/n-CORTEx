@@ -1,15 +1,11 @@
 function readDataFcn_photon(sg, pl, ~)
-    disp("Data was received from the client.")
-    % src.UserData = read(src,src.NumBytesAvailable,"uint8");
-    readline(sg);
-    switch_expression = sg.UserData;
-    switch switch_expression
-        case "donothing"
-            disp("Do nothing");
-    
-        case "querysglx"
-            DemoRemoteAPI;
-            return
+    disp("PV command received from Speedgoat.")
+    PVcmd_vector = read(sg,sg.NumBytesAvailable,"uint8");   
+    dosomething = (PVcmd_vector(1) == 1);   
+    switch dosomething
+        case dosomething
+             pl.GetState("dwellTime")
+             sg.write("done")
         otherwise
             disp("otherwise");
     end
