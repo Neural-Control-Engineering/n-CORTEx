@@ -67,7 +67,7 @@ for i=1:numCalls
 % -------------------------------
 
 %     param = GetParams(hSGL);
-%     SetParams(hSGL, param);
+    % SetParams(hSGL, param);
 
 %     count = GetStreamSampleCount(hSGL, 2, 0)
     file = GetDataDir(hSGL)

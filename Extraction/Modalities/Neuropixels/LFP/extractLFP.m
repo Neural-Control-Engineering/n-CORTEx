@@ -1,0 +1,187 @@
+function lfpExtract = extractLFP(q, pq, params, sessions_to_extract)
+
+    modality = params.extractCfg.modality;
+    % Check if there are Neuropixel lfp data files.
+    localCheck = ~isempty(dir(fullfile(params.paths.projDir_local,"Experiments",params.extractCfg.experiment,"Data","Raw-Data","AP_LFP", '*Npxls*'))); 
+    cloudCheck = ~isempty(dir(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Data","Raw-Data","LFP", '*Npxls*')));
+    if (localCheck || cloudCheck)
+        
+        % load extraction log
+        % load(fullfile(params.paths.all_data_path,"Experiments",params.extractCfg.experiment,"Extraction-Logs","LFP_extraction_log.mat"),'extractionLog');        
+        extractionLog = readtable(fullfile(params.paths.all_data_path,"Experiments",params.extractCfg.experiment,"Extraction-Logs","LFP_extraction_log.csv"),"Delimiter",",");
+        % Fetch the Neuropixel lfp data sessions to be extracted.
+        % params.extractCfg.reset = params.extractCfg.npxls.lfp.isReset;
+        % resetExtraction(params, subject, "LFP");
+        % [sessions_to_extract] = recover4Extraction(params, subject, "LFP");
+
+        numProbes = params.extractCfg.npxls.numProbes;
+        sessions = sessions_to_extract.sessions;
+        subjects = sessions_to_extract.subjects;
+        cellInit = cell(length(sessions)*500,1);
+        
+        % Init lfp datastore columns
+        for i=1:numProbes
+            % assignin('caller',sprintf("LFP_Npxls%d",i-1),cellInit)
+            eval(strcat(sprintf("LFP_npxls%d",i-1),"=cellInit;"));
+        end             
+        sessionName = cellInit;        
+        trialNum = cellInit; 
+        subjectName = cellInit;
+
+        % Process each session of Neuropixel lfp data.
+        ptr = 0; % accumulation pointer
+        
+        for i = 1:length(sessions)           
+            exp_template = sessions{i}(1:end);
+            exp_template = strrep(exp_template,' ','');
+            subject = subjects{i};
+            % get trial mask
+            trialMask = extractionLog(contains(extractionLog.SessionName,exp_template),:).TrialMask;
+            trialMask = (str2double(split(trialMask,'-'))');
+            trialMask = trialMask(~isnan(trialMask));
+
+            % % CHECK LOCAL FIRST, CLOUD SECOND
+            % imec_dir_local = dir(fullfile(params.paths.rawData.(modality).local, "Raw_Neuropixel_Data", strcat(exp_template, '*'), strcat(exp_template,'_imec*')));
+            % nidq_dir_local = dir(fullfile(params.paths.rawData.(params.extractCfg.modality).local,"Raw_Neuropixel_Data", strcat(exp_template,'*'), strcat(exp_template,'*nidq*')));
+            % imec_dir_cloud = dir(fullfile(params.paths.rawData.(modality).cloud, strcat(exp_template, '*'), strcat(exp_template,'_imec*')));
+            % nidq_dir_cloud = dir(fullfile(params.paths.rawData.(params.extractCfg.modality).cloud, strcat(exp_template, '*'), strcat(exp_template,'*nidq*')));
+            % if isempty(imec_dir_cloud)
+            %     imec_dir = imec_dir_local;
+            % else
+            %     imec_dir = imec_dir_cloud;
+            % end
+            % if isempty(nidq_dir_cloud)
+            %     nidq_dir = nidq_dir_local;
+            % else
+            %     nidq_dir = nidq_dir_cloud;
+            % end
+            dataDirs = scopeRawData(params, exp_template, ["imec","nidq"]);
+            nidq_dir = dataDirs.nidq;
+            imec_dir = dataDirs.imec;
+
+            params.paths.rawData.(modality).nidq = fullfile(nidq_dir(1).folder);
+            numImecs = length(imec_dir);
+            % Process each imec
+            for j = 1:numImecs
+                imecDirName = imec_dir(j).name;                
+                params.paths.rawData.(modality).imec = fullfile(imec_dir(j).folder,imecDirName);                
+                imecTag = regexp(imecDirName, 'imec(\d+)','tokens','once');
+                imecTag = string(strcat('imec',imecTag));
+                imecBinDir = dir(fullfile(params.paths.rawData.(modality).imec,"*lf.bin"));                
+                imecTmpDir = fullfile(params.paths.stem,"Temp",modality,"imec");
+                nidqTmpDir = fullfile(params.paths.stem,"Temp",modality,"nidq");
+                % Process each triggered subset               
+                numTrigs = length(imecBinDir);   
+                
+                for k = 1:numTrigs       
+                    if any(ismember(trialMask, k-1))
+                        % Relocate each triggered (e.g: '_tX') subset into a subdir 
+                        trigNum = k-1;
+                        trigPattern = sprintf("_t%d.",trigNum);
+                        imecBinSubDir = dataDir(params.paths.rawData.(modality).imec,strcat(trigPattern,imecTag,".lf"));
+                        nidqBinSubDir = dataDir(params.paths.rawData.(modality).nidq,strcat(trigPattern,"nidq"));
+                        trigSubDirFldr = strrep(trigPattern,'_','');
+                        trigSubDirFldr = strrep(trigSubDirFldr,'.','');                    
+                        % destDir = fullfile(params.paths.ksortNpxlsPath,"LFP",exp_template,imecTag);
+                       
+                        if ~isempty(imecBinSubDir); copy2SubDir(imecBinSubDir,string(trigSubDirFldr),imecTmpDir); end
+                        if ~isempty(nidqBinSubDir); copy2SubDir(nidqBinSubDir,string(trigSubDirFldr),nidqTmpDir); end
+                        
+                        % Load LFP data
+                        chan_nidq = 1:9;
+                        chan_imec = 1:385;
+                        imec_meta_data_to_load = dir(fullfile(imecTmpDir,trigSubDirFldr, strcat('*', sessions{i}, '*lf.bin')));
+                        nidq_meta_data_to_load = dir(fullfile(nidqTmpDir,trigSubDirFldr,strcat('*', sessions{i},'*.nidq.bin')));
+                        fprintf("Extracting %s, trial %d\n", exp_template, trigNum);
+                        lfp = ReadSGLXData(imec_meta_data_to_load.name, imec_meta_data_to_load.folder, chan_imec);
+                        lfp = downsample(lfp.dataArray',5)';
+                        nidq = ReadSGLXData(nidq_meta_data_to_load.name, nidq_meta_data_to_load.folder, chan_nidq);                        
+    
+                        % QC     
+
+
+                        % Write to cell array
+                        sessionName{k + ptr} = exp_template;
+                        trialNum{k + ptr} = trigNum;       
+                        subjectName{k + ptr} = subject;
+                        eval(strcat(sprintf("LFP_npxls%d{k + ptr}",j-1),"=lfp;"));                        
+    
+                        % save(fullfile(paths.processed_neuropixel_data, strcat(exp_template, '_LFP'), 'sglx_data_IM_LF'), '-v7.3');                            
+    
+                        % % Update the Neuropixel extraction log and save processed data.
+                        % load(fullfile(paths.raw_neuropixel_data, 'neuropixel_extraction_log.mat'));                    
+                        % extractionLog(contains(extractionLog.Name, spiking_to_process{session, 1}), :).Processed = true;
+                        % display(strcat("Raw neuropixel data was processed for ", lfp_to_process{session, 1}));
+                        % save(fullfile(paths.raw_neuropixel_data, 'neuropixel_extraction_log.mat'),'extractionLog');                                                                                
+                    end
+                end
+                if j == numImecs
+                    ptr = ptr + numTrigs;
+                end
+            end   
+            % copy nidq and imec data (clean if clear)
+            
+            % log session
+            extractionLog(contains(extractionLog.SessionName,exp_template),:).Extracted=1;  
+            writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv",modality)));            
+
+            % move local raw folder 
+            APextrctLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs/AP_extraction_log.csv"),"Delimiter",",");
+            apIsExtrct = APextrctLog(contains(APextrctLog.SessionName,exp_template),:).Extracted;
+            if apIsExtrct
+                % move session data to cloud
+                if exist(fullfile(params.paths.rawData.(modality).local,exp_template),"dir")
+                    copyfile(fullfile(params.paths.rawData.(modality).local,exp_template), fullfile(params.paths.rawData.(modality).cloud,exp_template));                
+                    rmdir(fullfile(params.paths.rawData.(modality).local,exp_template),'s');
+                end
+            end
+
+            % clear temp
+            if exist(imecTmpDir,"dir"); rmdir(imecTmpDir,"s"); end
+            if exist(nidqTmpDir,"dir"); rmdir(nidqTmpDir,"s"); end
+
+            % worker progress update
+            progress = cell(2,1);
+            progress{1} = modality;
+            progress{2} = i/length(sessions);
+            send(q, 1);
+            send(pq, progress);
+        end
+        
+        % save extraction log
+        % save(fullfile(params.paths.all_data_path,"Extraction-Logs","LFP_extraction_log.mat"),"extractionLog");  
+        
+    
+        % save/return extracted data
+        sessionName = cellstr(sessionName(~cellfun('isempty',sessionName)));
+        extractLen = length(sessionName);
+        % sessionNum = sessionNum(~cellfun('isempty',sessionNum));
+        trialNum = cell2mat(trialNum(~cellfun('isempty',trialNum)));   
+        subjectName = cellstr(subjectName(~cellfun('isempty',subjectName)));   
+        
+        % Generate lfp table
+        genTableCmd = 'lfpTable = table(sessionName, trialNum, subjectName,';
+        for i = 1:numProbes
+            probeIdx=sprintf("LFP_npxls%d",i-1);
+            eval(strcat(probeIdx,'=',probeIdx,"(~cellfun('isempty',",probeIdx,"));"));
+            
+            % check if matches sessionnamelen
+            eval(sprintf("colLen=length(%s);",probeIdx))
+            if colLen == extractLen
+                genTableCmd = strcat(genTableCmd,sprintf('LFP_npxls%d, ',i-1));
+                % if i ~= numProbes
+                %     genTableCmd = strcat(genTableCmd,sprintf('LFP_npxls%d, ',i-1));
+                % else
+                %     genTableCmd = strcat(genTableCmd,sprintf('LFP_npxls%d);',i-1));
+                % end
+            end
+        end
+        genTableCmd=strcat(genTableCmd,');');
+        genTableCmd=strrep(genTableCmd,',);',');');
+        eval(genTableCmd);
+        lfpExtract = lfpTable;    
+    
+    end
+
+    
+end
