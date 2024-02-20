@@ -90,10 +90,10 @@ function params = setStaticParams(opts)
     if ~isfield(opts,'aqcuisition'); opts.acquisition = struct; end
     if ~isfield(opts.acquisition,'Fs_lfp'); opts.acquisition.Fs_lfp = 2500; end
     if ~isfield(opts.acquisition,'Fs_ap'); opts.acquisition.Fs_ap = 30000; end
-    if ~isfield(opts.acquisition,'chanMap'); opts.acquisition.chanMap = load("neuropixPhase3A_kilosortChanMap.mat",'chanMap').chanMap; end
-    if ~isfield(opts.acquisition,'connected'); opts.acquisition.connected = load("neuropixPhase3A_kilosortChanMap.mat",'connected').connected; end
-    if ~isfield(opts.acquisition,'xcoords'); opts.acquisition.xcoords= load("neuropixPhase3A_kilosortChanMap.mat",'xcoords').xcoords; end
-    if ~isfield(opts.acquisition,'ycoords'); opts.acquisition.ycoords= load("neuropixPhase3A_kilosortChanMap.mat",'ycoords').ycoords; end
+    % if ~isfield(opts.acquisition,'chanMap'); opts.acquisition.chanMap = load("neuropixPhase3A_kilosortChanMap.mat",'chanMap').chanMap; end
+    % if ~isfield(opts.acquisition,'connected'); opts.acquisition.connected = load("neuropixPhase3A_kilosortChanMap.mat",'connected').connected; end
+    % if ~isfield(opts.acquisition,'xcoords'); opts.acquisition.xcoords= load("neuropixPhase3A_kilosortChanMap.mat",'xcoords').xcoords; end
+    % if ~isfield(opts.acquisition,'ycoords'); opts.acquisition.ycoords= load("neuropixPhase3A_kilosortChanMap.mat",'ycoords').ycoords; end
     if ~isfield(opts.acquisition,'npxWidth'); opts.acquisition.npxWidth = 4; end % npxlMtrx width is 4 channels to a row
     if ~isfield(opts.acquisition,'npxLength'); opts.acquisition.npxLength = 384; end
     
