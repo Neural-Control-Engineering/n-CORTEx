@@ -1,0 +1,11 @@
+function extraction(params)
+    % TIER 1 : RAW
+    % run basic extraction for raw data from each modality acquired during
+    % experimentation
+
+    % TIER 2 : EXTRACTED
+    % experiment specific, trial-wise pre-processing of data modalities
+
+    % TIER 3 : DATASTORE
+    % user-generated datastore for an
+end
