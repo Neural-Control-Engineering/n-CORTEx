@@ -1,4 +1,4 @@
-function server = tcpServer_tcp(params)
+function server = server_slrt(params)
     hostName = params.hostName;
     switch hostName
         case 'USERBRU-2FNENOI'

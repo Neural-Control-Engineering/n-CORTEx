@@ -1,8 +1,8 @@
-function readDataFcn_photon(src, ~)
+function readDataFcn_photon(sg, pl, ~)
     disp("Data was received from the client.")
     % src.UserData = read(src,src.NumBytesAvailable,"uint8");
-    readline(src);
-    switch_expression = src.UserData;
+    readline(sg);
+    switch_expression = sg.UserData;
     switch switch_expression
         case "donothing"
             disp("Do nothing");
