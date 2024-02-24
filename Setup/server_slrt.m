@@ -7,5 +7,5 @@ function server = server_slrt(params, pl)
     end
     readDataFcnHndl = str2func(sprintf('readDataFcn_%s',modality));
     server = tcpserver(address, 8001)
-    configureCallback(server,"byte",25,@(src, evnt)readDataFcnHndl(src,pl));
+    configureCallback(server,"byte",25,@(src, evnt)readDataFcnHndl(params, src,pl));
 end

@@ -1,4 +1,4 @@
-function params = setStaticParams(opts)
+function params = setExtractionParams(opts)
 
     if isunix
         hostName = getenv("USER");
@@ -97,10 +97,15 @@ function params = setStaticParams(opts)
     if ~isfield(opts.acquisition,'npxWidth'); opts.acquisition.npxWidth = 4; end % npxlMtrx width is 4 channels to a row
     if ~isfield(opts.acquisition,'npxLength'); opts.acquisition.npxLength = 384; end
     
-    % COLOR PARAMS
+    % COMPUTER PARAMS
     switch opts.hostName
         case 'DESKTOP-MRI7THQ'
             opts.staticColor = [0.31,0.94,0.46];
+            opts.ethernetIP = "128.59.150.93";
+        case 'USERBRU-2FNENOI'
+            opts.staticColor = [0.31,0.94,0.46];
+            opts.ethernetIP = "128.59.87.69";
+            opts.paths.NECdrive_cloud = fullfile("I:\My Drive\#Projects");       
         otherwise
             opts.staticColor = [0.31,0.94,0.46];
 

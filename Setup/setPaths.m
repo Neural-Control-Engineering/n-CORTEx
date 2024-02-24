@@ -55,23 +55,16 @@ elseif ispc
         paths.ksortNpxlsPath = strcat('C:\SGL_Data\',source,'\Extracted_Neuropixel_Data');
         % path for realtime behavior data
         paths.rawBehaviorPath = fullfile('G:\My Drive\#Projects\',source);
-        % raw data paths
-        % paths.rawData = struct;
-        % paths.rawData.LFP = struct;
-        % paths.rawData.LFP.local = fullfile(paths.rawNpxlsPath,"Raw_Neuropixel_Data");
-        % paths.rawData.LFP.cloud = fullfile(paths.projDir_cloud,'Data','Raw-Data','Neuropixels');
-        % paths.rawData.AP = struct;
-        % paths.rawData.AP.local = fullfile(paths.rawNpxlsPath,"Raw_Neuropixel_Data");
-        % paths.rawData.AP.cloud = fullfile(paths.projDir_cloud,'Data','Raw-Data','Neuropixels');
-        % paths.rawData.SLRT = struct;
-        % paths.rawData.SLRT.local = [];
-        % paths.rawData.SLRT.cloud = fullfile(paths.projDir_cloud,'Data','Raw-Data','Behavior','SLRT');
-        % paths.rawData.Pupil = struct;
-        % paths.rawData.Pupil.local = [];
-        % paths.rawData.Pupil.cloud = fullfile(paths.projDir_cloud,'Data','Raw-Data','Pupil');
-        % paths.rawData.Whisker = struct;
-        % paths.rawData.Whisker.local = [];
-        % paths.rawData.Whisker.cloud = fullfile(paths.projDir_cloud,'Data','Raw-Data','Whisker');
+    
+    elseif strcmp(getenv("COMPUTERNAME"),'USERBRU-2FNENOI')
+        % Path for analysis code repo
+        % paths.repo_path = 'C:\Neuromodulation_for_Pain_Analysis';
+        paths.repo_path = 'C:\Code_Repo';
+        
+        % Drive letter for analyzed data in customary file structure        
+        paths.all_data_path = strcat('I:\My Drive\#Projects\',source);
+        paths.projDir_cloud = strcat('I:\My Drive\#Projects\',source);
+        paths.projDir_local = fullfile('E:','NECDrive_local',source);       
     
     % Qi's PC    
     elseif strcmp(getenv("COMPUTERNAME"),'DESKTOP-8JHPI5Q')
@@ -120,6 +113,14 @@ elseif isunix
     paths.raw_neuropixel_data = fullfile('C:','SGL_Data',source,'Raw_Neuropixel_Data');
     paths.neuropixel.kilosort_repo = 'C:\STATIC\Extraction\Modalities\Neuropixels\Utils\Kilosort';
     paths.neuropixel.workingdir = 'C:\';
+
+    % Store neuropixel related paths
+    paths.neuropixel.kilosort_params = fullfile(paths.raw_neuropixel_data,"Kilosort_params");
+    paths.neuropixel.npy = fullfile(paths.neuropixel.kilosort_repo,'npy-matlab-master','npy-matlab');
+    paths.neuropixel.config = convertStringsToChars(fullfile(paths.raw_neuropixel_data,'Kilosort_params'));
+    
+    setenv("NEUROPIXEL_MAP_FILE",fullfile(paths.neuropixel.config,"neuropixPhase3A_kilosortChanMap.mat"))
+    setenv("KILOSORT_CONFIG_FILE",fullfile(paths.neuropixel.config,"StandardConfig.m"))
     % paths.rawNpxlsPath = strcat('C:\SGL_Data\', source);
     % Local path for kilosorted data
     % paths.ksortNpxlsPath = strcat('C:\SGL_Data\',source,'\Extracted_Neuropixel_Data');
@@ -157,12 +158,12 @@ end
 % Store which project data is actively being used
 % paths.data_source = source;
 
-% Store neuropixel related paths
-paths.neuropixel.kilosort_params = fullfile(paths.raw_neuropixel_data,"Kilosort_params");
-paths.neuropixel.npy = fullfile(paths.neuropixel.kilosort_repo,'npy-matlab-master','npy-matlab');
-paths.neuropixel.config = convertStringsToChars(fullfile(paths.raw_neuropixel_data,'Kilosort_params'));
-
-setenv("NEUROPIXEL_MAP_FILE",fullfile(paths.neuropixel.config,"neuropixPhase3A_kilosortChanMap.mat"))
-setenv("KILOSORT_CONFIG_FILE",fullfile(paths.neuropixel.config,"StandardConfig.m"))
+% % Store neuropixel related paths
+% paths.neuropixel.kilosort_params = fullfile(paths.raw_neuropixel_data,"Kilosort_params");
+% paths.neuropixel.npy = fullfile(paths.neuropixel.kilosort_repo,'npy-matlab-master','npy-matlab');
+% paths.neuropixel.config = convertStringsToChars(fullfile(paths.raw_neuropixel_data,'Kilosort_params'));
+% 
+% setenv("NEUROPIXEL_MAP_FILE",fullfile(paths.neuropixel.config,"neuropixPhase3A_kilosortChanMap.mat"))
+% setenv("KILOSORT_CONFIG_FILE",fullfile(paths.neuropixel.config,"StandardConfig.m"))
 pathsOut = paths;
 end
