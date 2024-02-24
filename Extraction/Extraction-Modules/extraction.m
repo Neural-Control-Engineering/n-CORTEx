@@ -1,21 +1,23 @@
-function extraction(params)
+function extraction(params)    
+
     % TIER 1 : RAW
     % run basic extraction for raw data from each modality acquired during
-    % experimentation
-    if params.extractCfg.extractRAW
-        extractRAW(params);
-    end
+    % experimentation    
+    extractRAW(params);
+    
 
     % TIER 2 : EXTRACTED
-    % experiment specific, trial-wise pre-processing of data modalities
-    if params.extractCfg.extractEXT
-        extractEXT(params);
-    end
+    % experiment specific, trial-wise pre-processing of data modalities    
+    extractEXT(params);
+
 
     % TIER 3 : DATASTORE
-    % user-generated datastore prepped for analysis
-    if params.extractCfg.extractDTS
-        extractDTS(params);
-    end
+    % user-generated datastore prepped for analysis    
+    extractDTS(params);
+    
+
+    % TIER 4 : FEATURE / VECTOR SET
+    % feature array for classification and machine learning
+    extractFTR(params);
 
 end

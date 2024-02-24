@@ -1,4 +1,4 @@
-function npxlsExtract = extractNPXLS(q, pq, params, sessions_to_extract)    
+function npxlsExtract = extractNPXLS(params, sessions_to_extract, Q)    
     modality = params.extractCfg.modality;
     npxlsExtract = [];
     % Check if there are Neuropixel lfp data files.
@@ -128,8 +128,8 @@ function npxlsExtract = extractNPXLS(q, pq, params, sessions_to_extract)
                 progress = cell(2,1);
                 progress{1} = modality;
                 progress{2} = i/length(sessions);
-                send(q, 1);
-                send(pq, progress);      
+                send(Q.q, 1);
+                send(Q.pq, progress);      
             end
         end
     end
