@@ -104,6 +104,7 @@ function params = setExtractionParams(opts)
         case 'DESKTOP-MRI7THQ'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "128.59.150.93";
+            opts.paths.NECdrive_cloud = fullfile("G:\My Drive\#Projects");    
         case 'USERBRU-2FNENOI'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "128.59.87.69";
