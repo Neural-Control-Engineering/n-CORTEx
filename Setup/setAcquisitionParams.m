@@ -1,5 +1,10 @@
 function params = setBaseParams(opts)
-    
+
+    %% Data Computer Registry
+    if ~isfield(opts,'dataComputerIPs') opts.dataComputerIPs = struct; end
+    if ~isfield(opts.dataComputerIPs,'bruker'); opts.dataComputerIPs.bruker = "128.59.87.69"; end
+    if ~isfield(opts.dataComputerIPs,'primus'); opts.dataComputerIPs.primus = "128.59.150.93"; end
+
     %% PATH PRESETS
     switch ispc
         case 1
@@ -16,10 +21,18 @@ function params = setBaseParams(opts)
             if ~isfield(opts.paths,'stem'), opts.paths.stem='/home/electro'; end
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = '/home/electro/Code_Repo/n-CORTEx'; end
             if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = '/home/electro/NEC_Drive'; end            
+            if ~isfield(opts,'dataComputerIP'), opts.dataComputerIP = opts.dataComputerIPs.primus; end
         case 'genoma'
             if ~isfield(opts.paths,'stem'), opts.paths.stem='/home/genoma'; end
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = '/home/genoma/Code_Repo/n-CORTEx'; end
             if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = '/home/genoma/NEC_Drive'; end    
+            if ~isfield(opts,'dataComputerIP'), opts.dataComputerIP = opts.dataComputerIPs.primus; end
+        case 'ahab'
+            if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('/home/%s',hostName); end
+            if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = sprintf('/home/%s/Code_Repo/n-CORTEx',hostName); end
+            if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = sprintf('/home/%s/NEC_Drive',hostName); end
+            if ~isfield(opts,'dataComputerIP'), opts.dataComputerIP = opts.dataComputerIPs.bruker; end
+
         otherwise
             if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('/home/%s',hostName); end
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = sprintf('/home/%s/Code_Repo/n-CORTEx',hostName); end
