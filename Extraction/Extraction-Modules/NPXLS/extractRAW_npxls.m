@@ -1,4 +1,5 @@
 function extractRAW_npxls(params, sessions_to_extract, Q)    
+    % modality = params.extractCfg.modality;
     modality = params.extractCfg.modality;
     npxlsExtract = [];
     % Check if there are Neuropixel lfp data files.
@@ -6,7 +7,7 @@ function extractRAW_npxls(params, sessions_to_extract, Q)
     cloudCheck = ~isempty(dir(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Data","Raw-Data","NPXLS", '*Npxls*')));
     if (localCheck || cloudCheck)
         % Load modality-associated extraction log
-        extractionLog = readtable(fullfile(params.paths.all_data_path,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv",modality)),"Delimiter",",");
+        extractionLog = params.extrctItms.RAW.extractionLog;
         % Add Kilosort params path to MATLAB search        
         kilosortParamsPath = fullfile(params.paths.rawData.NPXLS.local,"Kilosort_params");
         params.paths.neuropixel.config = kilosortParamsPath;
@@ -111,27 +112,36 @@ function extractRAW_npxls(params, sessions_to_extract, Q)
                         save(fullfile(kSortOutPath,"lfp.mat"),"lfp");
                         save(fullfile(kSortOutPath,"nidq.mat"),"nidq");
                         save(fullfile(kSortOutPath,"stats.mat"),'stats');
+
+                        progress = cell(2,1);
+                        progress{1} = modality;
+                        % progress{2} = i/length(sessions);
+                        progress{2} = (i-1)/length(sessions) + k/numTrigs;
+                        send(Q.q, 1);
+                        send(Q.pq, progress);     
                        
-                    end
+                    end                      
                 end
-                
-                 % migrate to cloud
-                if exist(fullfile(params.paths.rawData.(modality).local,exp_template),"dir")
-                    copyfile(fullfile(params.paths.rawData.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.rawData.(modality).cloud,exp_template)));                
-                    rmdir(fullfile(params.paths.rawData.(modality).local,exp_template),'s');
-                end
+                progress = cell(2,1);
+                progress{1} = modality;
+                % progress{2} = i/length(sessions);
+                progress{2} = 1;
+                send(Q.q, 1);
+                send(Q.pq, progress);                               
                 
                 % log session
                 % extractionLog(contains(extractionLog.SessionName,exp_template),:).Extracted=1;  
                 % writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv",modality)));
                 % report progress
                 % worker progress update
-                progress = cell(2,1);
-                progress{1} = modality;
-                progress{2} = i/length(sessions);
-                send(Q.q, 1);
-                send(Q.pq, progress);      
+                
             end
+            % migrate to cloud
+            if exist(fullfile(params.paths.rawData.(modality).local,exp_template),"dir")
+                copyfile(fullfile(params.paths.rawData.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.rawData.(modality).cloud,exp_template)));                
+                rmdir(fullfile(params.paths.rawData.(modality).local,exp_template),'s');
+            end
+            extractionLog = updateExtractionLog(extractionLog, sessionLabel, ColName, Value, initVal)
         end
     end
 end

@@ -7,10 +7,12 @@ function extractRAW(params)
     % process RAW datastreams
     for i = 1:length(extrctFields)
         extrctModule = extrctFields{i};
-        extrctHndl = sprintf("extractRAW_%s", extrctModule);
-        extrctHndl(params, params.extrctItms.RAW.sessions_to_extract, params.extrctItms.RAW.extractModules.(extrctModule).Q);
-        % write to extractionLog
         % extractionLog = updateExtractionLog(extractionLog, sessionLabel, ColName, Value, initVal)
+        extrctHndl = str2func(sprintf("extractRAW_%s", extrctModule));
+        params.extractCfg.modality = upper(extrctModule);
+        extrctHndl(params, params.extrctItms.RAW.sessionsToExtract, params.extrctItms.RAW.extrctModules.(extrctModule).Q);
+        % write to extractionLog
+        
         % 
     end
 

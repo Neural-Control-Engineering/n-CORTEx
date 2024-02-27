@@ -13,8 +13,8 @@ function extrctModules = buildExtrctModules(params, extrctItm)
                     mod = split(extrctFunc,'_');
                     mod = mod(2);
                     % build extractionModule
-                    extrctModules.(mod).q = parallel.pool.DataQueue;
-                    extrctModules.(mod).pq = parallel.pool.PollableDataQueue;
+                    extrctModules.(mod).Q.q = parallel.pool.DataQueue;
+                    extrctModules.(mod).Q.pq = parallel.pool.PollableDataQueue;
                 end
             end
         end
