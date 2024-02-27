@@ -55,6 +55,10 @@ elseif ispc
         paths.ksortNpxlsPath = strcat('C:\SGL_Data\',source,'\Extracted_Neuropixel_Data');
         % path for realtime behavior data
         paths.rawBehaviorPath = fullfile('G:\My Drive\#Projects\',source);
+        % Store neuropixel related paths
+        paths.neuropixel.kilosort_params = fullfile(paths.raw_neuropixel_data,"Kilosort_params");
+        paths.neuropixel.npy = fullfile(paths.neuropixel.kilosort_repo,'npy-matlab-master','npy-matlab');
+        paths.neuropixel.config = convertStringsToChars(fullfile(paths.raw_neuropixel_data,'Kilosort_params'));
     
     elseif strcmp(getenv("COMPUTERNAME"),'USERBRU-2FNENOI')
         % Path for analysis code repo
