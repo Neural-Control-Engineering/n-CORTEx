@@ -14,5 +14,6 @@ function extractRAW(params)
     end
     % Final mark of completed extraction for raw layer
     extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","RAW")));
-    extractionLog(contains(ExtractionLog.SessionName,params.extrctItms.Raw.sessionsToExtract.sessions),:).Extracted = 1;       
+    extractionLog(contains(extractionLog.SessionName,(params.extrctItms.RAW.sessionsToExtract.sessions)),:).Extracted = ones(height(params.extrctItms.RAW.sessionsToExtract.sessions),1);       
+    writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","RAW")));
 end
