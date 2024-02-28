@@ -4,3 +4,7 @@
 
 #    SIMULINK     #
 ###################
+utils/spikeSorting/Kilosort/
+utils/spikeSorting/neuropixel-utils/
+utils/spikeSorting/phy/
+utils/spikeSorting/spikes/
