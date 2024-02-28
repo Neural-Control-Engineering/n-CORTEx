@@ -2,7 +2,7 @@ function extractionLog = updateExtractionLog(extractionLog, sessionLabel, ColNam
     % given path to extraction log, as determined by projectDir and
     % modality, write a new session into the extraction log, initialized as
     % 0
-    if ~ismember(extractionLog,ColName)
+    if ~all(ismember(extractionLog.Properties.VariableNames,ColName))
         extractionLog.(ColName) = repelem(initVal,height(extractionLog))';
     else        
     end

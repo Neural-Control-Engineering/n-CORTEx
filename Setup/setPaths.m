@@ -36,11 +36,11 @@ elseif ispc
     elseif strcmp(getenv("COMPUTERNAME"),'DESKTOP-MRI7THQ')
         % Path for analysis code repo
         % paths.repo_path = 'C:\Neuromodulation_for_Pain_Analysis';
-        paths.repo_path = 'C:\STATIC';
+        paths.repo_path = 'C:\Code_Repo\n-CORTEx';
 
         % Kilosort repository
         % paths.neuropixel.kilosort_repo = 'C:\Neuropixel_Analysis_Scripts\Kilosort';
-        paths.neuropixel.kilosort_repo = 'C:\STATIC\Extraction\Modalities\Neuropixels\Utils\Kilosort';
+        paths.neuropixel.kilosort_repo = 'C:\Code_Repo\n-CORTEx\utils\spikeSorting\Kilosort';
         paths.neuropixel.workingdir = 'C:\';
 
         % Drive letter for analyzed data in customary file structure        
