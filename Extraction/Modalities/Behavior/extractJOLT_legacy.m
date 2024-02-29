@@ -1,4 +1,4 @@
-function JOLTExtract = extractJOLT(params, sessions_to_extract)
+function JOLTExtract = extractJOLT_legacy(q, pq, params, sessions_to_extract)
     % function to return npxls acquisition times 
     % relative to user action (e.g. Button presses)
     JOLTExtract = [];

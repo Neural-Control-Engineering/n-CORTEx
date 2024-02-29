@@ -1,4 +1,4 @@
-function sessionsLeftToExtract = checkExtractionProgress(extractionLog, sessionsToExtract, extrctModule)
+function [sessionsLeftToExtract, extractionLog] = checkExtractionProgress(extractionLog, sessionsToExtract, extrctModule)
     % scan for and ignore modalities that have already been extracted
     sessionsLeftToExtract = struct;
     sessions = sessionsToExtract.sessions;

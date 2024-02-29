@@ -1,4 +1,4 @@
-    function extractRAW_npxls(params, sessions_to_extract, Q)    
+function extractRAW_npxls(params, sessions_to_extract, Q)    
     % modality = params.extractCfg.modality;
     modality = params.extractCfg.modality;    
     % Check if there are Neuropixel lfp data files.
