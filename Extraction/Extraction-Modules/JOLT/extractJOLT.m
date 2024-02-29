@@ -1,4 +1,4 @@
-function JOLTExtract = extractJOLT(params, sessions_to_extract)
+function joltExtract = extractJOLT(params, expmntData, Q)
     % function to return npxls acquisition times 
     % relative to user action (e.g. Button presses)
     JOLTExtract = [];
@@ -8,7 +8,7 @@ function JOLTExtract = extractJOLT(params, sessions_to_extract)
         % Fetch the Neuropixel data sessions to be extracted.
         % params.extractCfg.reset = params.extractCfg.behavior.slrt.reset;
         % [sessions_to_extract] = recover4Extraction(params, subject, sessionNames, "SLRT");
-        lenRTSessions = length(sessions_to_extract);
+        lenRTSessions = length(sessionsToExtract);
         
         % initiate Datastore cells
         cellInit = cell(lenRTSessions,1);
@@ -27,8 +27,8 @@ function JOLTExtract = extractJOLT(params, sessions_to_extract)
 
         % Loop through each behavior trial and build database cols
         ptr = 0;
-        subjects = sessions_to_extract.subjects;
-        sessions = sessions_to_extract.sessions;
+        subjects = sessionsToExtract.subjects;
+        sessions = sessionsToExtract.sessions;
         for i = 1:length(sessions)
             exp_template = sessions{i}(1:end);
             exp_template = strrep(exp_template,".mat",'');
@@ -151,8 +151,8 @@ function JOLTExtract = extractJOLT(params, sessions_to_extract)
             progress = cell(2,1);
             progress{1} = "JOLT";
             progress{2} = i/length(sessions);
-            send(pq, progress);
-            send(q,1);
+            send(Q.pq, progress);
+            send(Q.q,1);
         end
         sessionName = cellstr(sessionName(~cellfun('isempty',sessionName)))';
         trialNum = cell2mat(trialNum(~cellfun('isempty',trialNum)))';
