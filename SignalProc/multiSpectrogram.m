@@ -1,5 +1,7 @@
 function [multiSpec, f, t] = multiSpectrogram(dataStream, fs, windowSize, overlap, dim)
     % compute time-frequency spectrogram for all channels along dim
+    dataStreamLen = size(dataStream,2);
+    if dataStreamLen > 10000; dataStream = dataStream(:,1:10000); end
     multiSpec = [];
     for i = 1:size(dataStream, dim)
         switch dim
