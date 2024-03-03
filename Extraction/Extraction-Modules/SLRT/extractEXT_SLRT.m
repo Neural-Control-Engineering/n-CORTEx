@@ -4,7 +4,7 @@ function extractEXT_SLRT(params, sessionsToExtract, Q)
     sessions = sessionsToExtract.sessions;
     expmntExtractionHndl = str2func(sprintf("extract%s",params.extractCfg.experiment));
     expmntData = expmntExtractionHndl(params, sessionsToExtract, Q);    
-    exportExpmntData(expmntData,Q);
+    % exportExpmntData(expmntData,Q);
     
     % for i = 1:length(sessions)
     %     sessionLabel = sessions{i};

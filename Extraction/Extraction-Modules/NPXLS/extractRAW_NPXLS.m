@@ -90,6 +90,7 @@ function extractRAW_npxls(params, sessions_to_extract, Q)
 
                             imec = Neuropixel.ImecDataset(((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag)))));
                             Neuropixel.runKilosort3(imec, params.paths, exp_template, 'workingdir',convertStringsToChars(params.paths.neuropixel.workingdir));
+                            runKilosort4(path);
                             % Save Kilosort Object and compute metrics
                             % ks = Neuropixel.KilosortDataset(((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern)))));
                             ks = Neuropixel.KilosortDataset(imec);

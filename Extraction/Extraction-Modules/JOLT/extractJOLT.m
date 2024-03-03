@@ -68,7 +68,7 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
             % expmntData = validateTimeAxes(expmntData,trialTag);
             if regexp(rtSession, 'spontaneous', 'match', 'once') == "spontaneous"
                 % write results          
-                expmntData_ext.SLRT.sessionType = [expmntData_ext.SLRT.sessionType,'spontaneous'];
+                expmntData_ext.SLRT.sessionType = [expmntData_ext.SLRT.sessionType; 'spontaneous'];
                 expmntData_ext.SLRT.trialNum = [expmntData_ext.SLRT.trialNum; j-1];
                 expmntData_ext.SLRT.stimTrace_raw = [expmntData_ext.SLRT.stimTrace_raw; nan];
                 expmntData_ext.SLRT.stimTrace_lowess = [expmntData_ext.SLRT.stimTrace_lowess; nan];
@@ -114,7 +114,7 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
                         pawSide = nan;
                 end           
                 % write results     
-                expmntData_ext.SLRT.sessionType = [expmntData_ext.SLRT.sessionType,'vonFrey'];
+                expmntData_ext.SLRT.sessionType = [expmntData_ext.SLRT.sessionType; 'vonFrey'];
                 expmntData_ext.SLRT.trialNum = [expmntData_ext.SLRT.trialNum; j-1];
                 expmntData_ext.SLRT.stimTrace_raw = [expmntData_ext.SLRT.stimTrace_raw; stimRawTrial];
                 expmntData_ext.SLRT.stimTrace_lowess = [expmntData_ext.SLRT.stimTrace_lowess; stimLowessTrial];
