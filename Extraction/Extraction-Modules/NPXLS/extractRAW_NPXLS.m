@@ -72,11 +72,20 @@ function extractRAW_npxls(params, sessions_to_extract, Q)
                             % kilosort output location                        
                             kSortOutFolder = sprintf("%s%s_sorted",exp_template,trigPattern);                        
                             kSortOutPath = fullfile(imecBinDir_ap(k).folder,kSortOutFolder);
+
+                            % Import the Python module
+                            mod = py.importlib.import_module('runKilosort4');
+                            % Define the parameters
+                            data_dir = '/path/to/data';
+                            results_dir = '/path/to/results';
+                            chanMap = 'neuropixPhase3A_kilosortChanMap.mat';
+                            % Call the function
+                            results = mod.runKilosort4(data_dir, results_dir, chanMap);
                             
                             % % clear previous output 
                             if exist(kSortOutPath,"dir"); rmdir(kSortOutPath,"s"); end
                             buildPath(kSortOutPath);
-                            kSortOutPath = strcat("\\?\",kSortOutPath);
+                            kSortOutPath = strcat("\\?\",kSortOutPath);s
                             imec = Neuropixel.ImecDataset(((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag)))));
                             Neuropixel.runKilosort3(imec, params.paths, exp_template, 'workingdir',convertStringsToChars(params.paths.neuropixel.workingdir));
                             % Save Kilosort Object and compute metrics
