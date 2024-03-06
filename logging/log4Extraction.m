@@ -9,10 +9,10 @@ function log4Extraction(expmntPath,extractionRow,ftype)
                 save(fullfile(extractionLogFile.folder,extractionLogFile.name),'extractionLog');
             case 'csv'
                 extractionLog = readtable(fullfile(extractionLogFile.folder,extractionLogFile.name),"Delimiter",',');
-                extractionLog = [extractionLog; extractionRow];
+                extractionRow_Updt = updateExtractionLog(extractionRow,[],string(extractionLog.Properties.VariableNames),0,0);
+                extractionLog = [extractionLog; extractionRow_Updt];                
                 writetable(extractionLog,fullfile(extractionLogFile.folder,extractionLogFile.name));
             otherwise
-        end
-           
+        end           
     end
 end
