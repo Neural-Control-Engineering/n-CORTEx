@@ -24,8 +24,8 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
         rtData = SLRT.data;
         rtSession = SLRT.meta.sessionLabel;
         % load stim trace                           
-        stim_filt = get(rtData,"stim_filt");
-        stim_filt = stim_filt.Values;
+        % stim_filt = get(rtData,"stim_filt");
+        % stim_filt = stim_filt.Values;
         stim_raw = get(rtData,"stim_raw");
         stim_raw = stim_raw.Values;    
         % acquisition timing
@@ -79,29 +79,31 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
             elseif trialKeepOrDrop(j) == 2
                 % trialMask = [trialMask, j-1];
                 % rise/fall indexing
-                smoothMethod = 'filt';
-                switch smoothMethod
-                    case 'filt'
-                        t_rise = riseTimes(j);
-                    case 'lowess'
-                        t_rise = riseTimes(j)-0.250;
-                end            
+                % smoothMethod = 'filt';
+                % switch smoothMethod
+                %     case 'filt'
+                %         t_rise = riseTimes(j);
+                %     case 'lowess'
+                %         t_rise = riseTimes(j)-0.250;
+                % end            
+                t_rise = riseTimes(j);
                 idx_rise = find(acqPulse.Time==t_rise);
                 t_fall = fallTimes(j);
                 idx_fall = find(acqPulse.Time==t_fall);
                 % isolate stim waveform
-                stimFiltTrial = stim_filt.Data(idx_rise-stimPreBuff_nSamp:idx_fall);                
-                stimFiltTrial_time = stim_filt.Time(idx_rise-stimPreBuff_nSamp:idx_fall);
+                % stimFiltTrial = stim_filt.Data(idx_rise-stimPreBuff_nSamp:idx_fall);                
+                % stimFiltTrial_time = stim_filt.Time(idx_rise-stimPreBuff_nSamp:idx_fall);
                 stimRawTrial = stim_raw.Data(idx_rise-stimPreBuff_nSamp:idx_fall);            
                 stimRawTrial_time = stim_raw.Data(idx_rise-stimPreBuff_nSamp:idx_fall);
-                stimLowessTrial = lowess(stimRawTrial);
+                stimLowessTrial = lowess(stimRawTrial);                
                 idx_peakFilt = find(stimLowessTrial == max(stimLowessTrial));
-                switch smoothMethod
-                    case 'filt'
-                        t_peak = stimFiltTrial_time(idx_peakFilt);            
-                    case 'lowess'
-                        t_peak = stimLowessTrial_time(idx_peakFilt);            
-                end
+                t_peak = stimRawTrial_time(idx_peakFilt);
+                % switch smoothMethod
+                %     case 'filt'
+                %         t_peak = stimFiltTrial_time(idx_peakFilt);            
+                %     case 'lowess'
+                %         t_peak = stimLowessTrial_time(idx_peakFilt);            
+                % end
     
                 paw = regexp(rtSession, '([LR])-hind-paw', 'match', 'once');
                 paw = string(paw);
