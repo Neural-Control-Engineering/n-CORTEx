@@ -5,9 +5,9 @@ function [dataDirs, loc] = scopeRawData(params, exp_template, refs)
         ref = refs(i);
         % dataDir.(ref) = refs(i);
         % CHECK LOCAL FIRST, CLOUD SECOND
-        localDir = dir(fullfile(params.paths.rawData.(params.extractCfg.modality).local, strcat(exp_template, '*'), strcat(exp_template,sprintf('*%s*',ref))));
+        localDir = dir(fullfile(params.paths.Data.RAW.(params.extractCfg.modality).local, strcat(exp_template, '*'), strcat(exp_template,sprintf('*%s*',ref))));
         % nidq_dir_local = dir(fullfile(params.paths.rawData.(params.extractCfg.modality).local, strcat(exp_template,'*'), strcat(exp_template,'*nidq*')));
-        cloudDir = dir(fullfile(params.paths.rawData.(params.extractCfg.modality).cloud, strcat(exp_template, '*'), strcat(exp_template,sprintf('*%s*',ref))));
+        cloudDir = dir(fullfile(params.paths.Data.RAW.(params.extractCfg.modality).cloud, strcat(exp_template, '*'), strcat(exp_template,sprintf('*%s*',ref))));
         % nidq_dir_cloud = dir(fullfile(params.paths.rawData.(params.extractCfg.modality).cloud, strcat(exp_template, '*'), strcat(exp_template,'*nidq*')));
         if isempty(cloudDir)
             dataDirs.(ref) = localDir;

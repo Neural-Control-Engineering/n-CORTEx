@@ -1,14 +1,14 @@
-function extractRAW_npxls(params, sessions_to_extract, Q)    
+function extractRAW_NPXLS(params, sessions_to_extract, Q)    
     % modality = params.extractCfg.modality;
     modality = params.extractCfg.modality;    
     % Check if there are Neuropixel lfp data files.
-    localCheck = ~isempty(dir(fullfile(params.paths.projDir_local,"Experiments",params.extractCfg.experiment,"Data","Raw-Data","NPXLS", '*Npxls*'))); 
-    cloudCheck = ~isempty(dir(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Data","Raw-Data","NPXLS", '*Npxls*')));
+    localCheck = ~isempty(dir(fullfile(params.paths.projDir_local,"Experiments",params.extractCfg.experiment,"Data","RAW","NPXLS", '*Npxls*'))); 
+    cloudCheck = ~isempty(dir(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Data","RAW","NPXLS", '*Npxls*')));
     if (localCheck || cloudCheck)
         % Load modality-associated extraction log
         extractionLog = params.extrctItms.RAW.extractionLog;
         % Add Kilosort params path to MATLAB search        
-        kilosortParamsPath = fullfile(params.paths.rawData.NPXLS.local,"Kilosort_params");
+        kilosortParamsPath = fullfile(params.paths.Data.RAW.NPXLS.local,"Kilosort_params");
         params.paths.neuropixel.config = kilosortParamsPath;
         params.paths.neuropixel.kilosort_params = kilosortParamsPath;
         addpath(kilosortParamsPath);      
@@ -23,7 +23,7 @@ function extractRAW_npxls(params, sessions_to_extract, Q)
             % subject = subjects{i};
             exp_template = strrep(exp_template,' ','');
             sessionLabel = exp_template;
-            if sessionExists(params, exp_template, modality)
+            if sessionExists(params, exp_template, "NPXLS","RAW")
                 % Initialize extraction containers
                 ks = [];
                 metrics = [];
@@ -38,9 +38,9 @@ function extractRAW_npxls(params, sessions_to_extract, Q)
                 nidqBinDir = nidq_dir(contains({nidq_dir.name},'.bin'));
                 imec_dir = dataDirs.imec;
                 if loc.imec
-                    params.paths.raw_neuropixel_data = params.paths.rawData.(modality).local; 
+                    params.paths.raw_neuropixel_data = params.paths.Data.RAW.(modality).local; 
                 else
-                    params.paths.raw_neuropixel_data = params.paths.rawData.(modality).cloud; 
+                    params.paths.raw_neuropixel_data = params.paths.Data.RAW.(modality).cloud; 
                 end
                 % Process each imec
                 params.paths.rawData.(modality).nidq = fullfile(nidq_dir(1).folder);
@@ -65,29 +65,32 @@ function extractRAW_npxls(params, sessions_to_extract, Q)
                             % params.paths.neuropixel.to_sort = fullfile(imecTmpDir,trigSubDirFldr);                        
                             %% AP
                             % params.paths.ksortNpxlsPath = fullfile(imecBinDir_ap(k).folder,imecBinDir_ap(k).name);
-                            params.paths.ksortNpxlsPath = fullfile(imecBinDir_ap(k).folder);
-                            params.paths.neuropixel.to_sort = fullfile(imecBinDir_ap(k).folder,imecBinDir_ap(k).name);
+                            params.paths.ksortNpxlsPath = fullfile(imecBinDir_ap(trigNum).folder);
+                            % params.paths.neuropixel.to_sort = fullfile(imecBinDir_ap(k).folder,imecBinDir_ap(k).name);
                             params.paths.neuropixel.workingdir = fullfile("C:/Temp/NPXLS/");
                             buildPath(params.paths.neuropixel.workingdir);
                             % kilosort output location                        
                             kSortOutFolder = sprintf("%s%s_sorted",exp_template,trigPattern);                        
-                            kSortOutPath = fullfile(imecBinDir_ap(k).folder,kSortOutFolder);
+                            kSortOutPath = fullfile(imecBinDir_ap(trigNum).folder,kSortOutFolder);
+
+                            % % clear previous output 
+                            if exist(kSortOutPath,"dir"); rmdir(kSortOutPath,"s"); end
+                            buildPath(kSortOutPath);
+                            % kSortOutPath = strcat("\\?\",kSortOutPath);
+                            % imec = Neuropixel.ImecDataset(((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag)))));
 
                             % Import the Python module
                             mod = py.importlib.import_module('runKilosort4');
                             % Define the parameters
-                            data_dir = '/path/to/data';
-                            results_dir = '/path/to/results';
+                            % data_dir = (((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag,'.ap.bin')))));
+                            data_dir = 'C:/SGL_DATA/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/RAW/NPXLS/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_imec0';
+                            fileName = 'C:/SGL_DATA/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/RAW/NPXLS/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_imec0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_t5.imec0.ap.bin';                            
+                            % results_dir = 'C:/SGL_DATA/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/RAW/NPXLS/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_imec0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_t5_sorted/kilosort4'
+                            % results_dir = 'C:/SGL_DATA/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/RAW/NPXLS/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_imec0/kilosort4';
                             chanMap = 'neuropixPhase3A_kilosortChanMap.mat';
                             % Call the function
-                            results = mod.runKilosort4(data_dir, results_dir, chanMap);
-                            
-                            % % clear previous output 
-                            if exist(kSortOutPath,"dir"); rmdir(kSortOutPath,"s"); end
-                            buildPath(kSortOutPath);
-                            kSortOutPath = strcat("\\?\",kSortOutPath);s
-                            imec = Neuropixel.ImecDataset(((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag)))));
-                            Neuropixel.runKilosort3(imec, params.paths, exp_template, 'workingdir',convertStringsToChars(params.paths.neuropixel.workingdir));
+                            results = mod.runKilosort4(data_dir, fileName, chanMap);
+                            % Neuropixel.runKilosort3(imec, params.paths, exp_template, 'workingdir',convertStringsToChars(params.paths.neuropixel.workingdir));
                             % Save Kilosort Object and compute metrics
                             % ks = Neuropixel.KilosortDataset(((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern)))));
                             ks = Neuropixel.KilosortDataset(imec);
