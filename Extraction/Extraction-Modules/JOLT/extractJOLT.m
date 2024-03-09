@@ -1,21 +1,20 @@
-function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
-
-    expmntData_ext.SLRT.trialNum = {};
-    expmntData_ext.SLRT.stimTrace_raw = {};
-    expmntData_ext.SLRT.stimTrace_lowess = {};
-    expmntData_ext.SLRT.responseDelay = {};
-    expmntData_ext.SLRT.responseThreshold = {};
-    expmntData_ext.SLRT.pawSide = {};
-    expmntData_ext.SLRT.QC = {};
-    expmntData_ext.SLRT.sessionType = {};
-    expmntData_ext.SLRT.sessionLabel = {};
-    
-    expmntData_ext.LFP = [];
+function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)         
     sessions = sessionsToExtract.sessions;
     for i = 1:length(sessions)
         session = sessions{i};
         % function to return npxls acquisition times 
         % relative to user action (e.g. Button presses)      
+
+        expmntData_ext.SLRT.trialNum = {};
+        expmntData_ext.SLRT.stimTrace_raw = {};
+        expmntData_ext.SLRT.stimTrace_lowess = {};
+        expmntData_ext.SLRT.responseDelay = {};
+        expmntData_ext.SLRT.responseThreshold = {};
+        expmntData_ext.SLRT.pawSide = {};
+        expmntData_ext.SLRT.QC = {};
+        expmntData_ext.SLRT.sessionType = {};
+        expmntData_ext.SLRT.sessionLabel = {};
+        expmntData_ext.LFP = [];
         
         % LOAD DATA OF INTEREST
         SLRT = loadEXT_SLRT(params, session);
@@ -63,6 +62,7 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
         % expmntData_ext.SLRT.pawSide = {};
         % expmntData_ext.SLRT.QC = {};
         % expmntData_ext.SLRT.sessionType = {};
+        trialMask = [];
     
         for j=1:numTrials                
             trialTag = sprintf("t%d",j-1);
@@ -79,7 +79,7 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
                 expmntData_ext.SLRT.QC = [expmntData_ext.SLRT.QC; 0];
                 expmntData_ext.SLRT.sessionLabel = [expmntData_ext.SLRT.sessionLabel; session];
             elseif trialKeepOrDrop(j) == 2
-                % trialMask = [trialMask, j-1];
+                trialMask = [trialMask, j-1];
                 % rise/fall indexing
                 % smoothMethod = 'filt';
                 % switch smoothMethod
