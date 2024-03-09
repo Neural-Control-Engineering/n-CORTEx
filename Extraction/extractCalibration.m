@@ -1,16 +1,14 @@
 function [curve, fit] = extractCalibration(logsout)
+    % get signal and setpoint
     signal = get(logsout,"signalAvg");
-    force = get(logsout,"tcpRx");
-    acqTimes = get(logsout,"S_out");
-    
-    signalVals = signal.Values.Data;
-    forceVals = force.Values.Data;
-    acqTimePts = acqTimes.Values.Time; 
-    
-    actTimePts = (acqTimes.Values.Data~=0) & (forceVals~=1);
-    actTimePts = acqTimePts(acqTimes.Values.Data~=0);
-    signalVals = signalVals(acqTimes.Values.Data~=0);
-    forceVals = forceVals(acqTimes.Values.Data~=0);
-    
-    figure; scatter(round(signalVals,2),round(double((forceVals)),1))
+    setPoint = get(logsout,"setPoint_out");    
+    % isolate acuired signal    
+    calibrationMask = (setPoint.Values.Data~=-1);
+    signalVals = signal.Values.Data(calibrationMask);
+    setPointVals = setPoint.Values.Data(calibrationMask);
+    % build LUT
+    figure; scatter(signalVals,setPointVals);
+    fit = polyfit(signalVals,setPointVals,1);
+    curve = [signalVals,setPointVals];
+    refline(fit(1),fit(2));
 end
