@@ -8,6 +8,7 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
     expmntData_ext.SLRT.pawSide = {};
     expmntData_ext.SLRT.QC = {};
     expmntData_ext.SLRT.sessionType = {};
+    expmntData_ext.SLRT.sessionLabel = {};
     
     expmntData_ext.LFP = [];
     sessions = sessionsToExtract.sessions;
@@ -76,6 +77,7 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
                 expmntData_ext.SLRT.responseThreshold = [expmntData_ext.SLRT.responseThreshold; nan];
                 expmntData_ext.SLRT.pawSide = [expmntData_ext.SLRT.pawSide; nan];
                 expmntData_ext.SLRT.QC = [expmntData_ext.SLRT.QC; 0];
+                expmntData_ext.SLRT.sessionLabel = [expmntData_ext.SLRT.sessionLabel; session];
             elseif trialKeepOrDrop(j) == 2
                 % trialMask = [trialMask, j-1];
                 % rise/fall indexing
@@ -124,9 +126,12 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
                 expmntData_ext.SLRT.responseThreshold = [expmntData_ext.SLRT.responseThreshold; t_peak - t_rise];
                 expmntData_ext.SLRT.pawSide = [expmntData_ext.SLRT.pawSide; pawSide];
                 expmntData_ext.SLRT.QC = [expmntData_ext.SLRT.QC; 0];          
-            end                        
+                expmntData_ext.SLRT.sessionLabel = [expmntData_ext.SLRT.sessionLabel; session];
+            end                                    
         end        
         expmntData_ext.LFP = [expmntData_ext.LFP; extractEXT_LFP(params, session, LFP, Q)];
     end
-    expmntData_ext.SLRT = struct2table(expmntData_ext.SLRT);       
+    expmntData_ext.SLRT = struct2table(expmntData_ext.SLRT);     
+    exportEXT_LFP(params,expmntData_ext.LFP);
+    exportEXT_SLRT(params,expmntData_ext.SLRT);
 end
