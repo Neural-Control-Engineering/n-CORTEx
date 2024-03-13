@@ -56,57 +56,43 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     % imecTmpDir = fullfile(params.paths.stem,"Temp",modality,"imec");
                     % nidqTmpDir = fullfile(params.paths.stem,"Temp",modality,"nidq");
                     % Process each triggered subset               
-                    numTrigs = length(imecBinDir_ap);      
-                    for k = 1:numTrigs
-                        if any(ismember(trialMask, k-1))                       
-                            trigNum = k-1;
+                    numBins = length(imecBinDir_ap);      
+                    for k = 1:numBins
+                        bin = imecBinDir_ap(k).name;
+                        binFldr = imecBinDir_ap(k).folder;
+                        [trigNum, gateNum] = decodeTrigger(bin);
+                        if any(ismember(trialMask, trigNum))                       
+                            % trigNum = k-1;
                             trigPattern = sprintf("_t%d",trigNum);
                             % params.paths.ksortNpxlsPath = fullfile(imecTmpDir,trigSubDirFldr);
                             % params.paths.neuropixel.to_sort = fullfile(imecTmpDir,trigSubDirFldr);                        
                             %% AP
-                            % params.paths.ksortNpxlsPath = fullfile(imecBinDir_ap(k).folder,imecBinDir_ap(k).name);
-                            params.paths.ksortNpxlsPath = fullfile(imecBinDir_ap(trigNum).folder);
+                            params.paths.ksortNpxlsPath = binFldr;
+                            % params.paths.ksortNpxlsPath = fullfile(imecBinDir_ap(k).folder);
                             % params.paths.neuropixel.to_sort = fullfile(imecBinDir_ap(k).folder,imecBinDir_ap(k).name);
                             params.paths.neuropixel.workingdir = fullfile("C:/Temp/NPXLS/");
                             buildPath(params.paths.neuropixel.workingdir);
                             % kilosort output location                        
                             kSortOutFolder = sprintf("%s%s_sorted",exp_template,trigPattern);                        
-                            kSortOutPath = fullfile(imecBinDir_ap(trigNum).folder,kSortOutFolder);
-
+                            kSortOutPath = fullfile(binFldr,kSortOutFolder);
                             % % clear previous output 
                             if exist(kSortOutPath,"dir"); rmdir(kSortOutPath,"s"); end
                             buildPath(kSortOutPath);
-                            % kSortOutPath = strcat("\\?\",kSortOutPath);
-                            % imec = Neuropixel.ImecDataset(((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag)))));
-
-                            % Import the Python module
+                            % Define the parameters                            
+                            data_dir = params.paths.ksortNpxlsPath;
+                            fileName = (((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag,'.ap.bin')))));
+                            chanMap = 'neuropixPhase3A_kilosortChanMap.mat';                            
+                            % Import the Python module; Call the function
                             mod = py.importlib.import_module('runKilosort4');
-                            % Define the parameters
-                            % data_dir = (((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag,'.ap.bin')))));
-                            data_dir = 'C:/SGL_DATA/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/RAW/NPXLS/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_imec0';
-                            fileName = 'C:/SGL_DATA/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/RAW/NPXLS/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_imec0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_t5.imec0.ap.bin';                            
-                            % results_dir = 'C:/SGL_DATA/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/RAW/NPXLS/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_imec0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_t5_sorted/kilosort4'
-                            % results_dir = 'C:/SGL_DATA/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/RAW/NPXLS/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0/date--2024-03-05_subj--3386-20240120-1_npxls--R-npx10_phase--L-hind-paw_g0_imec0/kilosort4';
-                            chanMap = 'neuropixPhase3A_kilosortChanMap.mat';
-                            % Call the function
-                            results = mod.runKilosort4(data_dir, fileName, chanMap);
-                            % Neuropixel.runKilosort3(imec, params.paths, exp_template, 'workingdir',convertStringsToChars(params.paths.neuropixel.workingdir));
-                            % Save Kilosort Object and compute metrics
-                            % ks = Neuropixel.KilosortDataset(((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern)))));
-                            ks = Neuropixel.KilosortDataset(imec);
-                            ks.path = strcat('\\?\',ks.path);
-                            ks.load('loadFeatures',false);
-                            stats = ks.computeBasicStats();
-                            ks.printBasicStats();
-                            metrics = ks.computeMetrics();    
+                            results = mod.runKilosort4(data_dir, fileName, chanMap);                            
                             % move output into a subfolder
                             rawNpxlsFolder = dir(fullfile(params.paths.rawData.(modality).imec));
                             for n = 3:length(rawNpxlsFolder)
                                 item = rawNpxlsFolder(n).name;
                                 loc = rawNpxlsFolder(n).folder;
                                 isDir = rawNpxlsFolder(n).isdir;
-                                if (~contains(item,'.lf.') && ~contains(item,'.ap.')) && ~isDir
-                                    movefile(fullfile(loc,item), fullfile(imecBinDir_ap(k).folder,kSortOutFolder));
+                                if strcmp(item,'kilosort4')
+                                    movefile(fullfile(loc,item), fullfile(binFldr,kSortOutFolder));
                                 end
                             end    
     
@@ -114,23 +100,19 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             % Load LFP data
                             chan_nidq = 1:9;
                             chan_imec = 1:385;
-                            % imec_meta_data_to_load = dir(fullfile(imecTmpDir,trigSubDirFldr, strcat('*', sessions{i}, '*lf.bin')));
-                            % nidq_meta_data_to_load = dir(fullfile(nidqTmpDir,trigSubDirFldr,strcat('*', sessions{i},'*.nidq.bin')));
-                            % fprintf("Extracting %s, trial %d\n", exp_template, trigNum);
-                            lfp = ReadSGLXData(imecBinDir_lfp(k).name, imecBinDir_lfp(k).folder, chan_imec);
+                            % Locate Dirs
+                            lfpFileName = strrep(bin,'.ap.bin','.lf.bin');
+                            nidqFileName = strrep(bin,'.imec0.ap.bin','.nidq.bin');
+                            nidqFolder = nidqBinDir(k).folder;
+                            lfp = ReadSGLXData(lfpFileName, binFldr, chan_imec);
                             lfp = downsample(lfp.dataArray',5)';
-                            nidq = ReadSGLXData(nidqBinDir(k).name, nidqBinDir(k).folder, chan_nidq);
-                            
-                            save(fullfile(kSortOutPath,"kilosort.mat"),"ks", '-v7.3');                        
-                            save(fullfile(kSortOutPath,"metrics.mat"),"metrics");
-                            save(fullfile(kSortOutPath,"lfp.mat"),"lfp");
-                            save(fullfile(kSortOutPath,"nidq.mat"),"nidq");
-                            save(fullfile(kSortOutPath,"stats.mat"),'stats');
-    
+                            nidq = ReadSGLXData(nidqFileName,nidqFolder, chan_nidq);                                                                                                            
+                            save(fullfile(strcat("\\?\",kSortOutPath),"lfp.mat"),"lfp");
+                            save(fullfile(strcat("\\?\",kSortOutPath),"nidq.mat"),"nidq");                              
                             progress = cell(2,1);
                             progress{1} = modality;
                             % progress{2} = i/length(sessions);
-                            progress{2} = (i-1)/length(sessions) + k/numTrigs;
+                            progress{2} = (i-1)/length(sessions) + k/numBins;
                             send(Q.q, 1);
                             send(Q.pq, progress);     
                            
@@ -151,11 +133,11 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     
                 end
                 % migrate to cloud
-                if exist(fullfile(params.paths.rawData.(modality).local,exp_template),"dir")
-                    copyfile(fullfile(params.paths.rawData.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.rawData.(modality).cloud,exp_template)));                
-                    rmdir(fullfile(params.paths.rawData.(modality).local,exp_template),'s');
+                if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
+                    copyfile(fullfile(params.paths.Data.RAW.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.Data.RAW.(modality).cloud,exp_template)));                
+                    rmdir(fullfile(params.paths.Data.RAW.(modality).local,exp_template),'s');
                 end
-                extractionLog = updateExtractionLog(extractionLog, sessionLabel, 'Extracted_npxls', 1, 0);
+                extractionLog = updateExtractionLog(extractionLog, sessionLabel, "Extracted_npxls", 1, 0);
                 writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","RAW")));
             end
         end
