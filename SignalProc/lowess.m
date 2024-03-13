@@ -1,8 +1,8 @@
-function lws = lowess(raw)
+function lws = lowess(raw, span)
     lws = [];
     % raw = raw';
     % span = 0.12;
-    span = 0.02
+    % span = 0.02
     t = [1:length(raw)]';
     X = [raw, t];
     if ~isnan(raw)
