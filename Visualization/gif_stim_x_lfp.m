@@ -34,7 +34,7 @@ function gif_stim_x_lfp(stim, stim_prebuff, lfp, lfp_prebuff, Fs, t_range)
     evkData.label='sec';
     evkData.sweepDim = 3;
 
-    gifCfg.filename='EvokedSingle_6736_t12_3_11.gif';
+    gifCfg.filename='EvokedSingle_6736_t5_3_13.gif';
     gifCfg.frameDelay = 0.01;
     gifOverAxis(gifCfg, {stimData; evkData});
 
