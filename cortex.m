@@ -5,9 +5,9 @@ function cortex(method)
     % addpath(params.paths.nCORTEx_repo);
     % addpath(genpath(params.paths.nCORTEx_repo));
     switch(method)
-        case "extract"
-            nCORTEx_extraction;
-        case "acquire"
-            nCORTEx_acquisition;
+        case "target"
+            nCORTEx_target;
+        case "host"
+            nCORTEx_host;
     end    
 end
