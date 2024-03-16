@@ -44,8 +44,8 @@ elseif ispc
         paths.neuropixel.workingdir = 'C:\';
 
         % Drive letter for analyzed data in customary file structure        
-        paths.all_data_path = strcat('G:\My Drive\#Projects\',source);
-        paths.projDir_cloud = strcat('G:\My Drive\#Projects\',source);
+        paths.all_data_path = strcat('G:\My Drive\Projects\',source);
+        paths.projDir_cloud = strcat('G:\My Drive\Projects\',source);
         paths.projDir_local = fullfile('C:','SGL_Data',source);
 
         % Path for raw npxls data
@@ -54,7 +54,7 @@ elseif ispc
         % Local path for kilosorted data
         paths.ksortNpxlsPath = strcat('C:\SGL_Data\',source,'\Extracted_Neuropixel_Data');
         % path for realtime behavior data
-        paths.rawBehaviorPath = fullfile('G:\My Drive\#Projects\',source);
+        paths.rawBehaviorPath = fullfile('G:\My Drive\Projects\',source);
         % Store neuropixel related paths
         paths.neuropixel.kilosort_params = fullfile(paths.raw_neuropixel_data,"Kilosort_params");
         paths.neuropixel.npy = fullfile(paths.neuropixel.kilosort_repo,'npy-matlab-master','npy-matlab');
@@ -66,8 +66,8 @@ elseif ispc
         paths.repo_path = 'C:\Code_Repo';
         
         % Drive letter for analyzed data in customary file structure        
-        paths.all_data_path = strcat('I:\My Drive\#Projects\',source);
-        paths.projDir_cloud = strcat('I:\My Drive\#Projects\',source);
+        paths.all_data_path = strcat('I:\My Drive\Projects\',source);
+        paths.projDir_cloud = strcat('I:\My Drive\Projects\',source);
         paths.projDir_local = fullfile('E:','NECDrive_local',source);       
     
     % Qi's PC    

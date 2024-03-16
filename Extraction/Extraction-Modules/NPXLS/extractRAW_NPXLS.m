@@ -92,7 +92,7 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                 loc = rawNpxlsFolder(n).folder;
                                 isDir = rawNpxlsFolder(n).isdir;
                                 if strcmp(item,'kilosort4')
-                                    movefile(fullfile(loc,item), fullfile(binFldr,kSortOutFolder));
+                                    movefile(fullfile(loc,item), fullfile(binFldr,kSortOutFolder),'f');
                                 end
                             end    
     
