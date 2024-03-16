@@ -1,0 +1,4 @@
+function time = timeAxis(data, fs)
+    seriesLen = size(data,2);
+    time = ([0:1:seriesLen])./fs;
+end

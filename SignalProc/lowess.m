@@ -7,7 +7,7 @@ function lws = lowess(raw, span)
     X = [raw, t];
     if ~isnan(raw)
         % fit(t,raw,'lowess')        
-        lws = fLOESS(raw,span);
+        lws = fLOESS(raw,span);       
         % mslowess(raw, t')
     end
 end
