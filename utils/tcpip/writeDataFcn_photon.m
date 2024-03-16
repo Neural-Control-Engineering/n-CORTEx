@@ -5,9 +5,7 @@ function writeDataFcn_photon(src, commandID)
     % switch_expression = src.UserData;
     switch commandID
         case 0
-            disp("Do nothing");
-            
-    
+            disp("Do nothing");              
         case 1
             DemoRemoteAPI;
             return

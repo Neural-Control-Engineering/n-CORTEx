@@ -1,8 +1,13 @@
-function cortex
-    params = setBaseParams(struct);
-    system('./mountNEC.sh');
-    warning('off', 'MATLAB:hg:AutoSoftwareOpenGL');
+function cortex(method)
+    % params = setBaseParams(struct);
+    % system('./mountNEC.sh');
+    % warning('off', 'MATLAB:hg:AutoSoftwareOpenGL');
     % addpath(params.paths.nCORTEx_repo);
     % addpath(genpath(params.paths.nCORTEx_repo));
-    nCORTEx_console;
+    switch(method)
+        case "target"
+            nCORTEx_target;
+        case "host"
+            nCORTEx_host;
+    end    
 end
