@@ -4,6 +4,9 @@ function server = server_slrt(params, modalityServer)
         case 'USERBRU-2FNENOI'
             address = "164.254.103.9";
             modality = 'photon';
+        case 'DESKTOP-MRI7THQ'
+            address = '128.59.150.93';
+            modality = 'npxls';
     end
     readDataFcnHndl = str2func(sprintf('readDataFcn_%s',modality));
     connectionChangedFcnHndl = str2func(sprintf('connectionChangedFcn_%s', modality));
