@@ -15,4 +15,4 @@ utils/osfstorage-archive/template_volume_10um.npy
 
 #     Folders     #
 ###################
-utils/neuroImaging/
+utils/neuroImaging/*
