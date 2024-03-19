@@ -7,5 +7,6 @@ function npx = server_npxls(params)
     end
     % pl = actxserver('PrairieLink64.Application');
     npx = SpikeGL(address);   
+    % npx = [];
 
 end
