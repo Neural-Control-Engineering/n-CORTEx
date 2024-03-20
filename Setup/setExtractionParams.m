@@ -112,6 +112,9 @@ function params = setExtractionParams(opts)
         case 'electro'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "127.0.0.1";
+        case 'user'
+            opts.staticColor = [0.31,0.94,0.46];
+            % opts.ethernetIP = "128.59.149.107";
         otherwise
             opts.staticColor = [0.31,0.94,0.46];
 
