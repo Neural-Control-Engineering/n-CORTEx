@@ -1,4 +1,4 @@
-function roiTimecourse(datastream, f, t)
+function tc = roiTimecourse(datastream, f, t, bands)
     figure
     % set(gcf,'Position',[0.0050    0.4650    1.3455    0.3050]*1000);
     subplot(1,2,1)
@@ -25,6 +25,21 @@ function roiTimecourse(datastream, f, t)
     xline(0);
     xlabel("time (s)");
     ylabel("spectral power")
+
+    if ~isempty(bands)
+        figure;
+        bandFields = fieldnames(bands);       
+        for i = 1:length(bandFields)
+            band = bandFields{i};
+            disp(band)
+            f_bounds = bands.(band);            
+            tc = squeeze(mean(mean(datastream(min(y):max(y),f_bounds(1):f_bounds(end),:),2),1));
+            plot(t,tc);            
+            hold on
+        end
+        legend(bandFields)
+        xline(0);
+    end
     % if j<4
     %     plot([0:size(tc,2)-1]./(m.framerate/m.nLEDs),(tc(j,:)),'color',cols{j});
     % else
