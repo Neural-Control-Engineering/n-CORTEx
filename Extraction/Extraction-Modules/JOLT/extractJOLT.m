@@ -107,15 +107,15 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
                 stimRawTrial_time = stim_raw.Time(idx_rise-stimPreBuff_nSamp*2:idx_fall+stimPreBuff_nSamp);
                 t_rise_trial = stim_raw.Time(idx_rise);
                 idx_rise_trial = find(stimRawTrial_time==t_rise_trial);
-                %% stimLowessTrial_span10 = lowess(stimRawTrial,0.12);                
-                %% stimLowessTrial_span2 = lowess(stimRawTrial,0.02);         
-                stimLowessTrial_span10=stimRawTrial;                
-                stimLowessTrial_span2 =stimRawTrial;         
+                stimLowessTrial_span10 = lowess(stimRawTrial,0.12);                
+                stimLowessTrial_span2 = lowess(stimRawTrial,0.02);         
+                % stimLowessTrial_span10=stimRawTrial;                
+                % stimLowessTrial_span2 =stimRawTrial;         
                 figure; plot(stimLowessTrial_span10);                 
                 hold on
                 plot(stimLowessTrial_span2);                 
-                %% idx_peakFilt = find(stimLowessTrial_span10 == max(stimLowessTrial_span10));
-                idx_peakFilt = 10;
+                idx_peakFilt = find(stimLowessTrial_span10 == max(stimLowessTrial_span10));
+                % idx_peakFilt = 10;
                 t_peak = stimRawTrial_time(idx_peakFilt);
                 idx_peak_trial = find(stimRawTrial_time==t_peak)
                 xline(idx_rise_trial)
@@ -157,9 +157,9 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
         extractionLog = params.extrctItms.EXT.extractionLog;
         expmntData_ext.SLRT = struct2table(expmntData_ext.SLRT);     
         % export SLRT and log
-        %% SLRT = expmntData_ext.SLRT;
-        %% save(fullfile(params.paths.Data.EXT.SLRT.cloud,sessionFileLabel),'SLRT');
-        %% extractionLog = updateExtractionLog(extractionLog,session,"Extracted_SLRT",1,0);
+        SLRT = expmntData_ext.SLRT;
+        save(fullfile(params.paths.Data.EXT.SLRT.cloud,sessionFileLabel),'SLRT');
+        extractionLog = updateExtractionLog(extractionLog,session,"Extracted_SLRT",1,0);
         % export LFP and log        
         LFP = extractEXT_LFP(params, session, LFP, Q);
         if ~exist(fullfile(params.paths.stem,"Temp"),"dir"); mkdir(fullfile(params.paths.stem,"Temp")); end
