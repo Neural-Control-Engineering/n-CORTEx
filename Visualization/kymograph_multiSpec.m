@@ -22,12 +22,14 @@ function kymograph_multiSpec(datastream, f, t, f_range)
     xline(f_range(1),'color','y'); 
     xline(f_range(2),'color','y');
     
-    caxis([-40,-30]); % SINGLE
+    % caxis([-40,-30]); % SINGLE
+    caxis([-50,-25]); % SINGLE
     colormap cool
     subplot(122)
     % imagesc([1:ss(3)]/(m.framerate/m.nLEDs), [1:ss(1)],squeeze(mean(data.gcamp(:,columns,:),2)))
     imagesc(t,[1:384],squeeze(mean(datastream(:,columns,:),2)))
-    caxis([-40,-30]); % SINGLE
+    % caxis([-40,-30]); % SINGLE
+    caxis([-50,-25]); % SINGLE
     xline(0,'color','y')
     xlabel('time (s)');
     ylabel('channels')

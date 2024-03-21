@@ -6,7 +6,7 @@ function tc = roiTimecourse(datastream, f, t, bands)
     % eval(sprintf('bg = mean(data.%s(:,:,50:100),3);',colnames{j}));
     imagesc(f,[1:384],squeeze(datastream(:,:,100)));
     axis image
-    caxis([-40,-30]); % SINGLE
+    caxis([-40,-30]); % SINGLE    
     colormap cool
     title('Use cursor to select a region of interest');
     [x, y] = ginput(2);
