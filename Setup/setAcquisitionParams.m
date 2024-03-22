@@ -53,7 +53,7 @@ function params = setBaseParams(opts)
     if ~isfield(opts.spinParams.pupilCam,'TriggerSource'), opts.spinParams.pupilCam.TriggerSource='Line2'; end
     if ~isfield(opts.spinParams.pupilCam,'TriggerActivation'), opts.spinParams.pupilCam.TriggerActivation='RisingEdge'; end
     if ~isfield(opts.spinParams.pupilCam,'DecimationHorizontal'), opts.spinParams.pupilCam.DecimationHorizontal=1; end
-    if ~isfield(opts.spinParams.pupilCam, 'DecimationVertical'), opts.spinParams.pupilCam.DecimationHorizontal=1; end
+    if ~isfield(opts.spinParams.pupilCam, 'DecimationVertical'), opts.spinParams.pupilCam.DecimationVertical=1; end
     if ~isfield(opts.spinParams.pupilCam, 'ExposureMode'), opts.spinParams.pupilCam.ExposureMode='TriggerWidth'; end
     if ~isfield(opts.spinParams.pupilCam, 'GammaEnable'), opts.spinParams.pupilCam.GammaEnable='false'; end
     
@@ -73,7 +73,7 @@ function params = setBaseParams(opts)
     if ~isfield(opts.spinParams.whiskCam,'TriggerSource'), opts.spinParams.whiskCam.TriggerSource='Line2'; end
     if ~isfield(opts.spinParams.whiskCam,'TriggerActivation'), opts.spinParams.whiskCam.TriggerActivation='RisingEdge'; end
     if ~isfield(opts.spinParams.whiskCam,'DecimationHorizontal'), opts.spinParams.whiskCam.DecimationHorizontal=2; end
-    if ~isfield(opts.spinParams.whiskCam, 'DecimationVertical'), opts.spinParams.whiskCam.DecimationHorizontal=2; end
+    if ~isfield(opts.spinParams.whiskCam, 'DecimationVertical'), opts.spinParams.whiskCam.DecimationVertical=2; end
     if ~isfield(opts.spinParams.whiskCam, 'ExposureMode'), opts.spinParams.whiskCam.ExposureMode='TriggerWidth'; end
     if ~isfield(opts.spinParams.whiskCam, 'GammaEnable'), opts.spinParams.whiskCam.GammaEnable='false'; end
     % if ~isfield(opts.spinParams.whiskCam, 'PixelFormat'), opts.spinParams.whiskCam.PixelFormat='BGRa8'; end
