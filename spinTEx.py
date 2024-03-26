@@ -25,14 +25,20 @@ def main():
     spinParams = json.loads(spinParams)     
 
     # retrieve video save location
-    saveDir = spinParams["saveDir"]
-    sessionLabel = spinParams["sessionLabel"]
+    # saveDir = spinParams["saveDir"]
+    # sessionLabel = spinParams["sessionLabel"]
     execStatus = spinParams["execStatus"]
-    camSelect = spinParams["camSelect"]    
+    # camSelect = spinParams["camSelect"]    
     
     # SN registry
-    pupilSN=spinParams["pupilSN"]
-    whiskSN=spinParams["whiskSN"]
+    # pupilSN=spinParams["pupilSN"]
+    # whiskSN=spinParams["whiskSN"]
+    SN = spinParams['SN']
+    # SN_char = Char(SN)
+    listenerPort = int(SN[-6:-1])
+    print(type(SN))
+    # listenerPort = SN % 100000
+    print('listenerPort: ',listenerPort)
 
     if execStatus=="start":                
         frameBuffer=multiprocessing.Manager().list()
@@ -43,34 +49,44 @@ def main():
         cameras = list_cameras()
         numCameras = cameras.GetSize()
         print(str(numCameras) + ' camera(s) found')
+
+        print((SN,': selected'))            
+        cam = Camera(SN)
+        cam.init()
+        cam = setSpinParams(cam, spinParams['spinParams'])
+        # listenerPort = int(SN(-6:-1)) # last 5 digits of SN 
+        acqDir = spinParams['saveDir']
        
-        if camSelect==pupilSN:
-            cam = Camera(pupilSN)
-            # temporary: reset camera on startup
-            # setattr(cam,'DeviceReset',1)
-            print('Pupil Cam Selected')
-            cam.init()
-            cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
-            rawPupilFldr = os.path.join(saveDir,"Raw Pupil Data")
-            if not os.path.exists(rawPupilFldr):
-                os.mkdir(rawPupilFldr)
-            acqDir = os.path.join(rawPupilFldr, sessionLabel)
-            listenerPort=12345
-            # isKillVar='ISPUPKILL'            
+        # if camSelect==pupilSN:
+        #     cam = Camera(pupilSN)
+        #     # temporary: reset camera on startup
+        #     # setattr(cam,'DeviceReset',1)
+        #     print('Pupil Cam Selected')
+        #     cam.init()
+        #     cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
+        #     rawPupilFldr = os.path.join(saveDir,"Raw Pupil Data")
+        #     if not os.path.exists(rawPupilFldr):
+        #         os.mkdir(rawPupilFldr)
+        #     acqDir = os.path.join(rawPupilFldr, sessionLabel)
+        #     listenerPort=12345
+        #     # isKillVar='ISPUPKILL'            
            
-        elif camSelect==whiskSN:
-            cam = Camera(whiskSN)
-            # temporary: reset camera on startup
-            # setattr(cam,'DeviceReset',1)
-            print('Whisker Cam Selected')
-            cam.init()
-            cam = setSpinParams(cam, spinParams['whiskCam'])
-            rawWhiskFldr = os.path.join(saveDir,"Raw Whisker Data")
-            if not os.path.exists(rawWhiskFldr):
-                os.mkdir(rawWhiskFldr)
-            acqDir = os.path.join(rawWhiskFldr, sessionLabel)
-            listenerPort=23456
-            # isKillVar='ISWSKKILL'
+        # elif camSelect==whiskSN:
+        #     cam = Camera(whiskSN)
+        #     # temporary: reset camera on startup
+        #     # setattr(cam,'DeviceReset',1)
+        #     print('Whisker Cam Selected')
+        #     cam.init()
+        #     cam = setSpinParams(cam, spinParams['whiskCam'])
+        #     rawWhiskFldr = os.path.join(saveDir,"Raw Whisker Data")
+        #     if not os.path.exists(rawWhiskFldr):
+        #         os.mkdir(rawWhiskFldr)
+        #     acqDir = os.path.join(rawWhiskFldr, sessionLabel)
+        #     listenerPort=23456
+        #     # isKillVar='ISWSKKILL'
+        
+        # else      
+            
            
         # os.environ[isKillVar]='0' # init to 0 and check if set to 1
         
@@ -111,17 +127,19 @@ def main():
 
     elif execStatus=="stop":
         # Send termination signals to whisker and pupil acquisition ports
+        # listenerPort = int(SN(-6:-1))
         clientSocket1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # pupilAcq socket
-        clientSocket2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # whiskerAcq socket
-        clientSocket1.connect(('localhost',12345))      
-        clientSocket2.connect(('localhost',23456))
+        # clientSocket2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # whiskerAcq socket
+        clientSocket1.connect(('localhost',listenerPort))      
+        # clientSocket2.connect(('localhost',23456))
         msgOut = 'terminateAcq'        
         clientSocket1.send(msgOut.encode())
-        clientSocket2.send(msgOut.encode())
+        # clientSocket2.send(msgOut.encode())
         print("resetting equipment")
         clientSocket1.close()
-        clientSocket2.close()
-        resetCameras(pupilSN, whiskSN)
+        # clientSocket2.close()
+        #resetCameras(pupilSN, whiskSN)
+        resetCamera(SN)
     else:
         raise Exception("Missing ExecStatus!")  
 
@@ -182,13 +200,18 @@ def termListener(isTerm, portNum):
             serverSocket.close()
             break
 
-def resetCameras(pupilSN, whiskSN):
-    wskCam = Camera(pupilSN)
-    pupCam = Camera(whiskSN)
-    wskCam.init()
-    pupCam.init()
-    wskCam.DeviceReset()
-    pupCam.DeviceReset()
+# def resetCameras(pupilSN, whiskSN):
+#     wskCam = Camera(pupilSN)
+#     pupCam = Camera(whiskSN)
+#     wskCam.init()
+#     pupCam.init()
+#     wskCam.DeviceReset()
+#     pupCam.DeviceReset()
+
+def resetCamera(SN):
+    cam = Camera(SN)
+    cam.init()
+    cam.DeviceReset()
 
 
 if __name__ == "__main__":
