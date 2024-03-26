@@ -4,7 +4,12 @@ function buildPath(filePath)
 
     % Initialize the current path
     % currentPath = '';
-    currentPath = fullfile(strcat('/',pathParts{1}),'/');
+    
+    if ispc
+        currentPath = fullfile(strcat(pathParts{1}),'/');
+    else
+        currentPath = fullfile(strcat('/',pathParts{1}),'/');
+    end
     if ~exist(currentPath,'dir');  mkdir(currentPath); end
 
     % Iterate through the path parts and create each folder if it doesn't exist
