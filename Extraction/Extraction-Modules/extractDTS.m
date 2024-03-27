@@ -4,7 +4,7 @@ function extractDTS(params)
     extData = params.paths.Data.EXT;
     DTS = [];
     for i = 1:length(sessions)
-        session = sessions{i};
+        session = sessions{i}
         extFields = fieldnames(extData);        
         dts = [];
         for j = 1:length(extFields)
@@ -24,7 +24,12 @@ function extractDTS(params)
                 end                
             end
         end
-        DTS = [DTS; dts];
+        if ~isempty(DTS)        
+            DTS = mergeT_vertical(DTS, dts);
+        else
+            DTS = [DTS; dts];
+        end
+        % outerjoin(DTS, dts,"Keys",dts.Properties.VariableNames,"MergeKeys",true);
     end
 
 end
