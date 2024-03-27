@@ -1,7 +1,7 @@
 function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)         
     sessions = sessionsToExtract.sessions;
     for i = 1:length(sessions)
-        session = sessions{i};
+        session = sessions{i}
         % function to return npxls acquisition times 
         % relative to user action (e.g. Button presses)      
         expmntData = [];
