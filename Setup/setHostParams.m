@@ -14,7 +14,7 @@ function params = setHostParams(opts)
     end
     
     if ~isfield(opts,'hostName'), opts.hostName=hostName; end
-    if ~isfield(opts,'paths'), opts.paths=struct; end
+    if ~isfield(opts,'paths'), opts.paths=struct; end    
        
     switch hostName
         case 'electro'
@@ -36,7 +36,7 @@ function params = setHostParams(opts)
         otherwise
             if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('/home/%s',hostName); end
             % if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = sprintf('/home/%s/Code_Repo/n-CORTEx',hostName); end
-            if ~isfield(opts.paths,'nCORTEx_repo', opts.paths.nCORTEx_repo = pwd; end
+            if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = pwd; end
             if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = sprintf('/home/%s/NEC_Drive',hostName); end    
     end
 
