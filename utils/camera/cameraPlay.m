@@ -1,4 +1,4 @@
-function cameraPlay(camera, filePath, fileName, cue)
+function cameraPlay(params, camera, filePath, fileName, cue)
     % wrap spinnaker parameters and initiate cameras (using spinTEX)
     cameras = fieldnames(camera);
     % Use parfeval to run the Python scripts concurrently
@@ -10,7 +10,8 @@ function cameraPlay(camera, filePath, fileName, cue)
     % % spinParamsJSON1 = jsonencode(spinParams1);    
     
     % build system command 
-    cmd = "parallel './callSpinTEx.sh' ::: ";
+    % cmd = "parallel './callSpinTEx.sh' ::: ";
+    cmd = sprintf("parallel '%s' ::: ",params.paths.nCORTEx_repo);
     JSON = struct;
     for i = 1:length(cameras)
         camParams = struct;
