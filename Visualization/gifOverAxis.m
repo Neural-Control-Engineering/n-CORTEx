@@ -51,10 +51,18 @@ function gifOverAxis(gifCfg, Data)
             ph_sub(idx) = copyobj(ph(idx),fh_main);
             set(ph_sub(idx),'Position',[(idx-1)/npanels,0,(1)/npanels,1]);
         end
-        set(gcf, 'Position', [100, 100, 1250, 900]); 
-        colormap cool
+        if strcmp(data.plot,'NT')
+            set(gcf,'Position', [769,98,200,1847]);     
+            colormap(data.colorMap);
+            caxis([-36,-32]);
+        else
+            set(gcf, 'Position', [100, 100, 1250, 900]);             
+            colormap cool
+            caxis([-40,-30]);
+        end
+        
         % caxis([-5,15]);
-        caxis([-40,-30]);
+        
         title(label)
         %% WRITE TO GIF
         frame = getframe(fh_main);

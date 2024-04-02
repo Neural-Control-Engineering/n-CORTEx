@@ -1,4 +1,4 @@
-function regMap = mapChan2Regs(meta, probe_areas)   
+function [regMap, NT_color] = mapChan2Regs(meta, probe_areas)   
     geomap = meta.snsGeomMap;
     geom = split(geomap,')');
     geom = cellfun(@(x) strrep(x,'(',''), geom, "UniformOutput",false);
