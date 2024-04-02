@@ -9,6 +9,7 @@ function params = setHostParams(opts)
     switch ispc
         case 1
             hostName = getenv('COMPUTERNAME');
+            userName = getenv('USERNAME');
         case 0
             hostName = getenv('USER');
     end
@@ -32,6 +33,10 @@ function params = setHostParams(opts)
             if ~isfield(opts.paths,'nCORTEx_repo'), opts.paths.nCORTEx_repo = sprintf('/home/%s/Code_Repo/n-CORTEx',hostName); end
             if ~isfield(opts.paths,'NECdrive_root'), opts.paths.NECdrive_cloud = sprintf('/home/%s/NEC_Drive',hostName); end
             if ~isfield(opts,'dataComputerIP'), opts.dataComputerIP = opts.dataComputerIPs.bruker; end
+        case 'BETADROID'
+            if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('C:\\Users\\%s\\Downloads',userName); end
+            if ~isfield(opts.paths,'projDir_local'), opts.paths.projDir_local = fullfile(opts.paths.stem, "cortex_local", opts.projectName); end
+            if ~exist(opts.paths.projDir_local, 'dir'), mkdir(opts.paths.projDir_local); end
 
         otherwise
             if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('/home/%s',hostName); end
