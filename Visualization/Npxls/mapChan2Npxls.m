@@ -1,4 +1,4 @@
-function NT = mapChan2Npxls(regMap, dataStream)
+function [NT, NT_color] = mapChan2Npxls(regMap, dataStream)
     % bin 384 channel datastream into npxls style heatmap
     % return a neuropixels tensor (NT) for video gen
     NT = zeros(96,4,size(dataStream,2));
