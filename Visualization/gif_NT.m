@@ -15,7 +15,8 @@ function gif_NT(NT, t, t_range, fileName, CT)
     NTData.sweepDim = 3;
     NTData.colorMap = CT;
 
-    gifCfg.filename='NT_6736_t7_3_11.gif';
+    % gifCfg.filename='NT_6736_t7_3_11.gif';
+    gifCfg.filename=fileName;
     % gifCfg.filename=sprintf("NT_%s.gif");
     gifCfg.frameDelay = 0.01;
     gifOverAxis(gifCfg, {NTData});
