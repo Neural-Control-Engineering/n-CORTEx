@@ -54,7 +54,8 @@ function gifOverAxis(gifCfg, Data)
         if strcmp(data.plot,'NT')
             set(gcf,'Position', [769,98,200,1847]);     
             colormap(data.colorMap);
-            caxis([-40,-32]);
+            % caxis([-40,-32]);
+            caxis(data.colorAxis)
         else
             set(gcf, 'Position', [100, 100, 1250, 900]);             
             colormap cool

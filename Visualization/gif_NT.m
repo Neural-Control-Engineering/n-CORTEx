@@ -1,4 +1,4 @@
-function gif_NT(NT, t, t_range, fileName, CT)    
+function gif_NT(NT, t, t_range, fileName, CT, colorAx)    
     
     t_cond = t > t_range(1) & t < t_range(2);    
 
@@ -14,6 +14,7 @@ function gif_NT(NT, t, t_range, fileName, CT)
     NTData.label='sec';
     NTData.sweepDim = 3;
     NTData.colorMap = CT;
+    NTData.colorAxis = colorAx;
 
     % gifCfg.filename='NT_6736_t7_3_11.gif';
     gifCfg.filename=fileName;
