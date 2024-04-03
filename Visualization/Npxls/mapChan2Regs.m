@@ -1,4 +1,7 @@
-function regMap = mapChan2Regs(meta, probe_areas)   
+function regMap = mapChan2Regs(probe_areas)   
+    [metaFile, metaFldr] = uigetfile(".bin.meta");
+    % metaPath = fullfile(metaPath, metaFile);
+    meta = ReadMeta(metaFile,metaFldr);
     geomap = meta.snsGeomMap;
     geom = split(geomap,')');
     geom = cellfun(@(x) strrep(x,'(',''), geom, "UniformOutput",false);
@@ -33,4 +36,6 @@ function regMap = mapChan2Regs(meta, probe_areas)
         regMap.Y = [regMap.Y; y];        
     end
     regMap = struct2table(regMap);
+    regMap = sortrows(regMap,'Y');
+    regMap = flip(regMap,1);
 end

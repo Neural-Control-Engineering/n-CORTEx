@@ -35,9 +35,9 @@ function plot_regionXpowerbands(regMap, bands, lfp)
                 regionPrev = npxChanPrev.region{1};
                 colorPrev = npxChanPrev.color{1};
                 if ~strcmp(region, regionPrev) || (i == height(regMap))
-                    %% regAvg = mean(regAvgBuffer,1);
-                    %% sh.YData = [sh.YData, regAvg'];                
-                    sh.YData = [sh.YData, regAvgBuffer(end,:)'];
+                    regAvg = mean(regAvgBuffer,1);
+                    sh.YData = [sh.YData, regAvg'];                
+                    % sh.YData = [sh.YData, regAvgBuffer(end,:)'];
                     Colors = [Colors; sprintf("#%s",colorPrev)];
                     Labels = [Labels; string(regionPrev)];
                     m=m+1;

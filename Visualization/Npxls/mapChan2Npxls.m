@@ -33,6 +33,10 @@ function [NT, NT_color] = mapChan2Npxls(regMap, dataStream)
     colormap(cMap)
     h.CellLabelColor='none'
     h.ColorbarVisible='off'
+    % daspect([18,14,1]);
+    set(gcf,'Position',[320,116,120,1602]);
+    set(gcf,'Color',[1,1,1])
+    % set(gcf,'InnerPosition', [320,116,120,1602]);     
     % set(gcf,'GridColor',[0,0,0])
     caxis([1,8])
 
