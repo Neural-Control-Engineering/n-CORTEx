@@ -1,28 +1,25 @@
-function uploadRAW(localRAW, cloudRAW, sessionLabel)
-    dir(localRAW);
-    rawMods = string(categorize(localRAW,'isDir'));
-    for i = 1:length(rawMods)
-        mod = rawMods{i};
-        %  recurse and search for sessionlabel
-        relPath = locateSessionFile(fullfile(localRAW,mod),sessionLabel);
-        ss = size(relPath);
-        for j = 1:ss(1)
-            relPth = relPath(j);
-            pthParts = split(relPth,filesep);
-            brk = find(strcmp(pthParts,"nCORTExTmp"))
-            savePth = join(pthParts(brk+1:end),filesep);
-            % move to cloud
-            sessionLabelFile = sprintf("%s.mat",sessionLabel)
-            copyfile(fullfile(relPth,sprintf("",sessionLabelFile)),fullfile(cloudRAW,savePth,sessionLabelFile))
-        end
+function uploadRAW(dataDir, sessionLabel, isDelete)
+    dataFields = fieldnames(dataDir);
+    for i = 1:length(dataFields)
+        dataField = dataFields{i};
+        dfLocal = dataDir.(dataField).local;
+        sessionPaths = locateSessionFile(dfLocal,sessionLabel);
+        for j = 1:size(sessionPaths,1)
+            sessPath = sessionPaths(j);
+            localItems = struct2table(dir(sessPath));
+            localItems = string(localItems(contains(localItems.name,sessionLabel),:).name);
+            relPath = split(sessPath,dataField);
+            relPath = relPath(2);
+            for k = 1:length(localItems)
+                localItem = localItems(k);
+                localPath = fullfile(sessPath,localItem);
+                if isDelete == 1
+                    delete()
+                else
+                    movefile(localPath,fullfile(dataDir.(dataField).cloud,relPath),'f')
+                    % copyfile(localPath,fullfile(dataDir.(dataField).cloud,relPath,sessionLabel),'f')
+                end                
+            end                                 
+        end        
     end
-    realtimeLogDir_tmp = fullfile(tmpDir,"SLRT");
-    realtimeLogFilePath = fullfile(realtimeLogDir_tmp,strcat(app.sessionParams.sessionLabel,".mat"));
-    realtimeLogDir = fullfile(expDir_cloud,"SLRT");
-    if exist(realtimeLogDir_tmp, "dir")
-        if ~exist(realtimeLogDir,"dir")
-            mkdir(realtimeLogDir);
-        end
-        movefile(realtimeLogFilePath,  realtimeLogDir, 'f')
-    end  
 end
