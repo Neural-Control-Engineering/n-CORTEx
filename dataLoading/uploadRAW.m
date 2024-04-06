@@ -14,7 +14,12 @@ function uploadRAW(dataDir, sessionLabel, isDelete)
                 localItem = localItems(k);
                 localPath = fullfile(sessPath,localItem);
                 if isDelete == 1
-                    delete()
+                    if isfolder(localPath)
+                        rmdir(localPath,"s");
+                    elseif isfile(localPath)
+                        delete(localPath);
+                    end
+                    
                 else
                     movefile(localPath,fullfile(dataDir.(dataField).cloud,relPath),'f')
                     % copyfile(localPath,fullfile(dataDir.(dataField).cloud,relPath,sessionLabel),'f')
