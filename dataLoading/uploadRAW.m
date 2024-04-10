@@ -1,7 +1,9 @@
 function uploadRAW(dataDir, sessionLabel, isDelete)
     dataFields = fieldnames(dataDir);
+    % MOVE SLRT TO FRONT
+    dataFields = move2front(string(dataFields),"SLRT");
     for i = 1:length(dataFields)
-        dataField = dataFields{i};
+        dataField = dataFields(i);
         dfLocal = dataDir.(dataField).local;
         sessionPaths = locateSessionFile(dfLocal,sessionLabel);
         for j = 1:size(sessionPaths,1)
