@@ -2,15 +2,18 @@
 ###################
 *.asv
 
-#    SIMULINK     #
+#      UTILS      #
 ###################
-utils/spikeSorting/Kilosort/
-utils/spikeSorting/neuropixel-utils/
-utils/spikeSorting/phy/
-utils/spikeSorting/spikes/
-utils/neuropixels_trajectory_explorer/
-utils/npy-matlab/
-utils/osfstorage-archive/annotation_volume_10um.npy
-utils/osfstorage-archive/annotation_volume_10um_by_index.npy
-utils/osfstorage-archive/structure_tree_safe_2017.csv
-utils/osfstorage-archive/template_volume_10um.npy
+/utils/spikeSorting/Kilosort/
+/utils/spikeSorting/neuropixel-utils/
+/utils/spikeSorting/phy/
+/utils/spikeSorting/spikes/
+/annotation_volume_10um_by_index.npy/
+
+#     Folders     #
+###################
+/utils/neuroImaging/*
+
+#      MATLAB     #
+###################
+/Setup/nCORTExCache.mat
