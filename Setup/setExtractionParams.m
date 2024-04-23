@@ -11,7 +11,7 @@ function params = setExtractionParams(opts)
         if ~isfield(opts,'hostName'), opts.hostName=hostName; end
         if ~isfield(opts,'paths'), opts.paths=struct; end
         if ~isfield(opts.paths,'stem'), opts.paths.stem=fullfile("C:"); end
-        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("G:\My Drive\#Projects"); end       
+        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("I:\My Drive\Projects"); end       
     end      
 
     % if ~isfield(opts.paths,"Code_Repo"); end

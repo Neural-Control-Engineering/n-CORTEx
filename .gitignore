@@ -8,9 +8,12 @@
 /utils/spikeSorting/neuropixel-utils/
 /utils/spikeSorting/phy/
 /utils/spikeSorting/spikes/
-/utils/osfstorage-archive/
 /annotation_volume_10um_by_index.npy/
 
 #     Folders     #
 ###################
 /utils/neuroImaging/*
+
+#      MATLAB     #
+###################
+/Setup/nCORTExCache.mat

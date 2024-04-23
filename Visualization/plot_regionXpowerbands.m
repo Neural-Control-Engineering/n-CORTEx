@@ -3,7 +3,7 @@ function plot_regionXpowerbands(regMap, bands, lfp)
     % over time (colored by atlas)
     Fs = 500;
     % get spectrogram
-    [psd, f, t] = microMultiSpec(lfp, Fs);
+    [psd, f, t] = microMultiSpec(lfp, Fs);    
     % stim aligned time
     t_stimAlgn = t - 1710 / Fs;
     bandNames = fieldnames(bands);
@@ -11,7 +11,8 @@ function plot_regionXpowerbands(regMap, bands, lfp)
     for j = 1:length(bandNames)
         band = bandNames{j};
         bRange = bands.(band);
-        bandPwr = psd(:,bRange(1):bRange(2),:);
+        f_cond = f > bRange(1) & f < bRange(2);
+        bandPwr = psd(:,f_cond,:);
         bandPwr = mean(bandPwr,2);
         % iterate through channel-region map                        
         regAvgBuffer = [];
@@ -37,10 +38,12 @@ function plot_regionXpowerbands(regMap, bands, lfp)
                 if ~strcmp(region, regionPrev) || (i == height(regMap))
                     regAvg = mean(regAvgBuffer,1);
                     sh.YData = [sh.YData, regAvg'];                
+                    % sh.YData = [sh.YData, regAvgBuffer(end,:)'];
                     Colors = [Colors; sprintf("#%s",colorPrev)];
                     Labels = [Labels; string(regionPrev)];
                     m=m+1;
                     regAvgBuffer = [];                
+                    regAvgBuffer = [regAvgBuffer; bandPwr(channelNum,:)];
                 else
                     regAvgBuffer = [regAvgBuffer; bandPwr(channelNum,:)];
                 end 

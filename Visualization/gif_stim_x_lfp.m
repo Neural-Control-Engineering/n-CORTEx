@@ -1,4 +1,4 @@
-function gif_stim_x_lfp(stim, stim_prebuff, lfp, lfp_prebuff, Fs, t_range)    
+function gif_stim_x_lfp(stim, stim_prebuff, lfp, lfp_prebuff, Fs, t_range, CT)    
     t_stim = ([1:size(stim,2)] - stim_prebuff) ./ Fs;
     % t_lfp = ([1:size(lfp,2)] - lfp_prebuff) ./ Fs;    
     t_stim_cond = t_stim > t_range(1) & t_stim < t_range(2);
@@ -33,8 +33,9 @@ function gif_stim_x_lfp(stim, stim_prebuff, lfp, lfp_prebuff, Fs, t_range)
     evkData.plot='channelgram';
     evkData.label='sec';
     evkData.sweepDim = 3;
+    evkData.colorMap = CT;
 
-    gifCfg.filename='EvokedSingle_6736_t7_3_11.gif';
+    gifCfg.filename='EvokedSingle_6736_t12_3_13_extd.gif';
     gifCfg.frameDelay = 0.01;
     gifOverAxis(gifCfg, {stimData; evkData});
 

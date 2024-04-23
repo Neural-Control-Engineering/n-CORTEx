@@ -1,5 +1,9 @@
 Configure and drive research experiments with a designated realtime target
 
+## DEPENDENCIES
+* Matlab 2023a
+* List of required add ons:
+
 ## STARTUP
 -> Start matlab, navigate to the n-CORTEx repository
 
