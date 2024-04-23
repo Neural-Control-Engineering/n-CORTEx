@@ -35,6 +35,7 @@ function cameraPlay(params, camera, filePath, fileName, cue)
                 start(camera.(cam).frameCounterTimer);
             case "stop"
                 stop(camera.(cam).frameCounterTimer);
+                delete(camera.(cam).frameCounterTimer)
         end
         cmd = sprintf("%s %s", cmd, JSON);
     end
