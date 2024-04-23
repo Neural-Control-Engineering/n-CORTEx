@@ -12,15 +12,19 @@ function readDataFcn_photon(params, sgSrv, modSrv)
     %         disp("otherwise");
     % end
     cmdBuffer = find(PVcmd_vector==1);
-    for i = 1:length(cmdBuffer)
-        switch cmdBuffer(i)
-            case 1 % GetImage | -gi
-                scriptCmd = sprintf("-SetFileIteration %d",10);
-                modSrv.SendScriptCommands(scriptCmd);
-                modSrv.GetImage(1);
-            case 2 % TSeries | -ts
-                
-        end
-    end
+    % UNCOMMENT
+    % for i = 1:length(cmdBuffer)
+    %     switch cmdBuffer(i)
+    %         case 1 % GetImage | -gi
+    %             scriptCmd = sprintf("-SetFileIteration %d",10);
+    %             modSrv.SendScriptCommands(scriptCmd);
+    %             modSrv.GetImage(1);
+    %         case 2 % TSeries | -ts
+    %         case 3 % DEBUG
+    %             scriptCmd = sprintf("-Get");
+    %             modSrv.SendScriptCommands(scriptCmd);
+    % 
+    %     end
+    % end
 
 end
