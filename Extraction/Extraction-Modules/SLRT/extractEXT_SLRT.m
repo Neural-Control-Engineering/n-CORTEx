@@ -3,15 +3,18 @@ function extractEXT_SLRT(params, sessionsToExtract, Q)
     [sessionsLeftToExtract, extractionLog] = checkExtractionProgress(extractionLog,sessionsToExtract,'Extract_SLRT');
     sessions = sessionsToExtract.sessions;
     expmntExtractionHndl = str2func(sprintf("extract%s",params.extractCfg.experiment));
-    expmntData = expmntExtractionHndl(params, sessionsToExtract, Q);
-    % Load/Extract Data Modalities (using timing segmentation from SLRT)
-    extMods = [];
-
-    lfp = loadEXT_LFP(slrt.segTimes);
-    lfpExt = extractEXT_LFP(lfp);
-
-    ap = loadEXT_AP(slrt.segTimes);
-    apExt = extractEXT_AP(ap);
-
-    % Write Extracted Modalities
+    for i = 1:length(sessions)
+        session = sessions{i};
+        slrtExt = expmntExtractionHndl(params, session, Q);
+        % Load/Extract Data Modalities (using timing segmentation from SLRT)
+        extMods = [];
+    
+        lfp = loadEXT_LFP(slrt.segTimes);
+        lfpExt = extractEXT_LFP(lfp);
+    
+        ap = loadEXT_AP(slrt.segTimes);
+        apExt = extractEXT_AP(ap);
+    end
+    
+        % Write Extracted Modalities
 end

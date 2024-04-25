@@ -1,7 +1,7 @@
-function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)         
-    sessions = sessionsToExtract.sessions;
-    for i = 1:length(sessions)
-        session = sessions{i}
+function expmntData_ext = extractJOLT(params, session, Q)         
+    % sessions = sessionsToExtract.sessions;
+    % for i = 1:length(sessions)
+        % session = sessions{i}
         % function to return npxls acquisition times 
         % relative to user action (e.g. Button presses)      
         expmntData = [];
@@ -20,7 +20,7 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
         
         % LOAD DATA OF INTEREST
         SLRT = loadEXT_SLRT(params, session);
-        LFP = loadEXT_LFP(params, session);
+        % LFP = loadEXT_LFP(params, session);
     
         %% PROCESS SLRT LOG
         rtData = SLRT.data;
@@ -161,12 +161,12 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
         save(fullfile(params.paths.Data.EXT.SLRT.cloud,sessionFileLabel),'SLRT');
         extractionLog = updateExtractionLog(extractionLog,session,"Extracted_SLRT",1,0);
         % export LFP and log        
-        LFP = extractEXT_LFP(params, session, LFP, Q);
-        if ~exist(fullfile(params.paths.stem,"Temp"),"dir"); mkdir(fullfile(params.paths.stem,"Temp")); end
-        save(fullfile(params.paths.stem,"Temp",sessionFileLabel),'LFP','-mat');
-        movefile(fullfile(params.paths.stem,"Temp",sessionFileLabel),(fullfile(params.paths.Data.EXT.LFP.cloud,sessionFileLabel)));
+        % LFP = extractEXT_LFP(params, session, LFP, Q);
+        % if ~exist(fullfile(params.paths.stem,"Temp"),"dir"); mkdir(fullfile(params.paths.stem,"Temp")); end
+        % save(fullfile(params.paths.stem,"Temp",sessionFileLabel),'LFP','-mat');
+        % movefile(fullfile(params.paths.stem,"Temp",sessionFileLabel),(fullfile(params.paths.Data.EXT.LFP.cloud,sessionFileLabel)));
         % save(fullfile(params.paths.Data.EXT.LFP.cloud,sessionFileLabel),'LFP');
-        extractionLog = updateExtractionLog(extractionLog,session,"Extracted_LFP",1,0);
+        % extractionLog = updateExtractionLog(extractionLog,session,"Extracted_LFP",1,0);
         % save progress
         writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
         % writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
@@ -174,7 +174,7 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
         params.extrctItms.EXT.extractionLog = extractionLog;
         
 
-    end
+    % end
     % expmntData_ext.SLRT = struct2table(expmntData_ext.SLRT);     
     % exportEXT_LFP(params,expmntData_ext.LFP);
     % exportEXT_SLRT(params,expmntData_ext.SLRT);
