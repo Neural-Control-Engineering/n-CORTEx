@@ -16,7 +16,7 @@ function expmntData_ext = extractJOLT(params, session, Q)
         expmntData_ext.SLRT.QC = {};
         expmntData_ext.SLRT.sessionType = {};
         expmntData_ext.SLRT.sessionLabel = {};
-        expmntData_ext.LFP = [];
+        % expmntData_ext.LFP = [];
         
         % LOAD DATA OF INTEREST
         SLRT = loadEXT_SLRT(params, session);
@@ -178,4 +178,5 @@ function expmntData_ext = extractJOLT(params, session, Q)
     % expmntData_ext.SLRT = struct2table(expmntData_ext.SLRT);     
     % exportEXT_LFP(params,expmntData_ext.LFP);
     % exportEXT_SLRT(params,expmntData_ext.SLRT);
+    expmntData_ext = expmntData_ext.SLRT;
 end

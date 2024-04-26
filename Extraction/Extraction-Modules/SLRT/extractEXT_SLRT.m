@@ -7,14 +7,16 @@ function extractEXT_SLRT(params, sessionsToExtract, Q)
         session = sessions{i};
         slrtExt = expmntExtractionHndl(params, session, Q);
         % Load/Extract Data Modalities (using timing segmentation from SLRT)
-        extMods = [];
+        extMods = fieldnames(params.extrctItms.EXT.extrctModules);
     
-        lfp = loadEXT_LFP(slrt.segTimes);
-        lfpExt = extractEXT_LFP(lfp);
+        % lfp = loadEXT_LFP(params, session, slrtExt.segTimes);
+        LFP = loadEXT_LFP(params, session);
+        lfpExt = extractEXT_LFP(params, LFP);
     
         ap = loadEXT_AP(slrt.segTimes);
         apExt = extractEXT_AP(ap);
-    end
-    
+
         % Write Extracted Modalities
+    end    
+    
 end

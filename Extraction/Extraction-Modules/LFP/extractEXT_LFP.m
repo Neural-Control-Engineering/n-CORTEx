@@ -1,4 +1,4 @@
-function LFP = extractEXT_LFP(params, session, LFP, Q)
+function LFP = extractEXT_LFP(params, LFP)
     lfp = LFP.lfp;
     %% POWER BANDS               
     % % Recover spectral power (macro)
