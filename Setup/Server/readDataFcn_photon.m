@@ -1,7 +1,7 @@
 function readDataFcn_photon(params, sgSrv, modSrv)
     disp("PV command received from Speedgoat.")
     PVcmd = read(sgSrv,sgSrv.NumBytesAvailable,"uint8"); 
-    PVrx = zeros(25,1);
+    PVrx = zeros(25,1);    
     % dosomething = (PVcmd_vector(1) == 1);   
     % switch dosomething 
     %     case dosomething
@@ -12,7 +12,7 @@ function readDataFcn_photon(params, sgSrv, modSrv)
     %     otherwise
     %         disp("otherwise");
     % end
-    cmdBuffer = find(PVcmd_vector==1);    
+    cmdBuffer = find(PVcmd>=1);    
     
     for i = 1:length(cmdBuffer)
         switch cmdBuffer(i)
@@ -21,13 +21,23 @@ function readDataFcn_photon(params, sgSrv, modSrv)
                 modSrv.SendScriptCommands(scriptCmd);
                 modSrv.GetImage(1);
             case 2 % TSeries | -ts                   
-                modSrv.SendScriptCommands("-ts");                
+                modSrv.SendScriptCommands("-ts");
+                delay = 60;               
+                PVrx_del = zeros(size(PVrx,1),1);                
+                PVrx_del(PVidx) = 1;
+                delayCmdReturn(sgSrv, PVrx_del, delay);                                
             case 3 % Open Shutter
                 modSrv.SendScriptCommands("-SetHardShutter Open")
+                delay = 1;               
+                PVrx_del = zeros(size(PVrx,1),1);                
+                PVrx_del(PVidx) = 1;
+                delayCmdReturn(sgSrv, PVrx_del, delay);                                
             case 4 % Close Shutter
                 modSrv.SendScriptCommands("-SetHardShutter Close")
-                pause(1);
-                
+                delay = 3;               
+                PVrx_del = zeros(size(PVrx,1),1);                
+                PVrx_del(PVidx) = 1;
+                delayCmdReturn(sgSrv, PVrx_del, delay);                                
             case 7 % DEBUG
                 scriptCmd = sprintf("-Get");
                 modSrv.SendScriptCommands(scriptCmd);
