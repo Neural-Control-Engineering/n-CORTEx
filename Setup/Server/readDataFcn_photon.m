@@ -1,7 +1,8 @@
 function readDataFcn_photon(params, sgSrv, modSrv)
     disp("PV command received from Speedgoat.")
     PVcmd = read(sgSrv,sgSrv.NumBytesAvailable,"uint8"); 
-    PVrx = zeros(25,1);    
+    PVrx = zeros(25,1);   
+    localDataPath = params.paths.Data.RAW.PHOTON.local;
     % dosomething = (PVcmd_vector(1) == 1);   
     % switch dosomething 
     %     case dosomething
@@ -20,7 +21,9 @@ function readDataFcn_photon(params, sgSrv, modSrv)
                 scriptCmd = sprintf("-SetFileIteration %d",10);
                 modSrv.SendScriptCommands(scriptCmd);
                 modSrv.GetImage(1);
-            case 2 % TSeries | -ts                   
+            case 2 % TSeries | -ts                
+                modSrv.SendScriptCommands(sprintf("-p %s",fullfile(localDataPath)));
+                % modSrv.SendScriptCommands(sprintf("-SetFileName %s",params.sessionLabel));
                 modSrv.SendScriptCommands("-ts");
                 delay = 60;               
                 PVrx_del = zeros(size(PVrx,1),1);                
