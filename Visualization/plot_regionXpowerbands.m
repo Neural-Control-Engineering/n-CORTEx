@@ -1,11 +1,21 @@
-function plot_regionXpowerbands(regMap, bands, lfp)
+function plot_regionXpowerbands(regMap, bands, lfp, typeSpec)
     % stacked plot of canonical lfp band powers 
     % over time (colored by atlas)
     Fs = 500;
     % get spectrogram
-    [psd, f, t] = microMultiSpec(lfp, Fs);    
+    switch typeSpec
+        case "micro"
+            [psd, f, t] = microMultiSpec(lfp, Fs);   
+            sLen = 1750 - 80 / 2;
+            t_stimAlgn = t - sLen / Fs;
+        case "macro"
+            [psd, f, t] = macroMultiSpec(lfp, Fs);    
+            sLen = 1750 - 160 / 2;
+            t_stimAlgn = t - sLen / Fs;
+    end
+    
     % stim aligned time
-    t_stimAlgn = t - 1710 / Fs;
+    % t_stimAlgn = t - 1710 / Fs;
     bandNames = fieldnames(bands);
     % iterate through bands
     for j = 1:length(bandNames)

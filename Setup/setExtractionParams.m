@@ -15,6 +15,9 @@ function params = setExtractionParams(opts)
     end      
 
     % if ~isfield(opts.paths,"Code_Repo"); end
+    %% MISC
+    if ~isfield(opts,"sampleRange"); opts.sampleRange = struct; end
+    if ~isfield(opts.sampleRange,"target"); opts.sampleRange.target="all"; end
   
     %% Extraction config    
     if ~isfield(opts,"extractCfg"); opts.extractCfg = struct; end
@@ -28,6 +31,7 @@ function params = setExtractionParams(opts)
     if ~isfield(opts.extractCfg,"LFP"); opts.extractCfg.LFP=struct; end
     if ~isfield(opts.extractCfg.LFP,"downSamp"); opts.extractCfg.LFP.downSamp = 5; end
     if ~isfield(opts.extractCfg.LFP,"Fs"); opts.extractCfg.LFP.Fs = 2500; end
+    if ~isfield(opts.extractCfg.LFP,"Fs_downSamp"); opts.extractCfg.LFP.Fs_downSamp = 500; end
     if ~isfield(opts.extractCfg.LFP,"reset"); opts.extractCfg.LFP.reset=0; end
     if ~isfield(opts.extractCfg,"AP"); opts.extractCfg.AP=struct; end
     if ~isfield(opts.extractCfg.AP,"reset"); opts.extractCfg.AP.reset=0; end
@@ -73,8 +77,9 @@ function params = setExtractionParams(opts)
     if ~isfield(opts.ftCfg_fooof,'method'); opts.ftCfg_fooof.method = 'mtmfft'; end
     if ~isfield(opts.ftCfg_fooof,'output'); opts.ftCfg_fooof.output = 'fooof'; end
     if ~isfield(opts.ftCfg_fooof,'export'); opts.ftCfg_fooof.export = 1; end    
-    if ~isfield(opts.ftCfg_fooof,'tapsmofrq'); opts.ftCfg_fooof.tapsmofrq= 2.857; end
-    if ~isfield(opts.ftCfg_fooof,'foilim'); opts.ftCfg_fooof.foilim= [0.3 40]; end % bandpass 0.3 to 40 Hz
+    % if ~isfield(opts.ftCfg_fooof,'tapsmofrq'); opts.ftCfg_fooof.tapsmofrq= 2.857; end
+    if ~isfield(opts.ftCfg_fooof,'tapsmofrq'); opts.ftCfg_fooof.tapsmofrq= 2; end
+    if ~isfield(opts.ftCfg_fooof,'foilim'); opts.ftCfg_fooof.foilim= [0.3 50]; end % bandpass 0.3 to 40 Hz
     if ~isfield(opts.ftCfg_fooof,'pad'); opts.ftCfg_fooof.pad= 2; end
 
     %% Fieldtrip config (databrowser)
@@ -114,7 +119,7 @@ function params = setExtractionParams(opts)
             opts.ethernetIP = "127.0.0.1";
         case 'user'
             opts.staticColor = [0.31,0.94,0.46];
-            % opts.ethernetIP = "128.59.149.107";
+            opts.ethernetIP = "128.59.149.107";
         otherwise
             opts.staticColor = [0.31,0.94,0.46];
 
