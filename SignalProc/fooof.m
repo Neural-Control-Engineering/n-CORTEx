@@ -7,10 +7,13 @@ function freq = fooof(params, lfp)
     ft_startup;
     
     %% set Configuration Parameters
-    cfg = params.fooof_cfg;
+    % cfg = params.fooof_cfg;
+    cfg = params.ftCfg_fooof;
     cfg.method = 'trial';
     ftData = dstore2ftData(params, lfp);
-    cfg = params.fooof_cfg;
+    cfg = params.ftCfg_fooof;
+    cfg.pad = "maxperlen";
+    cfg.taper="hanning";
 
     %% FIT PARAMETERS
     [freq] = ft_freqanalysis(cfg, ftData);
