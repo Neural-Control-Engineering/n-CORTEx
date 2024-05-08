@@ -20,12 +20,18 @@ function extractDTS(params)
                 if isempty(dts)
                     dts = DT;
                 else
-                    dts = outerjoin(dts, DT, "Keys", {'sessionLabel','trialNum'},"MergeKeys",true);
+                    if ~isempty(DT)                   
+                        dts = outerjoin(dts, DT, "Keys", {'sessionLabel','trialNum'},"MergeKeys",true);
+                    end
                 end                
             end
         end
-        if ~isempty(DTS)        
-            DTS = mergeT_vertical(DTS, dts);
+        if ~isempty(DTS)
+            if ~isempty(dts)
+                DTS = mergeT_vertical(DTS, dts);
+            else
+                fprintf("ERROR, DOES NOT EXIST: %s",session)
+            end
         else
             DTS = [DTS; dts];
         end
