@@ -37,7 +37,7 @@ function cameraPlay(params, camera, filePath, fileName, cue)
                 stop(camera.(cam).frameCounterTimer);
                 if isvalid(camera.(cam).frameCounterTimer)
                     delete(camera.(cam).frameCounterTimer)
-                    clear(camera.(cam).frameCounterTimer);
+                    camera.(cam) = rmfield(camera.(cam),"frameCounterTimer");
                 end
         end
         cmd = sprintf("%s %s", cmd, JSON);
