@@ -22,7 +22,7 @@ function readDataFcn_photon(params, sgSrv, modSrv)
                 modSrv.SendScriptCommands(scriptCmd);
                 modSrv.GetImage(1);
             case 2 % TSeries | -ts                
-                modSrv.SendScriptCommands(sprintf("-p %s",fullfile(localDataPath)));
+                modSrv.SendScriptCommands(sprintf("-p %s",fullfile(localDataPath,params.sessionLabel)));
                 % modSrv.SendScriptCommands(sprintf("-SetFileName %s",params.sessionLabel));
                 modSrv.SendScriptCommands("-ts");
                 delay = 60;               
