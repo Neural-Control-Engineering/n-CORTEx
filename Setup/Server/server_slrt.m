@@ -13,7 +13,7 @@ function server = server_slrt(params, modalityServer)
     if ~isempty(modality)
         readDataFcnHndl = str2func(sprintf('readDataFcn_%s',modality));
         connectionChangedFcnHndl = str2func(sprintf('connectionChangedFcn_%s', modality));
-        server = tcpserver(address, 8001,"ConnectionChangedFcn",@(src,event)connectionChangedFcnHndl(modalityServer.Q));
+        server = tcpserver(address, 8002,"ConnectionChangedFcn",@(src,event)connectionChangedFcnHndl(modalityServer.Q));
         % configureCallback(server,"byte",25,@(src, evnt)readDataFcnHndl(params,server,modalityServer.modSrv));    
         configureCallback(server,"byte",25,@(src, evnt)readDataFcnHndl(params,server,modalityServer.modSrv));    
     end
