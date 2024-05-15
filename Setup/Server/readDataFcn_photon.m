@@ -1,6 +1,7 @@
 function readDataFcn_photon(params, sgSrv, modSrv)
     disp("PV command received from Speedgoat.")
     PVcmd = read(sgSrv,sgSrv.NumBytesAvailable,"uint8"); 
+    % flush(sgSrv);
     PVrx = zeros(25,1);   
     % localDataPath = params.paths.Data.RAW.PHOTON.local;
     localDataPath = "E:\photonTmp";
@@ -35,10 +36,12 @@ function readDataFcn_photon(params, sgSrv, modSrv)
                 end               
                 % run 
                 modSrv.SendScriptCommands("-ts");
+                modSrv.SendScriptCommands("-w");
                 % return 
                 PVrx_del = zeros(size(PVrx,1),1);                  
                 PVrx_del(PVidx) = 1;
-                delayCmdReturn(sgSrv, PVrx_del, delay);
+                write(sgSrv, PVrx_del);                 
+                % delayCmdReturn(sgSrv, PVrx_del, delay);
             case 3 % load TSeries PRE                
                 cmdVal = PVcmd(PVidx);
                 switch cmdVal
@@ -55,7 +58,7 @@ function readDataFcn_photon(params, sgSrv, modSrv)
                 end
                 delay=2;
                 % load
-                modSrv.SendScriptCommands(sprintf("-le '%s'",tsDefPath));                     
+                modSrv.SendScriptCommands(sprintf("-tsl '%s'",tsDefPath));                     
                 % set t-series file name / location
                 ssLbl = char(params.sessionLabel);
                 % ssLbl = sprintf("%s-%s",state,ssLbl(1:40));
@@ -82,7 +85,13 @@ function readDataFcn_photon(params, sgSrv, modSrv)
                 % PVrx_del = zeros(size(PVrx,1),1);                
                 % PVrx_del(PVidx) = 1;
                 % delayCmdReturn(sgSrv, PVrx_del, delay);                                
-            case 5 % Close Shutter
+            case 5 % Load Env
+                cmdVal = PVcmd(PVidx);
+                switch cmdVal
+                    case 1 % load PRE ENV
+                        envDefPath = fullfile(projPresetsPath,params.SelectProjectDirectoryDropDown,"PreTSeriesDefinition.env");                                            
+                end
+                modSrv.SendScriptCommands(sprintf("-le '%s'",envDefPath));                     
                 % modSrv.SendScriptCommands("-SetHardShutter Close")
                 % delay = 3;               
                 % PVrx_del = zeros(size(PVrx,1),1);                
