@@ -11,7 +11,6 @@ function LFP = extractEXT_LFP(params, session, LFP, Q)
     % LFP.psdMacro = psdMacro;
 
     % spectral power (2 ms time bins, micro)
-    [psdMicro, f_micro, t_micro] = cellfun(@(x) multiSpectrogram(x, LFP.fs{1}, 80, 79, 1), lfp, 'UniformOutput', false);            
     
     %% UNCOMMENT FOR TIME-WISE PSDs
     % [psdMicro, f_micro, t_micro] = cellfun(@(x) multiSpectrogram(x, LFP.fs{1}, 80, 79, 1), lfp, 'UniformOutput', false);            
