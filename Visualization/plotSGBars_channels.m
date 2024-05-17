@@ -1,6 +1,6 @@
 function plotSGBars_channels(regMap, P, groups, groupLabels)
     regMapFlip = flip(regMap,1);
-    regs = unique(regMapFlip.region);    
+    regs = (regMapFlip.region);    
     % figure;
     % T = tiledlayout(length(regs),length(P));        
     % tset =
@@ -29,7 +29,7 @@ function plotSGBars_channels(regMap, P, groups, groupLabels)
             nexttile(t);
             specParam = P{j};            
             specMean = [];
-            specStd = [];
+            specSem = [];
             for k = 1:size(groups,2)
                 SG = groups{k};
                 sgLabel = groupLabels(k);
@@ -39,7 +39,7 @@ function plotSGBars_channels(regMap, P, groups, groupLabels)
                 % sgMean = mean(sgMean,2,"omitmissing");
                 % Standard deviation across channels and trials
                 std1 = std(sgData,1,1,"omitmissing");
-                sem = std1 / sqrt(size(sgData,1));                             
+                sgSem = std1 / sqrt(size(sgData,1));                             
                 % compile
                 specMean = [specMean, sgMean];
                 specSem = [specSem, sgSem];
@@ -48,12 +48,17 @@ function plotSGBars_channels(regMap, P, groups, groupLabels)
             b = bar(categorical(groupLabels),specMean);
             b.FaceColor = strcat("#",regColor);
             hold on;    
-            er = errorbar(categorical(groupLabels),specMean,specStd);
+            er = errorbar(categorical(groupLabels),specMean,specSem);
             er.Color = [0 0 0];
             er.LineStyle = 'none';
             hold off;
             title(sprintf("%s",specParam));
         end
+        figTitle = sprintf("ch%d--%s.png",i,reg);
+        set(gcf,"Position",[14,1242,3796,540]);
+        drawnow;
+        saveas(gcf,figTitle);
+        % close(gcf);
     end
     % plot bars together
 end

@@ -10,5 +10,6 @@ function plotOScores(osc,ttl)
     nexttile
     imagesc(osc.probabilityMap);
     title("Probability Map");
+    colorbar;
     title(t,ttl)
 end

@@ -17,7 +17,12 @@ function osc = computeOscillationScores(bands, P, SG)
         tagPW = sprintf("%s_PW",band);
         tagIdx = find(strcmp(string(P),tagPW));
         bandGroup = SG(:,tagIdx,:);
-        bandGroup = squeeze(bandGroup);        
+        if size(bandGroup,1) == 1
+            bandGroup = reshape(bandGroup,[size(bandGroup,1),size(bandGroup,3)]);
+        else
+            bandGroup = squeeze(bandGroup);        
+        end
+        
         bgMat = cell2mat(bandGroup);
         % osc probabilities 
         isPW = ~isnan(bgMat);

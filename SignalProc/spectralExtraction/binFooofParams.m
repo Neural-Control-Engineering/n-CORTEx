@@ -35,8 +35,13 @@ function [S, P, msk] = binFooofParams(bands, fooofparams)
             end
             specParams = [specParams, spcs];
             mskIdx = floor(table2mat(spcs(1,1)));
-            if ~isnan(mskIdx)
-                msk(i,mskIdx) = 1;
+            mskBW = floor(table2mat(spcs(1,3))/2);
+            if ~isnan(mskIdx)                
+                bwIdx = [mskIdx-mskBW:1:mskIdx+mskBW];
+                % drop zero-indices
+                bwIdx = bwIdx(bwIdx>0 & bwIdx<size(msk,2));                
+                msk(i,bwIdx) = 1;
+                msk(i,mskIdx) = 2;
             end
             % specParams = flattenSpecs(specParams);
         end
