@@ -8,7 +8,8 @@ function extractDTS(params)
         extFields = fieldnames(extData);        
         dts = [];
         for j = 1:length(extFields)
-            extField = extFields{j};            
+            extField = extFields{j};  
+            disp(extField);
             if sessionExists(params, session, extField, "EXT")
                 sessionFile = sprintf("%s.mat",session);
                 % LOAD AND CONDITION
