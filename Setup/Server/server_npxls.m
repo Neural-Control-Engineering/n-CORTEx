@@ -3,7 +3,7 @@ function npx = server_npxls(params)
     npx = [];
     switch hostName
         case 'DESKTOP-MRI7THQ'
-            address = '128.59.150.93';
+            address = '169.254.149.124';
             modality = 'npxls';
             if ~isSGLX; npx = SpikeGL(address); end
     end

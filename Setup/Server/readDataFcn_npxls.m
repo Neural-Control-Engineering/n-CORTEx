@@ -1,14 +1,108 @@
 function readDataFcn_npxls(params, sgSrv, modSrv)
     disp("PV command received from Speedgoat.")
+    modSrv  = SpikeGL(char(params.ethernetIP));
     PVcmd_vector = read(sg,sg.NumBytesAvailable,"uint8");   
     dosomething = (PVcmd_vector(1) == 1);   
-    switch dosomething 
-        case dosomething
-             % pl.GetState("dwellTime")
-             isDone = pl.SendScriptCommands("-ts");
-             write(sg,uint8(isDone));
-             % sg.write(isDone);
-        otherwise
-            disp("otherwise");
+        disp("PV command received from Speedgoat.")
+    PVcmd = read(sgSrv,sgSrv.NumBytesAvailable,"uint8"); 
+    % flush(sgSrv);
+    PVrx = zeros(25,1);   
+    % localDataPath = params.paths.Data.RAW.PHOTON.local;
+    localDataPath = "E:\photonTmp";
+    projPresetsPath = "C:\ProgramData\Bruker Fluorescence Microscopy\Prairie View\5.8.64.700\Configuration\Environments";
+    % tsTemp = 
+    % dosomething = (PVcmd_vector(1) == 1);   
+    % switch dosomething 
+    %     case dosomething
+    %          % pl.GetState("dwellTime")
+    %          isDone = pl.SendScriptCommands("-ts");
+    %          write(sg,uint8(isDone));
+    %          % sg.write(isDone);
+    %     otherwise
+    %         disp("otherwise");
+    % end
+    cmdBuffer = find(PVcmd>=1);    
+    
+    for i = 1:length(cmdBuffer)
+        PVidx = cmdBuffer(i);
+        switch PVidx
+            case 1 % Fetch Data| -gi
+                % [daqData,headCt] = Fetch( modSrv, js, ip, start_samp, max_samps, channel_subset, downsample_ratio )                
+                a = GetStreamAcqChans(modSrv, 0, 0);
+                a = GetStreamSaveChans(modSrv, 0, 0)
+                mat = FetchLatest(modSrv, 2, 0, 2000);                
+            case 2 % extract PSD
+                % possible implementation here : cancel any other process /
+                % stop all other timers
+                % and 'switch' to PSD
+                stream = timer;
+                stream.ExecutionMode = 'fixedRate';
+                stream.Period = 0.01; % 10 millisecond rate
+                stream.TimerFcn = @(src, event)extractRT_bandPSD(sgSrv, modSrv, bands);
+                start(stream);
+            case 3 % load TSeries PRE                
+                cmdVal = PVcmd(PVidx);
+                switch cmdVal
+                    case 1 % run PRE tseries
+                        % set pre
+                        tsDefPath = fullfile(projPresetsPath,params.SelectProjectDirectoryDropDown,"PreTSeriesDefinition.env");                        
+                        % delay = 65; % in future retrieve this from the env if possible
+                        state="pre";
+                    case 2 % run POST tseries
+                        % set post
+                        tsDefPath = fullfile(projPresetsPath,params.SelectProjectDirectoryDropDown,"PostTSeriesDefinition.env");                        
+                        % delay = 130;
+                        state="post";
+                end
+                delay=2;
+                % load
+                modSrv.SendScriptCommands(sprintf("-tsl '%s'",tsDefPath));                     
+                % set t-series file name / location
+                ssLbl = char(params.sessionLabel);
+                % ssLbl = sprintf("%s-%s",state,ssLbl(1:40));
+                modSrv.SendScriptCommands(sprintf("-p %s",fullfile(localDataPath,ssLbl)));
+                fItr = length(dir(fullfile(localDataPath,ssLbl)))-1;
+                modSrv.SendScriptCommands(sprintf("-fi TSeries %d",fItr));
+                modSrv.SendScriptCommands(sprintf("-fn TSeries t"));
+                % run 
+                % modSrv.SendScriptCommands("-ts");
+                % return 
+                PVrx_del = zeros(size(PVrx,1),1);  
+                PVidx = cmdBuffer(i);
+                PVrx_del(PVidx) = 1;
+                delayCmdReturn(sgSrv, PVrx_del, delay);
+            case 4 % Open Shutter / Close Shutter
+                cmdVal = PVcmd(PVidx);
+                switch cmdVal
+                    case 1 
+                        modSrv.SendScriptCommands("-SetHardShutter Open")
+                    case 2
+                        modSrv.SendScriptCommands("-SetHardShutter Close")
+                end
+                % delay = 1;               
+                % PVrx_del = zeros(size(PVrx,1),1);                
+                % PVrx_del(PVidx) = 1;
+                % delayCmdReturn(sgSrv, PVrx_del, delay);                                
+            case 5 % Load Env
+                cmdVal = PVcmd(PVidx);
+                switch cmdVal
+                    case 1 % load PRE ENV
+                        envDefPath = fullfile(projPresetsPath,params.SelectProjectDirectoryDropDown,"PreTSeriesDefinition.env");                                            
+                end
+                modSrv.SendScriptCommands(sprintf("-le '%s'",envDefPath));                     
+                % modSrv.SendScriptCommands("-SetHardShutter Close")
+                % delay = 3;               
+                % PVrx_del = zeros(size(PVrx,1),1);                
+                % PVrx_del(PVidx) = 1;
+                % delayCmdReturn(sgSrv, PVrx_del, delay);                                
+            case 6 % DEBUG
+                scriptCmd = sprintf("-Get");
+                modSrv.SendScriptCommands(scriptCmd);
+                modSrv.SendScriptCommands("-gts");
+            case 10 % ABORT
+                modSrv.SendScriptCommands("-stop");
+        end
     end
+
+    write(sgSrv,uint8(PVrx))
 end
