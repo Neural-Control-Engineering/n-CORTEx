@@ -1,9 +1,9 @@
 function readDataFcn_npxls(params, sgSrv, modSrv)
     disp("PV command received from Speedgoat.")
     modSrv  = SpikeGL(char(params.ethernetIP));
-    PVcmd_vector = read(sg,sg.NumBytesAvailable,"uint8");   
-    dosomething = (PVcmd_vector(1) == 1);   
-        disp("PV command received from Speedgoat.")
+    % PVcmd_vector = read(sgSrv,sgSrv.NumBytesAvailable,"uint8");   
+    % dosomething = (PVcmd_vector(1) == 1);   
+    %     disp("PV command received from Speedgoat.")
     PVcmd = read(sgSrv,sgSrv.NumBytesAvailable,"uint8"); 
     % flush(sgSrv);
     PVrx = zeros(25,1);   
@@ -38,8 +38,8 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
                 stream = timer;
                 stream.ExecutionMode = 'fixedRate';
                 stream.Period = 0.01; % 10 millisecond rate
-                stream.TimerFcn = @(src, event)extractRT_bandPSD(sgSrv, modSrv, bands);
-                start(stream);
+                stream.TimerFcn = @(src, event)extractRT_bandPSD(sgSrv, modSrv, params.bands);
+                start(stream);                
             case 3 % load TSeries PRE                
                 cmdVal = PVcmd(PVidx);
                 switch cmdVal

@@ -7,7 +7,7 @@ function extractRT_bandPSD(sgSrv, modSrv, bands)
     % SEND OVER TCP
     PSD = cell2mat(PSD);
     for i = 1:size(PSD,2)
-        bandData = uint8(PSD(:,i));
+        bandData = [uint8(abs(PSD(:,i)));uint8(i)];
         write(sgSrv,bandData);
     end
 
