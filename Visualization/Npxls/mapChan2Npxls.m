@@ -4,13 +4,16 @@ function [NT, NT_color] = mapChan2Npxls(regMap, dataStream)
     NT = zeros(96,4,size(dataStream,2));
     NT_color = zeros(96,4);
     colors = string(unique(regMap.color));    
+    regBottom = table2mat(regMap(end,'Y'));
+    % regLeft =
     for i = 1:height(regMap)
+        disp(i);
         npxChan = regMap(i,:);
         channelNum = npxChan.channel{1};
         X = npxChan.X{1};
         Y = npxChan.Y{1};
         X_shift = (X-11)/16+1;
-        Y_shift = floor((Y-240) / 40)+1;
+        Y_shift = floor((Y-regBottom) / 40)+1;
         NT(Y_shift,X_shift,:) = dataStream(i,:);
         % NT_color(Y_shift,X_shift,:) = hex2dec(npxChan.color{1});
         % NT_color(Y_shift,X_shift) = hex2dec((npxChan.color{1}));

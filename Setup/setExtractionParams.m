@@ -47,7 +47,7 @@ function params = setExtractionParams(opts)
     if ~isfield(opts.bands,'theta'); opts.bands.theta = [4, 10]; end % 4 - 10 Hz
     if ~isfield(opts.bands,'alpha'); opts.bands.alpha = [10, 15]; end % 10 - 15 Hz
     if ~isfield(opts.bands,'beta'); opts.bands.beta = [15, 30]; end % 15 - 30 Hz
-    if ~isfield(opts.bands,'gamma'); opts.bands.gamma = [30, 100]; end % 30 - 100 Hz
+    if ~isfield(opts.bands,'gamma'); opts.bands.gamma = [30, 50]; end % 30 - 100 Hz
 
     %% Fieldtrip config (preprocessing)
     if ~isfield(opts, "ftCfg_preproc"); opts.ftCfg_preproc = struct; end
@@ -108,7 +108,8 @@ function params = setExtractionParams(opts)
     switch opts.hostName
         case 'DESKTOP-MRI7THQ'
             opts.staticColor = [0.31,0.94,0.46];
-            opts.ethernetIP = "128.59.150.93";
+            % opts.ethernetIP = "128.59.150.93";
+            opts.ethernetIP = "128.59.46.57";
             opts.paths.NECdrive_cloud = fullfile("G:\My Drive\Projects");    
         case 'USERBRU-2FNENOI'
             opts.staticColor = [0.31,0.94,0.46];
