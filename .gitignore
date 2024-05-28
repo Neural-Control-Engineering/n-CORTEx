@@ -9,7 +9,7 @@
 /utils/spikeSorting/phy/
 /utils/spikeSorting/spikes/
 /annotation_volume_10um_by_index.npy/
-/utils/neuropixels_trajectory_explorer-main/
+/utils/neuropixels_trajectory_explorer-main/*
 
 #     Folders     #
 ###################
