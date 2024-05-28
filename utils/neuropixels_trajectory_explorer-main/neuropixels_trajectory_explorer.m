@@ -52,6 +52,10 @@ elseif isdeployed
     if isempty(allen_atlas_path)
         % (use uigetdir_workaround: matlab-issued workaround for R2018a bug)
         allen_atlas_path = uigetdir_workaround([],'Select folder with Allen CCF');
+    end
+
+    ccf_present = false;
+    while ccf_present == false
         tv_fn = [allen_atlas_path filesep 'template_volume_10um.npy'];
         av_fn = [allen_atlas_path filesep 'annotation_volume_10um_by_index.npy'];
         st_fn = [allen_atlas_path filesep 'structure_tree_safe_2017.csv'];
@@ -62,11 +66,15 @@ elseif isdeployed
 
         ccf_files = {tv_fn,av_fn,st_fn};
         ccf_exist = [tv_exist,av_exist,st_exist];
+
         if any(~ccf_exist)
             % If CCF not present in specified directory, error out
             errordlg([{'Allen CCF files not found: '}, ...
-                ccf_files(~ccf_exist)],'Allen CCF not found');
-            return
+                ccf_files(~ccf_exist)],'Allen CCF not found, select path again');
+            allen_atlas_path = uigetdir_workaround([],'Allen CCF not found, select folder again:');
+            if allen_atlas_path == 0
+                return
+            end
         else
             % If all CCF files present, save path for future
             nte_paths.allen_atlas_path = allen_atlas_path;
@@ -112,6 +120,7 @@ ccf_rotation_tform = ...
     0 sind(ap_rotation) cosd(ap_rotation) 0; ...
     0 0 0 1];
 
+% Create transform matrix (operates as [ML,AP,DV])
 ccf_bregma_tform_matrix = ccf_translation_tform*ccf_scale_tform*ccf_rotation_tform;
 ccf_bregma_tform = affine3d(ccf_bregma_tform_matrix);
 
@@ -349,7 +358,7 @@ switch eventdata.Key
         elseif any(strcmp(eventdata.Modifier,'control'))
             gui_data.probe(gui_data.selected_probe).angle = ...
                 mod(gui_data.probe(gui_data.selected_probe).angle + ...
-                [0;0;step_size_rotation],360);
+                [0;0;-step_size_rotation],360);
             update_probe_flag = true;
         end
     case 'rightarrow'
@@ -360,7 +369,7 @@ switch eventdata.Key
         elseif any(strcmp(eventdata.Modifier,'control'))
             gui_data.probe(gui_data.selected_probe).angle = ...
                 mod(gui_data.probe(gui_data.selected_probe).angle + ...
-                [0;0;-step_size_rotation],360);
+                [0;0;+step_size_rotation],360);
             update_probe_flag = true;
         end
 end
@@ -431,7 +440,7 @@ if strcmp(gui_data.handles.slice_plot(1).Visible,'on')
         trajectory_camera_vector = trajectory_position(1,:) - curr_campos;
 
         % Get the vector to plot the plane in (along with probe vector)
-        plot_vector = cross(trajectory_camera_vector,probe_position(1,:));
+        plot_vector = cross(trajectory_camera_vector,diff(trajectory_position,[],1));
     end
 
     % Get the normal vector of the plane
@@ -670,7 +679,7 @@ trajectory_vector = cell2mat( ...
     diff(trajectory_vector(3,:)));
 
 % Get probe shank coordinates relative to rotation
-probe_rotation_rad = deg2rad(gui_data.probe(gui_data.selected_probe).angle(3));
+probe_rotation_rad = -deg2rad(gui_data.probe(gui_data.selected_probe).angle(3));
 probe_angle_rad = [probe_rotation_rad, ...
     pi/2-trajectory_elevation_sph, ...
     trajectory_azimuth_sph+pi/2];
@@ -872,17 +881,17 @@ end
 
 % Update the text
 % (manipulator angles)
-probe_angle_text = sprintf('Probe angle:      %.0f%c azimuth, %.0f%cV/%.0f%cH elevation, %.0f%c rotation', ...
+probe_angle_text = sprintf('Angle:      %.0f%c azimuth, %.0f%cH/%.0f%cV elevation, %.0f%c rotation', ...
     gui_data.probe(gui_data.selected_probe).angle(1),char(176), ...
     gui_data.probe(gui_data.selected_probe).angle(2),char(176), ...
     90-gui_data.probe(gui_data.selected_probe).angle(2),char(176), ...
     gui_data.probe(gui_data.selected_probe).angle(3),char(176));
 % (probe insertion point and depth)
-probe_insertion_text = sprintf('Probe insertion: % .2f AP, % .2f ML, % .2f depth', ...
-    insertion_point(2),insertion_point(1),probe_depth);
+probe_insertion_text = sprintf('Insertion: % .2f AP, % .2f ML, % .2f DV', ...
+    insertion_point(2),insertion_point(1),insertion_point(3));
 % (probe tip)
-probe_tip_text = sprintf('Probe tip:       % .2f AP, % .2f ML, % .2f DV', ...
-    probe_vector(2,[2,1,3],ref_shank));
+probe_tip_text = sprintf('Tip:       % .2f AP, % .2f ML, % .2f DV, % .2f depth (Z)', ...
+    probe_vector(2,[2,1,3],ref_shank),probe_depth);
 % (bregma-lambda distance for scaling)
 bregma_lambda_text = sprintf('Bregma-Lambda distance: % .2f mm', ...
     gui_data.bregma_lambda_distance_curr);
@@ -1028,7 +1037,7 @@ end
 
 % Select probe type (if not input)
 if nargin < 4 || isempty(probe_type)
-    probe_types = {'Neuropixels 1.0','Neuropixels 2.0'};
+    probe_types = {'Neuropixels 1.0','Neuropixels 2.0','Cambridge NeuroTech'};
     [probe_type_idx,probe_type_selected] = listdlg( ...
         'PromptString',sprintf('Probe %d: choose type',new_probe_idx), ...
         'ListString',probe_types, ...
@@ -1059,9 +1068,29 @@ switch probe_type
         shank_vector = permute(probe_default_vector.*probe_length,[3,2,1]);
     case 'Neuropixels 2.0'
         probe_length = 3.840;
-        shank_spacing = [((0:3)*0.25);zeros(1,4);zeros(1,4)];
+        shank_x = (0:3)*0.25;
         shank_vector = permute(probe_default_vector.*probe_length + ...
-            permute(shank_spacing,[1,3,2]),[2,3,1]);
+            permute(padarray(shank_x,[2,0],0,'post'),[1,3,2]),[2,3,1]);
+    case 'Cambridge NeuroTech'
+        [json_file,json_path] = uigetfile('*.json','Select Cambridge NeuroTech JSON file...');
+        probe_info = jsondecode(fileread(fullfile(json_path,json_file)));
+
+        switch probe_info.probes.si_units
+            case 'um'
+                probe_scaling = 1000;
+            case 'mm'
+                probe_scaling = 1;
+        end
+
+        probe_length = range(probe_info.probes.contact_positions(:,2))/probe_scaling;
+
+        [~,~,shank_id] = unique(probe_info.probes.shank_ids);
+        shank_x = reshape(accumarray(shank_id, ...
+            probe_info.probes.contact_positions(:,1), ...
+            [max(shank_id),1],@mean),1,[])/probe_scaling;
+
+        shank_vector = permute(probe_default_vector.*probe_length + ...
+            permute(padarray(shank_x,[2,0],0,'post'),[1,3,2]),[2,3,1]);
 end
 
 % Draw probe
@@ -1578,11 +1607,14 @@ for curr_probe = 1:n_probes
         gui_data.probe(curr_probe).line, ...
         {'XData','YData','ZData'}),[1,3,2])),[3,2,1]);
 
-     probe_position_ccf = ...
+     probe_position_ccf_mlapdv = ...
          reshape(transformPointsInverse(gui_data.ccf_bregma_tform, ...
          reshape(probe_position,3,[])')',size(probe_position));
 
-     probe_positions_ccf{curr_probe} = probe_position_ccf;
+     % (put CCF coordinates into native order [AP,DV,ML] and store)
+     probe_position_ccf_apdvml = probe_position_ccf_mlapdv([2,3,1],:);
+
+     probe_positions_ccf{curr_probe} = probe_position_ccf_apdvml;
 end
 
 % Get areas along each probe
@@ -1747,9 +1779,10 @@ for curr_probe = 1:length(probe_positions_ccf)
     gui_data = guidata(probe_atlas_gui);
 
     % Convert saved probe coordinates CCF to stereotaxic
+    % (CCF [AP,DV,ML], re-order for transform to [ML,AP,DV]
     curr_probe_positions_bregma =  ...
         reshape(transformPointsForward(gui_data.ccf_bregma_tform, ...
-        reshape(probe_positions_ccf{curr_probe},3,[])')', ...
+        reshape(probe_positions_ccf{curr_probe}([3,1,2],:),3,[])')', ...
         size(probe_positions_ccf{curr_probe}));
 
     % Move probe trajectory to align with probe
@@ -2153,7 +2186,7 @@ writeline(gui_data.connection.manipulator.client,'ANGLE');
 scientifica_elevation_angle = str2num(readline(gui_data.connection.manipulator.client));
 % (convert coordinate order and direction)
 probe_tip = (scientifica_position([2,1,3]).*[1,-1,-1])'/10000; % reports as 1/10 microns
-probe_angle = [90,scientifica_elevation_angle]; % TO DO: currently assume 90 azimuth
+probe_angle = [90,scientifica_elevation_angle,0]; % TO DO: currently assume 90 azimuth and no rotation
 
 % (using length of recording sites, not full length of the probe from VCS)
 [x,y,z] = sph2cart( ...
@@ -2163,10 +2196,10 @@ probe_angle = [90,scientifica_elevation_angle]; % TO DO: currently assume 90 azi
 probe_top = probe_tip + [x; y; z];
 
 % Set probe vector
-probe_vector = [probe_top, probe_tip] ;
+probe_vector = [probe_top, probe_tip];
 
 % Update angles
-gui_data.probe.angle{1} = probe_angle;
+gui_data.probe(1).angle = probe_angle;
 
 % Change probe location
 set(gui_data.probe(1).line, ...
@@ -2193,7 +2226,7 @@ probe_ref_bottom = probe_ref_top + [x,y,z];
 
 trajectory_vector = [probe_ref_top;probe_ref_bottom]';
 
-set(gui_data.probe.trajectory(1), ...
+set(gui_data.probe(1).trajectory(1), ...
     'XData',trajectory_vector(1,:), ...
     'YData',trajectory_vector(2,:), ...
     'ZData',trajectory_vector(3,:));
@@ -2537,7 +2570,7 @@ function select_probe(h,eventdata,probe_atlas_gui)
 gui_data = guidata(probe_atlas_gui);
 
 % Get index of clicked probe
-selected_probe_idx = cellfun(@(x) any(h == x),{gui_data.probe.line});
+selected_probe_idx = cellfun(@(x) any(ismember(h,x)),{gui_data.probe.line});
 
 % Color probe/axes by selected/unselected
 selected_color = [0,0,1];
