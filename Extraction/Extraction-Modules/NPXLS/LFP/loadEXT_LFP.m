@@ -23,8 +23,13 @@ function LFP = loadEXT_LFP(params, session)
                 sessionLabelParts = split(sortedSession,'_');
                 trialTag = sessionLabelParts(end-1);
                 sortedTrialPath = fullfile(sortedDataPath,sortedSession);
-                lfp = load(fullfile(sortedTrialPath,'lfp.mat'),'lfp').lfp;
-                nidq = load(fullfile(sortedTrialPath,'nidq.mat'),'nidq').nidq;                
+                try
+                    lfp = load(fullfile(sortedTrialPath,'lfp.mat'),'lfp').lfp;
+                    nidq = load(fullfile(sortedTrialPath,'nidq.mat'),'nidq').nidq;                
+                catch
+                    lfp = load(strcat("\\?\",fullfile(sortedTrialPath,'lfp.mat')),'lfp').lfp;
+                    nidq = load(strcat("\\?\",fullfile(sortedTrialPath,'nidq.mat')),'nidq').nidq;                
+                end
                 LFP.trialNum = [LFP.trialNum; sscanf(trialTag,"t%d")];
                 LFP.sessionLabel = [LFP.sessionLabel; session];
                 LFP.lfp = [LFP.lfp; lfp];
