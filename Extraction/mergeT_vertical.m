@@ -7,7 +7,7 @@ function M = mergeT_vertical(T1, T2)
     for i = 1:length(allVars)
         checkVar = allVars{i};
         % if all(~contains(T1Vars,checkVar))
-        if all(~ismember(T1Vars,checkVar))
+        if all(~ismember(T1Vars,checkVar))            
             T1.(checkVar) = cell(sizeT1(1),1);        
             % if iscell(T2.(checkVar))
             %     T1.(checkVar) = cell(sizeT1(1),1);        

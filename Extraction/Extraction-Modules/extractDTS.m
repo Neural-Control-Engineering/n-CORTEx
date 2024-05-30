@@ -2,12 +2,8 @@ function extractDTS(params)
     sessionsToExtract = params.extrctItms.DTS.sessionsToExtract;
     sessions = sessionsToExtract.sessions;
     extData = params.paths.Data.EXT;
-    dtsPath = fullfile(params.paths.Data.DTS.cloud,"DTS.mat");
-    if isfile(dtsPath)
-        DTS_prev = loadTall(dtsPath);
-    else
-        DTS_prev = [];
-    end
+    dtsPath = fullfile(params.paths.Data.DTS.cloud);
+   
     DTS = [];
     for i = 1:length(sessions)
         session = sessions{i}
@@ -45,7 +41,13 @@ function extractDTS(params)
         DTS_tall = tall(DTS);
         % outerjoin(DTS, dts,"Keys",dts.Properties.VariableNames,"MergeKeys",true);
     end
-    % DTS_full = DTS;
+
+     if size(dir(dtsPath),1) > 3
+        DTS_prev = loadTall(dtsPath);
+    else
+        DTS_prev = [];
+    end
+    DTS_full = mergeT_vertical(DTS_prev, DTS_tall);    
     DTS = DTS_full;
     write(fullfile(params.paths.Data.DTS.cloud),DTS);
 end
