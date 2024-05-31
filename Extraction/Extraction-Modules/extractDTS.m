@@ -38,7 +38,7 @@ function extractDTS(params)
         else
             DTS = [DTS; dts];
         end
-        DTS_tall = tall(DTS);
+        DTS_tall = tall((DTS));
         % outerjoin(DTS, dts,"Keys",dts.Properties.VariableNames,"MergeKeys",true);
     end
 
@@ -47,7 +47,7 @@ function extractDTS(params)
     else
         DTS_prev = [];
     end
-    DTS_full = mergeT_vertical(DTS_prev, DTS_tall);    
+    DTS_full = [DTS_prev; DTS_tall];    
     DTS = DTS_full;
     write(fullfile(params.paths.Data.DTS.cloud),DTS);
 end
