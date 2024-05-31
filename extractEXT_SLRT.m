@@ -4,17 +4,42 @@ function out = extractEXT_SLRT(filename)
     % second delay before the "behavior" starts. This is left out of the out for
     % now but can be included as an initial long trial. 
 
-    % TODO - add session label
+    % DONE - add session label
     % TODO - add column with column name - logged data type (e.g. event) pairings
-    
+    % TODO - allow seg_trialNum or cont_trialNUm for segmentation data
+
+    % load slrt data, get logged  signals
     slrt = load(filename);
     logsout = slrt.realtimeLog.data;
     signals = logsout.getElementNames();
     try
-        trialNum = logsout.getElement("cont_trialNum").Values.Data;
+        trialNum = logsout.getElement("seg_trialNum").Values.Data;
     catch
-        error("Simulink model does not contain logged signal named 'cont_trialCounter'")
+        try
+            trialNum = logsout.getElement("cont_trialNum").Values.Data;
+        catch
+            error("Simulink model does not contain logged signal named 'cont_trialCounter'")
+        end
     end
+
+    % get session label
+    file_parts = strsplit(filename, '/');
+    file_name = strsplit(file_parts{end}, '.');
+    session_label = file_name{1};
+
+    % get signal types 
+    signal_types = cell(length(signals), 2);
+    for s = 1:length(signals)
+        signal_split = strsplit(signals{s}, '_');
+        if length(signal_split) == 2
+            data_name = signal_split{2};
+        else
+            data_name = strcat(signal_split{2}, '_', signal_split{3});
+        end
+        signal_types{s,1} = data_name;
+        signal_types{s,2} = signal_split{1};
+    end
+    
     % find start of each trial 
     trial_starts = find(trialNum == 1);
     trial_ends = zeros(length(trial_starts),1);
@@ -26,7 +51,7 @@ function out = extractEXT_SLRT(filename)
             trial_ends(i) = trial_starts(i+1)-1;
         end
         % populate table for current trial 
-        row = table(i, 'VariableNames', {'trial_number'});
+        row = table(i, {session_label}, 'VariableNames', {'trial_number', 'session_label'});
         % loop through logged signals 
         for s = 1:length(signals)
             signal_split = strsplit(signals{s}, '_');
@@ -58,6 +83,8 @@ function out = extractEXT_SLRT(filename)
                 error(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))
             end
         end
+        % add signal types 
+        row = [row, table({signal_types}, 'VariableNames', {'signal_types'})];
         % put output table together 
         if i == 1
             out = row;

@@ -1,11 +1,11 @@
 function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_window_duration)
     % TODO - add session labels 
     % TODO - align spike times to all events 
-    
+
     amplitudes = readNPY(strcat(npxls_path, 'amplitudes.npy'));
     % channel_map = readNPY(strcat(npxls_path, 'channel_map.npy'));
     channel_positions = readNPY(strcat(npxls_path, 'channel_positions.npy'));
-    kept_spikes = readNPY(strcat(npxls_path, 'kept_spikes.npy'));
+    % kept_spikes = readNPY(strcat(npxls_path, 'kept_spikes.npy'));
     % ops = readNPY(strcat(npxls_path, 'ops.npy'));
     % similar_templates = readNPY(strcat(npxls_path, 'similar_templates.npy'));
     spike_clusters = readNPY(strcat(npxls_path, 'spike_clusters.npy'));
@@ -18,10 +18,13 @@ function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_windo
     cluster_group = readtable(strcat(npxls_path, 'cluster_group.tsv'), 'FileType','text','Delimiter', '\t');
     cluster_Amplitude = readtable(strcat(npxls_path, 'cluster_Amplitude.tsv'), 'FileType','text','Delimiter', '\t');
 
+    events_logical = strcmp(slrt_data(1,:).signal_types{1}(:,2), 'event');
+    event_signals = slrt_data(1,:).signal_types{1}(events_logical,1);
+
     cluster_ids = sort(unique(spike_clusters));
     cluster_templates = zeros(length(cluster_ids), size(templates,2));
     cluster_positions = zeros(length(cluster_ids), 2);
-    wvfrm_classes = cell(length(cluster_ids),1);
+    % wvfrm_classes = cell(length(cluster_ids),1);
     for i = 1:length(cluster_ids)
         peak_to_peaks = zeros(size(templates,3),1);
         for channel = 1:size(templates,3)
@@ -30,12 +33,12 @@ function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_windo
         [~, channel_ind] = max(peak_to_peaks);
         cluster_templates(i,:) = templates(i,:,channel_ind);
         cluster_positions(i,:) = channel_positions(channel_ind,:);
-        wvfrm_classes{i} = classifySpikeWvfrm(cluster_templates(i,:) * cluster_Amplitude(i,:).Amplitude, 7.0);
+        % wvfrm_classes{i} = classifySpikeWvfrm(cluster_templates(i,:) * cluster_Amplitude(i,:).Amplitude, 7.0);
     end
     quality = cluster_group(:,2).KSLabel;
     cluster_info = table(cluster_ids, cluster_templates, cluster_positions, ...
-        quality, wvfrm_classes, cluster_Amplitude.Amplitude, cluster_ContamPct.ContamPct, ...
-        'VariableNames', {'id', 'template', 'position', 'quality', 'class', ...
+        quality, cluster_Amplitude.Amplitude, cluster_ContamPct.ContamPct, ...
+        'VariableNames', {'id', 'template', 'position', 'quality', ...
         'amplitude', 'contam_pct'});
 
     max_time = slrt_data(end,:).clock_time{1}(end);
@@ -46,48 +49,58 @@ function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_windo
     %     'VariableNames', {'trial_num', 'spiking_data', 'cluster_info'});
     for trial = 1:size(slrt_data,1)
         % beginning, end, and stimulus time for trial 
+        session_label = slrt_data(trial,:).session_label{1};
         start_time = slrt_data(trial,:).clock_time{1}(1);
         fin_time = slrt_data(trial,:).clock_time{1}(end);
-        stim_time = nan;
-        for ss = 1:length(stim_signals)
-            if ~isnan(slrt_data(trial,:).(stim_signals{ss}))
-                stim_time = slrt_data(trial,:).clock_time{1}(slrt_data(trial,:).(stim_signals{ss}));
-            end
-        end
+        
         trial_spike_inds = find(spike_times >= start_time & spike_times <= fin_time);
         trial_spike_times = spike_times(trial_spike_inds);
         trial_spike_clusters = spike_clusters(trial_spike_inds);
         trial_spike_amplitudes = amplitudes(trial_spike_inds);
 
-        unique_clusters = unique(trial_spike_clusters);
-        for c = 1:length(unique_clusters)
-            cluster_id = unique_clusters(c);
+        for c = 1:length(cluster_ids)
+            % basic spiking data for each cluster/trial 
+            cluster_id = cluster_ids(c);
             cluster_spike_times = trial_spike_times(trial_spike_clusters == cluster_id);
             cluster_spike_amplitudes = trial_spike_amplitudes(trial_spike_clusters == cluster_id);
-            if ~isnan(stim_time)
-                stimulus_aligned_spike_times = cluster_spike_times - stim_time;
-                baseline_fr = sum(stimulus_aligned_spike_times >= -1 & stimulus_aligned_spike_times <= 0);
-                evoked_fr = sum(stimulus_aligned_spike_times >= 0 & stimulus_aligned_spike_times <= response_window_duration) / response_window_duration;
-            else
-                stimulus_aligned_spike_times = [];
-                baseline_fr = nan;
-                evoked_fr = nan;
-            end
+            
             cluster_quality = cluster_group(cluster_group(:,1).cluster_id == cluster_id, 2).KSLabel;
-            row = table(cluster_id, {cluster_spike_times}, {stimulus_aligned_spike_times}, baseline_fr, ...
-                evoked_fr, cluster_quality, {cluster_spike_amplitudes}, ...
-                'VariableNames', {'cluster_id', 'spike_times', 'stim_aligned_spike_times', ...
-                'baseline_fr', 'evoked_fr', 'quality', 'spike_amplitudes'});
+            row = table(cluster_id, {cluster_spike_times}, cluster_quality, {cluster_spike_amplitudes}, ...
+                'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes'});
+
+            % align spike times to events
+            if ~isempty(cluster_spike_times)
+                for es = 1:length(event_signals)
+                    signal = event_signals{es};
+                    if ~isnan(slrt_data(trial,:).(signal))
+                        event_time = slrt_data(trial,:).clock_time{1}(slrt_data(trial,:).(signal));
+                        aligned_spike_times = cluster_spike_times - event_time;
+                    else
+                        aligned_spike_times = [];
+                    end
+                    row = [row, table({aligned_spike_times}, 'VariableNames', {strcat(signal,'_aligned_spike_times')})];
+                end
+            else 
+                for es = 1:length(event_signals)
+                    signal = event_signals{es};
+                    aligned_spike_times = [];
+                    row = [row, table({aligned_spike_times}, 'VariableNames', {strcat(signal,'_aligned_spike_times')})];
+                end
+            end
+            
             if c == 1
                 cluster_table = row;
             else
                 cluster_table = [cluster_table; row];
             end
         end
+        
         if trial == 1
-            out = table(trial, {cluster_table}, {cluster_info}, 'VariableNames', {'trial_num', 'spiking_data', 'cluster_info'});
+            out = table(trial, {session_label}, {cluster_table}, ...
+                'VariableNames', {'trial_num', 'session_label', 'spiking_data'});
         else
-            out = [out; table(trial, {cluster_table}, {cluster_info}, 'VariableNames', {'trial_num', 'spiking_data', 'cluster_info'})];
+            out = [out; table(trial, {session_label}, {cluster_table}, ...
+                'VariableNames', {'trial_num', 'session_label', 'spiking_data'})];
         end
     end
 end
