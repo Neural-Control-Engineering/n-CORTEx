@@ -1,6 +1,7 @@
 function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_window_duration)
-    % TODO - add session labels 
-    % TODO - align spike times to all events 
+    % DONE - add session labels 
+    % DONE - align spike times to all events 
+    % TODO - merge spiking data and cluster info
 
     amplitudes = readNPY(strcat(npxls_path, 'amplitudes.npy'));
     % channel_map = readNPY(strcat(npxls_path, 'channel_map.npy'));
@@ -94,7 +95,7 @@ function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_windo
                 cluster_table = [cluster_table; row];
             end
         end
-        
+
         if trial == 1
             out = table(trial, {session_label}, {cluster_table}, ...
                 'VariableNames', {'trial_num', 'session_label', 'spiking_data'});
