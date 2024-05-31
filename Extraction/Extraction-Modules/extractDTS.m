@@ -38,9 +38,11 @@ function extractDTS(params)
         else
             DTS = [DTS; dts];
         end
-        DTS_tall = tall((DTS));
+        
         % outerjoin(DTS, dts,"Keys",dts.Properties.VariableNames,"MergeKeys",true);
     end
+
+    DTS_tall = tall((DTS));
 
      if size(dir(dtsPath),1) > 3
         DTS_prev = loadTall(dtsPath);
