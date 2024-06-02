@@ -11,7 +11,7 @@ function params = setExtractionParams(opts)
         if ~isfield(opts,'hostName'), opts.hostName=hostName; end
         if ~isfield(opts,'paths'), opts.paths=struct; end
         if ~isfield(opts.paths,'stem'), opts.paths.stem=fullfile("C:"); end
-        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("I:\My Drive\Projects"); end       
+        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("I:\"); end       
     end      
 
     % if ~isfield(opts.paths,"Code_Repo"); end
@@ -114,7 +114,7 @@ function params = setExtractionParams(opts)
         case 'USERBRU-2FNENOI'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "128.59.87.69";
-            opts.paths.NECdrive_cloud = fullfile("I:\My Drive\Projects");    
+            opts.paths.NECdrive_cloud = fullfile("I:\");    
         case 'electro'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "127.0.0.1";

@@ -66,8 +66,8 @@ elseif ispc
         paths.repo_path = 'C:\Code_Repo';
         
         % Drive letter for analyzed data in customary file structure        
-        paths.all_data_path = strcat('I:\My Drive\Projects\',source);
-        paths.projDir_cloud = strcat('I:\My Drive\Projects\',source);
+        paths.all_data_path = strcat('I:',source);
+        paths.projDir_cloud = strcat('I:',source);
         paths.projDir_local = fullfile('E:','NECDrive_local',source);       
     
     % Qi's PC    
