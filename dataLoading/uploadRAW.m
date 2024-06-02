@@ -5,6 +5,7 @@ function uploadRAW(dataDir, sessionLabel, isDelete)
     for i = 1:length(dataFields)
         dataField = dataFields(i);
         dfLocal = dataDir.(dataField).local;
+        dfCloud = dataDir.(dataField).cloud;
         sessionPaths = locateSessionFile(dfLocal,sessionLabel);
         for j = 1:size(sessionPaths,1)
             sessPath = sessionPaths(j);
@@ -22,8 +23,10 @@ function uploadRAW(dataDir, sessionLabel, isDelete)
                         delete(localPath);
                     end
                     
-                else
-                    movefile(localPath,fullfile(dataDir.(dataField).cloud,relPath),'f')
+                else                    
+                    cloudPath = fullfile(dataDir.(dataField).cloud);
+                    buildPath(cloudPath);
+                    movefile(localPath,fullfile(dataDir.(dataField).cloud,relPath),'f');
                     % copyfile(localPath,fullfile(dataDir.(dataField).cloud,relPath,sessionLabel),'f')
                 end                
             end                                 
