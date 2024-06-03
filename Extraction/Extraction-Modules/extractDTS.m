@@ -37,19 +37,22 @@ function extractDTS(params)
             end
         else
             DTS = [DTS; dts];
-        end
-        
+        end        
         % outerjoin(DTS, dts,"Keys",dts.Properties.VariableNames,"MergeKeys",true);
     end
 
     DTS_tall = tall((DTS));
 
-     if size(dir(dtsPath),1) > 3
-        DTS_prev = loadTall(dtsPath);
-    else
-        DTS_prev = [];
-    end
-    DTS_full = [DTS_prev; DTS_tall];    
-    DTS = DTS_full;
+    %  if size(dir(dtsPath),1) > 3
+    %     DTS_prev = loadTall(dtsPath);
+    % else
+    %     DTS_prev = [];
+    % end
+    % DTS_full = [DTS_prev; DTS_tall];    
+    % DTS = DTS_full;
+    % Load pre-existing datastore
+    dsPrev = datastore(dtsPath);    
+    DTS_prev = tall(dsPrev);
+    DTS_full = mergeTall_vertical(DTS_prev, DTS_tall);
     write(fullfile(params.paths.Data.DTS.cloud),DTS);
 end
