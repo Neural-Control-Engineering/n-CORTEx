@@ -1,7 +1,7 @@
-function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_window_duration)
+function out = extractEXT_AP(slrt_data, npxls_path)
     % DONE - add session labels 
     % DONE - align spike times to all events 
-    % TODO - merge spiking data and cluster info
+    % DONE - merge spiking data and cluster info
 
     amplitudes = readNPY(strcat(npxls_path, 'amplitudes.npy'));
     % channel_map = readNPY(strcat(npxls_path, 'channel_map.npy'));
@@ -25,7 +25,7 @@ function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_windo
     cluster_ids = sort(unique(spike_clusters));
     cluster_templates = zeros(length(cluster_ids), size(templates,2));
     cluster_positions = zeros(length(cluster_ids), 2);
-    % wvfrm_classes = cell(length(cluster_ids),1);
+    wvfrm_classes = cell(length(cluster_ids),1);
     for i = 1:length(cluster_ids)
         peak_to_peaks = zeros(size(templates,3),1);
         for channel = 1:size(templates,3)
@@ -34,13 +34,13 @@ function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_windo
         [~, channel_ind] = max(peak_to_peaks);
         cluster_templates(i,:) = templates(i,:,channel_ind);
         cluster_positions(i,:) = channel_positions(channel_ind,:);
-        % wvfrm_classes{i} = classifySpikeWvfrm(cluster_templates(i,:) * cluster_Amplitude(i,:).Amplitude, 7.0);
+        wvfrm_classes{i} = classifySpikeWvfrm(cluster_templates(i,:) * cluster_Amplitude(i,:).Amplitude, 7.0);
     end
     quality = cluster_group(:,2).KSLabel;
     cluster_info = table(cluster_ids, cluster_templates, cluster_positions, ...
-        quality, cluster_Amplitude.Amplitude, cluster_ContamPct.ContamPct, ...
+        quality, cluster_Amplitude.Amplitude, cluster_ContamPct.ContamPct, wvfrm_classes, ...
         'VariableNames', {'id', 'template', 'position', 'quality', ...
-        'amplitude', 'contam_pct'});
+        'amplitude', 'contam_pct', 'waveform_class'});
 
     max_time = slrt_data(end,:).clock_time{1}(end);
     npxls_time = linspace(-3.5, max(max_time)+3.5, max(spike_inds));
@@ -59,15 +59,18 @@ function out = extractEXT_AP(slrt_data, npxls_path, stim_signals, response_windo
         trial_spike_clusters = spike_clusters(trial_spike_inds);
         trial_spike_amplitudes = amplitudes(trial_spike_inds);
 
-        for c = 1:length(cluster_ids)
+        for c = 1:size(cluster_info,1)
             % basic spiking data for each cluster/trial 
-            cluster_id = cluster_ids(c);
+            cluster_id = cluster_info(c,:).id;
             cluster_spike_times = trial_spike_times(trial_spike_clusters == cluster_id);
             cluster_spike_amplitudes = trial_spike_amplitudes(trial_spike_clusters == cluster_id);
             
             cluster_quality = cluster_group(cluster_group(:,1).cluster_id == cluster_id, 2).KSLabel;
             row = table(cluster_id, {cluster_spike_times}, cluster_quality, {cluster_spike_amplitudes}, ...
-                'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes'});
+                cluster_info(c,:).amplitude, {cluster_info(c,:).position}, cluster_info(c,:).contam_pct, ...
+                {cluster_info(c,:).waveform_class}, {cluster_info(c,:).template}, ...
+                'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes', ...
+                'template_amplitude', 'position', 'contam_pct', 'waveform_class', 'template'});
 
             % align spike times to events
             if ~isempty(cluster_spike_times)

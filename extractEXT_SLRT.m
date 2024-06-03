@@ -5,8 +5,8 @@ function out = extractEXT_SLRT(filename)
     % now but can be included as an initial long trial. 
 
     % DONE - add session label
-    % TODO - add column with column name - logged data type (e.g. event) pairings
-    % TODO - allow seg_trialNum or cont_trialNUm for segmentation data
+    % DONE - add column with column name - logged data type (e.g. event) pairings
+    % DONE - allow seg_trialNum or cont_trialNum for segmentation data
 
     % load slrt data, get logged  signals
     slrt = load(filename);
@@ -18,7 +18,7 @@ function out = extractEXT_SLRT(filename)
         try
             trialNum = logsout.getElement("cont_trialNum").Values.Data;
         catch
-            error("Simulink model does not contain logged signal named 'cont_trialCounter'")
+            error("Simulink model does not contain logged signal named 'cont_trialCounter' or 'seg_trialCounter")
         end
     end
 
