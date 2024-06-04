@@ -10,7 +10,8 @@ function T3 = mergeTall_vertical(T1, T2)
                     T1.(varName) = nan.*T1.trialNum;
                 case 'cell'
                     % T1.(varName) = num2cell(nan.*T1.trialNum);
-                    T1.(varName) = (nan.*T1.trialNum);
+                    T1.(varName) = arrayfun(@(x) {x}, nan.*T1.trialNum, "UniformOutput", false);
+                    % T1.(varName) = (nan.*T1.trialNum);
                 case 'string'
             end
         end
@@ -20,7 +21,8 @@ function T3 = mergeTall_vertical(T1, T2)
                     T2.(varName) = nan.*T2.trialNum;
                 case 'cell'
                     % T2.(varName) = num2cell(nan.*T2.trialNum);
-                    T2.(varName) = (nan.*T2.trialNum);
+                    T2.(varName) = arrayfun(@(x) {x}, nan.*T2.trialNum, "UniformOutput", false);
+                    % T2.(varName) = (nan.*T2.trialNum);
                 case 'string'
             end
         end

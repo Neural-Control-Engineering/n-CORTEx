@@ -51,8 +51,11 @@ function extractDTS(params)
     % DTS_full = [DTS_prev; DTS_tall];    
     % DTS = DTS_full;
     % Load pre-existing datastore
-    dsPrev = datastore(dtsPath);    
+    dsPrev = datastore(fullfile(dtsPath,"D001"));    
     DTS_prev = tall(dsPrev);
     DTS_full = mergeTall_vertical(DTS_prev, DTS_tall);
-    write(fullfile(params.paths.Data.DTS.cloud),DTS);
+    % write(pwd,DTS);
+    % dts = datastore(fullfile(params.paths.Data.DTS.cloud,"dts.mat"),DTS_full);
+    DTS = DTS_full;    
+    write(fullfile(params.paths.Data.DTS.cloud,"D002"),DTS);
 end
