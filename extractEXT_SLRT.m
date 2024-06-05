@@ -74,7 +74,11 @@ function out = extractEXT_SLRT(filename)
                 % index for for events 
                 ind = find(data == 1);
                 if ~isempty(ind)
-                    row = [row, table(ind, 'VariableNames', {data_name})];
+                    try
+                        row = [row, table(ind, 'VariableNames', {data_name})];
+                    catch
+                        row = [row, table(ind(1), 'VariableNames', {data_name})];
+                    end
                 else
                     row = [row, table(nan, 'VariableNames', {data_name})];
                 end
