@@ -19,7 +19,8 @@ function regMap = mapChan2Regs(probe_areas)
     regMap.color = {};
 
     probeTrj = probe_areas{1,1};
-    probeRegs = probeTrj(:,{'probe_tip_distance','safe_name','acronym','color_hex_triplet'});    
+    % probeRegs = probeTrj(:,{'probe_tip_distance','safe_name','acronym','color_hex_triplet'});    
+    probeRegs = probeTrj(:,{'probe_depth','safe_name','acronym','color_hex_triplet'});    
 
     for i = 1:length(geom)
         geo = geom{i};
