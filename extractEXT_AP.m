@@ -26,19 +26,25 @@ function out = extractEXT_AP(slrt_data, npxls_path)
     cluster_templates = zeros(length(cluster_ids), size(templates,2));
     cluster_positions = zeros(length(cluster_ids), 2);
     wvfrm_classes = cell(length(cluster_ids),1);
+    quality = cell(length(cluster_ids),1);
+    cluster_amplitude = zeros(length(cluster_ids),1);
+    cluster_contamPct = zeros(length(cluster_ids),1);
     for i = 1:length(cluster_ids)
         peak_to_peaks = zeros(size(templates,3),1);
         for channel = 1:size(templates,3)
             peak_to_peaks(channel) = max(templates(i,:,channel)) - min(templates(i,:,channel));
         end
         [~, channel_ind] = max(peak_to_peaks);
-        cluster_templates(i,:) = templates(i,:,channel_ind);
+        cluster_templates(i,:) = templates(cluster_group(:,1).cluster_id == cluster_ids(i),:,channel_ind);
         cluster_positions(i,:) = channel_positions(channel_ind,:);
         wvfrm_classes{i} = classifySpikeWvfrm(cluster_templates(i,:) * cluster_Amplitude(i,:).Amplitude, 7.0);
+        quality{i} = cluster_group(cluster_group(:,1).cluster_id == cluster_ids(i),2).KSLabel;
+        cluster_amplitude(i) = cluster_Amplitude(cluster_Amplitude(:,1).cluster_id == cluster_ids(i),2).Amplitude;
+        cluster_contamPct(i) = cluster_ContamPct(cluster_ContamPct(:,1).cluster_id == cluster_ids(i),2).ContamPct;
     end
-    quality = cluster_group(:,2).KSLabel;
+    
     cluster_info = table(cluster_ids, cluster_templates, cluster_positions, ...
-        quality, cluster_Amplitude.Amplitude, cluster_ContamPct.ContamPct, wvfrm_classes, ...
+        quality, cluster_amplitude, cluster_contamPct, wvfrm_classes, ...
         'VariableNames', {'id', 'template', 'position', 'quality', ...
         'amplitude', 'contam_pct', 'waveform_class'});
 

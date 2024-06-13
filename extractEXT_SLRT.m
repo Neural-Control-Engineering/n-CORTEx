@@ -10,7 +10,11 @@ function out = extractEXT_SLRT(filename)
 
     % load slrt data, get logged  signals
     slrt = load(filename);
-    logsout = slrt.realtimeLog.data;
+    try
+        logsout = slrt.realtimeLog.data;
+    catch
+        logsout = slrt.logsout;
+    end
     signals = logsout.getElementNames();
     try
         trialNum = logsout.getElement("seg_trialNum").Values.Data;
@@ -18,7 +22,11 @@ function out = extractEXT_SLRT(filename)
         try
             trialNum = logsout.getElement("cont_trialNum").Values.Data;
         catch
-            error("Simulink model does not contain logged signal named 'cont_trialCounter' or 'seg_trialCounter")
+            try
+                trialNum = logsout.getElement("seg_trialCounter").Values.Data;
+            catch
+                error("Simulink model does not contain logged signal named 'cont_trialCounter' or 'seg_trialCounter")
+            end
         end
     end
 
@@ -74,7 +82,11 @@ function out = extractEXT_SLRT(filename)
                 % index for for events 
                 ind = find(data == 1);
                 if ~isempty(ind)
-                    row = [row, table(ind, 'VariableNames', {data_name})];
+                    try
+                        row = [row, table(ind, 'VariableNames', {data_name})];
+                    catch
+                        row = [row, table(ind(1), 'VariableNames', {data_name})];
+                    end
                 else
                     row = [row, table(nan, 'VariableNames', {data_name})];
                 end
