@@ -3,21 +3,21 @@ function out = extractEXT_AP(slrt_data, npxls_path)
     % DONE - align spike times to all events 
     % DONE - merge spiking data and cluster info
 
-    amplitudes = readNPY(strcat(npxls_path, 'amplitudes.npy'));
+    amplitudes = readNPY(fullfile(npxls_path, 'amplitudes.npy'));
     % channel_map = readNPY(strcat(npxls_path, 'channel_map.npy'));
-    channel_positions = readNPY(strcat(npxls_path, 'channel_positions.npy'));
+    channel_positions = readNPY(fullfile(npxls_path, 'channel_positions.npy'));
     % kept_spikes = readNPY(strcat(npxls_path, 'kept_spikes.npy'));
     % ops = readNPY(strcat(npxls_path, 'ops.npy'));
     % similar_templates = readNPY(strcat(npxls_path, 'similar_templates.npy'));
-    spike_clusters = readNPY(strcat(npxls_path, 'spike_clusters.npy'));
+    spike_clusters = readNPY(fullfile(npxls_path, 'spike_clusters.npy'));
     % spike_templates = readNPY(strcat(npxls_path, 'spike_templates.npy'));
-    spike_inds = readNPY(strcat(npxls_path, 'spike_times.npy'));
-    templates = readNPY(strcat(npxls_path, 'templates.npy'));
+    spike_inds = readNPY(fullfile(npxls_path, 'spike_times.npy'));
+    templates = readNPY(fullfile(npxls_path, 'templates.npy'));
     % templates_ind = readNPY(strcat(npxls_path, 'templates_ind.npy'));
     % cluster_KSLabel = readtable(strcat(npxls_path, 'cluster_KSLabel.tsv'), 'FileType','text','Delimiter', '\t');
-    cluster_ContamPct = readtable(strcat(npxls_path, 'cluster_ContamPct.tsv'), 'FileType','text','Delimiter', '\t');
-    cluster_group = readtable(strcat(npxls_path, 'cluster_group.tsv'), 'FileType','text','Delimiter', '\t');
-    cluster_Amplitude = readtable(strcat(npxls_path, 'cluster_Amplitude.tsv'), 'FileType','text','Delimiter', '\t');
+    cluster_ContamPct = readtable(fullfile(npxls_path, 'cluster_ContamPct.tsv'), 'FileType','text','Delimiter', '\t');
+    cluster_group = readtable(fullfile(npxls_path, 'cluster_group.tsv'), 'FileType','text','Delimiter', '\t');
+    cluster_Amplitude = readtable(fullfile(npxls_path, 'cluster_Amplitude.tsv'), 'FileType','text','Delimiter', '\t');
 
     events_logical = strcmp(slrt_data(1,:).signal_types{1}(:,2), 'event');
     event_signals = slrt_data(1,:).signal_types{1}(events_logical,1);
