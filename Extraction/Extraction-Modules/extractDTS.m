@@ -37,19 +37,32 @@ function extractDTS(params)
             end
         else
             DTS = [DTS; dts];
-        end
-        
+        end        
         % outerjoin(DTS, dts,"Keys",dts.Properties.VariableNames,"MergeKeys",true);
     end
 
     DTS_tall = tall((DTS));
 
-     if size(dir(dtsPath),1) > 3
-        DTS_prev = loadTall(dtsPath);
-    else
-        DTS_prev = [];
-    end
-    DTS_full = [DTS_prev; DTS_tall];    
-    DTS = DTS_full;
-    write(fullfile(params.paths.Data.DTS.cloud),DTS);
+    %  if size(dir(dtsPath),1) > 3
+    %     DTS_prev = loadTall(dtsPath);
+    % else
+    %     DTS_prev = [];
+    % end
+    % DTS_full = [DTS_prev; DTS_tall];    
+    % DTS = DTS_full;
+    % Load pre-existing datastore
+    % dsPrev = datastore(strcat("\\?\",fullfile(dtsPath,"D001")));    
+    % DTS_prev = tall(dsPrev);
+    DTS_prev = loadTall(strcat("\\?\",fullfile(dtsPath,"D001")));        
+    DTS_full = mergeTall_vertical(DTS_prev, DTS_tall);
+    % write(pwd,DTS);
+    % dts = datastore(fullfile(params.paths.Data.DTS.cloud,"dts.mat"),DTS_full);
+    DTS = DTS_full;    
+    write(strcat("\\?\",fullfile(params.paths.Data.DTS.cloud,"D004\")),DTS);
+    % UPDATE EXTRACTION LOG
+    extrctLog = params.extrctItms.DTS.extractionLog;
+    sessionsExtrct = convertCharsToStrings(sessions);
+    isExtrctIdx = find(ismember(extrctLog.SessionName,sessionsExtrct)==1);
+    extrctLog(isExtrctIdx,:).Extracted=ones(size(isExtrctIdx,1),1);
+    writetable(extrctLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","DTS")));
 end

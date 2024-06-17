@@ -20,10 +20,7 @@ function regMap = mapChan2Regs(probe_areas)
 
     probeTrj = probe_areas{1,1};
     probeRegs = probeTrj(:,{'probe_tip_distance','safe_name','acronym','color_hex_triplet'});    
-<<<<<<< Updated upstream
-=======
     % probeRegs = probeTrj(:,{'probe_depth','safe_name','acronym','color_hex_triplet'});    
->>>>>>> Stashed changes
 
     for i = 1:length(geom)
         geo = geom{i};
