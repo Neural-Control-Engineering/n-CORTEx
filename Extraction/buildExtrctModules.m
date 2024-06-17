@@ -15,6 +15,7 @@ function extrctModules = buildExtrctModules(params, extrctModFcnPath, extrctModF
                 extrctFunc = extrctFuncs(j);
                 mod = split(extrctFunc,'_');
                 mod = mod(2);
+                mod = strrep(mod,'.asv','');
                 if contains(extrctFunc, extrctItm)                    
                     % build extractionModule
                     extrctModules.(mod).Q.q = parallel.pool.DataQueue;
