@@ -114,7 +114,11 @@ function params = setExtractionParams(opts)
         case 'USERBRU-2FNENOI'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "128.59.87.69";
-            opts.paths.NECdrive_cloud = fullfile("I:\");    
+            opts.paths.NECdrive_cloud = fullfile("I:\");  
+        case 'DESKTOP-PHRH7S9'
+            opts.staticColor = [0.31,0.94,0.46];
+            opts.ethernetIP = "10.206.107.38";
+            opts.paths.NECdrive_cloud = fullfile("I:\");  
         case 'electro'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "127.0.0.1";
