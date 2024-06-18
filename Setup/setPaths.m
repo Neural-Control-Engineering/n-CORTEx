@@ -1,4 +1,4 @@
-function [pathsOut] = setPaths(paths, source)
+                                                                                                                                                                                                                                                                                                                                          function [pathsOut] = setPaths(paths, source)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 

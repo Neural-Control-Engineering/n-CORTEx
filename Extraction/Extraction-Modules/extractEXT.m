@@ -15,27 +15,20 @@ function extractEXT(params)
         session = sessions{i};
         slrtFile = fullfile(params.paths.Data.RAW.SLRT.cloud,session);
         SLRT = extractEXT_SLRT(slrtFile);
-        imecPath = fullfile(params.paths.Data.RAW.NPXLS.cloud,session,sprintf("%s_imec0",session));
-        imecDir = dir(imecPath);        
-        sortedTrigs = struct2table(imecDir);
-        sortedTrigs = sortedTrigs.name;
-        sortedTrigs = sortedTrigs(contains(sortedTrigs,"sorted"));
-        numTrigs = size(sortedTrigs,1);
-        for j = 1:numTrigs              
-            sortedFldr = sortedTrigs{i};
-            kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
-            lfpPath = fullfile(imecPath,sortedFldr);
-            AP = extractEXT_AP(SLRT, kSortPath);
-            LFP = extractEXT_LFP(SLRT, lfpPath);
-        end
+
         extrctModules = params.extrctItms.EXT.extrctModules;
         extModNames = fieldnames(extrctModules);
+        extData = struct;
         for j = 1:length(extModNames)
             extMod = extModNames{j};
-            if exist(extMod)
+            extrctHndl = str2func(sprintf("extractEXT_%s", extrctModule));                        
+            try
+                extData.(extMod) = extrctHndl(SLRT, params.paths.Data);
                 extModPath = fullfile(params.paths.Data.EXT.(extMod).cloud,sprintf("%s.mat",session));
-                save(extModPath,extMod);
-            end
+                save(extModPath,extData.(extMod));
+            catch e
+                disp(e);
+            end         
         end
     end
    
