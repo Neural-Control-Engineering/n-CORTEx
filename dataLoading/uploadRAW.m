@@ -1,4 +1,4 @@
-function uploadRAW(cloudDir, dataDir, sessionLabel, isDelete)
+function uploadRAW(dataDir, sessionLabel, isDelete)
     dataFields = fieldnames(dataDir);
     % MOVE SLRT TO FRONT
     dataFields = move2front(string(dataFields),"SLRT");
