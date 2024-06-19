@@ -45,8 +45,10 @@ elseif ispc
 
         % Drive letter for analyzed data in customary file structure        
         paths.all_data_path = strcat('G:\My Drive\Projects\',source);
-        paths.projDir_cloud = strcat('G:\My Drive\Projects\',source);
-        paths.projDir_local = fullfile('C:','SGL_Data',source);
+        % paths.projDir_cloud = strcat('G:\My Drive\Projects\',source);
+        % paths.projDir_local = fullfile('C:','SGL_Data',source);
+        paths.projDir_cloud = fullfile("I:\",source);
+        paths.projDir_local = fullfile("C:\nCORTEx_local",source);
 
         % Path for raw npxls data
         paths.rawNpxlsPath = strcat('C:\SGL_Data\', source);
