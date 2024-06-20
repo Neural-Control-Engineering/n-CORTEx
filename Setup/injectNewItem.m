@@ -6,5 +6,4 @@ function Items = injectNewItem(Items, newItem)
     allItems = [allItems, newItem];
     allItems = ["None", sort(allItems), {"+"}];
     Items = allItems;
-
 end

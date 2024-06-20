@@ -23,7 +23,7 @@ function buildExperimentDirectory(expPath, modalityList_RAW, extLayers)
       for i = 1:length(selMods)      
           selMod = upper(selMods(i));
           mkdir(fullfile(rawDataPath,selMod));
-      end
+      end    
     end
     
 

@@ -10,7 +10,11 @@ function log4Extraction(expmntPath,extractionRow,ftype)
             case 'csv'
                 extractionLog = readtable(fullfile(extractionLogFile.folder,extractionLogFile.name),"Delimiter",',');
                 extractionRow_Updt = updateExtractionLog(extractionRow,[],string(extractionLog.Properties.VariableNames),0,0);
-                if all(~contains(extractionLog.SessionName,extractionRow.SessionName))
+                if ~isempty(extractionLog)
+                    if all(~contains(extractionLog.SessionName,extractionRow.SessionName))
+                        extractionLog = [extractionLog; extractionRow_Updt];                
+                    end                    
+                else
                     extractionLog = [extractionLog; extractionRow_Updt];                
                 end
                 writetable(extractionLog,fullfile(extractionLogFile.folder,extractionLogFile.name));
