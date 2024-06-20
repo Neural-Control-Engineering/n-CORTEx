@@ -94,6 +94,10 @@ function readDataFcn_photon(params, sgSrv, modSrv)
                 modSrv.SendScriptCommands(sprintf("-le '%s'",envDefPath));                     
                 % modSrv.SendScriptCommands("-SetHardShutter Close")
                 % delay = 3;               
+                modSrv.SendScriptCommands("-w");
+                PVrx_del = zeros(size(PVrx,1),1);                  
+                PVrx_del(PVidx) = 1;
+                write(sgSrv, PVrx_del);         
                 % PVrx_del = zeros(size(PVrx,1),1);                
                 % PVrx_del(PVidx) = 1;
                 % delayCmdReturn(sgSrv, PVrx_del, delay);                                

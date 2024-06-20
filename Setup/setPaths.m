@@ -70,7 +70,7 @@ elseif ispc
         % Drive letter for analyzed data in customary file structure        
         paths.all_data_path = strcat('I:',source);
         paths.projDir_cloud = strcat('I:',source);
-        paths.projDir_local = fullfile('E:','NECDrive_local',source);   
+        paths.projDir_local = fullfile('C:','nCORTEx_local',source);   
     % Perceptron
     elseif strcmp(getenv("COMPUTERNAME"),'DESKTOP-PHRH7S9')
         paths.projDir_cloud = fullfile("I:\",source);
