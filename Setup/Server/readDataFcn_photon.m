@@ -4,7 +4,7 @@ function readDataFcn_photon(params, sgSrv, modSrv)
     % flush(sgSrv);
     PVrx = zeros(25,1);   
     % localDataPath = params.paths.Data.RAW.PHOTON.local;
-    localDataPath = "E:\photonTmp";
+    localDataPath = "C:\photonTmp";
     projPresetsPath = "C:\ProgramData\Bruker Fluorescence Microscopy\Prairie View\5.8.64.700\Configuration\Environments";
     % tsTemp = 
     % dosomething = (PVcmd_vector(1) == 1);   
