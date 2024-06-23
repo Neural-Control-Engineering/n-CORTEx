@@ -60,7 +60,7 @@ function out = extAP(SLRT, npxls_path)
         start_time = SLRT(trial,:).clock_time{1}(1);
         fin_time = SLRT(trial,:).clock_time{1}(end);
         
-        trial_spike_inds = find(spike_times >= start_time & spike_times <= fin_time);
+        trial_spike_inds = find(spike_times >= (start_time-3.5) & spike_times <= (fin_time+5.0));
         trial_spike_times = spike_times(trial_spike_inds);
         trial_spike_clusters = spike_clusters(trial_spike_inds);
         trial_spike_amplitudes = amplitudes(trial_spike_inds);
@@ -84,17 +84,23 @@ function out = extAP(SLRT, npxls_path)
                     signal = event_signals{es};
                     if ~isnan(SLRT(trial,:).(signal))
                         event_time = SLRT(trial,:).clock_time{1}(SLRT(trial,:).(signal));
-                        aligned_spike_times = cluster_spike_times - event_time;
+                        peri_trial_spike_inds = find(spike_times >= (event_time-3.5) & spike_times <= (event_time+5));
+                        peri_trial_spike_times = spike_times(peri_trial_spike_inds);
+                        peri_trial_spike_clusters = spike_clusters(peri_trial_spike_inds);
+                        ptcst = peri_trial_spike_times(peri_trial_spike_clusters == cluster_id);
+                        aligned_pscst = ptcst - event_time;
                     else
-                        aligned_spike_times = [];
+                        aligned_pscst = [];
                     end
-                    row = [row, table({aligned_spike_times}, 'VariableNames', {strcat(signal,'_aligned_spike_times')})];
+                    row = [row, table({aligned_pscst}, ...
+                        'VariableNames', {strcat(signal,'_aligned_spike_times')})];
                 end
             else 
                 for es = 1:length(event_signals)
                     signal = event_signals{es};
-                    aligned_spike_times = [];
-                    row = [row, table({aligned_spike_times}, 'VariableNames', {strcat(signal,'_aligned_spike_times')})];
+                    aligned_pscst = [];
+                    row = [row, table({aligned_pscst}, ...
+                        'VariableNames', {strcat(signal,'_aligned_spike_times')})];
                 end
             end
             

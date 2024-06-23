@@ -2,7 +2,8 @@ function out = extLFP(SLRT, lfpPath)
     
     load(fullfile(lfpPath,"lfp.mat"));
     lfpFs = 500;
-    max_time = SLRT(end,:).clock_time{1}(end);        
+    max_time = SLRT(end,:).clock_time{1}(end);
+    lfpTime = linspace(-3.5, max(max_time)+3.5, size(lfp,2));
 
     events_logical = strcmp(SLRT(1,:).signal_types{1}(:,2), 'event');
     event_signals = SLRT(1,:).signal_types{1}(events_logical,1);
@@ -20,16 +21,15 @@ function out = extLFP(SLRT, lfpPath)
         % beginning, end, and stimulus time for trial         
         start_time = SLRT(trial,:).clock_time{1}(1);
         fin_time = SLRT(trial,:).clock_time{1}(end);
-        lfpTime = [1:1:size(lfp,2)] ./ lfpFs;
         
-        trial_lfp_inds = find(lfpTime >= start_time & lfpTime <= fin_time);
+        trial_lfp_inds = find(lfpTime >= (start_time-3.5) & lfpTime <= (fin_time+5.0));
         try
             lfpSeg = lfp(:,trial_lfp_inds);
             trial_lfpTimes = lfpTime(trial_lfp_inds);
         catch
             lfpSeg = [];
         end
-        row = [row, table({lfpSeg},'VariableNames',{'lfp'})];
+        row = [row, table({lfpSeg}, {trial_lfpTimes},'VariableNames',{'lfp', 'lfpTime'})];
 
         % row = table(cluster_id, {cluster_spike_times}, cluster_quality, {cluster_spike_amplitudes}, ...
         %         cluster_info(c,:).amplitude, {cluster_info(c,:).position}, cluster_info(c,:).contam_pct, ...
