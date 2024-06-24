@@ -8,8 +8,7 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
     % flush(sgSrv);
     PVrx = zeros(25,1);   
     % localDataPath = params.paths.Data.RAW.PHOTON.local;
-    localDataPath = "E:\photonTmp";
-    projPresetsPath = "C:\ProgramData\Bruker Fluorescence Microscopy\Prairie View\5.8.64.700\Configuration\Environments";
+    localDataPath = "C:/npxlsTmp";    
     % tsTemp = 
     % dosomething = (PVcmd_vector(1) == 1);   
     % switch dosomething 
@@ -25,7 +24,7 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
     
     for i = 1:length(cmdBuffer)
         PVidx = cmdBuffer(i);
-        switch PVidx
+        switch PVidx            
             case 1 % Fetch Data| -gi
                 % [daqData,headCt] = Fetch( modSrv, js, ip, start_samp, max_samps, channel_subset, downsample_ratio )                
                 a = GetStreamAcqChans(modSrv, 0, 0);
@@ -99,6 +98,17 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
                 scriptCmd = sprintf("-Get");
                 modSrv.SendScriptCommands(scriptCmd);
                 modSrv.SendScriptCommands("-gts");
+            case 7 % RTSTREAM
+                fh = figure;
+                plotFcn=[];
+                Ax = axes('Parent',fh);     
+                imgAx = imagesc('Parent',Ax,'CData',[])
+                Ax.CLim = [-2.81224632263184,30.5982799530029]
+                operationFcn = str2func("extractRT_STFT");
+                % plotFcn = str2func("rtPlot_imagesc");
+                lfpStream = rtStream(imgAx, sgSrv, modSrv, operationFcn, plotFcn)
+                lfpStream.open()
+                lfpStream.close();
             case 10 % ABORT
                 modSrv.SendScriptCommands("-stop");
         end
