@@ -1,0 +1,104 @@
+    # Project definitions (do not edit)
+Task: pupil_tracking
+scorer: Dillon Noone
+date: May19
+multianimalproject: false
+identity:
+
+    # Project path (change when moving around)
+project_path: 
+  D:\Columbia_Masters\NeuralEng_Control_Lab\CodeRepo\deeplabcut\pupil_tracking-Dillon
+  Noone-2024-06-23
+
+    # Annotation data set configuration (and individual video cropping parameters)
+video_sets:
+  ? D:\Columbia_Masters\NeuralEng_Control_Lab\CodeRepo\deeplabcut\pupil_tracking-Dillon
+    Noone-2024-06-23\videos\date--2024-05-31_subj--3818-20240304_geno--Dbh-Cre-x-Ai32_photom--R-rcNE1-1-jGCaMP8m-Isosbestic_opto--_phase--beta-testing_g0.mp4
+  : crop: 0, 256, 0, 256
+  ? D:\Columbia_Masters\NeuralEng_Control_Lab\CodeRepo\deeplabcut\pupil_tracking-Dillon
+    Noone-2024-06-23\videos\date--2024-06-10_subj--3818-20240304_geno--Dbh-Cre-x-Ai32_photom--R-rcNE1-1-jGCaMP8m-Isosbestic_opto--_phase--beta-testing_g0.mp4
+  : crop: 0, 256, 0, 256
+  ? D:\Columbia_Masters\NeuralEng_Control_Lab\CodeRepo\deeplabcut\pupil_tracking-Dillon
+    Noone-2024-06-23\videos\date--2024-06-11_subj--3818-20240304_geno--Dbh-Cre-x-Ai32_photom--R-rcNE1-1-jGCaMP8m-Isosbestic_opto--_phase--beta-testing_g0.mp4
+  : crop: 0, 256, 0, 256
+  ? D:\Columbia_Masters\NeuralEng_Control_Lab\CodeRepo\deeplabcut\pupil_tracking-Dillon
+    Noone-2024-06-23\videos\date--2024-06-12_subj--3818-20240304_geno--Dbh-Cre-x-Ai32_photom--R-rcNE1-1-jGCaMP8m-Isosbestic_opto--_phase--beta-testing_g0.mp4
+  : crop: 0, 256, 0, 256
+  ? D:\Columbia_Masters\NeuralEng_Control_Lab\CodeRepo\deeplabcut\pupil_tracking-Dillon
+    Noone-2024-06-23\videos\date--2024-06-13_subj--3818-20240304_geno--Dbh-Cre-x-Ai32_photom--R-rcNE1-1-jGCaMP8m-Isosbestic_opto--_phase--beta-testing_g0.mp4
+  : crop: 0, 256, 0, 256
+  ? D:\Columbia_Masters\NeuralEng_Control_Lab\CodeRepo\deeplabcut\pupil_tracking-Dillon
+    Noone-2024-06-23\videos\date--2024-06-14_subj--3818-20240304_geno--Dbh-Cre-x-Ai32_photom--R-rcNE1-1-jGCaMP8m-Isosbestic_opto--_phase--beta-testing_g0.mp4
+  : crop: 0, 256, 0, 256
+bodyparts:
+- eye_n
+- eye_ne
+- eye_e
+- eye_se
+- eye_s
+- eye_sw
+- eye_w
+- eye_nw
+
+    # Fraction of video to start/stop when extracting frames for labeling/refinement
+
+    # Fraction of video to start/stop when extracting frames for labeling/refinement
+
+    # Fraction of video to start/stop when extracting frames for labeling/refinement
+
+    # Fraction of video to start/stop when extracting frames for labeling/refinement
+
+    # Fraction of video to start/stop when extracting frames for labeling/refinement
+
+    # Fraction of video to start/stop when extracting frames for labeling/refinement
+start: 0
+stop: 1
+numframes2pick: 25
+
+    # Plotting configuration
+skeleton:
+- - eye_n
+  - eye ne
+- - eye_ne
+  - eye_e
+- - eye_e
+  - eye_se
+- - eye_se
+  - eye_s
+- - eye_s
+  - eye_sw
+- - eye_sw
+  - eye_w
+- - eye_w
+  - eye_nw
+- - eye_nw
+  - eye_n
+
+skeleton_color: black
+pcutoff: 0.6
+dotsize: 12
+alphavalue: 0.7
+colormap: rainbow
+
+    # Training,Evaluation and Analysis configuration
+TrainingFraction:
+- 0.95
+iteration: 0
+default_net_type: resnet_50
+default_augmenter: default
+snapshotindex: -1
+batch_size: 8
+
+    # Cropping Parameters (for analysis and outlier frame detection)
+cropping: false
+    #if cropping is true for analysis, then set the values here:
+x1: 0
+x2: 640
+y1: 277
+y2: 624
+
+    # Refinement configuration (parameters from annotation dataset configuration also relevant in this stage)
+corner2move2:
+- 50
+- 50
+move2corner: true
