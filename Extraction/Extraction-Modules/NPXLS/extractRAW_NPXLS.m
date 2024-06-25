@@ -132,6 +132,21 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     % worker progress update
                     
                 end
+                % zip raw data
+                % NIDQ
+                nidqDir = struct2table(dir(nidqFolder));
+                nidqItems = nidqDir(contains(nidqDir.name,"nidq"),:).name;
+                nidqFolder = nidqDir(contains(nidqDir.name,"nidq"),:).folder;
+                nidqItems = cellfun(@(x, fldr) fullfile(fldr,x), nidqItems, nidqFolder, "UniformOutput", false);
+                zip(fullfile(nidqFolder{1},"NIDQ"),nidqItems);
+                cellfun(@(x) delete(x), nidqItems, "UniformOutput",false);
+                % LFP/AP
+                imecDir = struct2table(dir(fullfile(imec_dir.folder,imec_dir.name)));
+                imecItems = imecDir(contains(imecDir.name,"meta") | contains(imecDir.name,"bin"),:).name;
+                imecFolder = imecDir(contains(imecDir.name,"meta") | contains(imecDir.name,"bin"),:).folder;
+                imecItems = cellfun(@(x, fldr) fullfile(fldr,x), imecItems, imecFolder, "UniformOutput", false);
+                zip(fullfile(imecFolder{1},"IMEC"),imecItems);
+                cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
                 % migrate to cloud
                 if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
                     copyfile(fullfile(params.paths.Data.RAW.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.Data.RAW.(modality).cloud,exp_template)));                
