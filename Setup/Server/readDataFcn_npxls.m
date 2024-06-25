@@ -109,6 +109,18 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
                 lfpStream = rtStream(imgAx, sgSrv, modSrv, operationFcn, plotFcn)
                 lfpStream.open()
                 lfpStream.close();
+            case 8 % RTSTREAM - 20 CHANS
+                fh = figure;
+                plotFcn = str2func("rtPlot_chansXfreqs");
+                Ax = axes('Parent',fh);
+                imgAx = imagesc('Parent',Ax,'CData',[]);
+                % Ax.CLim = [-2.81224632263184,30.5982799530029];
+                Ax.CLim = [-7.11224632263184,25.5982799530029];
+                % Ax.CLim = [-7.11224632263184,17.5982799530029];
+                operationFcn = str2func("extractRT_STFT");
+                lfpStream = rtStream(imgAx, sgSrv, modSrv, operationFcn, plotFcn, [], 800);
+                lfpStream.open();
+                lfpStream.close();
             case 10 % ABORT
                 modSrv.SendScriptCommands("-stop");
         end
