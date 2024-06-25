@@ -121,6 +121,28 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
                 lfpStream = rtStream(imgAx, sgSrv, modSrv, operationFcn, plotFcn, [], 800);
                 lfpStream.open();
                 lfpStream.close();
+            case 9 % RT STREAM - 40 CHANS plus 1-CHAN STFT
+                fh = uifigure;
+                fh.Position = [25,1260,1150, 600];
+                ph1 = uipanel(fh);
+                ph1.Position = [590,10,550,580];
+                ph2 = uipanel(fh);
+                ph2.Position = [10, 10, 550, 580];
+                ax1 = axes('Parent',ph1);                
+                imgAx1 = imagesc('Parent',ax1,'CData',[]);
+                ax1.CLim = [-7.11224632263184,25.5982799530029];
+                ax2 = axes('Parent',ph2);                
+                imgAx2 = imagesc('Parent',ax2,'CData',[]);
+                ax2.CLim = [-7.11224632263184,25.5982799530029];
+                streamCfg.window = 1500;
+                streamCfg.chanRange = [384:414];
+                streamCfg.chanViewSel = 1;
+                operationFcn = str2func("extractRT_STFT");
+                plotFcn = str2func("rtPlot_chansXfreqs_freqsXtime");
+                lfpStream = rtStream({imgAx1, imgAx2}, streamCfg, sgSrv, modSrv, operationFcn, plotFcn, []);
+                lfpStream.open();                
+                lfpStream.close();
+                stop(lfpStream.timerObj)
             case 10 % ABORT
                 modSrv.SendScriptCommands("-stop");
         end

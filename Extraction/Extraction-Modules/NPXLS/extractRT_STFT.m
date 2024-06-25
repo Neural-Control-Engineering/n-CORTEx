@@ -1,8 +1,10 @@
-function SFT = extractRT_STFT(dataBuffer)
+function SFT = extractRT_STFT(streamCfg, dataBuffer)
     % tic
     Fs = 500;    
+    chanRange = streamCfg.chanRange;
     % gpuBuffer = gpuArray(single(dataBuffer(:,384:767)));
-    gpuBuffer = gpuArray(single(dataBuffer(:,384:444)));
+    % gpuBuffer = gpuArray(single(dataBuffer(:,384:444)));
+    gpuBuffer = gpuArray(single(dataBuffer(:,chanRange)));
     gpuBuffer = downsample(gpuBuffer,5);    
     % S = cell(384,1);
     gpuBuffer = gpuBuffer';
