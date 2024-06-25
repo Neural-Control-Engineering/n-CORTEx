@@ -168,10 +168,8 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
             SLRT = expmntData_ext.SLRT;
             save(fullfile(params.paths.Data.EXT.SLRT.cloud,sessionFileLabel),'SLRT');
             extractionLog = updateExtractionLog(extractionLog,session,"Extracted_SLRT",1,0);
-        end
-        
-        
-        
+            % writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+        end                     
         
         if ~isLFPExtract
             % export LFP and log        
@@ -180,13 +178,14 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
             save(fullfile(params.paths.stem,"Temp",sessionFileLabel),'LFP','-mat');
             movefile(fullfile(params.paths.stem,"Temp",sessionFileLabel),(fullfile(params.paths.Data.EXT.LFP.cloud,sessionFileLabel)));
             % save(fullfile(params.paths.Data.EXT.LFP.cloud,sessionFileLabel),'LFP');
-            extractionLog = updateExtractionLog(extractionLog,session,"Extracted_LFP",1,0);
-            % save progress
-            writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+            extractionLog = updateExtractionLog(extractionLog,session,"Extracted_LFP",1,0);            
             % writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
             % expmntData_ext.LFP = [expmntData_ext.LFP; extractEXT_LFP(params, session, LFP, Q)];
             params.extrctItms.EXT.extractionLog = extractionLog;
         end
+
+        % save progress
+        writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
         
 
     end
