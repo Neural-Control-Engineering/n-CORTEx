@@ -173,7 +173,8 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
         
         if ~isLFPExtract
             % export LFP and log        
-            LFP = extractEXT_LFP(params, session, LFP, Q);
+            % LFP = extractEXT_LFP(params, session, LFP, Q);
+            % LFP = LFP.lfp;
             if ~exist(fullfile(params.paths.stem,"Temp"),"dir"); mkdir(fullfile(params.paths.stem,"Temp")); end
             save(fullfile(params.paths.stem,"Temp",sessionFileLabel),'LFP','-mat');
             movefile(fullfile(params.paths.stem,"Temp",sessionFileLabel),(fullfile(params.paths.Data.EXT.LFP.cloud,sessionFileLabel)));
