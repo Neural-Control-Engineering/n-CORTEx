@@ -5,7 +5,7 @@ function params = setExtractionParams(opts)
         if ~isfield(opts,'hostName'), opts.hostName=hostName; end
         if ~isfield(opts,'paths'), opts.paths=struct; end
         if ~isfield(opts.paths,'stem'), opts.paths.stem=fullfile("/home",hostName); end    
-        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile(opts.paths.stem,"NEC_Drive"); end                       
+        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile(opts.paths.stem,"nCORTEx_cloud"); end                       
     elseif ispc
         hostName = getenv("COMPUTERNAME");
         if ~isfield(opts,'hostName'), opts.hostName=hostName; end

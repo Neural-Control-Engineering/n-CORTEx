@@ -113,8 +113,11 @@ elseif isunix
     % Drive letter for analyzed data in customary file structure        
     % paths.all_data_path = strcat('G:\My Drive\#Projects\',source);
     % paths.projDir_cloud = strcat('G:\My Drive\#Projects\',source);
-    paths.projDir_cloud = fullfile("/home",hostname,"NEC_Drive",source);
-    paths.projDir_local = fullfile("/home",hostname,"NEC_Drive_local", source);
+    % paths.projDir_cloud = fullfile("/home",hostname,"NEC_Drive",source);
+    % paths.projDir_local = fullfile("/home",hostname,"NEC_Drive_local", source);
+
+    paths.projDir_cloud = fullfile("/home",hostname,"nCORTEx_cloud",source);
+    paths.projDir_local = fullfile("/home",hostname,"nCORTEx_local",source);
 
     % Path for raw npxls data    
     paths.rawNpxls_local = fullfile('C:','SGL_Data',source,'Raw_Neuropixel_Data');
