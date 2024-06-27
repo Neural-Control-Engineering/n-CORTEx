@@ -4,7 +4,7 @@ function uploadRAW(dataDir, sessionLabel, isDelete)
     dataFields = move2front(string(dataFields),"SLRT");
     for i = 1:length(dataFields)        
         dataField = dataFields(i);
-        if ~strmp(dataField,"local") && ~strcmp(dataField,"cloud")
+        if ~strcmp(dataField,"local") && ~strcmp(dataField,"cloud")
             dfLocal = dataDir.(dataField).local;
             dfCloud = dataDir.(dataField).cloud;
             % dfCloud = cloudDir;
