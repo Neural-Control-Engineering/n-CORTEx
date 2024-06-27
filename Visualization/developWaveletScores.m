@@ -1,4 +1,4 @@
-function developWaveletScores(params, sessionIdx, LFP)
+function LFP = developWaveletScores(params, LFP, args)
     % computeWaveletScores
     % plotWaveletScores
 end
