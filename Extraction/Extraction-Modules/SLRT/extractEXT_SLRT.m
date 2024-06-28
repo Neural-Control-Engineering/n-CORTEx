@@ -104,7 +104,7 @@ function out = extractEXT_SLRT(filename)
             out = [out; row];
         end
     end
-    out = alignSignalsToEvents(out)
+    out = alignSignalsToEvents(out);
 end
 
 function out = alignSignalsToEvents(slrt_data)
