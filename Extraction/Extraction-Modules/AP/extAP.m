@@ -27,6 +27,7 @@ function out = extAP(SLRT, npxls_path)
     cluster_positions = zeros(length(cluster_ids), 2);
     wvfrm_classes = cell(length(cluster_ids),1);
     quality = cell(length(cluster_ids),1);
+    cluster_channel = zeros(length(cluster_ids),1);
     cluster_amplitude = zeros(length(cluster_ids),1);
     cluster_contamPct = zeros(length(cluster_ids),1);
     for i = 1:length(cluster_ids)
@@ -37,6 +38,7 @@ function out = extAP(SLRT, npxls_path)
         [~, channel_ind] = max(peak_to_peaks);
         cluster_templates(i,:) = templates(cluster_group(:,1).cluster_id == cluster_ids(i),:,channel_ind);
         cluster_positions(i,:) = channel_positions(channel_ind,:);
+        cluster_channel(i) = channel_ind;
         wvfrm_classes{i} = classifySpikeWvfrm(cluster_templates(i,:) * cluster_Amplitude(i,:).Amplitude, 7.0);
         quality{i} = cluster_group(cluster_group(:,1).cluster_id == cluster_ids(i),2).KSLabel;
         cluster_amplitude(i) = cluster_Amplitude(cluster_Amplitude(:,1).cluster_id == cluster_ids(i),2).Amplitude;
@@ -44,9 +46,9 @@ function out = extAP(SLRT, npxls_path)
     end
     
     cluster_info = table(cluster_ids, cluster_templates, cluster_positions, ...
-        quality, cluster_amplitude, cluster_contamPct, wvfrm_classes, ...
+        quality, cluster_amplitude, cluster_contamPct, wvfrm_classes, cluster_channel, ...
         'VariableNames', {'id', 'template', 'position', 'quality', ...
-        'amplitude', 'contam_pct', 'waveform_class'});
+        'amplitude', 'contam_pct', 'waveform_class', 'channel'});
 
     max_time = SLRT(end,:).clock_time{1}(end);
     npxls_time = linspace(-3.5, max(max_time)+3.5, max(spike_inds));
@@ -74,9 +76,9 @@ function out = extAP(SLRT, npxls_path)
             cluster_quality = cluster_group(cluster_group(:,1).cluster_id == cluster_id, 2).KSLabel;
             row = table(cluster_id, {cluster_spike_times}, cluster_quality, {cluster_spike_amplitudes}, ...
                 cluster_info(c,:).amplitude, {cluster_info(c,:).position}, cluster_info(c,:).contam_pct, ...
-                {cluster_info(c,:).waveform_class}, {cluster_info(c,:).template}, ...
+                {cluster_info(c,:).waveform_class}, {cluster_info(c,:).template}, {cluster_info(c,:).channel}, ...
                 'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes', ...
-                'template_amplitude', 'position', 'contam_pct', 'waveform_class', 'template'});
+                'template_amplitude', 'position', 'contam_pct', 'waveform_class', 'template', 'channel'});
 
             % align spike times to events
             if ~isempty(cluster_spike_times)
