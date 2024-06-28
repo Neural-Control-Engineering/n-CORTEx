@@ -145,23 +145,32 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
                 stop(lfpStream.timerObj)
             case 10 % RT STREAM - VIS OBJECT
                 rtDash = struct;
-                rtDash.fh = uifigure("Position",[25,1260,1150, 600]);
-                rtDash.panel1.ph = uipanel(rtDash.fh,"Position",[520,10,500,580]);
+                rtDash.fh = uifigure("Position",[25,1260,1150, 600],"Color",[0,0,0]);
+                rtDash.panel1.ph = uipanel(rtDash.fh,"Position",[520,10,500,580],"BackgroundColor",[0,0,0]);
                 rtDash.panel1.Ax = axes("Parent",rtDash.panel1.ph);
-                rtDash.panel1.imgAx = imagesc(rtDash.panel1.Ax,"CData",[]);
-                rtDash.panel2.ph = uipanel(rtDash.fh,"Position",[10,10,500,580]);
-                rtDash.panel2.Ax = axes("Parent",rtDash.panel2.ph);
+                rtDash.panel1.imgAx = imagesc(rtDash.panel1.Ax,"CData",[]);                
+                rtDash.panel1.Ax.GridColor=[0.24,0.94,0.46];
+                rtDash.panel1.Ax.Color=[0,0,0];
+                rtDash.panel1.Ax.XColor=[0.24,0.94,0.46];
+                rtDash.panel1.Ax.YColor=[0.24,0.94,0.46];
+                rtDash.panel2.ph = uipanel(rtDash.fh,"Position",[10,10,500,580],"BackgroundColor",[0,0,0]);
+                rtDash.panel2.Ax = axes("Parent",rtDash.panel2.ph,"Color",[0,0,0]);
                 rtDash.panel2.surfAx = surf(rtDash.panel2.Ax,"CData",[]);
-                rtDash.panel2.surfAx.EdgeColor="none";
+                rtDash.panel2.surfAx.EdgeColor="none";                
                 rtDash.panel2.Ax.ZLim=[-10,25];
-                rtDash.panel3.ph = uipanel(rtDash.fh,"Position",[1030,10,115,580]);
+                rtDash.panel2.Ax.GridColor=[0.24,0.94,0.46];
+                rtDash.panel2.Ax.Color=[0,0,0];
+                rtDash.panel2.Ax.XColor=[0.24,0.94,0.46];
+                rtDash.panel2.Ax.YColor=[0.24,0.94,0.46];
+                rtDash.panel3.ph = uipanel(rtDash.fh,"Position",[1030,10,115,580],"BackgroundColor",[0,0,0]);
                 rtDash.streamCfg.window = 1500;                
-                rtDash.streamCfg.chanRange = [384:394];                
+                rtDash.streamCfg.chanRange = [384:404];                
                 rtDash.streamCfg.chanViewSel = 1;                
                 rtDash.operationFcn = str2func("extractRT_STFT");
                 rtDash.plotFcn = str2func("rtPlot_chansXfreqs_freqsXtime_surf");
                 rtDash.rtStream = rtStream(rtDash, rtDash.streamCfg, sgSrv, modSrv, rtDash.operationFcn, rtDash.plotFcn, []);
                 rtDash.panel3 = breakoutEntryFields(rtDash.panel3, rtDash.rtStream, rtDash.streamCfg);
+                colormap(rtDash.fh,CT);
                 % open stream
                 rtDash.rtStream.open();
                 % close stream
