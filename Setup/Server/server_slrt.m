@@ -8,7 +8,7 @@ function server = server_slrt(params, modalityServer)
             modality = 'photon';
         case 'DESKTOP-MRI7THQ'
             % address = "169.254.44.177";
-            address = "169.254.91.65";
+            address = "169.254.126.16";
             modality = 'npxls';
     end
     if ~isempty(modality)

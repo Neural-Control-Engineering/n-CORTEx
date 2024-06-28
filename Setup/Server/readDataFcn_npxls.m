@@ -8,8 +8,7 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
     % flush(sgSrv);
     PVrx = zeros(25,1);   
     % localDataPath = params.paths.Data.RAW.PHOTON.local;
-    localDataPath = "E:\photonTmp";
-    projPresetsPath = "C:\ProgramData\Bruker Fluorescence Microscopy\Prairie View\5.8.64.700\Configuration\Environments";
+    localDataPath = "C:/npxlsTmp";    
     % tsTemp = 
     % dosomething = (PVcmd_vector(1) == 1);   
     % switch dosomething 
@@ -25,7 +24,7 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
     
     for i = 1:length(cmdBuffer)
         PVidx = cmdBuffer(i);
-        switch PVidx
+        switch PVidx            
             case 1 % Fetch Data| -gi
                 % [daqData,headCt] = Fetch( modSrv, js, ip, start_samp, max_samps, channel_subset, downsample_ratio )                
                 a = GetStreamAcqChans(modSrv, 0, 0);
@@ -99,7 +98,86 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
                 scriptCmd = sprintf("-Get");
                 modSrv.SendScriptCommands(scriptCmd);
                 modSrv.SendScriptCommands("-gts");
-            case 10 % ABORT
+            case 7 % RTSTREAM
+                fh = figure;
+                plotFcn=[];
+                Ax = axes('Parent',fh);     
+                imgAx = imagesc('Parent',Ax,'CData',[])
+                Ax.CLim = [-2.81224632263184,30.5982799530029]
+                operationFcn = str2func("extractRT_STFT");
+                % plotFcn = str2func("rtPlot_imagesc");
+                lfpStream = rtStream(imgAx, sgSrv, modSrv, operationFcn, plotFcn)
+                lfpStream.open()
+                lfpStream.close();
+            case 8 % RTSTREAM - 20 CHANS
+                fh = figure;
+                plotFcn = str2func("rtPlot_chansXfreqs");
+                Ax = axes('Parent',fh);
+                imgAx = imagesc('Parent',Ax,'CData',[]);
+                % Ax.CLim = [-2.81224632263184,30.5982799530029];
+                Ax.CLim = [-7.11224632263184,25.5982799530029];
+                % Ax.CLim = [-7.11224632263184,17.5982799530029];
+                operationFcn = str2func("extractRT_STFT");
+                lfpStream = rtStream(imgAx, sgSrv, modSrv, operationFcn, plotFcn, [], 800);
+                lfpStream.open();
+                lfpStream.close();
+            case 9 % RT STREAM - 40 CHANS plus 1-CHAN STFT
+                fh = uifigure;
+                fh.Position = [25,1260,1150, 600];
+                ph1 = uipanel(fh);
+                ph1.Position = [590,10,550,580];
+                ph2 = uipanel(fh);
+                ph2.Position = [10, 10, 550, 580];
+                ax1 = axes('Parent',ph1);                
+                imgAx1 = imagesc('Parent',ax1,'CData',[]);
+                ax1.CLim = [-7.11224632263184,25.5982799530029];
+                ax2 = axes('Parent',ph2);                
+                imgAx2 = imagesc('Parent',ax2,'CData',[]);
+                ax2.CLim = [-7.11224632263184,25.5982799530029];
+                streamCfg.window = 1500;
+                streamCfg.chanRange = [384:414];
+                streamCfg.chanViewSel = 1;
+                operationFcn = str2func("extractRT_STFT");
+                plotFcn = str2func("rtPlot_chansXfreqs_freqsXtime");
+                lfpStream = rtStream({imgAx1, imgAx2}, streamCfg, sgSrv, modSrv, operationFcn, plotFcn, []);
+                lfpStream.open();                
+                lfpStream.close();
+                stop(lfpStream.timerObj)
+            case 10 % RT STREAM - VIS OBJECT
+                rtDash = struct;
+                rtDash.fh = uifigure("Position",[25,1260,1150, 600],"Color",[0,0,0]);
+                rtDash.panel1.ph = uipanel(rtDash.fh,"Position",[520,10,500,580],"BackgroundColor",[0,0,0]);
+                rtDash.panel1.Ax = axes("Parent",rtDash.panel1.ph);
+                rtDash.panel1.imgAx = imagesc(rtDash.panel1.Ax,"CData",[]);                
+                rtDash.panel1.Ax.GridColor=[0.24,0.94,0.46];
+                rtDash.panel1.Ax.Color=[0,0,0];
+                rtDash.panel1.Ax.XColor=[0.24,0.94,0.46];
+                rtDash.panel1.Ax.YColor=[0.24,0.94,0.46];
+                rtDash.panel2.ph = uipanel(rtDash.fh,"Position",[10,10,500,580],"BackgroundColor",[0,0,0]);
+                rtDash.panel2.Ax = axes("Parent",rtDash.panel2.ph,"Color",[0,0,0]);
+                rtDash.panel2.surfAx = surf(rtDash.panel2.Ax,"CData",[]);
+                rtDash.panel2.surfAx.EdgeColor="none";                
+                rtDash.panel2.Ax.ZLim=[-10,25];
+                rtDash.panel2.Ax.GridColor=[0.24,0.94,0.46];
+                rtDash.panel2.Ax.Color=[0,0,0];
+                rtDash.panel2.Ax.XColor=[0.24,0.94,0.46];
+                rtDash.panel2.Ax.YColor=[0.24,0.94,0.46];
+                rtDash.panel3.ph = uipanel(rtDash.fh,"Position",[1030,10,115,580],"BackgroundColor",[0,0,0]);
+                rtDash.streamCfg.window = 1500;                
+                rtDash.streamCfg.chanRange = [384:404];                
+                rtDash.streamCfg.chanViewSel = 1;                
+                rtDash.operationFcn = str2func("extractRT_STFT");
+                rtDash.plotFcn = str2func("rtPlot_chansXfreqs_freqsXtime_surf");
+                rtDash.rtStream = rtStream(rtDash, rtDash.streamCfg, sgSrv, modSrv, rtDash.operationFcn, rtDash.plotFcn, []);
+                rtDash.panel3 = breakoutEntryFields(rtDash.panel3, rtDash.rtStream, rtDash.streamCfg);
+                colormap(rtDash.fh,CT);
+                % open stream
+                rtDash.rtStream.open();
+                % close stream
+                rtDash.rtStream.close();
+            case 11
+
+            case 15 % ABORT
                 modSrv.SendScriptCommands("-stop");
         end
     end

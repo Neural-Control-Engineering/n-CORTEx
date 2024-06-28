@@ -166,27 +166,32 @@ function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)
             % export SLRT and log
             expmntData_ext.SLRT = struct2table(expmntData_ext.SLRT);     
             SLRT = expmntData_ext.SLRT;
+            args = params.extractCfg.EXT.SLRT.args;
+            SLRT = params.extractCfg.EXT.SLRT.boostFcn(params, SLRT , args);
             save(fullfile(params.paths.Data.EXT.SLRT.cloud,sessionFileLabel),'SLRT');
             extractionLog = updateExtractionLog(extractionLog,session,"Extracted_SLRT",1,0);
-        end
-        
-        
-        
+            % writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+        end                     
         
         if ~isLFPExtract
             % export LFP and log        
-            LFP = extractEXT_LFP(params, session, LFP, Q);
+            % LFP = extractEXT_LFP(params, session, LFP, Q);
+            % LFP = LFP.lfp;
+            % LFP BOOSTFCN
+            % args = extractCfg.EXT.LFP.args;
+            % LFP = extractCfg.EXT.LFP.boostFcn(params, LFP, args);
             if ~exist(fullfile(params.paths.stem,"Temp"),"dir"); mkdir(fullfile(params.paths.stem,"Temp")); end
             save(fullfile(params.paths.stem,"Temp",sessionFileLabel),'LFP','-mat');
             movefile(fullfile(params.paths.stem,"Temp",sessionFileLabel),(fullfile(params.paths.Data.EXT.LFP.cloud,sessionFileLabel)));
             % save(fullfile(params.paths.Data.EXT.LFP.cloud,sessionFileLabel),'LFP');
-            extractionLog = updateExtractionLog(extractionLog,session,"Extracted_LFP",1,0);
-            % save progress
-            writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+            extractionLog = updateExtractionLog(extractionLog,session,"Extracted_LFP",1,0);            
             % writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
             % expmntData_ext.LFP = [expmntData_ext.LFP; extractEXT_LFP(params, session, LFP, Q)];
             params.extrctItms.EXT.extractionLog = extractionLog;
         end
+
+        % save progress
+        writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
         
 
     end
