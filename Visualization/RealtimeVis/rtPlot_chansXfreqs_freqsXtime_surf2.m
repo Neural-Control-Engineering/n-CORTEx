@@ -1,4 +1,4 @@
-function rtPlot_chansXfreqs_freqsXtime_surf(rtDash, streamCfg, SFT)
+function rtPlot_chansXfreqs_freqsXtime_surf2(rtDash, streamCfg, SFT)
     
     % Ax1 = Ax{1};
     % Ax2 = Ax{2};
@@ -12,15 +12,16 @@ function rtPlot_chansXfreqs_freqsXtime_surf(rtDash, streamCfg, SFT)
     S = SFT{1,1};
     sAvg = cellfun(@(x) mean(10*log10(abs(x)),2),S,"UniformOutput",false);
     sChans = [sAvg{:}]';
-    Ax1.CData = gather(sChans);
-    drawnow;
+    stftIdx = streamCfg.chanViewSel;   
+    
+    Ax1.YData = gather([1:size(sChans,1)]);
     Ax1.XData = gather(f);
+    Ax1.ZData = gather(sChans);    
+    Ax1.CData = gather(sChans);    
 
-    stftIdx = streamCfg.chanViewSel;
-    Ax2.YData = gather(f);
-    Ax2.XData = gather(t);
-    Ax2.ZData = gather(10*log10(abs(S{stftIdx})));    
     Ax2.CData = gather(10*log10(abs(S{stftIdx})));    
+    Ax2.XData = gather(f);
+
     drawnow
 
 end
