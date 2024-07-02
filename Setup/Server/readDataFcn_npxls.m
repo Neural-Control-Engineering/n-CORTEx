@@ -176,7 +176,8 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
                 rtDash.rtStream.open();
                 % close stream
                 rtDash.rtStream.close();
-            case 11
+            case 11 % RTSORT
+                
 
             case 15 % ABORT
                 modSrv.SendScriptCommands("-stop");
