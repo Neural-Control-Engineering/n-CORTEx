@@ -72,7 +72,7 @@ function out = extractEXT_SLRT(filename)
             else
                 data_name = strcat(signal_split{2}, '_', signal_split{3});
             end
-            if strcmp(signal_split{1}, 'cont')
+            if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal')
                 % cell array for continuous data
                 row = [row, table({data}, 'VariableNames', {data_name})];
             elseif strcmp(signal_split{1}, 'tag')
@@ -102,6 +102,39 @@ function out = extractEXT_SLRT(filename)
             out = row;
         else
             out = [out; row];
+        end
+    end
+    out = alignSignalsToEvents(out);
+end
+
+function out = alignSignalsToEvents(slrt_data)
+    signal_types = slrt_data(1,:).signal_types{1};
+    signal_inds = find(strcmp(signal_types(:,2), 'signal'));
+    event_inds = find(strcmp(signal_types(:,2), 'event'));
+    out = slrt_data;
+    for s = 1:length(signal_inds)
+        sind = signal_inds(s);
+        signal_name = signal_types{sind,1};
+        for e = 1:length(event_inds)
+            event_name = signal_types{event_inds(e),1};
+            aligned_signals = cell(size(slrt_data,1), 1);
+            for t = 1:size(slrt_data,1)
+                event_ind = slrt_data(t,:).(event_name);
+                if ~isnan(event_ind)
+                    event_time = slrt_data(t,:).clock_time{1}(event_ind);
+                    if t < size(slrt_data,1)
+                        peri_time = [slrt_data(t,:).clock_time{1}; slrt_data(t+1,:).clock_time{1}] - event_time;
+                        peri_signal = [slrt_data(t,:).(signal_name){1}; slrt_data(t+1,:).(signal_name){1}];
+                    else
+                        peri_time = slrt_data(t,:).clock_time{1} - event_time;
+                        peri_signal = slrt_data(t,:).(signal_name){1};
+                    end
+                    aligned_signal = peri_signal(peri_time >= -3.5 & peri_time <= 5.0);
+                    aligned_signals{t} = aligned_signal;
+                end
+            end
+            col_title = strcat(event_name, '_aligned_', signal_name);
+            out = [out, table(aligned_signals, 'VariableNames', {col_title})];
         end
     end
 end
