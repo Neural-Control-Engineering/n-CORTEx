@@ -56,12 +56,13 @@ function extractDTS(params)
     % Load pre-existing datastore
     % dsPrev = datastore(strcat("\\?\",fullfile(dtsPath,"D001")));    
     % DTS_prev = tall(dsPrev);
-    DTS_prev = loadTall(strcat("\\?\",fullfile(dtsPath,"D001")));        
+    DTS_prev = loadTall(strcat("\\?\",fullfile(dtsPath,"D008")));        
     DTS_full = mergeTall_vertical(DTS_prev, DTS_tall);
     % write(pwd,DTS);
     % dts = datastore(fullfile(params.paths.Data.DTS.cloud,"dts.mat"),DTS_full);
     DTS = DTS_full;    
-    write(strcat("\\?\",fullfile(params.paths.Data.DTS.cloud,"D004\")),DTS);
+    write(strcat("\\?\",fullfile(params.paths.Data.DTS.cloud,"D009\")),DTS);
+    % write(strcat("\\?\",fullfile(params.paths.Data.DTS.cloud,"D008\")),tall(DTS));
     % UPDATE EXTRACTION LOG
     extrctLog = params.extrctItms.DTS.extractionLog;
     sessionsExtrct = convertCharsToStrings(sessions);

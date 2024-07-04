@@ -1,4 +1,8 @@
 function expmntData_ext = extractJOLT(params, sessionsToExtract, Q)         
+    if ispc
+        addpath(genpath(fullfile("C:\Code_Repo\STATIC\")));
+    else
+    end
     sessions = sessionsToExtract.sessions;
     extractionLog = params.extrctItms.EXT.extractionLog;
     for i = 1:length(sessions)
