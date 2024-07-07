@@ -13,7 +13,9 @@ function [oscPRE, oscPOST, mPRE, mPOST, P] = computeOScores(params, lfpGroup, tE
     bandNames = fieldnames(bands);
 
     PRE = [];
+    mPRE = [];
     POST = [];
+    mPOST = [];
 
     for i = 1:height(lfpGroup)
         % disp(i)
