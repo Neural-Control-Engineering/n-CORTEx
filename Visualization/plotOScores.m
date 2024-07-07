@@ -1,4 +1,4 @@
-function plotOScores(osc,ttl)    
+function plotOScores(oscPRE, oscPOST, mPRE, mPOST, phase, event)    
     figure    
     t = tiledlayout(1,3)
     nexttile

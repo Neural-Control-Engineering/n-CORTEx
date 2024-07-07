@@ -17,7 +17,7 @@ function [pre, post, P] = computeWaveletScores(params, lfpGroup, tEvent)
    
     for i = 1:height(lfpGroup)
         disp(i);
-        lfp = lfpGroup.lfp{i};
+        lfp = lfpGroup.lfp{i}; 
         if ~isempty(lfp)
             tEvnt = tEvent{i};
             lfp = lfp(1:384,:);
@@ -37,7 +37,7 @@ function [pre, post, P] = computeWaveletScores(params, lfpGroup, tEvent)
                 preWvs = 10*log10(abs(preWvs));
                 postLfp = postLfp(:,1:segSize);
                 [postWvs, postFreqs] = cwt(postLfp(chanSelect,:),'morse',500,"TimeBandwidth",25);
-                postWvs = 10*log10(abs(postWvs));
+                postWvs = 10*log10(abs(postWvs));                      
                 % BAND-WISE AVERAGING
                 P = {};
                 for k = 1:length(bandNames)
@@ -55,7 +55,7 @@ function [pre, post, P] = computeWaveletScores(params, lfpGroup, tEvent)
                     postWv = postWvs(postFCond,:);
                     postAvg = mean(postWv,1);
                     postAvg = mean(postAvg,2);
-                    post(j,k) = postAvg;
+                    post(j,k) = postAvg;                             
                 end
             end
             PRE = cat(3, PRE, pre);
