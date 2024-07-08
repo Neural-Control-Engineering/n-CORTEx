@@ -6,12 +6,12 @@ function cdata = cMap2Regions(data, regMap)
             val = data(i,j);
             color = strcat('#',regMapFlip.color{i});
             color = hex2rgb(color);
-            % cdata(i,j,1) = color(1) * val;
-            % cdata(i,j,2) = color(2) * val;
-            % cdata(i,j,3) = color(3) * val;
-            cdata(i,j,1) = (color(1) / val) * 1.5;
-            cdata(i,j,2) = (color(2) / val) * 1.5;
-            cdata(i,j,3) = (color(3) / val) * 1.5;
+            cdata(i,j,1) = color(1) * val;
+            cdata(i,j,2) = color(2) * val;
+            cdata(i,j,3) = color(3) * val;
+            % cdata(i,j,1) = (color(1) / val) * 1.5;
+            % cdata(i,j,2) = (color(2) / val) * 1.5;
+            % cdata(i,j,3) = (color(3) / val) * 1.5;
         end
     end
 end

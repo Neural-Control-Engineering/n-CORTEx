@@ -41,7 +41,7 @@ function [LFP, res] = developOScores(params, LFP, args)
             lfpGroup = LFP(phaseCmp,:);
             tEvent = times(phaseCmp,:);
             [oscPRE, oscPOST, mPRE, mPOST, P] = computeOScores(params, lfpGroup, tEvent);
-            plotOScores(oscPRE, oscPOST, mPRE, mPOST, P, phase, event);            
+            plotOScores(params, oscPRE, oscPOST, mPRE, mPOST, P, phase, event);            
 
             PREScores = [PREScores; PRE];
             mPREScores = [mPREScores; mPRE];

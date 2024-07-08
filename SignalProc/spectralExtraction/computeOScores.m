@@ -57,9 +57,9 @@ function [oscPRE, oscPOST, mPRE, mPOST, P] = computeOScores(params, lfpGroup, tE
             % imagesc(maskPRE); title("PRE"); nexttile;
             % imagesc(maskPOST); title("POST"); title(t,"CF binary mask");
             PRE = cat(3, PRE, table2cell(Spre));
-            mPRE = cat(3, mPRE, maskPRE);
+            mPRE = cat(4, mPRE, maskPRE);
             POST = cat(3, POST, table2cell(Spost));
-            mPOST = cat(3, mPOST, maskPOST);
+            mPOST = cat(4, mPOST, maskPOST);
 
             oscPRE = computeOscillationScore(bands, P, PRE);
             oscPOST = computeOscillationScore(bands, P, POST);
