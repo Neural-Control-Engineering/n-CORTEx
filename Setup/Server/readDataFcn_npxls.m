@@ -164,7 +164,8 @@ function readDataFcn_npxls(params, sgSrv, modSrv)
                 rtDash.panel1.Ax.YColor=[0.24,0.94,0.46];
                 rtDash.panel3.ph = uipanel(rtDash.fh,"Position",[1030,10,115,580],"BackgroundColor",[0,0,0]);
                 rtDash.streamCfg.window = 1500;                
-                rtDash.streamCfg.chanRange = [385:404];                
+                % rtDash.streamCfg.chanRange = [385:404];                
+                rtDash.streamCfg.chanRange = [424:464];                
                 rtDash.streamCfg.chanViewSel = 1;                
                 rtDash.operationFcn = str2func("extractRT_STFT");
                 rtDash.plotFcn = str2func("rtPlot_chansXfreqs_freqsXtime_surf2");

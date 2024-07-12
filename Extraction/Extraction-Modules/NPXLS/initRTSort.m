@@ -52,5 +52,7 @@ function sortObj = initRTSort(params, recording, inter_path, detection_model, wi
     spikeTrains = sortObj.seq_spike_trains;
     seqs_inner_loose_elecs = sortObj.seqs_inner_loose_elecs;
     locs = sortObj.seq_locs;
-    
+    fieldnames(sortObj)
+    sortObj.num_seqs
+    seqLocs = double(sortObj.seq_locs);
 end
