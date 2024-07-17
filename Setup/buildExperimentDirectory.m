@@ -19,10 +19,12 @@ function buildExperimentDirectory(expPath, modalityList_RAW, extLayers)
     [sel, tf] = listdlg("Name","Modality Selection","PromptString",[{sprintf("Select your data modalities")},{''},{''}], "ListString", [modalityList_RAW';{''};{''};{''}]);
     selMods = modalityList_RAW(sel);
     rawDataPath = fullfile(dataPath,"RAW");
+    localDataPath = strrep(rawDataPath,"nCORTEx_cloud","nCORTEx_local");
     if tf == 1     
       for i = 1:length(selMods)      
           selMod = upper(selMods(i));
           mkdir(fullfile(rawDataPath,selMod));
+          mkdir(fullfile(localDataPath, selMod));
       end    
     end
     
