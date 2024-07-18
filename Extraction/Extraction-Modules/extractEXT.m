@@ -16,7 +16,7 @@ function extractEXT(params)
 
     sessions = params.extrctItms.EXT.sessionsToExtract.sessions;
     switch params.extractCfg.experiment
-        case 'JOLT'
+        case 'JOLT_legacy'
             sessionsLeftToExtract = checkExtractionProgress(extractionLog, params.extrctItms.EXT.sessionsToExtract, "Extract_slrt");    
             Q = params.extrctItms.EXT.Q;
             params.extractCfg.EXT = extractCfg.EXT;

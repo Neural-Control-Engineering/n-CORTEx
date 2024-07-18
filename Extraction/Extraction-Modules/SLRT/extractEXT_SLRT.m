@@ -18,14 +18,22 @@ function out = extractEXT_SLRT(filename)
     signals = logsout.getElementNames();
     try
         trialNum = logsout.getElement("seg_trialNum").Values.Data;
+        trial_starts = find(trialNum == 1);
     catch
         try
             trialNum = logsout.getElement("cont_trialNum").Values.Data;
+            trial_starts = find(trialNum == 1);
         catch
             try
                 trialNum = logsout.getElement("seg_trialCounter").Values.Data;
+                trial_starts = find(trialNum == 1);
             catch
-                error("Simulink model does not contain logged signal named 'cont_trialCounter' or 'seg_trialCounter")
+                try
+                    trialNum = logsout.getElement("seg_trialGate").Values.Data;
+                    trial_starts = find(diff(trialNum)>=1);                    
+                catch
+                    error("Simulink model does not contain logged signal named 'cont_trialCounter' or 'seg_trialCounter")
+                end
             end
         end
     end
@@ -33,23 +41,48 @@ function out = extractEXT_SLRT(filename)
     % get session label
     file_parts = strsplit(filename, '/');
     file_name = strsplit(file_parts{end}, '.');
-    session_label = file_name{1};
+    session_label = file_name{1};  
+    
+    % correct for missing clock time
+    if all(~ismember(convertCharsToStrings(signals),"cont_clock_time"))        
+        % Define signal data and properties
+        % signalData = randn(1, 1000); % Example signal data
+        signalData = [1:1:size(trialNum,1)]' ./ 1000;
+        time = signalData; % Example time vector
+        % Create a Simulink.SimulationData.Signal object
+        sig = Simulink.SimulationData.Signal;
+        sig.Name = 'cont_clock_time';
+        sig.Values = timeseries(signalData, time);
+        logsout = logsout.addElement(sig);
+        % update 'signals' list
+        signals = logsout.getElementNames();
+    end
 
     % get signal types 
     signal_types = cell(length(signals), 2);
+    m=1;
+    % signal_types = {};
     for s = 1:length(signals)
         signal_split = strsplit(signals{s}, '_');
-        if length(signal_split) == 2
-            data_name = signal_split{2};
-        else
-            data_name = strcat(signal_split{2}, '_', signal_split{3});
+        if size(signal_split,2) > 1
+            if length(signal_split) == 2
+                data_name = signal_split{2};
+            else
+                data_name = strcat(signal_split{2}, '_', signal_split{3});
+            end
+            signal_types{m,1} = data_name;
+            signal_types{m,2} = signal_split{1};
+            m=m+1;
         end
-        signal_types{s,1} = data_name;
-        signal_types{s,2} = signal_split{1};
     end
+    % remove non-standardized signals
+    nonemptySignals = cellfun(@(x) ~isempty(x), signal_types, "UniformOutput", true);       
+    signal_types = signal_types(nonemptySignals(:,1),:);
+    % signals = signals(nonemptySignals(:,1));
+    signals = join(flip(signal_types,2),"_");    
     
     % find start of each trial 
-    trial_starts = find(trialNum == 1);
+    % trial_starts = find(trialNum == 1);
     trial_ends = zeros(length(trial_starts),1);
     for i = 1:length(trial_starts)
         % get end of each trial
@@ -63,13 +96,24 @@ function out = extractEXT_SLRT(filename)
         % loop through logged signals 
         for s = 1:length(signals)
             signal_split = strsplit(signals{s}, '_');
-            data = logsout.getElement(signals{s}).Values.Data;
+            % disp(signals{s});
+            % Check for signal duplicates (user may have logged multiple
+            % signals under the same name
+            sig = logsout.getElement(signals{s});
+            switch class(sig)
+                case "Simulink.SimulationData.Signal"
+                    data = logsout.getElement(signals{s}).Values.Data;
+                case "Simulink.SimulationData.Dataset"
+                    % if exists duplicate, report the first of the
+                    % duplicates
+                    data = sig.getElement(1).Values.Data;
+            end            
             % segment data 
             data = data(trial_starts(i):trial_ends(i));
             % determine if event, continuous (cont), or tag 
             if length(signal_split) == 2
                 data_name = signal_split{2};
-            else
+            elseif length(signal_split) > 2
                 data_name = strcat(signal_split{2}, '_', signal_split{3});
             end
             if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal')
@@ -92,7 +136,8 @@ function out = extractEXT_SLRT(filename)
                 end
             elseif ~strcmp(signal_split{1}, 'seg')
                 % otherwise it's an invalid signal name 
-                error(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))
+                % error(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))
+                warning(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))
             end
         end
         % add signal types 
