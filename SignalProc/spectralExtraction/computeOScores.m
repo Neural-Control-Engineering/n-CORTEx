@@ -1,4 +1,4 @@
-function [oscPRE, oscPOST, mPRE, mPOST, P] = computeOScores(params, lfpGroup, tEvent)
+function [oscPRE, oscPOST, mPRE, mPOST, frqPRE, frqPOST, P] = computeOScores(params, lfpGroup, tEvent)
     
     bands = params.bands;
     % Augment Band ranges
@@ -14,12 +14,16 @@ function [oscPRE, oscPOST, mPRE, mPOST, P] = computeOScores(params, lfpGroup, tE
 
     PRE = [];
     mPRE = [];
+    frqPRE = [];
     POST = [];
     mPOST = [];
+    frqPOST = [];
 
     for i = 1:height(lfpGroup)
         % disp(i)
         lfp = lfpGroup.lfp{i};
+        sessLabel = lfpGroup.sessionLabel{i}
+        trialNum = lfpGroup.trialNum(i)
         if ~isempty(lfp)
             tEvnt = tEvent{i};
             lfp = lfp(1:384,:);
@@ -35,7 +39,11 @@ function [oscPRE, oscPOST, mPRE, mPOST, P] = computeOScores(params, lfpGroup, tE
             lfpPOST = lfpPOST(:,1:segSize);
             % FOOOF / SpecParams
             freqsPRE = fooof(params, lfpPRE);
+            freqsPRE.sessionLabel = sessLabel;
+            freqsPRE.trialNum = trialNum;
             freqsPOST = fooof(params, lfpPOST);
+            freqsPOST.sessionLabel = sessLabel;
+            freqsPOST.trialNum = trialNum;
             [Spre, P, maskPRE] = binFooofParams(bands, freqsPRE.fooofparams);
             [Spost, P, maskPOST] = binFooofParams(bands, freqsPOST.fooofparams);
             maskPRE = cMap2Regions(maskPRE, params.regMap);
@@ -58,8 +66,11 @@ function [oscPRE, oscPOST, mPRE, mPOST, P] = computeOScores(params, lfpGroup, tE
             % imagesc(maskPOST); title("POST"); title(t,"CF binary mask");
             PRE = cat(3, PRE, table2cell(Spre));
             mPRE = cat(4, mPRE, maskPRE);
+            frqPRE = [frqPRE; freqsPRE];
             POST = cat(3, POST, table2cell(Spost));
             mPOST = cat(4, mPOST, maskPOST);
+            frqPOST = [frqPOST; freqsPOST];
+            
 
             oscPRE = computeOscillationScore(bands, P, PRE);
             oscPOST = computeOscillationScore(bands, P, POST);

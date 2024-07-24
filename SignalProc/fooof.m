@@ -13,7 +13,10 @@ function freq = fooof(params, lfp)
     ftData = dstore2ftData(params, lfp);
     cfg = params.ftCfg_fooof;
     cfg.pad = "maxperlen";
-    cfg.taper="hanning";
+    % cfg.taper="hanning";
+    cfg.taper="sine";
+    cfg.tapsmofrq = 2;
+    % cfg.foilim = 
 
     %% FIT PARAMETERS
     [freq] = ft_freqanalysis(cfg, ftData);

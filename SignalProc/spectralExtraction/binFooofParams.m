@@ -6,7 +6,12 @@ function [S, P, msk] = binFooofParams(bands, fooofparams)
     oscillatory = F.peak_params;
     fractal = F.aperiodic_params;
     bandNames = fieldnames(bands);
-    fRange = [1:bands.gamma(2)];
+    try
+        fRange = [1:bands.gamma(2)];
+    catch
+        fRange = 50;
+    end
+
     S = [];
     msk = zeros(size(F,1),size(fRange,2));
     for i = 1:height(F)
@@ -20,10 +25,12 @@ function [S, P, msk] = binFooofParams(bands, fooofparams)
             band.name = bandName;
             band.range = bands.(bandName);
             spcs = struct2table(allocateSpecs(band, specs));
-            isAllNan = all(cell2mat((isnan(table2array(spcs(:,1))))));
+            % isAllNan = all(cell2mat((isnan(table2array(spcs(:,1))))));
+            isAllNan = all(((isnan(cell2mat(table2array(spcs(:,1)))))));
             % DROP EMPTY 'NON-FIRST' ROWS
             if ~isAllNan
-                spcs = spcs(cell2mat(~isnan(table2array(spcs(:,1)))),:);
+                % spcs = spcs(cell2mat(~isnan(table2array(spcs(:,1)))),:);
+                spcs = spcs((~isnan(cell2mat(table2array(spcs(:,1))))),:);
             else
                 spcs = spcs(1,:);
             end

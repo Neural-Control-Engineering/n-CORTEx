@@ -31,6 +31,8 @@ function [LFP, res] = developOScores(params, LFP, args)
     POSTScores = {};
     mPREScores = {};
     mPOSTScores = {};
+    FRQ_pre = [];
+    FRQ_post = [];
     if numPhases > 0
         for i = 1:numPhases
             phase = phases(i);
@@ -39,20 +41,29 @@ function [LFP, res] = developOScores(params, LFP, args)
             phaseCmp = arrayfun(@(x) strcmp(parseSessionLabel(x,"phase"),phase), LFP.sessionLabel, "UniformOutput", true);
             % phaseCmp = strcmp(parseSessionLabel(LFP.sessionLabel,"phase"),phase);
             lfpGroup = LFP(phaseCmp,:);
-            tEvent = times(phaseCmp,:);
-            [oscPRE, oscPOST, mPRE, mPOST, P] = computeOScores(params, lfpGroup, tEvent);
-            plotOScores(params, oscPRE, oscPOST, mPRE, mPOST, P, phase, event);            
+            % tEvent = times(phaseCmp,:);
+            tEvent = cellfun(@(x) ([1:size(x,2)]-1750)./args.Fs, lfpGroup.lfp, "UniformOutput", false);
+            [oscPRE, oscPOST, mPRE, mPOST, frqPRE, frqPOST, P] = computeOScores(params, lfpGroup, tEvent);
+            plotOScores(params, oscPRE, oscPOST, mPRE, mPOST, P, phase, event);               
+            
+            FRQ_pre = [FRQ_pre; struct2table(frqPRE)];
+            FRQ_post = [FRQ_post; struct2table(frqPOST)];            
+            FRQ_pre.sessionLabel = cellfun(@(x) string(x), FRQ_pre.sessionLabel, "UniformOutput",true);
+            FRQ_post.sessionLabel = cellfun(@(x) string(x), FRQ_post.sessionLabel, "UniformOutput",true);            
 
-            PREScores = [PREScores; PRE];
+            PREScores = [PREScores; oscPRE];
             mPREScores = [mPREScores; mPRE];
-            POSTScores = [POSTScores; POST];
-            mPOSTScores = [mPOSTcores; mPOST];           
+            POSTScores = [POSTScores; oscPOST];
+            mPOSTScores = [mPOSTScores; mPOST];                  
         end
+        LFP = outerjoin(LFP, FRQ_post, "Keys", {'sessionLabel','trialNum'},"MergeKeys",true);    
     end
     res.PREScores = PREScores;
     res.mPREScores = mPREScores;
     res.POSTScores = POSTScores;
     res.mPOSTScores = mPOSTScores;
+    res.FRQ_pre = FRQ_pre;
+    res.FRQ_post = FRQ_post;
     res.phases = phases;
     res.P = P;
 end
