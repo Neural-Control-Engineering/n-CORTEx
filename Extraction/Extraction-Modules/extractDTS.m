@@ -22,12 +22,29 @@ function extractDTS(params)
                 dtField = fieldnames(DT);
                 dtField = dtField{1};
                 DT = DT.(dtField);
-                DT.trialNum = cell2mat(DT.trialNum(~cellfun('isempty',DT.trialNum)));   
+                % standardized trialNumber and sessionLabel colum names
+                % (camelback convention)                
+                if any(ismember(DT.Properties.VariableNames,"trial_number"))
+                    DT = renamevars(DT,["trial_number"],["trialNumber"]);
+                end
+                if any(ismember(DT.Properties.VariableNames,"session_label"))
+                    DT = renamevars(DT,["session_label"],["sessionLabel"]);
+                end
+                if any(ismember(DT.Properties.VariableNames,"trialNum"))
+                    DT = renamevars(DT,["trialNum"],["trialNumber"])
+                end
+                
+                % DT.trialNum = cell2mat(DT.trialNum(~cellfun('isempty',DT.trialNum)));   
+                DT.trialNumber = (DT.trialNumber(~cellfun('isempty',num2cell(DT.trialNumber))));   
+                % ensure trialNumber is a cell array
+                if ~(strcmp(class(DT.trialNumber),"cell"))
+                    DT.trialNumber = num2cell(DT.trialNumber);
+                end
                 if isempty(dts)
                     dts = DT;
                 else
                     if ~isempty(DT)                   
-                        dts = outerjoin(dts, DT, "Keys", {'sessionLabel','trialNum'},"MergeKeys",true);
+                        dts = outerjoin(dts, DT, "Keys", {'sessionLabel','trialNumber'},"MergeKeys",true);
                     end
                 end                
             end
@@ -44,6 +61,8 @@ function extractDTS(params)
         % outerjoin(DTS, dts,"Keys",dts.Properties.VariableNames,"MergeKeys",true);
     end
 
+    % trialNumber conversion to double
+    DTS.trialNumber = cell2mat(DTS.trialNumber);
     DTS_tall = tall((DTS));
 
     %  if size(dir(dtsPath),1) > 3
@@ -56,12 +75,25 @@ function extractDTS(params)
     % Load pre-existing datastore
     % dsPrev = datastore(strcat("\\?\",fullfile(dtsPath,"D001")));    
     % DTS_prev = tall(dsPrev);
-    DTS_prev = loadTall(strcat("\\?\",fullfile(dtsPath,"D008")));        
+    if ispc
+        DTS_prev = loadTall(strcat("\\?\",fullfile(dtsPath,"D008")));
+        writePath = strcat("\\?\",fullfile(params.paths.Data.DTS.cloud));
+    elseif isunix
+        try 
+            parpool("SpmdEnabled",false)
+        catch
+        end
+        DTS_prev = loadTall(strcat(fullfile(dtsPath,"D008")));        
+        writePath = strcat(fullfile(params.paths.Data.DTS.cloud));
+    end
+    if any(ismember(DTS_prev.Properties.VariableNames,"trialNum"))
+        DTS_prev = renamevars(DTS_prev,["trialNum"],["trialNumber"]);
+    end
     DTS_full = mergeTall_vertical(DTS_prev, DTS_tall);
     % write(pwd,DTS);
     % dts = datastore(fullfile(params.paths.Data.DTS.cloud,"dts.mat"),DTS_full);
     DTS = DTS_full;    
-    write(strcat("\\?\",fullfile(params.paths.Data.DTS.cloud,"D009\")),DTS);
+    write(strcat(fullfile(writePath,"D009")),DTS);
     % write(strcat("\\?\",fullfile(params.paths.Data.DTS.cloud,"D008\")),tall(DTS));
     % UPDATE EXTRACTION LOG
     extrctLog = params.extrctItms.DTS.extractionLog;

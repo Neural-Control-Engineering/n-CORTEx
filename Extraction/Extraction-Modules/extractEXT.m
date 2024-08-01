@@ -29,20 +29,34 @@ function extractEXT(params)
                 SLRT = extractEXT_SLRT(slrtFile);
                 % BOOST FCN
                 if isfield(extractCfg.EXT,"SLRT")
-                    try 
+                    try % signle boostFcn case
                         args = extractCfg.EXT.SLRT.args;
                         SLRT = extractCfg.EXT.SLRT.boostFcn(params, SLRT , args);
                     catch e
-                        disp("WARNING: boostFcn for SLRT failed \n")
-                        disp(e);
+                        % disp("WARNING: boostFcn for SLRT failed \n")
+                        % disp(e);
+                        try  % accomodate multiple Fcns in cell array format                            
+                            for j = 1:size(extractCfg.EXT.SLRT.boostFcn,1)
+                                boostFcn = extractCfg.EXT.SLRT.boostFcn{j};
+                                args = extractCfg.EXT.SLRT.args{j};
+                                SLRT = boostFcn(params, SLRT, args);
+                            end
+                        catch e
+                            disp(e);
+                        end
                     end
                 end
+                % SAVE SLRT
+                extModPath = fullfile(params.paths.Data.EXT.SLRT.cloud,sprintf("%s.mat",session));
+                save(extModPath, "SLRT");
+                % EXTRACT ADDITIONAL MODALITIES
                 extrctModules = params.extrctItms.EXT.extrctModules;
                 extModNames = fieldnames(extrctModules);
                 extData = struct;
                 for j = 1:length(extModNames)
                     extMod = extModNames{j};
-                    extrctHndl = str2func(sprintf("extractEXT_%s", extrctModule));                        
+                    % extrctHndl = str2func(sprintf("extractEXT_%s", extrctModule));                        
+                    extrctHndl = str2func(sprintf("extractEXT_%s", extMod));                        
                     try
                         extData.(extMod) = extrctHndl(SLRT, params.paths.Data);
                         % BOOST FCN

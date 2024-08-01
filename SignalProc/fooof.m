@@ -13,13 +13,21 @@ function freq = fooof(params, lfp)
     ftData = dstore2ftData(params, lfp);
     cfg = params.ftCfg_fooof;
     cfg.pad = "maxperlen";
-    % cfg.taper="hanning";
-    cfg.taper="sine";
+    cfg.taper="hanning";
+    % cfg.taper="sine";
     cfg.tapsmofrq = 2;
     % cfg.foilim = 
 
     %% FIT PARAMETERS
-    [freq] = ft_freqanalysis(cfg, ftData);
+    switch cfg.freqAnalysisMethod
+        case "auto"
+            [freq] = ft_freqanalysis(cfg, ftData);
+        case "pwelch"
+            cfg.Fs = 500;
+            cfg.win = 400;
+            [freq] = fooof_pwelch(cfg, ftData);
+    end
+        
 
     %% UNCOMMENT FOR PLOTTING
 %     figure

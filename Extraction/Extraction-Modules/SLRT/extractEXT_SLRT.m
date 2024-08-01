@@ -102,21 +102,40 @@ function out = extractEXT_SLRT(filename)
             sig = logsout.getElement(signals{s});
             switch class(sig)
                 case "Simulink.SimulationData.Signal"
-                    data = logsout.getElement(signals{s}).Values.Data;
+                    data_raw = logsout.getElement(signals{s}).Values.Data;
                 case "Simulink.SimulationData.Dataset"
                     % if exists duplicate, report the first of the
                     % duplicates
-                    data = sig.getElement(1).Values.Data;
+                    data_raw = sig.getElement(1).Values.Data;
             end            
             % segment data 
-            data = data(trial_starts(i):trial_ends(i));
+            if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal') || strcmp(signal_split{1}, 'event')
+                % pre-buffer for first trial in session (special case)
+                if i == 1
+                    try
+                        data = data_raw(trial_starts(i) - 3500: trial_ends(i)); % 3.5 add seconds prior (if possible)
+                    catch e
+                        disp(e);
+                        try
+                            data = data_raw(trial_starts(i)-500:trial_ends(i));
+                        catch e
+                            disp(e);
+                            data = data_raw(trial_starts(i):trial_ends(i));
+                        end
+                    end
+                else
+                    data = data_raw(trial_starts(i):trial_ends(i));
+                end
+            else
+                data = data_raw(trial_starts(i):trial_ends(i));
+            end
             % determine if event, continuous (cont), or tag 
             if length(signal_split) == 2
                 data_name = signal_split{2};
             elseif length(signal_split) > 2
                 data_name = strcat(signal_split{2}, '_', signal_split{3});
             end
-            if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal')
+            if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal')                              
                 % cell array for continuous data
                 row = [row, table({data}, 'VariableNames', {data_name})];
             elseif strcmp(signal_split{1}, 'tag')
@@ -163,23 +182,31 @@ function out = alignSignalsToEvents(slrt_data)
         for e = 1:length(event_inds)
             event_name = signal_types{event_inds(e),1};
             aligned_signals = cell(size(slrt_data,1), 1);
+            aligned_times = cell(size(slrt_data,1), 1);
             for t = 1:size(slrt_data,1)
                 event_ind = slrt_data(t,:).(event_name);
                 if ~isnan(event_ind)
                     event_time = slrt_data(t,:).clock_time{1}(event_ind);
-                    if t < size(slrt_data,1)
+                    if t < size(slrt_data,1) && t > 1
+                        peri_time = [slrt_data(t-1,:).clock_time{1}; slrt_data(t,:).clock_time{1}; slrt_data(t+1,:).clock_time{1}] - event_time;
+                        peri_signal = [slrt_data(t-1,:).(signal_name){1}; slrt_data(t,:).(signal_name){1}; slrt_data(t+1,:).(signal_name){1}];
+                    elseif t == 1
                         peri_time = [slrt_data(t,:).clock_time{1}; slrt_data(t+1,:).clock_time{1}] - event_time;
                         peri_signal = [slrt_data(t,:).(signal_name){1}; slrt_data(t+1,:).(signal_name){1}];
                     else
-                        peri_time = slrt_data(t,:).clock_time{1} - event_time;
-                        peri_signal = slrt_data(t,:).(signal_name){1};
+                        peri_time = [slrt_data(t-1,:).clock_time{1}; slrt_data(t,:).clock_time{1}] - event_time;
+                        peri_signal = [slrt_data(t-1,:).(signal_name){1}; slrt_data(t,:).(signal_name){1}];
                     end
                     aligned_signal = peri_signal(peri_time >= -3.5 & peri_time <= 5.0);
+                    aligned_time = peri_time(peri_time >= -3.5 & peri_time <= 5.0);
                     aligned_signals{t} = aligned_signal;
+                    aligned_times{t} = aligned_time;
                 end
             end
             col_title = strcat(event_name, '_aligned_', signal_name);
+            tCol_title = strcat(event_name, '_aligned_', signal_name,'_time');
             out = [out, table(aligned_signals, 'VariableNames', {col_title})];
+            out = [out, table(aligned_times, 'VariableNames', {tCol_title})];
         end
     end
 end
