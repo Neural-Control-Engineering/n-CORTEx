@@ -39,16 +39,11 @@ function out = extAP(SLRT, npxls_path)
         cluster_templates(i,:) = templates(cluster_group(:,1).cluster_id == cluster_ids(i),:,channel_ind);
         cluster_positions(i,:) = channel_positions(channel_ind,:);
         cluster_channel(i) = channel_ind;
-        % wvfrm_classes{i} = classifySpikeWvfrm(cluster_templates(i,:) * cluster_Amplitude(i,:).Amplitude, 7.0);
         quality{i} = cluster_group(cluster_group(:,1).cluster_id == cluster_ids(i),2).KSLabel;
         cluster_amplitude(i) = cluster_Amplitude(cluster_Amplitude(:,1).cluster_id == cluster_ids(i),2).Amplitude;
         cluster_contamPct(i) = cluster_ContamPct(cluster_ContamPct(:,1).cluster_id == cluster_ids(i),2).ContamPct;
     end
     
-    % cluster_info = table(cluster_ids, cluster_templates, cluster_positions, ...
-    %     quality, cluster_amplitude, cluster_contamPct, wvfrm_classes, cluster_channel, ...
-    %     'VariableNames', {'id', 'template', 'position', 'quality', ...
-    %     'amplitude', 'contam_pct', 'waveform_class', 'channel'});
     cluster_info = table(cluster_ids, cluster_templates, cluster_positions, ...
         quality, cluster_amplitude, cluster_contamPct, cluster_channel, ...
         'VariableNames', {'id', 'template', 'position', 'quality', ...
@@ -58,8 +53,6 @@ function out = extAP(SLRT, npxls_path)
     npxls_time = linspace(-3.5, max(max_time)+3.5, max(spike_inds));
     spike_times = npxls_time(spike_inds);
     
-    % out = table('Size', [size(slrt_data,1),3],  'VariableTypes', {'double', 'cell', 'cell'}, ...
-    %     'VariableNames', {'trial_num', 'spiking_data', 'cluster_info'});
     for trial = 1:size(SLRT,1)
         % beginning, end, and stimulus time for trial 
         session_label = SLRT(trial,:).session_label{1};
@@ -126,68 +119,3 @@ function out = extAP(SLRT, npxls_path)
         end
     end
 end
-
-% function out = classifySpikeWvfrm(wvfrm, fsRsThreshold)
-%     [neg_amp, neg_ind] = max(abs(wvfrm));
-%     if wvfrm(neg_ind) > 0
-%         out = 'PS';
-%     else
-%         [width, first_ind, last_ind, half_max] = getSpikeWidth(wvfrm);
-%         [pks, locs] = findpeaks(wvfrm, 'MinPeakProminence', 1);
-%         if ~isempty(pks) && locs(1) < neg_ind
-%             if length(locs(locs < neg_ind)) > 1
-%                 [first_peak, fp_ind] = max(pks(locs < neg_ind));
-%                 try
-%                     nplocs = locs(locs > neg_ind);
-%                     np_ind = nplocs(1);
-%                 catch
-%                     [~, np_ind] = max(wvfrm(neg_ind+1:end));
-%                     np_ind = np_ind + neg_ind;
-%                 end
-%             else
-%                 first_peak = pks(1);
-%                 fp_ind = locs(1);
-%                 try
-%                     np_ind = locs(2);
-%                 catch
-%                     [~, np_ind] = max(wvfrm(neg_ind+1:end));
-%                     np_ind = np_ind + neg_ind;
-%                 end
-%             end
-%             if (first_peak >= 0.1*neg_amp) 
-%                 if width < 20
-%                     out = 'TS';
-%                 else
-%                     out = 'CS';
-%                 end
-%             else 
-%                 if width < fsRsThreshold
-%                     out = 'FS';
-%                 else
-%                     out = 'RS';
-%                 end
-%             end
-%         else
-%             if width < fsRsThreshold
-%                 out = 'FS';
-%             else
-%                 out = 'RS';
-%             end
-%         end
-%     end
-% end
-
-% function [out, first_ind, last_ind, half_max] = getSpikeWidth(wvfrm)
-%     y = abs(wvfrm);
-%     x1 = 1:length(wvfrm);
-%     x2 = 1:0.25:length(wvfrm);
-%     y = spline(x1, y, x2);
-%     [amp, ind] = max(y);
-%     half_max = amp / 4;
-%     first_ind = find(y(1:ind) <= half_max, 1, 'last');
-%     last_ind = find(y(ind+1:end) <= half_max, 1, 'first') + ind;
-%     first_ind = x2(first_ind);
-%     last_ind = x2(last_ind);
-%     out = last_ind - first_ind;
-%     % figure(); plot(y); hold on; plot([first_ind, last_ind],[half_max, half_max], 'k--')
-% end
