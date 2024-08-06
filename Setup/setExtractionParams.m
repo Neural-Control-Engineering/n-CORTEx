@@ -61,6 +61,7 @@ function params = setExtractionParams(opts)
     if ~isfield(opts.ftCfg_mtmfft,"taper"); opts.ftCfg_mtmfft.taper = 'dpss'; end
     if ~isfield(opts.ftCfg_mtmfft,"tapsmofrq"); opts.ftCfg_mtmfft.tapsmofrq = [2]; end
     if ~isfield(opts.ftCfg_mtmfft,"keeptrials"); opts.ftCfg_mtmfft.keeptrials = 'yes'; end
+    if ~isfield(opts.ftCfg_mtmfft,"opt"); opts.ftCfg_mtmfft.opt = setFooofOpt(); end
 
     %% Fieldtrip config (mtmconvol)
     if ~isfield(opts, "ftCfg_mtmconvol"); opts.ftCfg_mtmconvol = struct; end
@@ -81,6 +82,8 @@ function params = setExtractionParams(opts)
     if ~isfield(opts.ftCfg_fooof,'tapsmofrq'); opts.ftCfg_fooof.tapsmofrq= 2; end
     if ~isfield(opts.ftCfg_fooof,'foilim'); opts.ftCfg_fooof.foilim= [0.3 50]; end % bandpass 0.3 to 40 Hz
     if ~isfield(opts.ftCfg_fooof,'pad'); opts.ftCfg_fooof.pad= 2; end
+    if ~isfield(opts.ftCfg_fooof,"opt"); opts.ftCfg_fooof.opt = setFooofOpt(); end
+    if ~isfield(opts.ftCfg_fooof,"freqAnalysisMethod"); opts.ftCfg_fooof.freqAnalysisMethod="pwelch"; end
 
     %% Fieldtrip config (databrowser)
     if ~isfield(opts, "ftCfg_databrws"); opts.ftCfg_databrws = struct; end

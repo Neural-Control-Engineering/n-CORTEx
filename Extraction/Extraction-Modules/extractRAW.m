@@ -10,7 +10,11 @@ function extractRAW(params)
         extrctHndl = str2func(sprintf("extractRAW_%s", extrctModule));
         params.extractCfg.modality = upper(extrctModule);
         sessionsLeftToExtract = checkExtractionProgress(extractionLog, params.extrctItms.RAW.sessionsToExtract, extrctModule);        
-        extrctHndl(params, sessionsLeftToExtract, params.extrctItms.RAW.extrctModules.(extrctModule).Q);              
+        try
+            extrctHndl(params, sessionsLeftToExtract, params.extrctItms.RAW.extrctModules.(extrctModule).Q);              
+        catch e
+            disp(e);
+        end
     end
     % Final mark of completed extraction for raw layer
     extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","RAW")));
