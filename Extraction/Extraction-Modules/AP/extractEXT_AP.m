@@ -16,6 +16,5 @@ function AP = extractEXT_AP(SLRT, dataDir)
         AP = extAP(SLRT, kSortPath);
         % LFP = extLFP(SLRT, lfpPath);
     end
-
     
 end
