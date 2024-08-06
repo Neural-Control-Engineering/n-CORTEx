@@ -50,7 +50,9 @@ function out = extAP(SLRT, npxls_path)
         'amplitude', 'contam_pct', 'channel'});
 
     max_time = SLRT(end,:).clock_time{1}(end);
-    npxls_time = linspace(-3.5, max(max_time)+3.5, max(spike_inds));
+    % npxls_time = linspace(-3.5, max(max_time)+3.5, max(spike_inds));
+    npxls_time = linspace(-3.5, max(max_time)+3.5, 30000 * max_time + 7); Fs
+    % (30K) * (max(max_time) + 7.0)
     spike_times = npxls_time(spike_inds);
     
     for trial = 1:size(SLRT,1)

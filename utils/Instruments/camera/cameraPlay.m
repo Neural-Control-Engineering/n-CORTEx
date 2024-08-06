@@ -11,7 +11,7 @@ function cameraPlay(params, camera, filePath, fileName, cue)
     
     % build system command 
     % cmd = "parallel './callSpinTEx.sh' ::: ";
-    cmd = sprintf("parallel '%s' ::: ",fullfile(params.paths.nCORTEx_repo,"utils","camera","callSpinTEx.sh"));
+    cmd = sprintf("parallel '%s' ::: ",fullfile(params.paths.nCORTEx_repo,"utils","Instruments","camera","callSpinTEx.sh"));
     JSON = struct;
     for i = 1:length(cameras)
         camParams = struct;
@@ -44,7 +44,7 @@ function cameraPlay(params, camera, filePath, fileName, cue)
     end
     % cmd = sprintf("%s %s", cmd);
     cmd = sprintf("%s %s", cmd, ' &');
-    % cmd = sprintf("%s %s", cmd, '');
+    cmd = sprintf("%s %s", cmd, '');
     system(cmd);
     % pause(5)
 end
