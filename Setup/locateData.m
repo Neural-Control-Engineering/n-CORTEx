@@ -17,6 +17,7 @@ function params = locateData(params)
             modalityDirs = modalityDirs_local;
             projDir_ref = params.paths.projDir_local;
         else
+            modalityDirs = modalityDirs_cloud;
             projDir_ref = params.paths.projDir_cloud;
         end
         if ~isempty(modalityDirs) 
