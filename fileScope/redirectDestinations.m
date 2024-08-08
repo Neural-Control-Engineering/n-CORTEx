@@ -8,11 +8,16 @@ function cacheSel = redirectDestinations(cacheSel, newDest)
                 dataDir = cacheSel(i,:).DataDir;
         end
         
-        modFields = fieldnames(dataDir);
+        modFields = convertCharsToStrings(fieldnames(dataDir));
+        modFields = modFields((~ismember(modFields,"local") & ~ismember(modFields,"cloud")));
+
         for j=1:length(modFields)
-            mod = modFields{j};
+            mod = modFields(j);
             modDirs = dataDir.(mod); 
             oldDest = modDirs.cloud;            
+            if isempty(oldDest)
+                oldDest=modDirs.local;
+            end
             [folder, name, ext] = fileparts(oldDest);
             folderParts = split(folder,filesep);
             projIdx = arrayfun(@(x) contains(x,"Project_"),folderParts);            
