@@ -32,7 +32,8 @@ function uploadRAW(dataDir, sessionLabel, isDelete)
                                 localZip = fullfile(dfLocal,relPath,localItem);
                                 zip(sprintf("%s.zip",localZip),localZip);                    
                                 localPath = fullfile(sessPath,sprintf("%s.zip",localItem));
-                                movefile(localPath,fullfile(dfCloud,relPath,sprintf("%s.zip",localItem)),'f');
+                                % movefile(localPath,fullfile(dfCloud,relPath,sprintf("%s.zip",localItem)),'f');
+                                movefile(localPath,fullfile(dfCloud,relPath),'f');
                             else
                                 movefile(localPath,fullfile(dataDir.(dataField).cloud,relPath),'f');
                             end

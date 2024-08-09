@@ -6,6 +6,11 @@ function mergeExtractionLogs(paths, expmnt, extLogDir_local, extLogDir_cloud)
         extLogFilename = extLogs(i);
         extractionLog_local = readtable(fullfile(extLogDir_local,extLogFilename),"Delimiter",",");
         extractionLog_cloud = readtable(fullfile(extLogDir_cloud,extLogFilename),"Delimiter",",");
+        type_localSessName = class(extractionLog_local.SessionName);
+        if strcmp(type_localSessName, 'double')        
+            extractionLog_local.SessionName = num2cell(extractionLog_local.SessionName);
+        end
+        % type_cloudSessName = class(extractionLog_cloud.SessionName)
         extractionLog_local = extractionLog_local(~ismember(extractionLog_local.SessionName,extractionLog_cloud.SessionName),:);
         for j = 1:height(extractionLog_local)
             extractionRow = extractionLog_local(j,:);
