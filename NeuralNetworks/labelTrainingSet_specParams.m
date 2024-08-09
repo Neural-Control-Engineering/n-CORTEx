@@ -1,7 +1,9 @@
 function T = labelTrainingSet_specParams(params, DTS)
     % recover labeling progress - this is a csv in the project directory
-    labelSetPath = fullfile(params.paths.Data.FTR.cloud, "TRAIN","RTSpec","labels.mat");    
-    discSetPath = fullfile(params.paths.Data.FTR.cloud,"TRAIN","RTSpec","disc.mat");
+    % labelSetPath = fullfile(params.paths.Data.FTR.cloud, "TRAIN","RTSpec","labels.mat");    
+    % discSetPath = fullfile(params.paths.Data.FTR.cloud,"TRAIN","RTSpec","disc.mat");
+    labelSetPath = fullfile(params.paths.Data.FTR.local, "TRAIN","RTSpec","labels.mat");    
+    discSetPath = fullfile(params.paths.Data.FTR.local,"TRAIN","RTSpec","disc.mat");
 
     if ~isfile(labelSetPath)
         % make a new label csv

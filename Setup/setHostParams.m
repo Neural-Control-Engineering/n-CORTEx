@@ -27,6 +27,7 @@ function params = setHostParams(opts)
     end       
 
     if ~isfield(opts.paths,'projDir_local'), opts.paths.projDir_local = fullfile(opts.paths.stem, "nCORTEx_local", opts.projectName); end    
+    % if ~isfield(opts.paths,'projDir_cloud'), opts.paths.projDir_cloud = fullfile(opts.paths.stem, "nCORTEx_cloud", opts.projectName); end    
     % if ~isfolder(opts.paths.projDir_local); replicateDirStructure(opts.paths.projDir_cloud, opts.paths.projDir_local); end
 
     % if ~isfield(opts.paths,'tempDir'), opts.paths.tempDir=fullfile(opts.paths.stem,'nCORTExTmp'); end

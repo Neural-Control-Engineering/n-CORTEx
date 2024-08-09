@@ -11,5 +11,7 @@ function mergeExtractionLogs(paths, expmnt, extLogDir_local, extLogDir_cloud)
             extractionRow = extractionLog_local(j,:);
             log4Extraction(expmntPath_cloud, extractionRow, "csv");
         end
+        % save local extractionLog back
+        writetable(extractionLog_local, fullfile(paths.projDir_local,"Experiments",expmnt,"Extraction-Logs",extLogFilename));
     end
 end
