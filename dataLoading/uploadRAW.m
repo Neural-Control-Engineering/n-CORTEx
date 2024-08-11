@@ -1,7 +1,11 @@
-function uploadRAW(dataDir, sessionLabel, isDelete)
+function uploadRAW(params, dataDir, sessionLabel, isDelete)
     dataFields = fieldnames(dataDir);
     % MOVE SLRT TO FRONT
-    dataFields = move2front(string(dataFields),"SLRT");
+    dataFields = flip(move2front(string(dataFields),"SLRT"));
+    % CAMERA case (compile params for mp4 conversion)
+    if any(contains(dataFields,"CAMERA"))
+        camTable = compileCamParams(params.camera);
+    end
     for i = 1:length(dataFields)        
         dataField = dataFields(i);
         if ~strcmp(dataField,"local") && ~strcmp(dataField,"cloud")
@@ -28,12 +32,27 @@ function uploadRAW(dataDir, sessionLabel, isDelete)
                         else                    
                             cloudPath = fullfile(dataDir.(dataField).cloud);
                             buildPath(cloudPath);
-                            if strcmp(dataField,"CAMERA")        
+                            if strcmp(dataField,"CAMERA")
+                                % % zip each camera-associated (DEPRECATED)
+                                % localZip = fullfile(dfLocal,relPath,localItem);
+                                % zip(sprintf("%s.zip",localZip),localZip);
+                                % localPath = fullfile(sessPath,sprintf("%s.zip",localItem));                                
+                                % CONVERT TO MP4
+                                localPath = fullfile(sessPath,localItem);                                                                
+                                camParams = camTable(contains(camTable.target,strrep(relPath,"/","")),:);
+                                camFS = camParams.FS;                               
+                                png2mp4Path = fullfile(params.paths.nCORTEx_repo,"postProc","png2mp4.sh");                                
+                                ffmCmd = sprintf("%s %d %s", png2mp4Path, camFS, localPath);              
+                                setenv('LD_PRELOAD', '/usr/lib/x86_64-linux-gnu/libstdc++.so.6');
+                                system(ffmCmd);                                
+                                rmdir(localPath,"s") % cleanup
+                                % ZIP                
                                 localZip = fullfile(dfLocal,relPath,localItem);
-                                zip(sprintf("%s.zip",localZip),localZip);                    
-                                localPath = fullfile(sessPath,sprintf("%s.zip",localItem));
-                                % movefile(localPath,fullfile(dfCloud,relPath,sprintf("%s.zip",localItem)),'f');
-                                movefile(localPath,fullfile(dfCloud,relPath),'f');
+                                zip(sprintf("%s.zip",localZip), sprintf("%s.mp4",localPath));
+                                % MOVE TO CLOUD
+                                % % % movefile(localPath,fullfile(dfCloud,relPath,sprintf("%s.zip",localItem)),'f');
+                                movefile(sprintf("%s.zip",localPath),fullfile(dfCloud,relPath),'f');
+                                delete(sprintf("%s.mp4",localPath));
                             else
                                 movefile(localPath,fullfile(dataDir.(dataField).cloud,relPath),'f');
                             end
