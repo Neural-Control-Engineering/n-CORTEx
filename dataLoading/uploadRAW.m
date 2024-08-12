@@ -4,7 +4,12 @@ function uploadRAW(params, dataDir, sessionLabel, isDelete)
     dataFields = flip(move2front(string(dataFields),"SLRT"));
     % CAMERA case (compile params for mp4 conversion)
     if any(contains(dataFields,"CAMERA"))
-        camTable = compileCamParams(params.camera);
+        try
+            camTable = compileCamParams(params.camera);
+        catch e
+            disp(e)
+            dataFields = dataFields(~ismember(dataFields,"CAMERA"));
+        end
     end
     for i = 1:length(dataFields)        
         dataField = dataFields(i);
