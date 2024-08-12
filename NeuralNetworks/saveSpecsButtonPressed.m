@@ -42,6 +42,7 @@ function saveSpecsButtonPressed(dash,buttonStat)
             save(dash.fh.UserData.labelSetPath,"T");
             save(dash.fh.UserData.discSetPath,"discT");
     end
+    dash.fh.UserData.prevSpecs = dash.fh.UserData.specs;
     cla(dash.panel1.pltAx)         
     uiresume(dash.fh);
 end

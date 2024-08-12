@@ -12,7 +12,7 @@ function sig = composeSpecs(f, sp)
         A = peaks(i,2); % PW
         G = A * exp(-(f - mu).^2 / (2 * sigma^2));
         % add each peak
-        sig = sig + G;
+        sig = sig + (G);
     end
     % add bias
     sig = sig + fract(1);

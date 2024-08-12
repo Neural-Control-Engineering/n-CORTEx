@@ -1,4 +1,4 @@
-function T = labelTrainingSet_specParams(params, DTS)
+function [T, discT] = labelTrainingSet_specParams(params, DTS)
     % recover labeling progress - this is a csv in the project directory
     % labelSetPath = fullfile(params.paths.Data.FTR.cloud, "TRAIN","RTSpec","labels.mat");    
     % discSetPath = fullfile(params.paths.Data.FTR.cloud,"TRAIN","RTSpec","disc.mat");
@@ -55,17 +55,22 @@ function T = labelTrainingSet_specParams(params, DTS)
      dash.discT = discT;
      dash.bands = frqBins;
      dash.labelSetPath = labelSetPath;
-     dash.discSetPath = discSetPath;
-
-     dash.fh.UserData = dash;
+     dash.discSetPath = discSetPath;     
 
      dash.panel2.ph1 = uipanel(dash.fh,"Position",[578,5,200,590],"BackgroundColor",[0,0,0]);
      dash.panel2.errorLabel = uilabel(dash.panel2.ph1,"Position",[10,560,150,20],"Text",sprintf("ERROR: --"),"BackgroundColor",[0,0,0],"FontColor",[0.24,0.94,0.46],"FontSize",16);
-     dash.panel2.b1 = uibutton(dash.panel2.ph1,"Position",[45,400,100,100],"BackgroundColor",[0.24,0.94,0.46],"FontColor",[0.24,0.94,0.46],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 1),"Text","+");     
-     dash.panel2.b2 = uibutton(dash.panel2.ph1,"Position",[45,250,100,100],"BackgroundColor",[1,0,0.2667],"FontColor",[[1,0,0.2667]],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 0),"Text","-");
-     dash.panel2.b3 = uibutton(dash.panel2.ph1,"Position",[45,100,100,100],"BackgroundColor",[0, 0.4471, 0.7412],"FontColor",[0, 0.4471, 0.7412],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 2),"Text","-");
+     dash.panel2.b1 = uibutton(dash.panel2.ph1,"Position",[45,420,100,100],"BackgroundColor",[0.24,0.94,0.46],"FontColor",[0.24,0.94,0.46],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 1),"Text","+");     
+     dash.panel2.b2 = uibutton(dash.panel2.ph1,"Position",[45,270,100,100],"BackgroundColor",[1,0,0.2667],"FontColor",[[1,0,0.2667]],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 0),"Text","-");
+     dash.panel2.b3 = uibutton(dash.panel2.ph1,"Position",[45,120,100,100],"BackgroundColor",[0, 0.4471, 0.7412],"FontColor",[0, 0.4471, 0.7412],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 2),"Text","-");
      % specs UI panel
      dash.panel3.ph1 = uipanel(dash.fh,"Position",[782,5,200,590],"BackgroundColor",[0,0,0]);
+     dash.fh.UserData = dash;
+    % specs Interfacing buttons
+     dash.panel2.b4 = uibutton(dash.panel2.ph1,"Position",[45,55,40,30],"BackgroundColor",[0, 0, 0],"FontSize",14,"FontColor",[0.24,0.94,0.46],"ButtonPushedFcn",@(~,~)uiAddSpec(dash),"Text","+");     
+     dash.panel2.b5 = uibutton(dash.panel2.ph1,"Position",[45,20,40,30],"BackgroundColor",[0, 0, 0],"FontSize",14,"FontColor",[0.24,0.94,0.46],"ButtonPushedFcn",@(~,~)uiResetSpecs(dash),"Text","Reset");
+     dash.panel2.b6 = uibutton(dash.panel2.ph1,"Position",[90,20,55,65],"BackgroundColor",[0, 0, 0],"FontSize",14,"FontColor",[0.24,0.94,0.46],"ButtonPushedFcn",@(~,~)uiRecoverPrevSpecs(dash),"Text","Set-prev");
+     dash.fh.UserData = dash;
+     
      
 
     % Loop through unvisited trials
@@ -88,15 +93,27 @@ function T = labelTrainingSet_specParams(params, DTS)
         dash.fh.UserData.date = date;
         dash.fh.UserData.phase = phase;
         for j = 1:10:size(fooofParams,1)
+            if j ==size(fooofParams)
+                T = dash.fh.UserData.T;
+                discT = dash.fh.UserData.discT;
+                return
+            end
+            j = j+5;
             chanNum = j;            
             % matches = (T.date == date) & (T.trialNum == trialNum) & (T.channelNum == chanNum);
             % if ~all(matches==1) || isempty(matches)
-            specs = fooofParams(j);                
+            try
+                specs = fooofParams(j);  % is idx doesnt match continue to next iteration
+            catch
+                continue
+            end
+            specs.freq = freq;
             psdFit = PSDfits(j,:);
             % waitfor(dash.fh,"UserData","ButtonPressed")                
             dash.fh.UserData.i = i;
             dash.fh.UserData.j = j;              
             dash.fh.UserData.specs = specs;
+            dash.fh.UserData.specs_backup = specs;
             dash.fh.UserData.psdFit = psdFit;                
             dash.fh.UserData.channelNum = chanNum;   
             dash.fh.UserData.smpLbl = sprintf("%s_trialNum--%d_chanNum--%d", sessionLabel, trialNum, chanNum);
@@ -114,8 +131,8 @@ function T = labelTrainingSet_specParams(params, DTS)
                 pmtCond = [1:size(specs.power_spectrum,2)];
                 plot(dash.panel1.pltAx, freq, log10(PMT(pmtCond,chanNum)),"Color",[0.651,0.651,0.651]);
                 dash.panel1.pltAx = colorAx_green(dash.panel1.pltAx);
-                % DRAW SPECS UI
-                drawSpecsUI(dash, specs, freq);
+                % DRAW SPECS UI                
+                % drawSpecsUI(dash, specs, freq, 0);
                 plot(dash.panel1.pltAx, freq, log10(specs.fooofed_spectrum),"Color",[1,0,0.5333])
                 % Wait for user entry
                 uiwait(dash.fh);                             
@@ -128,8 +145,8 @@ function T = labelTrainingSet_specParams(params, DTS)
                 pmtCond = [1:size(specs.power_spectrum,2)];
                 plot(dash.panel1.pltAx, freq, log10(PMT(pmtCond,chanNum)),"Color",[0.651,0.651,0.651]);
                 dash.panel1.pltAx = colorAx_green(dash.panel1.pltAx);
-                % DRAW SPECS UI
-                drawSpecsUI(dash, specs, freq);
+                % DRAW SPECS UI                
+                % drawSpecsUI(dash, specs, freq, 0);
                 plot(dash.panel1.pltAx, freq, log10(specs.fooofed_spectrum),"Color",[1,0,0.5333])
                 % Wait for user entry
                 uiwait(dash.fh);                                             
