@@ -1,0 +1,2 @@
+function uiAddSpec(dash)
+end

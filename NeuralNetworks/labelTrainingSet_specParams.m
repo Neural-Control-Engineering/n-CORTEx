@@ -40,7 +40,8 @@ function T = labelTrainingSet_specParams(params, DTS)
     
     % DRAW DASH
      dash = struct;
-     dash.fh = uifigure("Position",[25,1260,800, 600],"Color",[0,0,0]);
+     % dash.fh = uifigure("Position",[25,1260,800, 600],"Color",[0,0,0]);
+     dash.fh = uifigure("Position",[25,1260,1000, 600],"Color",[0,0,0]);
      load(fullfile(params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
      % colormap(dash.fh,CT);
      dash.panel1.ph1 = uipanel(dash.fh,"Position",[5,5,570,590],"BackgroundColor",[0,0,0]);     
@@ -63,6 +64,9 @@ function T = labelTrainingSet_specParams(params, DTS)
      dash.panel2.b1 = uibutton(dash.panel2.ph1,"Position",[45,400,100,100],"BackgroundColor",[0.24,0.94,0.46],"FontColor",[0.24,0.94,0.46],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 1),"Text","+");     
      dash.panel2.b2 = uibutton(dash.panel2.ph1,"Position",[45,250,100,100],"BackgroundColor",[1,0,0.2667],"FontColor",[[1,0,0.2667]],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 0),"Text","-");
      dash.panel2.b3 = uibutton(dash.panel2.ph1,"Position",[45,100,100,100],"BackgroundColor",[0, 0.4471, 0.7412],"FontColor",[0, 0.4471, 0.7412],"ButtonPushedFcn",@(~,~)saveSpecsButtonPressed(dash, 2),"Text","-");
+     % specs UI panel
+     dash.panel3.ph1 = uipanel(dash.fh,"Position",[782,5,200,590],"BackgroundColor",[0,0,0]);
+     
 
     % Loop through unvisited trials
     for i=1:height(DTS)
@@ -77,7 +81,7 @@ function T = labelTrainingSet_specParams(params, DTS)
         fooofParams = DTS.fooofparams{i};
         PSDfits = DTS.powspctrm{i};
         PMT = DTS.powspctrm_pmt{i};
-        freq = DTS.freq(i,:);
+        freq = DTS.freq(i,:); % assuming all f axes are identical
 
         dash.fh.UserData.pawSide = pawSide;
         dash.fh.UserData.trialNum = trialNum;
@@ -101,6 +105,7 @@ function T = labelTrainingSet_specParams(params, DTS)
             fprintf("channel: %d",chanNum);
             fprintf("trial: %d",(trialNum));
             fprintf("\n")            
+            % starting case (if table version of T is empty)
             if isempty((dash.fh.UserData.tT.sampleLabel))
                 dash.panel2.errorLabel.Text = sprintf("ERROR: %s",num2str(specs.error)); 
                 plot(dash.panel1.pltAx, freq, specs.power_spectrum,"Color",[0.24,0.94,0.46]);
@@ -109,6 +114,8 @@ function T = labelTrainingSet_specParams(params, DTS)
                 pmtCond = [1:size(specs.power_spectrum,2)];
                 plot(dash.panel1.pltAx, freq, log10(PMT(pmtCond,chanNum)),"Color",[0.651,0.651,0.651]);
                 dash.panel1.pltAx = colorAx_green(dash.panel1.pltAx);
+                % DRAW SPECS UI
+                drawSpecsUI(dash, specs, freq);
                 plot(dash.panel1.pltAx, freq, log10(specs.fooofed_spectrum),"Color",[1,0,0.5333])
                 % Wait for user entry
                 uiwait(dash.fh);                             
@@ -121,6 +128,8 @@ function T = labelTrainingSet_specParams(params, DTS)
                 pmtCond = [1:size(specs.power_spectrum,2)];
                 plot(dash.panel1.pltAx, freq, log10(PMT(pmtCond,chanNum)),"Color",[0.651,0.651,0.651]);
                 dash.panel1.pltAx = colorAx_green(dash.panel1.pltAx);
+                % DRAW SPECS UI
+                drawSpecsUI(dash, specs, freq);
                 plot(dash.panel1.pltAx, freq, log10(specs.fooofed_spectrum),"Color",[1,0,0.5333])
                 % Wait for user entry
                 uiwait(dash.fh);                                             
