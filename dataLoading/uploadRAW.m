@@ -19,7 +19,7 @@ function uploadRAW(params, dataDir, sessionLabel, isDelete)
             % dfCloud = cloudDir;
             if ~isempty(dfLocal)
                 sessionPaths = locateSessionFile(dfLocal,sessionLabel);
-                for j = 1:size(sessionPaths,1)
+                for j = 1: size(sessionPaths,1)
                     sessPath = sessionPaths(j);
                     localItems = struct2table(dir(sessPath));
                     localItems = string(localItems(contains(localItems.name,sessionLabel),:).name);
@@ -49,8 +49,13 @@ function uploadRAW(params, dataDir, sessionLabel, isDelete)
                                 png2mp4Path = fullfile(params.paths.nCORTEx_repo,"postProc","png2mp4.sh");                                
                                 ffmCmd = sprintf("%s %d %s", png2mp4Path, camFS, localPath);              
                                 setenv('LD_PRELOAD', '/usr/lib/x86_64-linux-gnu/libstdc++.so.6');
-                                system(ffmCmd);                                
-                                rmdir(localPath,"s") % cleanup
+                                system(ffmCmd);   
+                                % if conversion successful, remove pngs
+                                if isfile(sprintf("%s.mp4",localPath))
+                                    rmdir(localPath,"s") % cleanup
+                                else
+                                    error("png to mp4 conversion for session: %s failed",sessionLabel)
+                                end
                                 % ZIP                
                                 localZip = fullfile(dfLocal,relPath,localItem);
                                 zip(sprintf("%s.zip",localZip), sprintf("%s.mp4",localPath));
