@@ -20,6 +20,7 @@ function saveSpecsButtonPressed(dash,buttonStat)
             row.pawSide = [dash.fh.UserData.pawSide];
             row.phase = [dash.fh.UserData.phase];
             row.fooofparams = [dash.fh.UserData.specs];
+            dash.fh.UserData.prevSpecs = dash.fh.UserData.specs;
 
             dash.fh.UserData.T = [dash.fh.UserData.T; row];
         case 0 % DISCARD
@@ -35,14 +36,14 @@ function saveSpecsButtonPressed(dash,buttonStat)
             row.pawSide = [dash.fh.UserData.pawSide];
             row.phase = [dash.fh.UserData.phase];
             row.fooofparams = [dash.fh.UserData.specs];
+            dash.fh.UserData.prevSpecs = dash.fh.UserData.specs;
 
             dash.fh.UserData.T = [dash.fh.UserData.T; row];
             T = struct2table(dash.fh.UserData.T);
             discT = struct2table(dash.fh.UserData.discT);
             save(dash.fh.UserData.labelSetPath,"T");
             save(dash.fh.UserData.discSetPath,"discT");
-    end
-    dash.fh.UserData.prevSpecs = dash.fh.UserData.specs;
+    end    
     cla(dash.panel1.pltAx)         
     uiresume(dash.fh);
 end

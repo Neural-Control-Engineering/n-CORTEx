@@ -24,7 +24,7 @@ function drawSpecsUI(dash, specs, freq, isClear)
                 for j = 1:length(spFields)
                     spField = spFields{j};
                     delete(dash.fh.UserData.panel3.(pField).(spField));
-                    drawnow;
+                    % drawnow;
                 end
             end        
         end

@@ -53,6 +53,7 @@ function [T, discT] = labelTrainingSet_specParams(params, DTS)
      dash.T = T;
      dash.tT = struct2table(T);
      dash.discT = discT;
+     dash.tdiscT = struct2table(discT);
      dash.bands = frqBins;
      dash.labelSetPath = labelSetPath;
      dash.discSetPath = discSetPath;     
@@ -136,7 +137,7 @@ function [T, discT] = labelTrainingSet_specParams(params, DTS)
                 plot(dash.panel1.pltAx, freq, log10(specs.fooofed_spectrum),"Color",[1,0,0.5333])
                 % Wait for user entry
                 uiwait(dash.fh);                             
-            elseif ~ismember(dash.fh.UserData.smpLbl, dash.fh.UserData.tT.sampleLabel)
+            elseif ~ismember(dash.fh.UserData.smpLbl, dash.fh.UserData.tT.sampleLabel) && ~ismember(dash.fh.UserData.smpLbl, dash.fh.UserData.tdiscT.sampleLabel)
                 % plot specs fitting for QC
                 dash.panel2.errorLabel.Text = sprintf("ERROR: %s",num2str(specs.error)); 
                 plot(dash.panel1.pltAx, freq, specs.power_spectrum,"Color",[0.24,0.94,0.46]);
