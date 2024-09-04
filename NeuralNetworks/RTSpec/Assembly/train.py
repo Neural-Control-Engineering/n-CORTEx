@@ -71,13 +71,14 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer):
                     'optim_dict': optimizer.state_dict(),
                 },                
                 file_name)
+   
     
     end_time = time.time()
     total_time = (end_time - start_time) / 3600
     print('Total training time: {:.2f} hours'.format(total_time))
     print('------------------ TRAINING COMPLETE ------------------')
     # Log results
-    log_name = os.path.join(params.save_dir, 'loss_log.txt')
+    log_name = os.path.join(params.log_dir, 'loss_log.txt')
     with open(log_name, "a") as log_file:
         now = time.strftime("%c")
         log_file.write('============ Loss (%s) ============\n' % now)
@@ -89,4 +90,6 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer):
         log_file.write('training time: ' + str(total_time))
     
     learning_curve(best_epoch, train_global_losses, val_global_losses)
+
+    return model
         
