@@ -4,13 +4,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 from glob import glob
-from torchvision import transforms
+# from torchvision import transforms
 import torch
 from torch.utils.data import Dataset, DataLoader
 import random
 import os
 
-class SpecsDataset(Dataset):
+class SpecsDataset():
     
     def __init__(self, dataDir, folds):
         self.dataDir = dataDir        
@@ -23,13 +23,13 @@ class SpecsDataset(Dataset):
     def __len__(self):
         return len(self.index)
 
-    def __getitem(self, idx):
-        samplePath = os.path.join(self.dataDir,self.index.iLoc[idx,1],self.index.iloc[idx,0])        
+    def __getitem__(self, idx):
+        samplePath = os.path.join(self.dataDir,self.index.iloc[idx,1],self.index.iloc[idx,0])        
         psd = pd.read_csv(samplePath)
-        psd = psd[:,1]
-        label = self.index.iloc[idx,2:-1]
+        psd = pd.to_numeric(psd.iloc[:,1], errors='coerce').fillna(0).values
+        psd = torch.tensor(psd, dtype=torch.float16)
+        label = pd.to_numeric(self.index.iloc[idx,2:-1], errors='coerce').fillna(0).values
+        label = torch.tensor(label, dtype=torch.float16)
         sample = {'PSD':psd, 'label':label}
 
-        return sample
-    
-    
+        return sample  

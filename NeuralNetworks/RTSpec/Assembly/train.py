@@ -2,6 +2,9 @@ import time
 import torch
 import torch.nn as nn 
 import os
+from learning_curve import learning_curve
+from get_loss import get_loss
+from adjust_learning_rate import adjust_learning_rate
 
 def train(params, model, trainLoader, validLoader, criterion, optimizer):
 
@@ -12,8 +15,11 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer):
     train_global_losses = []
     val_global_losses = []
 
+    # make training itr directory
+    os.makedirs(params['checkpoint_dir'], exist_ok=True)
 
-    for epoch in range(params.startEpoch, params.endEpoch):
+
+    for epoch in range(params['startEpoch'], params['endEpoch']):
         train_epoch_losses = []
         val_epoch_losses = []
         val_epoch_pcorr = []
@@ -23,14 +29,14 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer):
         # counter
         count = 0
         for i, data in enumerate(trainLoader):
-            adjust_learning_rate(optimizer, epoch, params.endEpoch, params.lr)
+            adjust_learning_rate(optimizer, epoch, params['endEpoch'], params['learningRate'], 0.9)
             # Pass next sample
             psd = data['PSD']
-            psd = psd.cuda(params.local_rank, non_blocking=True)
+            psd = psd.cuda(params['local_rank'], non_blocking=True)
             specs_label = data['label']
-            specs_label = specs_label.cuda(params.local_rank, non_blocking=True)
+            specs_label = specs_label.cuda(params['local_rank'], non_blocking=True)
             # Compute loss
-            loss = compute_loss(model, criterion, psd, specs_label, 'train')
+            loss = get_loss(model, criterion, psd, specs_label, 'train')
             train_epoch_losses.append(loss.item())
             # Gradient propagation
             optimizer.zero_grad()
@@ -43,11 +49,11 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer):
             for i, data in enumerate(validLoader):
                 # Pass next sample                
                 psd = data['PSD']
-                psd = psd.cuda(params.local_rank, non_blocking=True)
+                psd = psd.cuda(params['local_rank'], non_blocking=True)
                 specs_label = data['label']
-                specs_label = specs_label.cuda(params.local_rank, non_blocking=True)
+                specs_label = specs_label.cuda(params['local_rank'], non_blocking=True)
                 # Compute loss
-                loss = compute_loss(model, criterion, psd, specs_label, 'val')
+                loss = get_loss(model, criterion, psd, specs_label, 'val')
                 val_epoch_losses.append(loss.item())
                 # Calculate Metrics
         
@@ -62,7 +68,7 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer):
         # Checkpoint
         if val_global_losses[-1] == min(val_global_losses):
             print('saving model at the end of epoch ' + str(epoch))
-            file_name = os.path.join(params.checkpoint_dir, 'model_{}_epoch_{}_val_loss_{}.pth'.format(params.modelName, epoch, val_global_losses[-1]))
+            file_name = os.path.join(params['checkpoint_dir'], 'model_{}_epoch_{}_val_loss_{}.pth'.format(params['modelName'], epoch, val_global_losses[-1]))
             best_epoch = epoch
             if epoch > 1:
                 torch.save({
@@ -78,7 +84,7 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer):
     print('Total training time: {:.2f} hours'.format(total_time))
     print('------------------ TRAINING COMPLETE ------------------')
     # Log results
-    log_name = os.path.join(params.log_dir, 'loss_log.txt')
+    log_name = os.path.join(params['log_dir'], 'loss_log.txt')
     with open(log_name, "a") as log_file:
         now = time.strftime("%c")
         log_file.write('============ Loss (%s) ============\n' % now)

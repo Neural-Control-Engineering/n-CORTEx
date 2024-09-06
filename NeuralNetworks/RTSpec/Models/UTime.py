@@ -7,7 +7,7 @@ import math
 class USpec(nn.Module):
     def __init__(
             self,
-            psdXDim=100,
+            psdXDim=195,
             maxPeaks=8,
             numLayers=4,
             chanStart=8,
@@ -26,19 +26,26 @@ class USpec(nn.Module):
             if i == 0:
                 ch_in = 1
                 ch_out = chanStart
+                padd=0
             else:
                 ch_in = (chanStart * (riseFactor**(i-1)))
                 ch_out = (chanStart * (riseFactor**i))
-            kernel_size=5
+                padd='same'
+            kernel_size=4
             stride=1
             padding=0
-            conv1 = nn.Conv1d(ch_in, ch_out, kernel_size, stride, padding='same')
+            conv1 = nn.Conv1d(ch_in, ch_out, kernel_size, stride, padding=padd)
             conv2 = nn.Conv1d(ch_out, ch_out, kernel_size, stride, padding='same')
             norm1 = nn.BatchNorm1d(ch_out)
             norm2 = nn.BatchNorm1d(ch_out)
             poolSize=2
             poolStride=2
-            maxPool = nn.MaxPool1d(poolSize, poolStride)
+            maxPool = nn.MaxPool1d(poolSize, poolStride, ceil_mode=False)
+            # if math.floor(psdXDim / 2**(i+1)) % 2 == 1:
+            #     maxPool = nn.MaxPool1d(poolSize, poolStride, ceil_mode=True)
+            # else:
+            #     maxPool = nn.MaxPool1d(poolSize, poolStride, ceil_mode=False)
+
             self.Convs1_enc.append(conv1)
             self.Convs2_enc.append(conv2)
             self.Norms1_enc.append(norm1)
@@ -62,17 +69,19 @@ class USpec(nn.Module):
         self.Norms3_dec = nn.ModuleList()
         self.UPSamp_dec = nn.ModuleList()
         scaleFactor=2
+        kernel_size=2
         for i in range(numLayers):
             ch_in = chanStart * (riseFactor**(numLayers-i))
             ch_out = chanStart * (riseFactor**(numLayers-(i+1)))
 
-            conv1 = nn.Conv1d(ch_in, ch_out, kernel_size, stride, padding)
-            conv2 = nn.Conv1d(ch_in, ch_out, kernel_size, stride, padding)
-            conv3 = nn.Conv1d(ch_out, ch_out, kernel_size, stride, padding)
+            conv1 = nn.Conv1d(ch_in, ch_out, kernel_size, stride, padding='same')
+            conv2 = nn.Conv1d(ch_in, ch_out, kernel_size, stride, padding='same')
+            conv3 = nn.Conv1d(ch_out, ch_out, kernel_size, stride, padding='same')
             norm1 = nn.BatchNorm1d(ch_out)
             norm2 = nn.BatchNorm1d(ch_out)
             norm3 = nn.BatchNorm1d(ch_out)
-            upSamp = nn.Upsample(scaleFactor)
+            upSamp = nn.Upsample(scale_factor=scaleFactor)
+            # upSamp = nn.functional.interpolate(scale_factor=scaleFactor)
             self.Convs1_dec.append(conv1)
             self.Convs2_dec.append(conv2)
             self.Convs3_dec.append(conv3)
@@ -84,10 +93,11 @@ class USpec(nn.Module):
         # PREDICTION BLOCK                
         AvgPoolStride=7        
         outWidth = math.floor(psdXDim / 2**numLayers) * 2**numLayers
+        # outWidth = (psdXDim / 2**numLayers) * 2**numLayers
         outNodes = maxPeaks*3+2
         AvgPoolSize = outWidth - (outNodes-1)*AvgPoolStride 
         self.AvgPool = nn.AvgPool1d(AvgPoolSize, AvgPoolStride)
-        self.PredConv = nn.Conv1d(ch_in, ch_out, kernel_size, stride, padding)
+        self.PredConv = nn.Conv1d(ch_out, 1, kernel_size, stride, padding='same')
 
     def forward(self, x):
         # accumulate inputs for skip connections during forward pass
@@ -103,6 +113,7 @@ class USpec(nn.Module):
             # store layer-processed output for concatenation with corresponding decoding layer
             skip_connections.append(x)
             x = self.Maxpools_enc[i](x)
+            print(x.shape)
 
         # Botleneck pass
         x = self.midConv1(x)
@@ -111,23 +122,28 @@ class USpec(nn.Module):
         x = self.midConv2(x)
         x = self.midNorm2(x)
         x = torch.relu(x)    
+        print(x.shape)
         
         # Decoder pass
         for i in range(len(self.Convs1_dec)):
             x = self.UPSamp_dec[i](x)
+            # print(x.shape)
             x = self.Convs1_dec[i](x)
+            # print(x.shape)
             x = self.Norms1_dec[i](x)
             # concatenate with corresponding encoding layer (see above)
             skip = skip_connections[-(i+1)]
-            x = torch.cat((x, skip), dim=2)
+            x = torch.cat((x, skip), dim=1)
             x = self.Convs2_dec[i](x)
             x = self.Norms2_dec[i](x)
             x = torch.relu(x)
             x = self.Convs3_dec[i](x)
             x = self.Norms3_dec[i](x)
             x = torch.relu(x)
+            print(x.shape)
 
         # Prediction (classifier) pass
         x = self.AvgPool(x)
         x = self.PredConv(x)
+        print(x.shape)
         return x
