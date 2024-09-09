@@ -18,18 +18,26 @@ class SpecsDataset():
         index = pd.read_csv(self.labelsFile)    
         # Data fold filtering, (this enables cross validation and testing holdout)
         pattern = r'Fold(' + '|'.join(map(str,folds)) + r')\b'
-        self.index = index[index.iloc[:,1].str.contains(pattern)]                
+        self.index = index[index.iloc[:,1].str.contains(pattern)]   
+        # print('index: ', self.index.shape)             
 
     def __len__(self):
         return len(self.index)
 
     def __getitem__(self, idx):
+        # print('index: ', self.index.shape)             
         samplePath = os.path.join(self.dataDir,self.index.iloc[idx,1],self.index.iloc[idx,0])        
         psd = pd.read_csv(samplePath)
         psd = pd.to_numeric(psd.iloc[:,1], errors='coerce').fillna(0).values
-        psd = torch.tensor(psd, dtype=torch.float16)
-        label = pd.to_numeric(self.index.iloc[idx,2:-1], errors='coerce').fillna(0).values
-        label = torch.tensor(label, dtype=torch.float16)
-        sample = {'PSD':psd, 'label':label}
+        psd = torch.tensor(psd, dtype=torch.float32)
+        label = pd.to_numeric(self.index.iloc[idx,2:], errors='coerce').fillna(0).values        
+        label = torch.tensor(label, dtype=torch.float32)
+        # print("label size: ",label.shape)
+        # Perform z-scoring normalization
+        mean = psd.mean(dim=-1, keepdim=True)
+        std = psd.std(dim=-1, keepdim=True)
+        psd_z = (psd - mean) / (std + 1e-7)  # Add epsilon to avoid division by zero
+
+        sample = {'PSD_z':psd_z, 'PSD':psd, 'label':label}
 
         return sample  
