@@ -6,7 +6,7 @@ function writeSpecs2Torch(T, F, saveDir)
     % load specsData table containing fooofParams and validated spectral
     % fits
     if isempty(T)
-        load(fullfile(labelDir,"labels.mat"))    
+        load(fullfile(labelDir,"labels.mat"));    
     end    
     % Fold Partitioning
     numSamples = height(T) * 2; % using augmented samples (PMT)
