@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+from Models.Transformer import TransformerModel
 
 # Adapting U-time to report spectral parameters
 class USpec(nn.Module):
@@ -508,7 +509,7 @@ class Specformer2(nn.Module):
         x = self.attention_dropout(x)
         # print(x[0].shape)
         x = x + self.positionalEncoding(x)  # Add residual connection
-        print(x[0].shape)
+        # print(x[0].shape)
         
         # Decoder pass
         for i in range(len(self.Convs1_dec)):
@@ -527,16 +528,176 @@ class Specformer2(nn.Module):
             # x = self.Norms3_dec[i](x)
             # x = torch.relu(x)
             x = self.ResConvs1_dec[i](x)
-            print("res1:",x.shape)
+            # print("res1:",x.shape)
             x = self.ResConvs2_dec[i](x)
-            print("res2:",x.shape)
+            # print("res2:",x.shape)
             x = self.SqEx_dec[i](x)
-            print(x.shape)
+            # print(x.shape)
 
         # Prediction (classifier) pass
         x = self.AvgPool(x)
         x = self.PredConv(x)
+        # print(x.shape)
+        return x
+
+class Specformer3(nn.Module):
+    def __init__(
+            self,
+            psdXDim=195,
+            maxPeaks=8,
+            numLayers=1,
+            chanStart=16,
+            riseFactor=2,
+            dropout_rate=0.1,
+    ):
+        super(Specformer3, self).__init__()       
+        self.ResConvs1_enc = nn.ModuleList()
+        self.ResConvs2_enc = nn.ModuleList()
+        self.SqEx_enc = nn.ModuleList()
+        self.Maxpools_enc = nn.ModuleList()
+        self.dropout_enc = nn.ModuleList()
+        for i in range(numLayers):
+            if i == 0:
+                ch_in = 1
+                ch_out = chanStart
+                padd=0        
+                resconv1 = conv_block(ch_in, ch_out, kernel_size=4, stride=1, dilation=1, padding=padd)        
+                resconv2 = conv_block(ch_out, ch_out, kernel_size=20, stride=1, dilation=1, padding="same")        
+            else:
+                ch_in = (chanStart * (riseFactor**(i-1)))
+                ch_out = (chanStart * (riseFactor**i))
+                padd='same'
+                kernel_size=20//(i//2+1)
+                stride=1
+                padding=0             
+                resconv1 = resconv_block(ch_in, ch_out, kernel_size, stride, dilation=1, padding=padd)
+                resconv2 = resconv_block(ch_out, ch_out, kernel_size, stride, dilation=1, padding=padd)
+            sqex = ChannelSELayer1D(ch_out)
+            poolSize=2
+            poolStride=2
+            maxPool = nn.MaxPool1d(poolSize, poolStride, ceil_mode=False)          
+            self.ResConvs1_enc.append(resconv1)
+            self.ResConvs2_enc.append(resconv2)
+            self.SqEx_enc.append(sqex)
+            self.Maxpools_enc.append(maxPool)
+            self.dropout_enc.append(nn.Dropout(dropout_rate))
+        
+        # BOTTLENECK SEQUENCE
+        kernel_size=20//(i//2+1)
+        stride=1
+        ch_in = chanStart * (riseFactor**(numLayers-1))
+        ch_out = chanStart * (riseFactor**(numLayers))
+        self.midConv1 = nn.Conv1d(ch_in, ch_out, kernel_size, stride, padding='same')
+        self.midConv2 = nn.Conv1d(ch_out, ch_out, kernel_size, stride, padding='same')
+        self.midNorm1 = nn.BatchNorm1d(ch_out)
+        self.midNorm2 = nn.BatchNorm1d(ch_out)
+
+        # SELF ATTENTION
+        self.positionalEncoding = PositionalEncoding(d_model=32, max_len=5000)
+        self.transformer = TransformerModel(dim=32, depth=12, heads=8, mlp_dim=32*4, dropout_rate=0.1, attn_dropout_rate=0.1)
+
+        # DECODER BLOCK
+        self.Convs1_dec = nn.ModuleList()
+        # self.Convs2_dec = nn.ModuleList()
+        # self.Convs3_dec = nn.ModuleList()
+        self.ResConvs1_dec = nn.ModuleList()
+        self.ResConvs2_dec = nn.ModuleList()
+        self.SqEx_dec = nn.ModuleList()
+        self.Norms1_dec = nn.ModuleList()
+        self.Norms2_dec = nn.ModuleList()
+        self.Norms3_dec = nn.ModuleList()
+        self.UPSamp_dec = nn.ModuleList()
+        scaleFactor=2
+        kernel_size=20//(i//2+1)
+        for i in range(numLayers):
+            ch_in = chanStart * (riseFactor**(numLayers-i))
+            ch_out = chanStart * (riseFactor**(numLayers-(i+1)))
+
+            conv1 = nn.Conv1d(ch_in, ch_out, kernel_size, stride, dilation=1, padding='same')          
+            resconv1 = resconv_block(ch_in, ch_out, kernel_size, stride, dilation=1, padding='same')
+            resconv2 = resconv_block(ch_out, ch_out, kernel_size, stride, dilation=1, padding='same')
+            sqex = ChannelSELayer1D(ch_out)
+            norm1 = nn.BatchNorm1d(ch_out)
+            norm2 = nn.BatchNorm1d(ch_out)
+            norm3 = nn.BatchNorm1d(ch_out)
+            upSamp = nn.Upsample(scale_factor=scaleFactor)
+            # upSamp = nn.functional.interpolate(scale_factor=scaleFactor)
+            self.Convs1_dec.append(conv1)
+            # self.Convs2_dec.append(conv2)
+            # self.Convs3_dec.append(conv3)
+            self.ResConvs1_dec.append(resconv1)
+            self.ResConvs2_dec.append(resconv2)
+            self.SqEx_dec.append(sqex)  
+            self.Norms1_dec.append(norm1)
+            self.Norms2_dec.append(norm2)
+            self.Norms3_dec.append(norm3)
+            self.UPSamp_dec.append(upSamp)
+        
+        # PREDICTION BLOCK (MLP)      
+        outWidth = math.floor(psdXDim / 2**numLayers) * 2**numLayers        
+        outNodes = maxPeaks*3+2
+        # AvgPoolSize = outWidth - (outNodes-1)*AvgPoolStride         
+        # self.AvgPool = nn.AvgPool1d(AvgPoolSize, AvgPoolStride)
+        self.PredConv = nn.Conv1d(ch_out, 1, kernel_size, stride, padding='same')
+        self.PredMLP1 = nn.Linear(192, 96)        
+        self.PredMLP2 = nn.Linear(96, outNodes)
+
+
+    def forward(self, x):
+        # accumulate inputs for skip connections during forward pass
+        skip_connections = []
+        # Encoder pass
+        # for i in range(len(self.Convs1_enc)): 
+        for i in range(len(self.ResConvs1_enc)):            
+            x = self.ResConvs1_enc[i](x)
+            x = self.ResConvs2_enc[i](x)
+            x = self.SqEx_enc[i](x)
+            # store layer-processed output for concatenation with corresponding decoding layer
+            skip_connections.append(x)
+            x = self.Maxpools_enc[i](x)
+            x = self.dropout_enc[i](x)
+            print(x.shape)                   
+
+        # Botleneck pass
+        x = self.midConv1(x)
+        x = self.midNorm1(x)
+        x = torch.relu(x)
+        x = self.midConv2(x)
+        x = self.midNorm2(x)
+        x = torch.relu(x)           
+        x = x.permute(0, 2, 1)
+        x = self.positionalEncoding(x)        
+        x = self.transformer(x)[0]        
+        # print(x[0].shape)        
         print(x.shape)
+        x = x.permute(0, 2, 1)
+        print(x.shape)
+        
+        # Decoder pass
+        for i in range(len(self.Convs1_dec)):
+            x = self.UPSamp_dec[i](x)
+            # print(x.shape)
+            x = self.Convs1_dec[i](x)
+            # print(x.shape)
+            x = self.Norms1_dec[i](x)
+            # concatenate with corresponding encoding layer (see above)
+            skip = skip_connections[-(i+1)]
+            x = torch.cat((x, skip), dim=1)         
+            x = self.ResConvs1_dec[i](x)
+            # print("res1:",x.shape)
+            x = self.ResConvs2_dec[i](x)
+            # print("res2:",x.shape)
+            x = self.SqEx_dec[i](x)
+            print(x.shape)
+
+        # Prediction (classifier) pass        
+        x = self.PredConv(x)
+        print(x.shape)
+        x = self.PredMLP1(x)           
+        print(x.shape)
+        x = self.PredMLP2(x)
+        print(x.shape)
+        # print(x.unsqueeze(1).shape)
         return x
     
 class PositionalEncoding(nn.Module):
@@ -627,3 +788,5 @@ class ChannelSELayer1D(nn.Module):
         output_tensor = torch.mul(input_tensor, fc_out_2.view(batch_size, num_channels, 1))
 
         return output_tensor
+    
+    

@@ -1,4 +1,4 @@
-function T = generateSpecs(params, statParams, f, sampleSize)
+function T = generateSpecs(params, statParams, f, sampleSize, T_valid, F)
     % assign statistical boundaries 
     if isempty(statParams)
         statParams.CF.mean=0;
@@ -69,7 +69,11 @@ function T = generateSpecs(params, statParams, f, sampleSize)
         % Synthesize PSD from fooof params
         synthPSD = composeSpecs(f, specs);
         % inject noise
-        synthPSD_noise = injectNoise(synthPSD);        
+        if isempty(T_valid)
+            synthPSD_noise = injectNoise(synthPSD);        
+        elseif ~isempty(T_valid)
+            synthPSD_noise = transplantNoise(f, synthPSD, T_valid, F);
+        end
         if j == 1
             plot(dash.panel1.pltAx, f, synthPSD_noise,"Color",[1,0,0.5333])
             hold(dash.panel1.pltAx,"on");

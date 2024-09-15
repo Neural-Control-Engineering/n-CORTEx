@@ -34,7 +34,8 @@ def plotSpectralFit(params, specs, psds, ID):
         ax.yaxis.label.set_color('white')
         ax.title.set_color('white')
     m=0
-    step = specs.shape[0] // num_plots
+    step = round(specs.shape[0],-1) // num_plots
+    print('Step: ', step)
     for j in range(0, specs.shape[0]-1, step):
         spec = specs[j, 0, :]  
         psd = psds[j, :]

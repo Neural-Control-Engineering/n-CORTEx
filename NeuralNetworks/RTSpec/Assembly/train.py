@@ -52,7 +52,7 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer, schedul
             specs_label = data['label']
             specs_label = specs_label.cuda(params['local_rank'], non_blocking=True)
             # Compute loss
-            loss, rmse, r2 = get_loss(params, model, criterion, psd_z, specs_label, 'train')
+            loss, rmse, r2 = get_loss(params, model, criterion, psd_z, psd, specs_label, 'train')
             # print("Training loss: ", loss.item())
             train_epoch_losses.append(loss.item())            
             train_epoch_rmse.append(rmse)
@@ -76,7 +76,7 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer, schedul
                 specs_label = data['label']
                 specs_label = specs_label.cuda(params['local_rank'], non_blocking=True)
                 # Compute loss
-                loss, rmse, r2 = get_loss(params, model, criterion, psd_z, specs_label, 'val')
+                loss, rmse, r2 = get_loss(params, model, criterion, psd_z, psd, specs_label, 'val')
                 # print("Validation loss: ", loss.item())
                 val_epoch_losses.append(loss.item())
                 val_epoch_rmse.append(rmse)
@@ -125,28 +125,28 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer, schedul
                     'optim_dict': optimizer.state_dict(),
                 },                
                 file_name)
-        elif val_global_rmse[-1] == min(val_global_rmse):
-            print('saving model at the end of epoch ' + str(epoch))
-            file_name = os.path.join(params['checkpoint_dir'], 'model_{}_epoch_{}_val_rmse_{}.pth'.format(params['modelName'], epoch, val_global_rmse[-1]))
-            best_epoch = epoch
-            if epoch > 1:
-                torch.save({
-                    'epoch': epoch,
-                    'state_dict': model.state_dict(),
-                    'optim_dict': optimizer.state_dict(),
-                },                
-                file_name)
-        elif val_global_r2[-1] == max(val_global_r2):
-            print('saving model at the end of epoch ' + str(epoch))
-            file_name = os.path.join(params['checkpoint_dir'], 'model_{}_epoch_{}_val_r2_{}.pth'.format(params['modelName'], epoch, val_global_r2[-1]))
-            best_epoch = epoch
-            if epoch > 1:
-                torch.save({
-                    'epoch': epoch,
-                    'state_dict': model.state_dict(),
-                    'optim_dict': optimizer.state_dict(),
-                },                
-                file_name)
+        # elif val_global_rmse[-1] == min(val_global_rmse):
+        #     print('saving model at the end of epoch ' + str(epoch))
+        #     file_name = os.path.join(params['checkpoint_dir'], 'model_{}_epoch_{}_val_rmse_{}.pth'.format(params['modelName'], epoch, val_global_rmse[-1]))
+        #     best_epoch = epoch
+        #     if epoch > 1:
+        #         torch.save({
+        #             'epoch': epoch,
+        #             'state_dict': model.state_dict(),
+        #             'optim_dict': optimizer.state_dict(),
+        #         },                
+        #         file_name)
+        # elif val_global_r2[-1] == max(val_global_r2):
+        #     print('saving model at the end of epoch ' + str(epoch))
+        #     file_name = os.path.join(params['checkpoint_dir'], 'model_{}_epoch_{}_val_r2_{}.pth'.format(params['modelName'], epoch, val_global_r2[-1]))
+        #     best_epoch = epoch
+        #     if epoch > 1:
+        #         torch.save({
+        #             'epoch': epoch,
+        #             'state_dict': model.state_dict(),
+        #             'optim_dict': optimizer.state_dict(),
+        #         },                
+        #         file_name)
         
    
     

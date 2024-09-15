@@ -9,6 +9,7 @@ function uiUpdateSpecs(dash)
     end          
     sig = composeSpecs(dash.fh.UserData.specs.freq,dash.fh.UserData.specs);    
     % add sig to plot
-    sigLine = line(dash.fh.UserData.specs.freq,sig,"Parent",dash.panel1.pltAx,"Color",[0.0588    1.0000    1.0000]);       
+    sigLine = line(dash.fh.UserData.specs.freq,sig,"Parent",dash.panel1.pltAx,"Color",[0.0588    1.0000    1.0000]); 
+    dash.fh.UserData.sampleType="Corrected";
     drawnow;
 end

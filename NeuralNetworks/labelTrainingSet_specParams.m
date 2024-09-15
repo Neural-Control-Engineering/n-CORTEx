@@ -93,7 +93,7 @@ function [T, discT] = labelTrainingSet_specParams(params, DTS)
         dash.fh.UserData.trialNum = trialNum;
         dash.fh.UserData.date = date;
         dash.fh.UserData.phase = phase;
-        for j = 1:10:size(fooofParams,1)
+        for j = 1:8:size(fooofParams,1)
             if j ==size(fooofParams)
                 T = dash.fh.UserData.T;
                 discT = dash.fh.UserData.discT;
@@ -117,6 +117,7 @@ function [T, discT] = labelTrainingSet_specParams(params, DTS)
             dash.fh.UserData.specs_backup = specs;
             dash.fh.UserData.psdFit = psdFit;                
             dash.fh.UserData.channelNum = chanNum;   
+            dash.fh.UserData.sampleType="Verified";
             dash.fh.UserData.smpLbl = sprintf("%s_trialNum--%d_chanNum--%d", sessionLabel, trialNum, chanNum);
             % dash.fh.UserData.binnedParams = binFooofParams(frqBins, fooofParams);
             % test only unvisited samples
