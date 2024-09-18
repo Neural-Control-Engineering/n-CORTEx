@@ -110,6 +110,14 @@ function params = setExtractionParams(opts)
     % if ~isfield(opts.acquisition,'ycoords'); opts.acquisition.ycoords= load("neuropixPhase3A_kilosortChanMap.mat",'ycoords').ycoords; end
     if ~isfield(opts.acquisition,'npxWidth'); opts.acquisition.npxWidth = 4; end % npxlMtrx width is 4 channels to a row
     if ~isfield(opts.acquisition,'npxLength'); opts.acquisition.npxLength = 384; end
+
+    %% Spectral Density Cfg
+    if ~isfield(opts,"psdCfg"); opts.psdCfg = struct; end
+    if ~isfield(opts.psdCfg,"method"); opts.psdCfg.method = "pmtm"; end
+    if ~isfield(opts.psdCfg,"stride"); opts.psdCfg.stride = 1; end
+    if ~isfield(opts.psdCfg, "f_range"); opts.psdCfg.fRange = [0,50]; end
+    if ~isfield(opts.psdCfg,"windowLen"); opts.psdCfg.windowLen = 200; end
+    if ~isfield(opts.psdCfg,"nfft"); opts.psdCfg.nfft = 2048; end    
     
     % COMPUTER PARAMS
     switch opts.hostName

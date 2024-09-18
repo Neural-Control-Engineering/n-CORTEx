@@ -1,3 +1,2 @@
-function rtPlot_imagesc(Ax, imgBuffer)
-    
+function rtPlot_imagesc(Ax, imgBuffer)    
 end
