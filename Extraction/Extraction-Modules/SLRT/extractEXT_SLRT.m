@@ -39,7 +39,7 @@ function out = extractEXT_SLRT(filename)
     end
 
     % get session label
-    file_parts = strsplit(filename, '/');
+    file_parts = strsplit(filename, filesep());
     file_name = strsplit(file_parts{end}, '.');
     session_label = file_name{1};  
     

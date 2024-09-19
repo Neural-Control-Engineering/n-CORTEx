@@ -31,7 +31,7 @@ function M = mergeT_vertical(T1, T2)
             success = 1;
         catch e % CASE: match double arrays to cell arrays before concatenation until all variables are OK
             disp(e);
-            if strcmp(e.identifier,'MATLAB:table:vertcat:VertcatCellAndNonCell') ||
+            if strcmp(e.identifier,'MATLAB:table:vertcat:VertcatCellAndNonCell')
                 pattern = "Unable to concatenate the table variable '(\w+)'";
                 matches = regexp(e.message, pattern, 'tokens');
                 keyVar = convertCharsToStrings(matches{1});            

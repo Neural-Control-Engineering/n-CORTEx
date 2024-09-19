@@ -6,7 +6,7 @@ function extractDTS(params)
    
     DTS = [];
     for i = 1:length(sessions)
-        session = sessions{i}
+        session = sessions{i};
         extFields = fieldnames(extData);    
         % ignore local and cloud fields
         dirMask = cell2mat(cellfun(@(x) ~strcmp(x,"local") & ~strcmp(x,"cloud"), extFields, "UniformOutput", false));
