@@ -22,9 +22,9 @@ def plotSpectralFit(params, specs, psds, ID):
     num_plots = 5
     # print('num_plots: ', num_plots)
     fig, axs = plt.subplots(1, num_plots, figsize=(20, 6))
-    fig.patch.set_facecolor('black')
+    fig.patch.set_facecolor('#98b69e')
     for ax in axs:
-        ax.set_facecolor('black')
+        ax.set_facecolor('#98b69e')
         ax.tick_params(colors='white')
         ax.spines['bottom'].set_color('white')
         ax.spines['top'].set_color('white')
@@ -61,6 +61,7 @@ def plotSpectralFit(params, specs, psds, ID):
         ax.set_xlabel('Frequency (Hz)', color='white')
         ax.set_ylabel('Power (dB)', color='white')
         ax.set_title('Spectral fit: ' + ID, color='white')
+        # ax.set_facecolor('black')
         ax.set_facecolor('black')
         m+=1
     

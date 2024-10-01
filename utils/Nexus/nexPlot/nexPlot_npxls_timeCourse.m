@@ -10,7 +10,8 @@ function timeCourse =  nexPlot_npxls_timeCourse(nexon, shank, timeCourse)
     timeCourse.tcFigure.nextButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)tileShift(nexon, shank,  timeCourse, 1),"Position",[965,1270,25,15]); % next
     timeCourse.tcFigure.prevButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)tileShift(nexon, shank, timeCourse, 0),"Position",[935,1270,25,15]); % prev
     timeCourse.tcFigure.PSDButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)loadPSDTimeCourse(nexon, shank, timeCourse),"Position",[5,1270,25,25]);
-    timeCourse.tcFigure.LFPButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)loadLFPTimeCourse(nexon, shank, timeCourse),"Position",[40,1270,25,25]);
+    timeCourse.tcFigure.LFPButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)loadLFPTimeCourse(nexon, shank, timeCourse),"Position",[35,1270,25,25]);
+    timeCourse.tcFigure.RegionCompressButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)npxlsRegionPool(nexon, shank, timeCourse, "average"),"Position",[65, 1270, 25, 25]);
     % timeCourse.tcFigure.APButton
     % idxCond = contains(nexon.console.BASE.UserData.DTS.sessionLabel,router.subject) & contains(nexon.console.base.UserData.DTS.sessionLabel,router.date) & contains(nexon.console.base.UserData.DTS.sessionLabel,router.phase) & ((router.trial)==nexon.console.base.UserData.DTS.trialNumber);
     % dtsIdx = find(idxCond);

@@ -13,7 +13,13 @@ classdef nexObj_npxlsTimeCourse < handle
             obj.dataFrame=dataFrame;            
             obj.dfID = dfID;
             obj.UserData=struct();
+            obj.UserData.Fs = 500;
             obj = nexPlot_npxls_timeCourse(nexon, shank, obj);
+        end
+
+        function updateScope(obj,  nexon, shank)            
+            regMap = shank.regMap;
+            updateTimeCourse(shank, obj, regMap)
         end
         
         % Example method to set UserData

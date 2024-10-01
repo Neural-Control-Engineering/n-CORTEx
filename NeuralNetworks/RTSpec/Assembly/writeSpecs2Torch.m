@@ -1,8 +1,13 @@
-function writeSpecs2Torch(T, F, saveDir)
+function writeSpecs2Torch(T, F, freq, saveDir)
     PADLEN = 26;
     NUMFOLDS = 5;
-    freq = T(1,:).fooofparams{1};
-    freq_default= freq.freq;
+    if isempty(freq)
+        freq = T(1,:).fooofparams{1};
+        freq_default= freq.freq;
+    else
+        freq_default=freq;
+    end
+    
     % load specsData table containing fooofParams and validated spectral
     % fits
     if isempty(T)

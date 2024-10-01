@@ -5,6 +5,8 @@ function tileShift(nexon, shank, npxlsTimeCourse, direction)
     % Region Mapping (npxls only)
     regMap = shank.regMap;
     regMap.channel=arrayfun(@(x) x{1}, regMap.channel, "UniformOutput",true);
+    Fs = npxlsTimeCourse.UserData.Fs;
+    t_df = [1:size(dataFrame,2)] ./ Fs - 3.5;
     ptr_prior = ptr;
     switch direction
         case 1 % up
@@ -24,7 +26,7 @@ function tileShift(nexon, shank, npxlsTimeCourse, direction)
             ptrIdx = ceil(size(dataFrame,1)/(length(tileSetFields)))*ptr+i;
             traceColor = sprintf("#%s",regMap(regMap.channel==ptrIdx,:).color{1});        
             regName = regMap(regMap.channel==ptrIdx,:).region{1};
-            updatePlotAx(npxlsTimeCourse.tcFigure.panel1.tiles.Axes.(tileID), [], dataFrame(ptrIdx,:), traceColor);
+            updatePlotAx(npxlsTimeCourse.tcFigure.panel1.tiles.Axes.(tileID), t_df, dataFrame(ptrIdx,:), traceColor);
             npxlsTimeCourse.tcFigure.panel1.tiles.Axes.(tileID).YLabel.String = sprintf("%s", regName);            
             colorAx_green(npxlsTimeCourse.tcFigure.panel1.tiles.Axes.(tileID));
         catch e

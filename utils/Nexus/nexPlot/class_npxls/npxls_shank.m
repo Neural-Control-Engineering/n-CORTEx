@@ -19,6 +19,20 @@ classdef npxls_shank < handle
             % start user with one timeCourse
             dataFrame = grabDataFrame(nexon,"lfp");
             obj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, obj, dataFrame, "lfp");
+            % add STFT (PMTM method spectrogram)
+            try
+                spg1 = grabSpectrogram(nexon, "pmtm");
+                obj.scope.spectrogram1 = nexObj_spectroGram(nexon, obj, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, "mag");
+            catch e
+                disp(e);
+            end
+            % add CWT spectrogram (wavelet transform)
+            try
+                spg2 = grabSpectrogram(nexon, "cwt");
+                obj.scope.spectrogram2 = nexObj_spectroGram(nexon, obj, spg2.dataFrame, spg2.dfID, spg2.f, spg2.t, "phase");
+            catch e
+                disp(e);
+            end
             obj.config = struct();
             % draw config Panel
             obj.config = drawShankCfgPanel(nexon, obj);                          

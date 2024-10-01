@@ -5,5 +5,5 @@ function loadPSDTimeCourse(nexon, shank, timeCourse)
     PSD_bands = timeCourse.UserData.PSD_bands;
     dataFrame = squeeze(PSD_bands(:,:,bandIdx));
     timeCourse.dataFrame = dataFrame;    
-    updateTimeCourse(shank, timeCourse);
+    updateTimeCourse(shank, timeCourse,[]);
 end

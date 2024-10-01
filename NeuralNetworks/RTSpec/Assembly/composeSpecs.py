@@ -32,8 +32,8 @@ def composeSpecs(params, specs_batch):
     with h5py.File(os.path.join(params['dataDir'], 'f.mat'), 'r') as file:
         f = file['freq'][:]
     f = torch.tensor(f, dtype=torch.float32).cuda()
-    print('F: ',f.shape)
-    print('Specs: ',specs_batch.shape)
+    # print('F: ',f.shape)
+    # print('Specs: ',specs_batch.shape)
 
     # specs_batch: shape [batch_size, param_dim] 
     # (assuming param_dim = 2 for aperiodic params + 3*num_peaks for Gaussian params)
@@ -41,13 +41,13 @@ def composeSpecs(params, specs_batch):
 
     # Expand f to handle batch dimension: shape [batch_size, num_freqs]
     f = f.squeeze(1).unsqueeze(0).expand(batch_size, -1).unsqueeze(2) # this gives [300, 195]
-    print('F: ',f.shape)
+    # print('F: ',f.shape)
 
     # Aperiodic component: bias and exponent
     bias = specs_batch[:, 0, 0].unsqueeze(1).unsqueeze(1)
     exponent = specs_batch[:, 0, 1].unsqueeze(1).unsqueeze(1)
-    print('Bias: ',bias.shape)
-    print('Exponent: ',exponent.shape)
+    # print('Bias: ',bias.shape)
+    # print('Exponent: ',exponent.shape)
     
     # Compute aperiodic signal component for all batch samples: [batch_size, num_freqs]
     sig = torch.log10(1 / (f ** exponent))  

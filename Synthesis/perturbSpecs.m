@@ -1,7 +1,7 @@
 function specs_perturb =  perturbSpecs(dash, f, noise, shakeFactor, specs)
     aperiodic_params = specs.aperiodic_params;
     peak_params = specs.peak_params;    
-    noise_sc = rand() * 1.4;
+    noise_sc = rand() * 1.5;
     shake = rand() * shakeFactor;
     
     for i = 1:size(peak_params,1)
@@ -17,7 +17,7 @@ function specs_perturb =  perturbSpecs(dash, f, noise, shakeFactor, specs)
     for i = 1:size(aperiodic_params,2)
         opSide = ceil(rand()*2);
         if i == 2 % if this is the exp param use a different 'shakeFactor'                        
-            shake = rand()*0.03;                   
+            shake = rand()*0.06;                   
         end
         switch opSide
             case 1

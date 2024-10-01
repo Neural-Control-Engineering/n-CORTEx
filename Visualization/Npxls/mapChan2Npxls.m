@@ -9,7 +9,12 @@ function [NT, NT_color] = mapChan2Npxls(regMap, dataStream)
     for i = 1:height(regMap)
         disp(i);
         npxChan = regMap(i,:);
-        channelNum = npxChan.channel{1};
+        try
+            channelNum = npxChan.channel{1};
+        catch e
+            disp(e);
+            channelNum = npxChan.channel;
+        end
         X = npxChan.X{1};
         Y = npxChan.Y{1};
         X_shift = (X-11)/16+1;

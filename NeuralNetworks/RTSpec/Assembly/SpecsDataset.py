@@ -37,6 +37,7 @@ class SpecsDataset():
         mean = psd.mean(dim=-1, keepdim=True)
         std = psd.std(dim=-1, keepdim=True)
         psd_z = (psd - mean) / (std + 1e-7)  # Add epsilon to avoid division by zero
+        psd_z = torch.cat([psd_z, mean], dim=-1) # uncomment for offset-aware normatlization        
 
         sample = {'PSD_z':psd_z, 'PSD':psd, 'label':label}
 

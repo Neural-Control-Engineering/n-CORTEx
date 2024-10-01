@@ -93,7 +93,7 @@ function [T, discT] = labelTrainingSet_specParams(params, DTS)
         dash.fh.UserData.trialNum = trialNum;
         dash.fh.UserData.date = date;
         dash.fh.UserData.phase = phase;
-        for j = 1:8:size(fooofParams,1)
+        for j = 1:7:size(fooofParams,1)
             if j ==size(fooofParams)
                 T = dash.fh.UserData.T;
                 discT = dash.fh.UserData.discT;

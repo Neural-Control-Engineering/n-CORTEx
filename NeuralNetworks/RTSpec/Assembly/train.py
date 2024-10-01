@@ -6,6 +6,7 @@ from learning_curve import learning_curve
 from get_loss import get_loss
 from adjust_learning_rate import adjust_learning_rate
 from plotSpectralFit import plotSpectralFit
+from savePredictionToGif import savePredictionToGif
 
 def train(params, model, trainLoader, validLoader, criterion, optimizer, scheduler):
 
@@ -52,7 +53,7 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer, schedul
             specs_label = data['label']
             specs_label = specs_label.cuda(params['local_rank'], non_blocking=True)
             # Compute loss
-            loss, rmse, r2 = get_loss(params, model, criterion, psd_z, psd, specs_label, 'train')
+            loss, rmse, r2, r2_prct_off, resid_prct_off, nrmse_off, r2_prct_exp, resid_prct_exp, nrmse_exp, r2_prct_CF, resid_prct_CF, nrmse_CF, r2_prct_BW, resid_prct_BW, nrmse_BW, r2_prct_PW, resid_prct_PW, nrmse_PW, r2_prct_total, resid_total, nrmse_total = get_loss(params, model, criterion, psd_z, psd, specs_label, 'train')
             # print("Training loss: ", loss.item())
             train_epoch_losses.append(loss.item())            
             train_epoch_rmse.append(rmse)
@@ -76,7 +77,7 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer, schedul
                 specs_label = data['label']
                 specs_label = specs_label.cuda(params['local_rank'], non_blocking=True)
                 # Compute loss
-                loss, rmse, r2 = get_loss(params, model, criterion, psd_z, psd, specs_label, 'val')
+                loss, rmse, r2, r2_prct_off, resid_prct_off, nrmse_off, r2_prct_exp, resid_prct_exp, nrmse_exp, r2_prct_CF, resid_prct_CF, nrmse_CF, r2_prct_BW, resid_prct_BW, nrmse_BW, r2_prct_PW, resid_prct_PW, nrmse_PW, r2_prct_total, resid_total, nrmse_total  = get_loss(params, model, criterion, psd_z, psd, specs_label, 'val')
                 # print("Validation loss: ", loss.item())
                 val_epoch_losses.append(loss.item())
                 val_epoch_rmse.append(rmse)
@@ -87,14 +88,13 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer, schedul
         
         # plot validation comparison
         specs_pred = model(psd_z.float().unsqueeze(1))
-        print("PRED: ", specs_pred.shape)        
+        # print("PRED: ", specs_pred.shape)        
         specs_label = specs_label.unsqueeze(1)
-        print("LABEL: ",specs_label.shape)
-        # plotSpectralFit(params, specs_label.cpu().detach().numpy()[-1, :, :].flatten(), psd.cpu().detach().numpy()[-1,:],"LABEL")
-        # plotSpectralFit(params, specs_pred.cpu().detach().numpy()[-1, :, :].flatten(), psd.cpu().detach().numpy()[-1,:], "PREDICTION")        
+        # print("LABEL: ",specs_label.shape)        
         plotSpectralFit(params, specs_label.cpu().detach().numpy()[:, :, :], psd.cpu().detach().numpy()[:,:],"LABEL")
-        plotSpectralFit(params, specs_pred.cpu().detach().numpy()[:, :, :], psd.cpu().detach().numpy()[:,:], "PREDICTION")        
-
+        plotSpectralFit(params, specs_pred.cpu().detach().numpy()[:, :, :], psd.cpu().detach().numpy()[:,:], "PREDICTION")   
+        # GENERATE GIF (LEARNING PROGRESS)
+        # savePredictionToGif(params, specs_label.cpu().detach().numpy()[:, :, :], psd.cpu().detach().numpy()[:,:], specs_pred.cpu().detach().numpy()[:, :, :])      
         # Report Epoch-wise average metrics
         train_net_loss = sum(train_epoch_losses)/len(train_epoch_losses)
         val_net_loss = sum(val_epoch_losses)/len(val_epoch_losses)

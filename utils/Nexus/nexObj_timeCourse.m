@@ -11,6 +11,13 @@ classdef nexObj_timeCourse < handle
             obj.dataFrame=struct();            
             obj.dfID = dfID;
         end
+
+        % function updateScope(obj)
+        %     obj.spgFigure.Ax.CData =obj.dataFrame(obj.UserData.chanSel,:,:);
+        %     obj.spgFigure.Ax.YData=obj.f;
+        %     obj.spgFigure.Ax.XData=obj.t;            
+        %     drawnow;
+        % end
         
         % Example method to set UserData
         function setUserData(obj, data)
