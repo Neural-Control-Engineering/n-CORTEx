@@ -77,7 +77,7 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer, schedul
                 specs_label = data['label']
                 specs_label = specs_label.cuda(params['local_rank'], non_blocking=True)
                 # Compute loss
-                loss, rmse, r2, r2_prct_off, resid_prct_off, nrmse_off, r2_prct_exp, resid_prct_exp, nrmse_exp, r2_prct_CF, resid_prct_CF, nrmse_CF, r2_prct_BW, resid_prct_BW, nrmse_BW, r2_prct_PW, resid_prct_PW, nrmse_PW, r2_prct_total, resid_total, nrmse_total  = get_loss(params, model, criterion, psd_z, psd, specs_label, 'val')
+                loss, rmse, r2, r2_prct_off, resid_prct_off, nrmse_off, r2_prct_exp, resid_prct_exp, nrmse_exp, r2_prct_CF, resid_prct_CF, nrmse_CF, r2_prct_BW, resid_prct_BW, nrmse_BW, r2_prct_PW, resid_prct_PW, nrmse_PW, r2_prct_total, resid_total, nrmse_total  = get_loss(params, model, criterion, psd_z, psd, specs_label, 'val')                
                 # print("Validation loss: ", loss.item())
                 val_epoch_losses.append(loss.item())
                 val_epoch_rmse.append(rmse)
@@ -123,6 +123,7 @@ def train(params, model, trainLoader, validLoader, criterion, optimizer, schedul
                     'epoch': epoch,
                     'state_dict': model.state_dict(),
                     'optim_dict': optimizer.state_dict(),
+                    'modelType': params['modelName'],
                 },                
                 file_name)
         # elif val_global_rmse[-1] == min(val_global_rmse):

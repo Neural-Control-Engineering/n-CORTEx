@@ -35,8 +35,16 @@ def plotSpectralFit(params, specs, psds, ID):
         ax.title.set_color('white')
     m=0
     step = round(specs.shape[0],-1) // num_plots
+    if step == 0:
+        step = 1
+        eof = specs.shape[0]
+    else:
+        eof = specs.shape[0] - 1
     print('Step: ', step)
-    for j in range(0, specs.shape[0]-1, step):
+    print("specs: ", specs.shape)
+    print("psds: ", psds.shape)
+    
+    for j in range(0, eof, step):
         spec = specs[j, 0, :]  
         psd = psds[j, :]
         bias = spec[0]

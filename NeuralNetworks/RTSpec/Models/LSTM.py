@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from Models.Transformer import TransformerModel
+# from Models.Transformer import TransformerModel
 
 class specLSTM(nn.Module):
     def __init__(self, input_dim=195, output_dim=26, hidden_dim=128, num_layers=6, dropout=0.1):

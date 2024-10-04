@@ -19,7 +19,7 @@ class SpecsDataset():
         # Data fold filtering, (this enables cross validation and testing holdout)
         pattern = r'Fold(' + '|'.join(map(str,folds)) + r')\b'
         self.index = index[index.iloc[:,1].str.contains(pattern)]   
-        # print('index: ', self.index.shape)             
+        print('index: ', self.index.shape)             
 
     def __len__(self):
         return len(self.index)
