@@ -13,7 +13,11 @@ function out = extractEXT_SLRT(filename)
     try
         logsout = slrt.realtimeLog.data;
     catch
-        logsout = slrt.logsout;
+        try
+            logsout = slrt.logsout;
+        catch 
+            logsout = slrt.data;
+        end
     end
     signals = logsout.getElementNames();
     try
