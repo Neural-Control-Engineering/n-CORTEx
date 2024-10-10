@@ -22,7 +22,7 @@ function [PSD, f, t] = computeSpectralDensity(cfg, dataFrame)
     try    Fs=cfg.Fs; catch Fs=500; end
     try    nfft=cfg.nfft; catch nfft=2048; end
     try    chanRange=cfg.chanRange; catch chanRange=[1:385]; end
-    try eofGap = cfg.eofGap; catch eofGap=windowLen; end
+    try    eofGap = cfg.eofGap; catch eofGap=windowLen; end
 
     disp(cfg.method);
     if strcmp(method,"multispec")

@@ -52,7 +52,7 @@ function plotSGBars_channels(regMap, P, groups, groupLabels)
             er.Color = [0 0 0];
             er.LineStyle = 'none';
             hold off;
-            title(sprintf("%s",specParam));
+            title(sprintf("%s",strrep(specParam,"_","-")));
         end
         figTitle = sprintf("ch%d--%s.png",i,reg);
         set(gcf,"Position",[14,1242,3796,540]);

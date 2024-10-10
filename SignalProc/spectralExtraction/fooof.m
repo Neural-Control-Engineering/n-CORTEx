@@ -27,6 +27,7 @@ function freq = fooof(params, lfp, f)
             cfg.win = 400;
             [freq] = fooof_pwelch(cfg, ftData);
         case "preFFT"
+            % lfp is now a precalculated psd (misnomer)
             hOT=1;
             ss= size(lfp);
             TF = reshape(lfp,[ss(1),1,ss(2)]); %e.g. size N x 1 x nFfts psd            

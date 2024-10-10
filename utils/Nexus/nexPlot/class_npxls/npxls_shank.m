@@ -21,6 +21,12 @@ classdef npxls_shank < handle
             obj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, obj, dataFrame, "lfp");
             % add STFT (PMTM method spectrogram)
             try
+                rtSpectrogram = grabDataFrame(nexon,"lfp");
+                obj.scope.channelgram1 = nexObj_channelGram(nexon, obj, rtSpectrogram, "lfp", "mag");
+            catch e
+                disp(e);
+            end
+            try
                 spg1 = grabSpectrogram(nexon, "pmtm");
                 obj.scope.spectrogram1 = nexObj_spectroGram(nexon, obj, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, "mag");
             catch e
