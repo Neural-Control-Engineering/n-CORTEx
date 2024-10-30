@@ -83,7 +83,7 @@ function extractDTS(params)
             parpool("SpmdEnabled",false)
         catch
         end
-        DTS_prev = loadTall(strcat(fullfile(dtsPath,"D008")));        
+        DTS_prev = loadTall(strcat(fullfile(dtsPath,"D009")));        
         writePath = strcat(fullfile(params.paths.Data.DTS.cloud));
     end
     if any(ismember(DTS_prev.Properties.VariableNames,"trialNum"))
