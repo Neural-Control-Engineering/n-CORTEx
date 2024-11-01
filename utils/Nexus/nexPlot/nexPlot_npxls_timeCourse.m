@@ -3,7 +3,7 @@ function timeCourse =  nexPlot_npxls_timeCourse(nexon, shank, timeCourse)
     params = nexon.console.BASE.params;
     df = timeCourse.dataFrame;
     dfID = timeCourse.dfID;
-    timeCourse.tcFigure.fh =uifigure("Position",[25,1260,1000, 1300],"Color",[0,0,0]);
+    timeCourse.tcFigure.fh =uifigure("Position",[25,560,1000, 1300],"Color",[0,0,0]);
     load(fullfile(params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
     timeCourse.tcFigure.panel1.ph1 = uipanel(timeCourse.tcFigure.fh,"Position",[5,5,990,1260],"BackgroundColor",[0,0,0]);  
     % draw buttons
@@ -12,6 +12,7 @@ function timeCourse =  nexPlot_npxls_timeCourse(nexon, shank, timeCourse)
     timeCourse.tcFigure.PSDButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)loadPSDTimeCourse(nexon, shank, timeCourse),"Position",[5,1270,25,25]);
     timeCourse.tcFigure.LFPButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)loadLFPTimeCourse(nexon, shank, timeCourse),"Position",[35,1270,25,25]);
     timeCourse.tcFigure.RegionCompressButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)npxlsRegionPool(nexon, shank, timeCourse, "average"),"Position",[65, 1270, 25, 25]);
+    timeCourse.tcFigure.saveFigButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)exportNpxlsTimeCourse(nexon,shank,timeCourse),"Position",[905,1270,25,25]);
     % timeCourse.tcFigure.APButton
     % idxCond = contains(nexon.console.BASE.UserData.DTS.sessionLabel,router.subject) & contains(nexon.console.base.UserData.DTS.sessionLabel,router.date) & contains(nexon.console.base.UserData.DTS.sessionLabel,router.phase) & ((router.trial)==nexon.console.base.UserData.DTS.trialNumber);
     % dtsIdx = find(idxCond);

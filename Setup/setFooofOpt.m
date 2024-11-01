@@ -1,9 +1,12 @@
 function opt = setFooofOpt()
     opt.freq_range = [0.2859, 50,0286];
     opt.peak_width_limits = [0.5000,12];
+    % opt.peak_width_limits = [0.5000,18];
     opt.max_peaks = 5;
+    % opt.min_peak_height = 0.3500;
     opt.min_peak_height = 0.3500;
     opt.aperiodic_mode = 'fixed';
+    % opt.aperiodic_mode = 'knee';
     opt.peak_threshold = 2;
     opt.return_spectrum = 1;
     opt.border_threshold = 1;

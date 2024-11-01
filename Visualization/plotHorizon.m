@@ -1,4 +1,4 @@
-function plotHorizon(Ax, f, dfSet, color, legItem)
+function [meanDfs, Ax] = plotHorizon(Ax, f, dfSet, color, legItem)
     % color in HSV format
     cDim = color;
     cDim(2) = 50;
