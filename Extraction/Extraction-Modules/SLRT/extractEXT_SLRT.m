@@ -1,4 +1,4 @@
-function out = extractEXT_SLRT(filename)
+function [out, slrt] = extractEXT_SLRT(filename)
     % Loads SLRT data saved in 'filename' and segments trials based on 
     % cont_trialCounter with data stored in a table. Currently, there is a 180 
     % second delay before the "behavior" starts. This is left out of the out for

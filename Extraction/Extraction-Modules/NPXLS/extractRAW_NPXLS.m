@@ -108,7 +108,20 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             nidqFileName = strrep(bin,'.imec0.ap.bin','.nidq.bin');
                             nidqFolder = nidqBinDir(k).folder;
                             lfp = ReadSGLXData(lfpFileName, binFldr, chan_imec);
-                            lfp = downsample(lfp.dataArray',5)';
+                            % keyboard
+                            Fs = lfp.meta.imSampRate;  % Sampling frequency (Hz)
+                            % Design the notch filter
+                            d = designfilt('bandpassiir', ...
+                                        'FilterOrder', 4, ...
+                                        'HalfPowerFrequency1', 0.1, ...
+                                        'HalfPowerFrequency2', 100, ...
+                                        'DesignMethod', 'butter', ...
+                                        'SampleRate', Fs);
+                            rmpath('C:\Code_Repo\n-CORTEx\utils\fieldtrip-20230522\external\signal\')
+                            tmpLfp = filtfilt(d, lfp.dataArray);
+                            addpath(genpath('C:\Code_Repo\n-CORTEx\utils\fieldtrip-20230522\external\signal\'))
+                            lfp = downsample(tmpLfp', 5)';
+                            % lfp = downsample(lfp.dataArray',5)';
                             nidq = ReadSGLXData(nidqFileName,nidqFolder, chan_nidq);                                                                                                            
                             save(fullfile(strcat("\\?\",kSortOutPath),"lfp.mat"),"lfp");
                             save(fullfile(strcat("\\?\",kSortOutPath),"nidq.mat"),"nidq");                              

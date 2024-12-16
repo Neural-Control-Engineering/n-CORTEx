@@ -26,12 +26,12 @@ function extractEXT(params)
             for i = 1:numSessions
                 session = sessions{i};
                 slrtFile = fullfile(params.paths.Data.RAW.SLRT.cloud,session);
-                SLRT = extractEXT_SLRT(slrtFile);
+                [SLRT, slrtFile] = extractEXT_SLRT(slrtFile);
                 % BOOST FCN
                 if isfield(extractCfg.EXT,"SLRT")
                     try % signle boostFcn case
                         args = extractCfg.EXT.SLRT.args;
-                        SLRT = extractCfg.EXT.SLRT.boostFcn(params, SLRT , args);
+                        SLRT = extractCfg.EXT.SLRT.boostFcn(params, SLRT , slrtFile, args);
                     catch e
                         % disp("WARNING: boostFcn for SLRT failed \n")
                         % disp(e);
@@ -39,7 +39,7 @@ function extractEXT(params)
                             for j = 1:size(extractCfg.EXT.SLRT.boostFcn,1)
                                 boostFcn = extractCfg.EXT.SLRT.boostFcn{j};
                                 args = extractCfg.EXT.SLRT.args{j};
-                                SLRT = boostFcn(params, SLRT, args);
+                                SLRT = boostFcn(params, SLRT, slrtFile, args);
                             end
                         catch e
                             disp(e);
