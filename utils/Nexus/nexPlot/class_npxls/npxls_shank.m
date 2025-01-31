@@ -22,6 +22,7 @@ classdef npxls_shank < handle
             % add STFT (PMTM method spectrogram)
             try
                 rtSpectrogram = grabDataFrame(nexon,"lfp");
+                % parfeval(@() nexObj_channelGram(nexon, obj, rtSpectrogram,"lfp","mag"),0);
                 obj.scope.channelgram1 = nexObj_channelGram(nexon, obj, rtSpectrogram, "lfp", "mag");
             catch e
                 disp(e);

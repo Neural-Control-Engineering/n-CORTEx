@@ -2,8 +2,7 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
     % update parameters and relevant scope dataframes, etc
     value = entryPanel.Panel.(entryfield).uiField.Value;
     entryPanel.entryParams.(entryfield) = value;
-    params = nexon.console.BASE.params;
-
+    params = nexon.console.BASE.params;    
     % refind dropdown items    
     entryParams = nexon.console.BASE.router.entryParams;
     subjSessionLabels = nexon.console.BASE.DTS.sessionLabel(contains(nexon.console.BASE.DTS.sessionLabel,entryParams.subject));    
@@ -31,6 +30,7 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
             nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope(nexon, nexon.console.NPXLS.shanks.(shank));
         end
     end
+    nexon.console.BASE.UserData.prevRouter.entryParams=nexon.console.BASE.router.entryParams; % keep track of most recent entryParams
     % grabDataFrame(nexon,"lfp");
 end
 

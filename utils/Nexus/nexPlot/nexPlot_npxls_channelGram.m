@@ -11,8 +11,10 @@ function channelGram = nexPlot_npxls_channelGram(nexon, shank, channelGram)
             colorAx_green(chgFigure.Ax2);
         case 1
             chgFigure.fh = uifigure("Position",[100,1260,500,500],"Color",[0,0,0]);   
-            chgFigure.panel1.ph=uipanel(chgFigure.fh,"Position",[5,5,490,490],"BackgroundColor",[0,0,0]);
+            chgFigure.panel1.ph=uipanel(chgFigure.fh,"Position",[5,5,490,470],"BackgroundColor",[0,0,0]);
             chgFigure.panel1.tiles.t = tiledlayout(chgFigure.panel1.ph,1,1);
+            % Buttons
+            chgFigure.playButton = uibutton(chgFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)nexPlayPause(channelGram),"Position",[5,477,22,22]); % next
             % channel gram
             chgFigure.panel1.tiles.Axes.channelGram = nexttile(chgFigure.panel1.tiles.t);           
             chgFigure.panel1.tiles.Axes.channelGram= surf(chgFigure.panel1.tiles.Axes.channelGram,"CData",[]);
@@ -63,7 +65,8 @@ function channelGram = nexPlot_npxls_channelGram(nexon, shank, channelGram)
             load(fullfile(nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
             colormap(chgFigure.fh,CT);
             % channelGram plot
-            chgFigure.panel1.tiles.Axes.channelGram.Parent.Color=[0,0,0];            
+            chgFigure.panel1.tiles.Axes.channelGram.Parent.Color=[0,0,0];      
+            chgFigure.panel1.tiles.Axes.channelGram.Parent.Parent.Title.Color=[0.24,0.94,0.46];             
             chgFigure.panel1.tiles.Axes.channelGram.Parent.GridColor=[0.24,0.94,0.46];             
             chgFigure.panel1.tiles.Axes.channelGram.Parent.XColor=[0.24,0.94,0.46];
             chgFigure.panel1.tiles.Axes.channelGram.Parent.YColor=[0.24,0.94,0.46];

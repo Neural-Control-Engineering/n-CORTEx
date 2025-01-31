@@ -10,9 +10,9 @@ classdef nexPanel_BASE < handle
         % Constructor
         function obj = nexPanel_BASE(nexon,DTS, params)
             obj.DTS=DTS;
-            obj.router = setupRouter(nexon, DTS);
-            obj.params = params; % Initialize as an empty struct                  
             obj.UserData = struct();
+            obj.router = setupRouter(obj, nexon, DTS);
+            obj.params = params; % Initialize as an empty struct                              
         end
         
         % Example method to set UserData

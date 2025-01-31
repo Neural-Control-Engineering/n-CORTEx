@@ -1,4 +1,4 @@
-function scatterBox(calibration, DTS, dfID, phases, subjects, scope)
+function scatterBox(calibration, DTS, dfID, phases, subjects, scope, pltMethod)
     % df = DTS.(dfID);
     switch scope
         case "single"
@@ -19,19 +19,27 @@ function scatterBox(calibration, DTS, dfID, phases, subjects, scope)
                     if iscell(phaseData)
                         phaseData = cell2mat(phaseData);
                     end
-                    phaseData = phaseData * calibration.fit(1); %+ calibration.fit(2);
-                    data = [data; phaseData];
-                    phaseTag = repelem(j,length(phaseData))';
-                    groups = [groups; phaseTag];
-                    groupLabels=[groupLabels,phase];
+                    if ~isempty(phaseData)
+                        % phaseData = phaseData * calibration.fit(1); %+ calibration.fit(2);
+                        data = [data; phaseData];
+                        phaseTag = repelem(j,length(phaseData))';
+                        groups = [groups; phaseTag];
+                        groupLabels=[groupLabels,phase];
+                    end
                 end
-                boxchart(tAx,groups,data,"BoxWidth",0.5);
-                hold on
-                scatter(tAx,groups, data, 'filled', 'MarkerFaceAlpha', 0.5, 'jitter','on', 'jitterAmount',0.1);
+                switch pltMethod
+                    case "box"
+                        boxchart(tAx,groups,data,"BoxWidth",0.5);
+                        hold on
+                        scatter(tAx,groups, data, 'filled', 'MarkerFaceAlpha', 0.5, 'jitter','on', 'jitterAmount',0.1);
+                    case "violin"
+                        daviolinplot(data,"groups",groups)
+                end
                 title(subj);
                 xticks(1:4);
                 xticklabels(groupLabels);
                 title(subj);
+                tAx.YLim = [-5, 50];
             end
         case "group"
     end
