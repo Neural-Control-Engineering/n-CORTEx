@@ -39,10 +39,17 @@ function extractEXT(params)
                             for j = 1:size(extractCfg.EXT.SLRT.boostFcn,1)
                                 boostFcn = extractCfg.EXT.SLRT.boostFcn{j};
                                 args = extractCfg.EXT.SLRT.args{j};
-                                SLRT = boostFcn(params, SLRT, slrtFile, args);
+                                try
+                                    SLRT = boostFcn(params, SLRT, slrtFile, args);
+                                catch e
+                                    msg = getReport(e);
+                                    disp(msg);
+                                end
                             end
                         catch e
                             disp(e);
+                            msg = getReport(e);
+                            disp(msg);
                         end
                     end
                 end
