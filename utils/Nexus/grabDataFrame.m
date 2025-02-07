@@ -1,7 +1,9 @@
-function dataFrame = grabDataFrame(nexon, dfID)
+function dataFrame = grabDataFrame(nexon, dfID, dtsIdx)
     router = nexon.console.BASE.router;
     idxCond = contains(nexon.console.BASE.DTS.sessionLabel,router.entryParams.subject) & contains(nexon.console.BASE.DTS.sessionLabel,router.entryParams.date) & contains(nexon.console.BASE.DTS.sessionLabel,router.entryParams.phase) & (str2double(router.entryParams.trial)==nexon.console.BASE.DTS.trialNumber);
-    dtsIdx = find(idxCond);    
+    if isempty(dtsIdx)
+        dtsIdx = find(idxCond);    
+    end
     % Plot initial traces
     dfRow = nexon.console.BASE.DTS(dtsIdx,:);
     try

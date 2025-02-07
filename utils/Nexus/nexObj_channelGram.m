@@ -51,12 +51,14 @@ classdef nexObj_channelGram < handle
 
         function updateScope(obj, nexon, shank)
             % save previous buffer
-            writeDf(nexon,"frameBuffer_chg", obj.frameBuffer);
+            frameBufferID = sprintf("frameBuffer_chg_%s",obj.dfID);
+            writeDf(nexon,frameBufferID, obj.frameBuffer,[]);
             % writeDf(nexon,obj.dfID,dataFrame); % write new data entry to given dfID column
             % grab next dataframe
-            obj.dataFrame = grabDataFrame(nexon, obj.dfID);            
+            obj.dataFrame = grabDataFrame(nexon, obj.dfID,[]);            
             try
-                obj.frameBuffer = grabDataFrame(nexon, "frameBuffer_chg");
+                % obj.frameBuffer = grabDataFrame(nexon, "frameBuffer_chg");
+                obj.frameBuffer = grabDataFrame(nexon, frameBufferID,[]);
                 if isempty(obj.frameBuffer)
                     obj.frameBuffer=struct;
                     obj.frameBuffer.frameIds=[];
@@ -111,7 +113,8 @@ classdef nexObj_channelGram < handle
             obj.chgFigure.panel1.tiles.Axes.channelGram.CData = gather(sChans);
             % Buffer frames (for faster plotting on next go-around)
             obj.frameBuffer = nexBufferFrame(obj.frameBuffer,frameNum, sChans);
-            % obj.chgFigure.Ax.Parent.CLim=[-118,-95];
+            obj.chgFigure.panel1.ph.Children.Children.CLim=[-12.2,-10.7];
+            % obj.chgFigure.Ax.Parent.CLim=[-11.2,-3.5];
             % fooof contours
             %% RTSPEC
             % fooofPredictions = extractRT_fooof(obj.rtSpec,sChans);                

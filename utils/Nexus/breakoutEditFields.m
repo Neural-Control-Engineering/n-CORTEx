@@ -1,4 +1,4 @@
-function entryParams = breakoutEditFields(nexon, entryPanel, cfgParams, entryChangedFcn)
+function entryParams = breakoutEditFields(nexon, entryPanel, cfgParams, entryChangedFcn, hasParent)
     entryFields = fieldnames(cfgParams);
     panelSize = entryPanel.Panel.ph.Position;
     panelW = panelSize(3);
@@ -18,7 +18,9 @@ function entryParams = breakoutEditFields(nexon, entryPanel, cfgParams, entryCha
                     % panel.(editField).uiField = uieditfield(panel.ph,"text", "Position", [4,panelH-(m+1)*25,panelW*0.8,panelH/30], "Value", array2string(entryObj.(editField)), "ValueChangedFcn", newEntryFcn(panel, rtStream, editField));
                     entryPanel.Panel.(editField).uiField = uieditfield(entryPanel.Panel.ph,"text", "Position", [4,panelH-(m+1)*25,panelW*0.8,panelH/30], "Value", array2string(cfgParams.(editField)),"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen);
                 end            
+              
                 entryPanel.Panel.(editField).uiField.ValueChangedFcn = @(~,~)entryChangedFcn(nexon, entryPanel, editField);
+          
                 entryParams.(editField) = value;
             case "string"
                 if size(value,1) == 1

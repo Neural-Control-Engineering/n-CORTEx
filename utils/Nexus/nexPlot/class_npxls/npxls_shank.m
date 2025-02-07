@@ -17,25 +17,25 @@ classdef npxls_shank < handle
             load(regMapDir);
             obj.regMap = regMap;    
             % start user with one timeCourse
-            dataFrame = grabDataFrame(nexon,"lfp");
+            dataFrame = grabDataFrame(nexon,"lfp",[]);
             obj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, obj, dataFrame, "lfp");
             % add STFT (PMTM method spectrogram)
             try
-                rtSpectrogram = grabDataFrame(nexon,"lfp");
+                rtSpectrogram = grabDataFrame(nexon,"lfp",[]);
                 % parfeval(@() nexObj_channelGram(nexon, obj, rtSpectrogram,"lfp","mag"),0);
                 obj.scope.channelgram1 = nexObj_channelGram(nexon, obj, rtSpectrogram, "lfp", "mag");
             catch e
                 disp(e);
             end
             try
-                spg1 = grabSpectrogram(nexon, "pmtm");
+                spg1 = grabSpectrogram(nexon, "pmtm",[]);
                 obj.scope.spectrogram1 = nexObj_spectroGram(nexon, obj, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, "mag");
             catch e
                 disp(e);
             end
             % add CWT spectrogram (wavelet transform)
             try
-                spg2 = grabSpectrogram(nexon, "cwt");
+                spg2 = grabSpectrogram(nexon, "cwt",[]);
                 obj.scope.spectrogram2 = nexObj_spectroGram(nexon, obj, spg2.dataFrame, spg2.dfID, spg2.f, spg2.t, "phase");
             catch e
                 disp(e);

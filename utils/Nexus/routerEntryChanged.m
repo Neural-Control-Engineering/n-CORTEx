@@ -25,11 +25,16 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
         for j = 1:length(scopeList)
             scope = scopeList{j};
             dfID = nexon.console.NPXLS.shanks.(shank).scope.(scope).dfID; % grab trial-wise corresponding dfID
-            dataFrame = grabDataFrame(nexon, dfID);
+            dataFrame = grabDataFrame(nexon, dfID,[]);
             nexon.console.NPXLS.shanks.(shank).scope.(scope).dataFrame = dataFrame;
             nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope(nexon, nexon.console.NPXLS.shanks.(shank));
         end
     end
+    % SLRT UPDATE (apply new dataFrame (set))
+    dfID = nexon.console.SLRT.signals.dfID; % grab current dfID
+    nexon.console.SLRT.signals.dataFrame = compileDataFrames(nexon, dfID);
+    nexon.console.SLRT.signals.updateScope(nexon,  []);
+    % BASE UPDATE
     nexon.console.BASE.UserData.prevRouter.entryParams=nexon.console.BASE.router.entryParams; % keep track of most recent entryParams
     % grabDataFrame(nexon,"lfp");
 end

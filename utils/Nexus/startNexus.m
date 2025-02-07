@@ -8,6 +8,7 @@ function nexon = startNexus(params, DTS)
     nexon.console.BASE.router.UserData.subjectDir = fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subject);        
     % router Panel   
     nexon.console.NPXLS = nexPanel_NPXLS(nexon, 1);
+    nexon.console.SLRT = nexPanel_SLRT(nexon);
     % nexon.UserData.npxls.shanks.shank1 = npxls_shank(nexon);
     % nexPlot_npxls_LFP(nexon);    
     % nexPlot_npxls_PSD(nexon);

@@ -31,8 +31,8 @@ classdef nexObj_spectroGram < handle
             psdModifier = split(obj.dfID,"_");
             psdModifier = psdModifier(2);
             % align frequeny and time vectors
-            obj.f = grabDataFrame(nexon,sprintf("f_%s",psdModifier));
-            obj.t = grabDataFrame(nexon,sprintf("t_%s",psdModifier));
+            obj.f = grabDataFrame(nexon,sprintf("f_%s",psdModifier),[]);
+            obj.t = grabDataFrame(nexon,sprintf("t_%s",psdModifier),[]);
             switch obj.freqResponse
                 case "mag"
                     obj.spgFigure.Ax.Children.CData =10*log10(abs(squeeze(obj.dataFrame(obj.UserData.chanSel,:,:))));

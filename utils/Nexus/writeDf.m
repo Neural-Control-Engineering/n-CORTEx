@@ -1,4 +1,4 @@
-function writeDf(nexon, dfID, df)
+function writeDf(nexon, dfID, df, dtsIdx)
     % Get the BASE structure for easier reference
     base = nexon.console.BASE;
     
@@ -17,11 +17,16 @@ function writeDf(nexon, dfID, df)
               (str2double(router.entryParams.trial) == base.DTS.trialNumber);
           
     % Find the index of the matching row
-    dtsIdx = find(idxCond, 1);  % Get the first match
-    
     if isempty(dtsIdx)
-        error('No matching row found in the DTS for the specified parameters.');
+        try
+            dtsIdx = find(idxCond, 1);  % Get the first match
+        catch e
+            disp(getReport(e));
+        end
     end
+    % if isempty(dtsIdx)
+    %     error('No matching row found in the DTS for the specified parameters.');
+    % end
     
     % Write the new data entry to the specified column in the matching row
     base.DTS.(dfID){dtsIdx} = df;  % Assign the data to the correct cell
