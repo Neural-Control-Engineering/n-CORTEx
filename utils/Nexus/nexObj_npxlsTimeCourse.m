@@ -1,5 +1,7 @@
 classdef nexObj_npxlsTimeCourse < handle
     properties
+        Parent
+        Children
         dataFrame % This will hold any type of data, such as a struct  
         dfID
         UserData
@@ -10,6 +12,8 @@ classdef nexObj_npxlsTimeCourse < handle
     methods
         % Constructor
         function obj = nexObj_npxlsTimeCourse(nexon, shank, dataFrame, dfID)
+            obj.Parent = shank;
+            obj.Children = struct;
             obj.dataFrame=dataFrame;            
             obj.dfID = dfID;
             obj.UserData=struct();
@@ -17,9 +21,9 @@ classdef nexObj_npxlsTimeCourse < handle
             obj = nexPlot_npxls_timeCourse(nexon, shank, obj);
         end
 
-        function updateScope(obj,  nexon, shank)            
-            regMap = shank.regMap;
-            updateTimeCourse(shank, obj, regMap)
+        function updateScope(obj,  nexon)            
+            regMap = obj.Parent.regMap;
+            updateTimeCourse(obj.Parent, obj, regMap);
         end
         
         % Example method to set UserData

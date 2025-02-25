@@ -15,10 +15,10 @@ function df_out = nex_pcaNoiseRm(df_in, args)
     df_out = df_in - noise'; 
 
     % Plot explained variance (eigenvalues)
-    % figure;
-    % plot(1:length(latent), latent / sum(latent) * 100, 'o-', 'LineWidth', 1.5);
-    % xlabel('Principal Component Index');
-    % ylabel('Explained Variance (%)');
-    % title('Principal Component Significance');
-    % grid on;
+    figure;
+    plot(1:length(latent), latent / sum(latent) * 100, 'o-', 'LineWidth', 1.5);
+    xlabel('Principal Component Index');
+    ylabel('Explained Variance (%)');
+    title('Principal Component Significance');
+    grid on;
 end

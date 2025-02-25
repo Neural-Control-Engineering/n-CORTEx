@@ -1,4 +1,4 @@
-function nexon = startNexus(params, DTS)
+function nexon = startNexus(params, DTS)    
     nexon = Nexon();
     nexon.settings.Colors.cyberGreen=[0.24,0.94,0.46];
     % nexon.console.base = uifigure("Position",[25,1260,1000, 600],"Color",[0,0,0]);
@@ -17,4 +17,24 @@ function nexon = startNexus(params, DTS)
     % f_psd = grabDataFrame(nexon,"f_cwt");
     % t_psd = grabDataFrame(nexon,"t_cwt");
     % nexon.console.NPXLS.shanks.shank1.scope.spectroGram1 = nexObj_spectroGram(nexon, nexon.console.NPXLS.shanks.shank1,PSD_trial,"PSD_cwt",f_psd, t_psd);
+    % ACTIVATE PYENV
+    try
+        pyVersion = "/home/user/miniconda3/envs/nexus/bin/python";
+        pyenv(Version=pyVersion,ExecutionMode="OutOfProcess");    
+    catch e
+        disp(getReport(e));
+    end
+    % ADD NCORTEX TO PYTHON PATH
+    % % Specify the directory where the Python module is located
+    % module_dir = pwd;
+    % 
+    % % Add the directory to Python’s sys.path
+    % if count(py.sys.path, module_dir) == 0
+    %     insert(py.sys.path, int32(0), module_dir);
+    % end
+    % site_packages_path = 'C:\path\to\your\venv\Lib\site-packages'; % Update with the actual path
+    site_packages_path="~/miniconda3/envs/nexus/lib/python3.10/site-packages";
+    if count(py.sys.path, site_packages_path) == 0
+        insert(py.sys.path, int32(0), site_packages_path);
+    end
 end

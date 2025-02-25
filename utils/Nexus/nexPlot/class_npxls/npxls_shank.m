@@ -21,38 +21,39 @@ classdef npxls_shank < handle
             obj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, obj, dataFrame, "lfp");
             % add STFT (PMTM method spectrogram)
             try
-                rtSpectrogram = grabDataFrame(nexon,"lfp",[]);
+                df_lfp = grabDataFrame(nexon,"lfp",[]);
                 % parfeval(@() nexObj_channelGram(nexon, obj, rtSpectrogram,"lfp","mag"),0);
-                obj.scope.channelgram1 = nexObj_channelGram(nexon, obj, rtSpectrogram, "lfp", "mag");
+                % obj.scope.channelgram1 = nexObj_channelGram(nexon, obj, rtSpectrogram, "lfp", "mag");
+                opFcn = str2func("nexTransform_rtPMTM_magnitude");
+                visFcn = str2func("nexVisualization_channelGram");
+                aniFcn = str2func("nexAnimate_channelGram");
+                obj.scope.channelgram1 = nexObj_channelGram(nexon, obj, df_lfp, "lfp", opFcn, visFcn, aniFcn);
             catch e
                 disp(e);
             end
             try
-                spg1 = grabSpectrogram(nexon, "pmtm",[]);
-                obj.scope.spectrogram1 = nexObj_spectroGram(nexon, obj, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, "mag");
+                % spg1 = grabSpectrogram(nexon, "pmtm",[]);
+                spg1.dataFrame=[];
+                spg1.dfID = [];
+                spg1.f = [];
+                spg1.t = [];
+                spg1.opFcn = [];
+                spg1.visFcn = str2func("nexVisualization_spectroGram");
+                spg1.isOnline = 1;
+                obj.scope.channelgram1.Children.spectrogram1 = nexObj_spectroGram(nexon, obj.scope.channelgram1, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, spg1.opFcn, spg1.visFcn);
             catch e
                 disp(e);
             end
             % add CWT spectrogram (wavelet transform)
-            try
-                spg2 = grabSpectrogram(nexon, "cwt",[]);
-                obj.scope.spectrogram2 = nexObj_spectroGram(nexon, obj, spg2.dataFrame, spg2.dfID, spg2.f, spg2.t, "phase");
-            catch e
-                disp(e);
-            end
-            obj.config = struct();
+            % try
+            %     spg2 = grabSpectrogram(nexon, "cwt",[]);
+            %     obj.scope.spectrogram2 = nexObj_spectroGram(nexon, obj, spg2.dataFrame, spg2.dfID, spg2.f, spg2.t, "mag");
+            % catch e
+            %     disp(e);
+            % end
+            % obj.config = struct();
             % draw config Panel
-            obj.config = drawShankCfgPanel(nexon, obj);                          
-        end
-        
-        % Example method to set UserData
-        function setUserData(obj, data)
-            obj.UserData = data;
-        end
-        
-        % Example method to retrieve UserData
-        function data = getUserData(obj)
-            data = obj.UserData;
-        end
+            % obj.config = drawShankCfgPanel(nexon, obj);                          
+        end       
     end
 end

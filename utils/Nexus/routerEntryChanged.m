@@ -27,7 +27,7 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
             dfID = nexon.console.NPXLS.shanks.(shank).scope.(scope).dfID; % grab trial-wise corresponding dfID
             dataFrame = grabDataFrame(nexon, dfID,[]);
             nexon.console.NPXLS.shanks.(shank).scope.(scope).dataFrame = dataFrame;
-            nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope(nexon, nexon.console.NPXLS.shanks.(shank));
+            nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope(nexon);
         end
     end
     % SLRT UPDATE (apply new dataFrame (set))

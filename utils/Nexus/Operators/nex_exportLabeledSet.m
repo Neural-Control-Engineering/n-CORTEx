@@ -53,16 +53,21 @@ function nex_exportLabeledSet(nexon, dfIDs, labelIDs, segmentFcn)
                 m=m+1;
             end
         end
+        datasetPath = fullfile(nexon.console.BASE.params.paths.Data.FTR.local,"TRAIN",dfID);
         % write A
         A = [A_fileTag, A_foldID, A_lbl];                
         % Convert to table with column headers
         columnNames = [{'fileTag', 'foldID'}, labelIDs']; % Define your column names
         A_table = array2table(A, 'VariableNames', columnNames);        
-        writetable(array2table(A),fullfile(samplePath,"index.csv"));
+        writetable(array2table(A),fullfile(batchPath,"index.csv"));
         % write X / Y
-        x_colNames = {'sample'}; 
+        % x_colNames = "sample"; 
         y_colNames = [{'channel'}, labelIDs'];
-        X_table = array2table(X,'VariableNames',x_colNames);
+        % X_table = array2table(X,'VariableNames',x_colNames);
         Y_table = array2table(Y,'VariableNames',y_colNames);
+        writematrix(X,fullfile(datasetPath,"X.csv"));
+        writetable(Y_table,fullfile(datasetPath,"Y.csv"));
+        % save labelKey 
+        exportLabelKeys(labelKeys, fullfile(datasetPath,"labelKeys.json"));
     end
 end

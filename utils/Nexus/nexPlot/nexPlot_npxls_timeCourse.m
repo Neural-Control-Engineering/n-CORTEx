@@ -16,6 +16,8 @@ function timeCourse =  nexPlot_npxls_timeCourse(nexon, shank, timeCourse)
     timeCourse.tcFigure.methodApplyButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)applyMethod(nexon, shank, timeCourse), "Position",[95,1270,25,25]);
     timeCourse.tcFigure.methodSelectButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)selectMethod(nexon, shank, timeCourse),"Position",[125,1270,25,25]);
     timeCourse.tcFigure.methodOutputSaveButton = uibutton(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)saveMethodOutput(nexon,shank,timeCourse,"Position",[155,1270,25,25]));
+    updateDfIDFcn = str2func("nexUpdate_dfID");
+    timeCourse.tcFigure.dfIDEditField = uieditfield(timeCourse.tcFigure.fh,"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen,"Position",[755, 1270, 145, 25], "Value",timeCourse.dfID,"ValueChangedFcn",@(src,event)updateDfIDFcn(src,event,nexon,timeCourse));
     % timeCourse.tcFigure.APButton
     % idxCond = contains(nexon.console.BASE.UserData.DTS.sessionLabel,router.subject) & contains(nexon.console.base.UserData.DTS.sessionLabel,router.date) & contains(nexon.console.base.UserData.DTS.sessionLabel,router.phase) & ((router.trial)==nexon.console.base.UserData.DTS.trialNumber);
     % dtsIdx = find(idxCond);
