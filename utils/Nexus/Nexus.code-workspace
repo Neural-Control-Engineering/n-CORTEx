@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "Figures"
+		},
+		{
+			"path": "Visualization"
+		},
+		{
+			"path": "Analysis/Embedding"
+		}
+	],
+	"settings": {}
+}

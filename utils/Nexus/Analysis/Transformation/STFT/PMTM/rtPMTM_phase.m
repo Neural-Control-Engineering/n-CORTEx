@@ -1,4 +1,4 @@
-function out = nexTransform_rtPMTM_phase(df_in, args)
+function out = rtPMTM_phase(df_in, args)
     % low latency power spectral density estimates using the
     % multi-taper-method
     % leverages GPU array compatible code and parallel computing for a

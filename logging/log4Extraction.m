@@ -17,6 +17,11 @@ function log4Extraction(expmntPath,extractionRow,ftype)
                 else
                     extractionLog = [extractionLog; extractionRow_Updt];                
                 end
+                % sort extractionLog by date                
+                sessionDates = cellfun(@(x) datetime(parseSessionLabel(x,"date")), extractionLog.SessionName,"UniformOutput",true);
+                [sessionDates_sorted, I] = sort(sessionDates);
+                extractionLog_sorted = extractionLog(I,:);
+                % write back
                 writetable(extractionLog,fullfile(extractionLogFile.folder,extractionLogFile.name));
             otherwise
         end           

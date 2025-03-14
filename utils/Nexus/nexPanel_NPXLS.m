@@ -1,6 +1,6 @@
 classdef nexPanel_NPXLS < handle
     properties
-        shanks % This will hold any type of data, such as a struct
+        shanks % This will hold any type of data, such as a struct        
         config        
     end
     

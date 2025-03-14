@@ -29,7 +29,7 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
         % disp("could not recover frame buffer, creating a new one")
         df = channelGram.DF.df;
         % pad according to windowLen            
-        df_pad = nex_padDfMean(df, windowLen);
+        df_pad = nex_padDfZeros(df, windowLen);
         try % attempt slice, if fails, start from beginning frame number and return
             df_slice = df_pad(:,frameNum:frameNum+windowLen);                          
         catch e
@@ -63,7 +63,8 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
         channelGram.frameBuffer.ax = struct;
         % OPERATE
         df = channelGram.DF.df;
-        df_slice = df(:,frameNum:frameNum+windowLen);                   
+        df_pad = nex_padDfZeros(df, windowLen);
+        df_slice = df_pad(:,frameNum:frameNum+windowLen);                           
         % operate on dataframe with configured fcn        
         opFcn_out = channelGram.opCfg.opFcn(df_slice, opArgs);        
         % recover operation outputs
