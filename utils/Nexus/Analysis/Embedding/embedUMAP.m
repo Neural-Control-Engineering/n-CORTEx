@@ -6,8 +6,7 @@ function embedUMAP(DF, args)
     min_dist = args.min_dist; % default = 0.1
     r_decimation = args.r_decimation; % default = 0.01
 
-    dataPath = args.args.dataPath;
-    
+    dataPath = args.args.dataPath;    
     
     if isempty(DF) % compute from written dataset
         % system call to python

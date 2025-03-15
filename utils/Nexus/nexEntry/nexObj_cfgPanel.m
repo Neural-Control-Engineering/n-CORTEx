@@ -9,6 +9,8 @@ classdef nexObj_cfgPanel < handle
         % Constructor
         function nexPanelObj = nexObj_cfgPanel(nexon, nexObjParent, panelObj, entryParams, entryChangedFcn, entryChangedFcnArgs)            
             nexPanelObj.ph = panelObj.ph;
+            nexPanelObj.editFields=struct;
+            nexPanelObj.UserData=struct;
             breakoutCfgFieldsV2(nexon, nexObjParent, nexPanelObj, entryParams, entryChangedFcn, entryChangedFcnArgs);
             nexPanelObj.UserData = struct;
         end             

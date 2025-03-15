@@ -8,6 +8,8 @@ classdef nexObj_embedding < handle
         Origins
         DF % df pre operation function (behavior depends on online or offline status); struct containing df and ax 
         DF_postOp % df post operation function (behavior depends on online or offline status); struct containint df and ax (and opCfg!?)
+        labelSelection
+        visSelection
         entryPanel
         dfID % DTS df identifier (trial-wise)
         preBufferLen
@@ -24,18 +26,53 @@ classdef nexObj_embedding < handle
 
     methods
         % constructor
-        function obj = nexObj_embedding(nexon, Parent, compFcn, dfID)
+        function obj = nexObj_embedding(nexon, Parent, opFcn, dfID)
             obj.dfID = dfID;
-            obj.opCfg.opFcn=str2func("embedUMAP");
-            obj.opCfg.entryParams = extractMethodCfg('embedUMAP');            
+            if isempty(opFcn)
+                obj.opCfg.opFcn=str2func("embedUMAP");
+                obj.opCfg.entryParams = extractMethodCfg('embedUMAP');            
+            else
+                obj.opCfg.opFcn=opFcn;
+                obj.opCfg.entryParams = extractMethodCfg(func2str(opFcn));            
+            end            
             % load embedding data (if exists)
-            try obj.loadEmbedding("labels"); catch; end                
-            try obj.loadEmbedding("DF_postOp"); catch; end            
-            obj.Figure = nexFigure_embedding(obj);
+            try obj.loadEmbedding("Y"); catch; end                
+            try obj.loadEmbedding("DF_postOp"); catch; end      
+            % build label and dim selections
+            % LABEL SELECTION
+            try
+                for i = 1:size(obj.DF.Y,2)
+                    key = obj.DF.Y.Properties.VariableNames{i};
+                    values = table2array(unique(obj.DF.Y(:,i)));
+                    if i==1
+                        obj.labelSelection = nexObj_selectionBus(obj, key, values);
+                    else
+                        obj.labelSelection.addKey(key, values);
+                    end
+                end
+            catch e
+                disp(getReport(e));
+            end
+            % DIM SELECTION
+            try
+                key = "dimensions";
+                values = [1:size(obj.DF_postOp.df,2)];
+                obj.visSelection = nexObj_selectionBus(obj, key, values);
+                key = "label";
+                values = convertCharsToStrings(obj.DF.Y.Properties.VariableNames');
+                obj.visSelection.addKey(key, values);
+            catch
+                disp(getReport(e));
+            end
+            nexFigure_embedding(obj);
         end
 
         % update method
         function updateScope(obj, nexon)
+            % update DF_postOp if cfg changes
+            % update visualization
+            visArgs = [];
+            nexVisualization_embedding(nexon,obj,visArgs);
         end
 
         function loadEmbedding(obj, key)
