@@ -14,4 +14,4 @@ def nexPy_exportEmbedding(DF_embed, params):
     file_Y = os.path.join(dfPath,"Y.csv")
 
     pd.DataFrame(DF_embed["df"]).to_csv(file_df, index=False, header=False)  
-    pd.DataFrame(DF_embed["Y"]).to_csv(file_Y, index=False, header=True)
+    pd.DataFrame(DF_embed["Y"]).to_csv(file_Y, index=False, header=False)

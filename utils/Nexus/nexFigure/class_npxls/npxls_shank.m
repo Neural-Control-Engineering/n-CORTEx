@@ -56,6 +56,10 @@ classdef npxls_shank < handle
             catch  e
                 disp(getReport(e))
             end
+            % Embedding figure
+            opFcn = str2func("embedUMAP");
+            dfID = "rtPMTM_magnitude_temporal";
+            obj.Children.embedding1 = nexObj_embedding(nexon, obj, opFcn, dfID);
             % add CWT spectrogram (wavelet transform)
             % try
             %     spg2 = grabSpectrogram(nexon, "cwt",[]);

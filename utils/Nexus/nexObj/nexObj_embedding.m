@@ -27,6 +27,7 @@ classdef nexObj_embedding < handle
     methods
         % constructor
         function obj = nexObj_embedding(nexon, Parent, opFcn, dfID)
+            obj.nexon = nexon;
             obj.dfID = dfID;
             if isempty(opFcn)
                 obj.opCfg.opFcn=str2func("embedUMAP");
@@ -61,7 +62,7 @@ classdef nexObj_embedding < handle
                 key = "label";
                 values = convertCharsToStrings(obj.DF.Y.Properties.VariableNames');
                 obj.visSelection.addKey(key, values);
-            catch
+            catch e
                 disp(getReport(e));
             end
             nexFigure_embedding(obj);

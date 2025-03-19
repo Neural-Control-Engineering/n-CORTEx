@@ -1,4 +1,4 @@
-function sessionLabel =  nex_findSessionLabel(nexon, labelData, labelKeys)
+function [sessionLabel, trialNum] =  nex_findSessionLabel(nexon, labelData, labelKeys)
     % 
     keyFields = fieldnames(labelKeys);
     labelStrings = [];
@@ -23,5 +23,6 @@ function sessionLabel =  nex_findSessionLabel(nexon, labelData, labelKeys)
     trialIdx = find(trialNums == labelData.trial);
     trialRowIdx = matchIdxs(trialIdx);
     sessionLabel = nexon.console.BASE.DTS.sessionLabel(trialRowIdx);
+    trialNum = nexon.console.BASE.DTS.trialNumber(trialRowIdx);
 
 end

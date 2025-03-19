@@ -22,7 +22,7 @@ function nexFigure_embedding(nexObj)
     % draw plot (empty)
     nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,1,1);
     nexObj.Figure.panel1.tiles.Axes.embedding = nexttile(nexObj.Figure.panel1.tiles.t);
-    nexObj.Figure.panel1.tiles.Axes.embedding = scatter3(nexObj.Figure.panel1.tiles.Axes.embedding, [], [], [], 50, 'b', 'filled',"ButtonDownFcn",@(src,event)nexTraceback_embedding);
+    nexObj.Figure.panel1.tiles.Axes.embedding = scatter3(nexObj.Figure.panel1.tiles.Axes.embedding, [], [], [], 50, 'b', 'filled',"ButtonDownFcn",@(src,event)nexTraceback_embedding(src, event, nexObj));
     colorAx_green(nexObj.Figure.panel1.tiles.Axes.embedding);
     % color mapping
     load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));

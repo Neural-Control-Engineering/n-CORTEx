@@ -5,7 +5,11 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
     params = nexon.console.BASE.params;    
     % refind dropdown items    
     entryParams = nexon.console.BASE.router.entryParams;
-    subjSessionLabels = nexon.console.BASE.DTS.sessionLabel(contains(nexon.console.BASE.DTS.sessionLabel,entryParams.subject));    
+    if isfield(entryParams,"subject")
+        subjSessionLabels = nexon.console.BASE.DTS.sessionLabel(contains(nexon.console.BASE.DTS.sessionLabel,entryParams.subject));    
+    elseif isfield(entryParams,"subj")
+        subjSessionLabels = nexon.console.BASE.DTS.sessionLabel(contains(nexon.console.BASE.DTS.sessionLabel,entryParams.subj));    
+    end
     parseSessionLabelUnique(subjSessionLabels,"date");
     subjXdateSessionLabels = subjSessionLabels(contains(subjSessionLabels,entryParams.date));    
     subjXdateXphaseLabels = subjXdateSessionLabels(contains(subjXdateSessionLabels,entryParams.phase));    
@@ -14,8 +18,10 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
     subjXdateXphaseTrialList = nexon.console.BASE.DTS.trialNumber(strcmp(nexon.console.BASE.DTS.sessionLabel,subjXdateXphaseLabels(1)));    
     nexon.console.BASE.router.Panel.trial.uiField.Items=string(num2str(subjXdateXphaseTrialList))';      
 
-    if strcmp(entryfield,"subject")
+    if strcmp(entryfield,"subject") 
         nexon.console.BASE.router.UserData.subjectDir =  fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subject);
+    elseif strcmp(entryfield,"subj")
+        nexon.console.BASE.router.UserData.subjectDir =  fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subj);
     end
     % NPXLS UPDATE (apply new dataFrame for each shank --> existing timeCourse, spectrogram, etc)
     shankList = fieldnames(nexon.console.NPXLS.shanks);

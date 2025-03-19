@@ -60,7 +60,7 @@ classdef nexObj_spectroScope < handle
             end
 
             function updateScope(obj, nexon)
-                disp("spectroScope update method incomplete");
+                % disp("spectroScope update method incomplete");
             end
             
         end

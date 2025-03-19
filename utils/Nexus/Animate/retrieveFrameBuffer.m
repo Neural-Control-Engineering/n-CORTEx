@@ -9,6 +9,27 @@ function frameBuffer = retrieveFrameBuffer(nexObj)
         disp("no animation configuration found")
         aniArgs = [];
     end
+    % try DTS standard columns
+    dtsMemberID = sprintf("%s--%s", nexObj.classID, func2str(nexObj.opCfg.opFcn));
+    % compile MatchArgs = opArgs + visArgs    
+    matchArgs = mergeStructs(nexObj.opCfg.entryParams, nexObj.aniCfg.entryParams);
+    dtsIdx = [];
+    % [colIdx] = nex_isDtsMember(dtsMemberID, matchArgs, dtsIdx);
+    if nex_isDtsMember(nexObj.nexon, dtsMemberID, matchArgs, dtsIdx);        
+        DF = nex_grabDF(nexObj.nexon, dtsMemberID, dtsIdx);
+        frameBuffer.opArgs = nexObj.opCfg.entryParams;
+        frameBuffer.aniArgs = nexObj.aniCfg.entryParams;
+        frameBuffer.ax = DF.ax;
+        frameBuffer.frames = DF.df;
+        frameBuffer.frameIds = (([1:size(DF.ax.t,2)]-1) * matchArgs.stride + 1)';
+        if any(ismember(frameBuffer.frameIds, nexObj.frameNum))
+            frameBuffer.frameNum = nexObj.frameNum;
+        else
+            frameBuffer.frameNum = frameBuffer.frameIds(1);
+        end
+        return
+    end
+    % try frameBuffer columns
     opArgs = nexObj.opCfg.entryParams;
     operationID = compileOperationID(nexObj);
     frameBufferID = sprintf("frameBuffer_%s%s", strrep(nexObj.dfID,"_","-"), operationID);
