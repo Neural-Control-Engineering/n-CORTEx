@@ -87,6 +87,7 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             chanMap = 'neuropixPhase3A_kilosortChanMap.mat';                            
                             % Import the Python module; Call the function
                             mod = py.importlib.import_module('runKilosort4');
+                            fprintf("running kilosort for %s\n",sessionLabel);
                             results = mod.runKilosort4(data_dir, fileName, chanMap);                            
                             % move output into a subfolder
                             rawNpxlsFolder = dir(fullfile(params.paths.rawData.(modality).imec));

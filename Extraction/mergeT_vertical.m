@@ -8,7 +8,13 @@ function M = mergeT_vertical(T1, T2)
         checkVar = allVars{i};
         % if all(~contains(T1Vars,checkVar))
         if all(~ismember(T1Vars,checkVar))            
-            T1.(checkVar) = cell(sizeT1(1),1);        
+            T1.(checkVar) = cell(sizeT1(1),1); 
+            if size(T2.(checkVar),2) > 1
+                T2.(checkVar) = mat2cell(T2.(checkVar),ones(size(T2.(checkVar),1),1), size(T2.(checkVar),2));
+            else
+                T2.(checkVar) = num2cell(T2.(checkVar));
+            end
+            
             % if iscell(T2.(checkVar))
             %     T1.(checkVar) = cell(sizeT1(1),1);        
             % else

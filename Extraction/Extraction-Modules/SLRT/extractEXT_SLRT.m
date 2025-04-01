@@ -127,7 +127,11 @@ function [out, slrt] = extractEXT_SLRT(filename)
                     data = data_raw(trial_starts(i):trial_ends(i));
                 end
             else
-                data = data_raw(trial_starts(i):trial_ends(i));
+                if size(data_raw,2) > 1
+                    data = data_raw(trial_starts(i):trial_ends(i),:);
+                else
+                    data = data_raw(trial_starts(i):trial_ends(i));
+                end
             end
             % determine if event, continuous (cont), or tag 
             if length(signal_split) == 2
@@ -140,7 +144,11 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 row = [row, table({data}, 'VariableNames', {data_name})];
             elseif strcmp(signal_split{1}, 'tag')
                 % single value for tag 
-                row = [row, table(data(1), 'VariableNames', {data_name})];
+                if size(data,2) > 1
+                    row = [row, table(data(1,:), 'VariableNames', {data_name})];
+                else
+                    row = [row, table(data(1), 'VariableNames', {data_name})];
+                end
             elseif strcmp(signal_split{1}, 'event')
                 % index for for events 
                 ind = find(data == 1);
