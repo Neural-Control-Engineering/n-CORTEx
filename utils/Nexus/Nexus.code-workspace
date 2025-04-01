@@ -1,16 +1,16 @@
 {
 	"folders": [
 		{
-			"path": "."
+			"path": "../.."
 		},
 		{
-			"path": "Figures"
+			"path": "../../../../../../media/user/Expansion/Columbia/Columbia/Spring-2023/BMEN4420/Project-EEG-Classifier/BMEN4420-EEG-Classifier-Repo"
 		},
 		{
-			"path": "Visualization"
+			"path": "../../../STATIC"
 		},
 		{
-			"path": "Analysis/Embedding"
+			"path": "../../../../nCORTEx_local/Project_Neuromodulation-for-Pain/Experiments/JOLT/Data/FTR"
 		}
 	],
 	"settings": {}
