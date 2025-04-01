@@ -1,6 +1,5 @@
 function nexUpdate_spectroGram(nexon, spectroGram)  
     % when called, update dataframe and axes based on router cfg    
-    spectroGram.dfID = spectroGram.Parent.dfID; % refresh dfID to parent dfID
 
     % STATE DEPENDENT BEHAVIOR
     switch spectroGram.isOnline
@@ -33,10 +32,6 @@ function nexUpdate_spectroGram(nexon, spectroGram)
 
     % CALL VISUALIZATION
     visArgs = spectroGram.visCfg.entryParams;
-    try
-        spectroGram.visCfg.visFcn(nexon,  spectroGram, visArgs);
-    catch e
-        disp(getReport(e));
-    end
+    spectroGram.visCfg.visFcn(nexon,  spectroGram, visArgs);
     
 end
