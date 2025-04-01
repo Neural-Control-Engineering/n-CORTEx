@@ -18,7 +18,7 @@ classdef proxy_ncortex < handle
             proxObj.tgProxies = tgProxies;
             proxObj.DTS = DTS;
             proxObj.cmdLUT = cmdLUT;
-            proxObj.slTarget = nCORTEx;
+            proxObj.nCORTEx = nCORTEx;
         end
 
         function transmitField(proxObj, key, value) % send either host to target or vice versa datafields 
