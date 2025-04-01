@@ -149,6 +149,47 @@ classdef nexObj_channelGram < handle
             nex_updateChildren(nexon, obj);
         end
 
+        function reportAverage(obj, selIdx)
+            %% RETRIEVAL
+            dfID = sprintf("%s--%s",obj.classID,func2str(obj.opCfg.opFcn));
+            dfTag = sprintf("%s_df",dfID);
+            tTag = sprintf("%s_t",dfID);
+            dfCol = obj.nexon.console.BASE.DTS.(dfTag);
+            tCol = obj.nexon.console.BASE.DTS.(tTag);
+            %% MASK SELECTION
+            if isempty(selIdx)
+                S = nex_returnSelectionMask(obj.nexon.console.BASE.controlPanel.averagingSelection);
+                maskIdx = nex_applySelectionMask(obj.nexon.console.BASE.DTS,S);
+                dfCol_sel = dfCol(maskIdx);
+                tCol_sel = tCol(maskIdx);
+            else
+                dfCol_sel = dfCol(selIdx);
+                tCol_sel = tCol(selIdx);
+                maskIdx = selIdx;
+            end
+            %% ALIGNMENT
+            S_slrt = nex_returnSelectionMask(obj.nexon.console.SLRT.signals.eventAlignmentSelection);
+            alignColTags = split(S_slrt.events,"_");
+            tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
+            tCol_slrt = obj.nexon.console.BASE.DTS.(tColID)(maskIdx);
+            fs_slrt = obj.nexon.console.SLRT.signals.UserData.Fs;
+            t_preBuff = obj.preBufferLen;
+            [dfCol_aligned, tCol_aligned] = nexAlign_signals(dfCol_sel, tCol_sel, tCol_slrt, fs_slrt, t_preBuff,3);            
+            %% AVERAGE RESULT
+            dfAvg = nex_colAvg(dfCol_aligned, 3);                        
+            %% VISUALIZE RESULT
+            obj.DF_postOp.df = dfAvg;
+            obj.DF_postOp.ax.t = tCol_aligned{1};
+            % swap frameBuffer
+            obj.frameBuffer.frames = dfAvg;
+            obj.visualize();
+        end
+
+        function visualize(obj)
+            visArgs = obj.visCfg.entryParams;
+            obj.visCfg.visFcn(obj.nexon, obj, visArgs);
+        end
+
         function animate(obj, nexon, shank)
             args = obj.aniCfg.entryParams;
             nexAnimate_channelGram(nexon, shank, obj, args);

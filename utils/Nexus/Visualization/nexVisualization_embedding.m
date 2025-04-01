@@ -33,4 +33,11 @@ function nexVisualization_embedding(nexon, nexObj, args)
     nexObj.Figure.panel1.tiles.Axes.embedding.YData = yData;
     nexObj.Figure.panel1.tiles.Axes.embedding.ZData = zData;
     nexObj.Figure.panel1.tiles.Axes.embedding.CData = cData;
+
+    % Add colorbar if CData is not empty
+    if ~isempty(cData)
+        colorbar(nexObj.Figure.panel1.tiles.Axes.embedding.Parent,"Color",nexon.settings.Colors.cyberGreen); % Add colorbar to the same axes        
+        colormap(nexObj.Figure.panel1.tiles.Axes.embedding.Parent, 'turbo'); % Set colormap (change if needed)
+    end
+
 end

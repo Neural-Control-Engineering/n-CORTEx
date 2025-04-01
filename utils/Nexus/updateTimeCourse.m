@@ -6,15 +6,24 @@ function updateTimeCourse(shank, timeCourse, altRegMap)
     else 
         regMap = shank.regMap;
     end
-    dataFrame = timeCourse.dataFrame;
-    t_df = [1:size(dataFrame,2)] ./ Fs - preBuffer;
+    % dataFrame = timeCourse.dataFrame;
+    dataFrame = timeCourse.DF.df;
+    if ~isfield(timeCourse.DF,"ax")
+        if ~isfield(timeCourse.DF.ax,"t")
+            t_df = [1:size(dataFrame,2)] ./ Fs - preBuffer;
+        end
+    elseif (size(timeCourse.DF.ax.t,2) ~= size(dataFrame,2))
+        t_df = [1:size(dataFrame,2)] ./ Fs - preBuffer;
+    else
+        t_df = timeCourse.DF.ax.t;
+    end
     ptr = timeCourse.UserData.tilePtr;
     % update tileset
     tileSetFields = fieldnames(timeCourse.tcFigure.panel1.tiles.Axes);   
     try
         regMap.channel=arrayfun(@(x) x{1}, regMap.channel, "UniformOutput",true);
     catch e
-        disp(e);
+        disp(getReport(e));
     end
     for i = 1:length(tileSetFields)
         tileID = tileSetFields{i};      
@@ -24,7 +33,7 @@ function updateTimeCourse(shank, timeCourse, altRegMap)
             regName = regMap(regMap.channel==ptrIdx,:).region{1};
             updatePlotAx(timeCourse.tcFigure.panel1.tiles.Axes.(tileID), t_df, dataFrame(ptrIdx,:), traceColor);
             timeCourse.tcFigure.panel1.tiles.Axes.(tileID).YLabel.String = sprintf("%s", regName);            
-        catch
+        catch e
             updatePlotAx(timeCourse.tcFigure.panel1.tiles.Axes.(tileID), [], zeros(size(dataFrame(1,:))), traceColor);
             timeCourse.tcFigure.panel1.tiles.Axes.(tileID).YLabel.String = sprintf("--");            
         end

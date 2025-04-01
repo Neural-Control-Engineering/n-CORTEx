@@ -1,5 +1,8 @@
 function routerEntryChanged(nexon,entryPanel,entryfield)
     % update parameters and relevant scope dataframes, etc
+    if strcmp(entryfield,"subject")
+        entryfield = "subj";
+    end
     value = entryPanel.Panel.(entryfield).uiField.Value;
     entryPanel.entryParams.(entryfield) = value;
     params = nexon.console.BASE.params;    
@@ -33,6 +36,7 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
             dfID = nexon.console.NPXLS.shanks.(shank).scope.(scope).dfID; % grab trial-wise corresponding dfID
             dataFrame = grabDataFrame(nexon, dfID,[]);
             nexon.console.NPXLS.shanks.(shank).scope.(scope).dataFrame = dataFrame;
+            nexon.console.NPXLS.shanks.(shank).scope.(scope).DF.df = dataFrame;
             nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope(nexon);
         end
     end

@@ -15,10 +15,12 @@ function nexVisualization_channelGram(nexon, channelGram, args)
     f = ax.f;
     fCond = (f>fRange_start & f<fRange_end); % select frequencies   
     df = df(:,fCond); % index select frequencies 
+    % tic
     channelGram.chgFigure.panel1.tiles.Axes.channelGram.YData = gather([1:size(df,1)]);
     channelGram.chgFigure.panel1.tiles.Axes.channelGram.XData = gather(f(fCond));
     channelGram.chgFigure.panel1.tiles.Axes.channelGram.ZData = gather(df);
     channelGram.chgFigure.panel1.tiles.Axes.channelGram.CData = gather(df);
+    % toc
     % set ax Lims
     % Zmax = max(max(df));
     % Zmin = min(min(df));
@@ -43,3 +45,5 @@ function nexVisualization_channelGram(nexon, channelGram, args)
     t_frame = channelGram.frameNum / channelGram.opCfg.entryParams.Fs - channelGram.preBufferLen;
     channelGram.chgFigure.panel1.tiles.Axes.channelGram.Parent.Parent.Title.String=(sprintf("%0f (s)",t_frame));        
 end
+
+% edit nexObj_rtChannelGram.m; edit nexObj_rtPixelGram.m

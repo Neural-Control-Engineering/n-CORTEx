@@ -1,20 +1,26 @@
 classdef nexObj_slrtTimeCourse < handle
     properties
+        classID
         dataFrame % This will hold any type of data, such as a struct  
+        nexon
         dfID
         UserData
         entryPanel
-        tcFigure
+        Figure
+        eventAlignmentSelection
     end
     
     methods
         % Constructor
         function obj = nexObj_slrtTimeCourse(nexon, dataFrame, dfID)
+            obj.classID = "tc_slrt";
+            obj.nexon = nexon;
             obj.dataFrame=dataFrame;            
             obj.dfID = dfID;
             obj.UserData=struct();
             obj.UserData.colorMap = [];
             obj.UserData.Fs = 1000;
+            obj.eventAlignmentSelection = nexSelect_eventAlignment(obj);
             obj = nexPlot_slrt_timeCourse(nexon, obj);
         end
 

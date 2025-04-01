@@ -16,6 +16,7 @@ classdef nexObj_selectionBus < handle
             if nargin > 0 % Ensure input argument is provided
                 obj.addKey(key, values);
             end
+            obj.selections.(key) = 1; % initiate selection
         end
 
         % Method to dynamically add a property
@@ -23,6 +24,7 @@ classdef nexObj_selectionBus < handle
             propName = key;
             propValue = values;
             obj.selKeys.(propName) = propValue;
+            obj.selections.(key) = 1;
         end
     end
 end

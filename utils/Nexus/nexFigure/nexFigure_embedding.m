@@ -27,5 +27,7 @@ function nexFigure_embedding(nexObj)
     % color mapping
     load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
     colormap(nexObj.Figure.fh,CT);
+    % add windowKeyListner
+    nexObj.keyListener = nexObj_windowKeyListener(nexObj.Figure.fh);
     
 end

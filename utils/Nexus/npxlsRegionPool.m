@@ -1,5 +1,6 @@
 function npxlsRegionPool(nexon, shank, timeCourse, poolingMethod)
-    dataFrame = timeCourse.dataFrame;
+    % dataFrame = timeCourse.dataFrame;
+    dataFrame = timeCourse.DF.df;
     regMap = shank.regMap;
     % sorted region grouping
     regionGroups = findgroups(regMap.region);
@@ -24,6 +25,7 @@ function npxlsRegionPool(nexon, shank, timeCourse, poolingMethod)
     pooledRegMapColor = splitapply(@(x) x(1), regMap.color, regionGroups);    
     pooledRegMap = table(pooledRegMapChan, pooledRegMapReg, pooledRegMapColor, 'VariableNames', ["channel", "region", "color"]);
     timeCourse.dataFrame = pooledDataFrame;
+    timeCourse.DF.df = pooledDataFrame;
     timeCourse.UserData.tilePtr = 0;
     updateTimeCourse(shank, timeCourse, pooledRegMap);
 end

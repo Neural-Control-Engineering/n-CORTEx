@@ -1,10 +1,10 @@
-function entryParams = breakoutEditFields(nexon, entryPanel, cfgParams, entryChangedFcn, hasParent)
+function entryParams = breakoutEditFields(nexon, entryPanel, cfgParams, entryChangedFcn, yStepScaler, entryHeightScaler)
     entryFields = fieldnames(cfgParams);
     panelSize = entryPanel.Panel.ph.Position;
     panelW = panelSize(3);
     panelH = panelSize(4);
-    yStepScaler = 20;
-    entryHeightScaler = 15;
+    if isempty(yStepScaler); yStepScaler = 20; end
+    if isempty(entryHeightScaler); entryHeightScaler = 15; end
     m=1;
     % newEntryFcn = str2func("writeNewEntryFieldCallback");
     for i=1:length(entryFields)

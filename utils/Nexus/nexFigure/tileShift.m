@@ -1,6 +1,7 @@
 function tileShift(nexon, shank, npxlsTimeCourse, direction)
     % lfp = nexon.console.npxlsLFP.UserData.lfp;
-    dataFrame = npxlsTimeCourse.dataFrame;
+    % dataFrame = npxlsTimeCourse.dataFrame;
+    dataFrame = npxlsTimeCourse.DF.df;
     ptr = npxlsTimeCourse.UserData.tilePtr;
     % Region Mapping (npxls only)
     regMap = shank.regMap;

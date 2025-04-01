@@ -7,10 +7,14 @@ classdef nexObj_entryPanel < handle
     
     methods
         % Constructor
-        function obj = nexObj_entryPanel(nexon, entryParams_form, valueChangedFcn)            
-            obj.Panel.fh = uifigure("Position",[5,5,300,400],"Color",[0,0,0]);
-            obj.Panel.ph = uipanel(obj.Panel.fh,"Position",[5,5,290,390],"BackgroundColor",[0,0,0]);    
-            obj.entryParams = breakoutEditFields(nexon, obj, entryParams_form, valueChangedFcn);
+        function obj = nexObj_entryPanel(nexon, Parent, entryParams_form, valueChangedFcn, yScaler, hScaler)            
+            if isempty(Parent)
+                obj.Panel.fh = uifigure("Position",[5,5,300,400],"Color",[0,0,0]);
+                obj.Panel.ph = uipanel(obj.Panel.fh,"Position",[5,5,290,390],"BackgroundColor",[0,0,0]);    
+            else
+                obj.Panel=Parent;
+            end
+            obj.entryParams = breakoutEditFields(nexon, obj, entryParams_form, valueChangedFcn, yScaler,hScaler);
             obj.UserData = struct;
         end
         

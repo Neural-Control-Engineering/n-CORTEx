@@ -1,9 +1,11 @@
 classdef nexPanel_BASE < handle
     properties
         router % This will hold any type of data, such as a struct
+        controlPanel
         DTS
         params
         UserData
+        nexObjs
     end
     
     methods
@@ -11,6 +13,7 @@ classdef nexPanel_BASE < handle
         function obj = nexPanel_BASE(nexon,DTS, params)
             obj.DTS=DTS;
             obj.UserData = struct();
+            obj.ControlPanel = nexObj_controlPanel(nexon);
             obj.router = setupRouter(obj, nexon, DTS);
             obj.params = params; % Initialize as an empty struct                              
         end

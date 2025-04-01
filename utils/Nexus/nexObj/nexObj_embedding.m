@@ -22,6 +22,7 @@ classdef nexObj_embedding < handle
         UserData        
         isOnline
         isStatic        
+        keyListener
     end
 
     methods

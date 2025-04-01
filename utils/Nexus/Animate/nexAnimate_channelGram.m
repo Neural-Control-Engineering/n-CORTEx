@@ -94,7 +94,15 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
     % save buffer; using previous dfID
     % disp(obj.dfID);
     % frameBufferID = sprintf("frameBuffer_chg_%s",channelGram.dfID);
-    storeFrameBuffer(channelGram, []);
+    % try DTS standard columns
+    dtsMemberID = sprintf("%s--%s", channelGram.classID, func2str(channelGram.opCfg.opFcn));
+    % compile MatchArgs = opArgs + visArgs    
+    matchArgs = mergeStructs(channelGram.opCfg.entryParams, channelGram.aniCfg.entryParams);
+    dtsIdx = [];
+    % [colIdx] = nex_isDtsMember(dtsMemberID, matchArgs, dtsIdx);
+    if ~nex_isDtsMember(channelGram.nexon, dtsMemberID, matchArgs, dtsIdx);        
+        storeFrameBuffer(channelGram, []);
+    end
     % writeDf(nexon,frameBufferID, channelGram.frameBuffer,[]);            
     
     % step to next frame    
