@@ -1,4 +1,4 @@
-function writeDf(nexon, dfID, df, dtsIdx)
+function writeDataframe(nexon, dfID, df, dtsIdx)
     % Get the BASE structure for easier reference
     base = nexon.console.BASE;
     
