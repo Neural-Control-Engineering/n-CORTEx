@@ -14,7 +14,7 @@ classdef proxy_ncortex < handle
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_ncortex(ipAddress, portAddress, DTS, nCORTEx, tgProxies)
+        function proxObj = proxy_ncortex(nCORTEx, ipAddress, portAddress)
             proxObj.tgProxies = tgProxies;
             proxObj.DTS = DTS;
             proxObj.cmdLUT = cmdLUT;

@@ -11,22 +11,26 @@ classdef proxy_slrt < handle
     % associated target/device proxies
     properties
         classID = "slrt"
-        partnerProxies
+        Partners
         slTarget
-        Server % tcp server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
-        Client % tcp client 
+        Server % transport layer server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
+        Client % transport layer client 
         cmdLUT
-        tgProxies; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)
-        DTS
+        Targets; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)        
     end
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_slrt(DTS, cmdLUT, slTarget, tgProxies)
-            proxObj.tgProxies = tgProxies;
-            proxObj.DTS = DTS;
+        function proxObj = proxy_slrt(cmdLUT, slTarget, tgProxies)
+            proxObj.Targets = tgProxies;            
             proxObj.cmdLUT = cmdLUT;
             proxObj.slTarget = slTarget;
+        end
+
+        function addPartner(proxObj, partnerProxObj)
+        end
+
+        function addTarget(proxObj, targetProxy)
         end
 
         function startDataStream(proxObj)

@@ -165,10 +165,11 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                 zip(fullfile(imecFolder{1},"IMEC"),imecItems);
                 cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
                 % migrate to cloud
-                if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
-                    copyfile(fullfile(params.paths.Data.RAW.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.Data.RAW.(modality).cloud,exp_template)));                
-                    rmdir(fullfile(params.paths.Data.RAW.(modality).local,exp_template),'s');
-                end
+                % DEBUGGING, DECOMMENT HERE
+                % if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
+                %     copyfile(fullfile(params.paths.Data.RAW.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.Data.RAW.(modality).cloud,exp_template)));                
+                %     rmdir(fullfile(params.paths.Data.RAW.(modality).local,exp_template),'s');
+                % end
                 extractionLog = updateExtractionLog(extractionLog, sessionLabel, "Extracted_npxls", 1, 0);
                 writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","RAW")));
             end
