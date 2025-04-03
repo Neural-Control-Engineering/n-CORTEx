@@ -21,7 +21,9 @@ classdef proxy_slrt < handle
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_slrt(cmdLUT, slTarget, tgProxies)
+        function proxObj = proxy_slrt(ipAddress, portAddress, cmdLUT, slTarget, tgProxies, connectionChangedFcn)
+            proxObj.Server = tcpserver(ipAddress, portAddress,"ConnectionChangedFcn",@(src,event)connectionChangedFcn());
+            proxObj.Client = [];
             proxObj.Targets = tgProxies;            
             proxObj.cmdLUT = cmdLUT;
             proxObj.slTarget = slTarget;
