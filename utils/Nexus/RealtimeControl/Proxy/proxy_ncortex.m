@@ -21,6 +21,10 @@ classdef proxy_ncortex < handle
             proxObj.nCORTEx = nCORTEx;
         end
 
+        function relayTransmission(proxObj)
+            
+        end
+
         function transmitField(proxObj, key, value) % send either host to target or vice versa datafields 
         end
 

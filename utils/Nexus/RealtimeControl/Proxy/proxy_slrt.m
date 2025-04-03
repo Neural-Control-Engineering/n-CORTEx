@@ -17,16 +17,32 @@ classdef proxy_slrt < handle
         Client % transport layer client 
         cmdLUT
         Targets; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)        
+        isCapturing=0;
+        isStreaming=0;
+        DTS
     end
     
     methods
         % CONSTRUCTOR
         function proxObj = proxy_slrt(ipAddress, portAddress, cmdLUT, slTarget, tgProxies, connectionChangedFcn)
             proxObj.Server = tcpserver(ipAddress, portAddress,"ConnectionChangedFcn",@(src,event)connectionChangedFcn());
+            configureCallback(proxObj.Server,"byte",25,@(src, evnt)proxObj.relayTransmission(params,server,modalityServer.modSrv));    
             proxObj.Client = [];
             proxObj.Targets = tgProxies;            
             proxObj.cmdLUT = cmdLUT;
             proxObj.slTarget = slTarget;
+        end
+
+        function relayTransmission(proxObj)            
+            PVcmd = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8"); 
+            % flush(sgSrv);
+            PVrx = zeros(25,1);   
+            % command lookup
+            command = proxObj.cmdLUT(cmdCode);
+            % execute designated command (using corresponding target (e.g.
+            % start datastream should initiate a subroutine that fetches
+            % data from all targets)
+
         end
 
         function addPartner(proxObj, partnerProxObj)
@@ -39,9 +55,13 @@ classdef proxy_slrt < handle
         end
 
         function startCapture(proxObj) % initiate capture protocol that stores a running datastream to associated DTS
+            proxObj.isCapturing = 1;
+            % if partnered with nexus proxy
         end
 
         function endCapture(proxObj) % end capture protocol
+            proxObj.isCapturing = 0;
+            % store capture in a DTS (if no DTS on file, create one)
         end
 
         function writeToDTS(proxObj) % recieve a datagram and assign to associated DTS
