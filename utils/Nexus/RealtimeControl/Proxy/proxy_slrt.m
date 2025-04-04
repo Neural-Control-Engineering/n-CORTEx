@@ -34,14 +34,23 @@ classdef proxy_slrt < handle
         end
 
         function relayTransmission(proxObj)            
-            PVcmd = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8"); 
-            % flush(sgSrv);
-            PVrx = zeros(25,1);   
-            % command lookup
-            command = proxObj.cmdLUT(cmdCode);
+            %% read command code
+            cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");             
+            %% command lookup
+            command = proxObj.cmdLUT(cmdCode);            
+            commandParts = split(command,"_");
+            methodID = commandParts(1);
+            if size(commandParts,1)>1 % check for target modifier
+                targetID = commandParts(2);
+            else
+                methodHandle = sprintf("proxy_slrt");
+                methodHandle = str2func(methodHandle);
+            end            
             % execute designated command (using corresponding target (e.g.
             % start datastream should initiate a subroutine that fetches
-            % data from all targets)
+            % data from all targets))
+            %% execute command
+            proxObj.(methodHandle);
 
         end
 
@@ -70,10 +79,13 @@ classdef proxy_slrt < handle
         function sessionLabelChanged(proxObj)
         end
 
-        function readAllTargets()
+        function readAllTargets(proxObj)
         end
 
-        function writeAllTargets()
+        function writeAllTargets(proxObj)
+        end
+
+        function endOfTrial(proxObj)
         end
 
 
