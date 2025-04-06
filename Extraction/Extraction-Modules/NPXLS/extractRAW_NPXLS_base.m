@@ -1,4 +1,4 @@
-function extractRAW_NPXLS(params, sessions_to_extract, Q)    
+function extractRAW_NPXLS_base(params, sessions_to_extract, Q)    
     cd(fullfile(params.paths.repo_path,"Extraction/"));
     pyVersion = "C:\Users\Primus\anaconda3\envs\kilosort\python.EXE";
     pyenv("Version",pyVersion)
@@ -98,7 +98,7 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                     movefile(fullfile(loc,item), fullfile(binFldr,kSortOutFolder),'f');
                                 end
                             end    
-
+    
                             %% LFP
                             % Load LFP data
                             chan_nidq = 1:9;
@@ -132,7 +132,7 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             progress{2} = (i-1)/length(sessions) + k/numBins;
                             send(Q.q, 1);
                             send(Q.pq, progress);     
-
+                           
                         end                      
                     end
                     progress = cell(2,1);
@@ -141,13 +141,13 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     progress{2} = 1;
                     send(Q.q, 1);
                     send(Q.pq, progress);                               
-
+                    
                     % log session
                     % extractionLog(contains(extractionLog.SessionName,exp_template),:).Extracted=1;  
                     % writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv",modality)));
                     % report progress
                     % worker progress update
-
+                    
                 end
                 % zip raw data
                 % NIDQ
