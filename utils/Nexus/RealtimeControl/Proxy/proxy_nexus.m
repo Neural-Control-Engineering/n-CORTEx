@@ -2,7 +2,7 @@ classdef proxy_nexus < handle
     % ncortex proxy to facilitate direct host-target transmissions,
     % experimental configuration protocols, and session data extraction pipeline management
     properties
-        classID = "nexus"
+        proxyID = "nexus"
         Partners 
         nexon % a handle on the main ncortex application        
     end

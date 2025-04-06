@@ -8,8 +8,8 @@ classdef targetKey < Simulink.IntEnumType
 
     methods (Static)
 
-        function code = getCode(cmd)
-            switch cmd
+        function code = getCode(targetID)
+            switch targetID
                 case "all"
                     code = targetKey.all;
                 case "npxls"
@@ -23,18 +23,18 @@ classdef targetKey < Simulink.IntEnumType
             end
         end
 
-        function cmd = getCmd(code)
+        function targetID = getTargetID(code)
             switch code
                 case targetKey.all
-                    cmd = "all";
+                    targetID = "all";
                 case targetKey.npxls
-                    cmd = "npxls";
+                    targetID = "npxls";
                 case targetKey.photon
-                    cmd = "photon";
+                    targetID = "photon";
                 case targetKey.photom
-                    cmd = "photom";
+                    targetID = "photom";
                 otherwise
-                    cmd = "UNKNOWN"; % Or use "" or raise error
+                    targetID = "UNKNOWN"; % Or use "" or raise error
             end
         end
 

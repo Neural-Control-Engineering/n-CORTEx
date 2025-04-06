@@ -1,6 +1,6 @@
 classdef proxy_npxls < handle
     properties
-        classID = "npxls";                        
+        proxyID = "npxls";                        
         Server      
         compCfg
         nexFigures % handles to interactive figures

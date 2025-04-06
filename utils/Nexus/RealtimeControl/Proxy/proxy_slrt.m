@@ -10,42 +10,37 @@ classdef proxy_slrt < handle
     % these capacities are distributed among the slrt proxy and its
     % associated target/device proxies
     properties
-        classID = "slrt"
+        proxyID = "slrt"
         Partners
         slTarget
         Server % transport layer server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
         Client % transport layer client 
-        cmdLUT
+        ctrlKey
         Targets; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)        
-        isCapturing=0;
-        isStreaming=0;
+        % isCapturing=0;
+        % isStreaming=0;
         DTS
     end
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_slrt(ipAddress, portAddress, cmdLUT, slTarget, tgProxies, connectionChangedFcn)
-            proxObj.Server = tcpserver(ipAddress, portAddress,"ConnectionChangedFcn",@(src,event)connectionChangedFcn());
-            configureCallback(proxObj.Server,"byte",25,@(src, evnt)proxObj.relayTransmission(params,server,modalityServer.modSrv));    
-            proxObj.Client = [];
+        function proxObj = proxy_slrt(serverIP, serverPort, clientIP, clientPort, ctrlKey, slTarget, tgProxies, connectionChangedFcn)
+            proxObj.Server = tcpserver(serverIP, serverPort,"ConnectionChangedFcn",@(src,event)connectionChangedFcn(src, event));
+            proxObj.Client = tcpclient(clientIP, clientPort, "ConnectionChangedFcn", @(src, event)connectionChangedFcn(src, event));
+            % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(params,server,modalityServer.modSrv));    
+            configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(proxObj));    
+            
             proxObj.Targets = tgProxies;            
-            proxObj.cmdLUT = cmdLUT;
+            proxObj.ctrlKey = ctrlKey;
             proxObj.slTarget = slTarget;
         end
 
         function relayTransmission(proxObj)            
             %% read command code
-            cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");             
+            % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");             
+            cmdCode = read(proxObj.Server,1,"uint8");             
             %% command lookup
-            command = proxObj.cmdLUT(cmdCode);            
-            commandParts = split(command,"_");
-            methodID = commandParts(1);
-            if size(commandParts,1)>1 % check for target modifier
-                targetID = commandParts(2);
-            else
-                methodHandle = sprintf("proxy_slrt");
-                methodHandle = str2func(methodHandle);
-            end            
+            command = proxObj.ctrlKey.getCmd(cmdCode);                                 
             % execute designated command (using corresponding target (e.g.
             % start datastream should initiate a subroutine that fetches
             % data from all targets))
@@ -64,13 +59,17 @@ classdef proxy_slrt < handle
         end
 
         function startCapture(proxObj) % initiate capture protocol that stores a running datastream to associated DTS
-            proxObj.isCapturing = 1;
-            % if partnered with nexus proxy
+            % retrieve target data (whatever's left in the transmission)
+            targetCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");
+            targetID = targetKey.getTargetID(targetCode);
+            % initialize target capStream
+
         end
 
         function endCapture(proxObj) % end capture protocol
-            proxObj.isCapturing = 0;
-            % store capture in a DTS (if no DTS on file, create one)
+            targetCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");
+            targetID = targetKey.getTargetID(targetCode);
+            % end target capStream
         end
 
         function writeToDTS(proxObj) % recieve a datagram and assign to associated DTS

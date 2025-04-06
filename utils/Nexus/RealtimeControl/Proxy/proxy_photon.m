@@ -1,6 +1,6 @@
 classdef proxy_photon < handle
     properties
-        classID = "photon";                        
+        proxyID = "photon";                        
         Server
         compCfg
         nexFigures % handles to interactive figures

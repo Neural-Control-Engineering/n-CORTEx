@@ -2,7 +2,7 @@ classdef proxy_ncortex < handle
     % ncortex proxy to facilitate direct host-target transmissions,
     % experimental configuration protocols, and session data extraction pipeline management
     properties
-        classID = "ncortex"
+        proxyID = "ncortex"
         partnerProxies      
         nCORTEx % a handle on the main ncortex application
         Server % tcp server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
