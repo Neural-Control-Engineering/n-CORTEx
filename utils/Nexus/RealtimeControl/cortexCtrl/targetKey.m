@@ -1,14 +1,17 @@
 classdef targetKey < Simulink.IntEnumType
     enumeration
+        all (0)
         npxls  (1)
         photon (2)
-        photom (3)
+        photom (3)        
     end
 
     methods (Static)
 
         function code = getCode(cmd)
             switch cmd
+                case "all"
+                    code = targetKey.all;
                 case "npxls"
                     code = targetKey.npxls;
                 case "photon"
@@ -22,6 +25,8 @@ classdef targetKey < Simulink.IntEnumType
 
         function cmd = getCmd(code)
             switch code
+                case targetKey.all
+                    cmd = "all";
                 case targetKey.npxls
                     cmd = "npxls";
                 case targetKey.photon
