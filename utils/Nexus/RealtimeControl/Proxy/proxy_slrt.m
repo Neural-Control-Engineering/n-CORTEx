@@ -31,7 +31,7 @@ classdef proxy_slrt < handle
             configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(proxObj));    
             
             proxObj.Targets = tgProxies;            
-            proxObj.ctrlKey = ctrlKey;
+            % proxObj.ctrlKey = ctrlKey();
             proxObj.slTarget = slTarget;
         end
 

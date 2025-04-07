@@ -4,12 +4,17 @@ classdef proxy_photon < handle
         Server
         compCfg
         nexFigures % handles to interactive figures
+        captureBuffer
+        stream
+        EN_capStream
+        EN_rtStream
     end
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_photon(Server)
-            proxObj.Server = Server; % prairielink            
+        function proxObj = proxy_photon(serverIP)            
+            proxObj.Server = actxserver('PrairieLink64.Application');   
+            proxObj.stream = timer("ExecutionMode","fixedRate","BusyMode","queue","Period",0.1,"TimerFcn",@(~,~)proxObj.readData);                        
         end
 
         % FETCH DATA

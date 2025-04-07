@@ -8,22 +8,42 @@ classdef proxy_ncortex < handle
         Server % tcp server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
         Client % tcp client 
         cmdLUT
-        tgProxies; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)
+        Targets; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)
         DTS
     end
     
     methods
+        
         % CONSTRUCTOR
-        function proxObj = proxy_ncortex(nCORTEx, ipAddress, portAddress)
-            proxObj.tgProxies = tgProxies;
+        function proxObj = proxy_ncortex(nCORTEx, serverIP, serverPort, clientIP, clientPort, tgProxies, DTS, connectionChangedFcn)
+            proxObj.Server = tcpserver(serverIP, serverPort,"ConnectionChangedFcn",@(src,event)connectionChangedFcn(src, event));
+            proxObj.Targets = tgProxies;
             proxObj.DTS = DTS;
-            proxObj.cmdLUT = cmdLUT;
+            % proxObj.ctxKey = ctxKey;
             proxObj.nCORTEx = nCORTEx;
         end
 
-        function relayTransmission(proxObj)
-            
+        function writeTransmission(proxObj, cmd, txArgs)
+            byteStream = getByteStreamFromArray(payload);
+            write(proxObj.Client, uint8(byteStream, "uint8"));
         end
+
+        function relayTransmission(proxObj)
+            dataRx = readline(proxObj.Server);
+            % app-relative subassignment of transmitted values            
+            % decode command
+            % recover method arguments
+            dataRx = read(proxObj.Server, proxObj.Server.NumBytesAvailable,"uint8");
+            rxArgs = getArrayFromByteStream(uint8(dataRx));
+            % execute method
+            proxObj.(method)(rxArgs);
+        end
+
+        % function s = dynamicSetStruct(s, fieldPath, value)
+        %     fields = strsplit(fieldPath, "--");
+        %     S = struct('type', '.', 'subs', fields);
+        %     s = subsasgn(s, S, value);
+        % end
 
         function transmitField(proxObj, key, value) % send either host to target or vice versa datafields 
         end
@@ -35,9 +55,25 @@ classdef proxy_ncortex < handle
             % execute key/value-specific callback 
         end
 
-        function sessionLabelChanged(proxObj)
+        function discardSession(proxObj, rxArgs)
+            
+            session2Discard = rxArgs;
+            uploadRaw(proxObj.nCORTEx.params.paths.Data.RAW,session2Discard,1);
+        end
+
+        function sessionLabelChanged(proxObj, rxArgs)
             % update nCORTEx and invoke sessionLabelChanged method on all
             % associated tgProxies
+            sessionLabel = rxArgs;
+            % apply sessionLabelChanged for each target proxy            
+        end
+
+        function assignPayload(proxObj, rxArgs)
+            fieldPath = rxArgs.fieldPath;
+            value = rxArgs.value;
+            fields = strsplit(fieldPath, "--");
+            S = struct('type', '.', 'subs', fields);
+            s = subsasgn(s, S, value);
         end
     end
 

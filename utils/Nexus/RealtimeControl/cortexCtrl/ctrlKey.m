@@ -7,7 +7,7 @@ classdef ctrlKey < Simulink.IntEnumType
         endOfTrial (5)
     end
 
-    methods (Static)
+    methods (Static)        
 
         function code = getCode(cmd)
             switch cmd
