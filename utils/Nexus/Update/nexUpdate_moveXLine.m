@@ -1,6 +1,6 @@
-function nexUpdate_moveSpgXLine(nexObj, xIdx)
+function nexUpdate_moveXLine(nexObj, xIdx)
     % figureChildren = nexObjFigure.Parent.Children;
-    figureChildren = nexObj.
+    figureChildren = nexObj;
     % xLineObj.Value = xIdx;
     for i = 1:length(figureChildren)
         figureChild = figureChildren(i);
