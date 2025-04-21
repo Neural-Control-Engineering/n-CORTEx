@@ -39,3 +39,10 @@ classdef ctrlKey < Simulink.IntEnumType
     end
 
 end
+
+ctrxControl("startDatastream","photon"); % return 1 if successful
+ctrxControl("startDatastream","npxls");
+
+
+PVrx 
+PVtx
