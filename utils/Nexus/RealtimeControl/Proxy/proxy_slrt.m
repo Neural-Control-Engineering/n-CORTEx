@@ -15,6 +15,8 @@ classdef proxy_slrt < handle
         slTarget
         Server % transport layer server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
         Client % transport layer client 
+        compCfg
+        nexFigures
         ctrlKey
         Targets; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)        
         % isCapturing=0;
