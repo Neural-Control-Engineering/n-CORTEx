@@ -4,8 +4,10 @@ classdef proxy_photon < handle
         Server
         compCfg
         nexFigures % handles to interactive figures
-        captureBuffer
         stream
+        writeBuffer
+        readBuffer
+        captureBuffer        
         EN_capStream
         EN_rtStream
     end
