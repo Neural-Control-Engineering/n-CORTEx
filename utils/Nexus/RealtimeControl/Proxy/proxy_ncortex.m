@@ -23,20 +23,23 @@ classdef proxy_ncortex < handle
             proxObj.nCORTEx = nCORTEx;
         end
 
-        function writeTransmission(proxObj, cmd, txArgs)
-            byteStream = getByteStreamFromArray(payload);
+        function writeTransmission(proxObj, methodID, txArgs)
+            % method ID
+            writeline(proxObj.Client,methodID);
+            % payload
+            byteStream = getByteStreamFromArray(txArgs);
             write(proxObj.Client, uint8(byteStream, "uint8"));
         end
 
         function relayTransmission(proxObj)
-            dataRx = readline(proxObj.Server);
+            methodID = readline(proxObj.Server);
             % app-relative subassignment of transmitted values            
             % decode command
             % recover method arguments
             dataRx = read(proxObj.Server, proxObj.Server.NumBytesAvailable,"uint8");
             rxArgs = getArrayFromByteStream(uint8(dataRx));
             % execute method
-            proxObj.(method)(rxArgs);
+            proxObj.(methodID)(rxArgs);
         end
 
         % function s = dynamicSetStruct(s, fieldPath, value)
@@ -55,25 +58,46 @@ classdef proxy_ncortex < handle
             % execute key/value-specific callback 
         end
 
-        function discardSession(proxObj, rxArgs)
-            
+        function discardSession(proxObj, rxArgs)            
             session2Discard = rxArgs;
             uploadRaw(proxObj.nCORTEx.params.paths.Data.RAW,session2Discard,1);
+        end
+
+        function migrateTmp(proxObj, rxArgs)
         end
 
         function sessionLabelChanged(proxObj, rxArgs)
             % update nCORTEx and invoke sessionLabelChanged method on all
             % associated tgProxies
-            sessionLabel = rxArgs;
+            sessionLabel = rxArgs.sessionLabel;
             % apply sessionLabelChanged for each target proxy            
         end
 
-        function assignPayload(proxObj, rxArgs)
+        function updateProperty(proxObj, rxArgs)
             fieldPath = rxArgs.fieldPath;
             value = rxArgs.value;
             fields = strsplit(fieldPath, "--");
             S = struct('type', '.', 'subs', fields);
             s = subsasgn(s, S, value);
+        end
+
+        function updateField(proxObj, rxArgs)
+            % Automated remote host-target entry updates
+            appField = rxArgs.appField;
+            entryType = rxArgs.entryType;
+            entry = rxArgs.Value;
+            try
+                proxObj.nCORTEx.(appField).(entryType) = entry;
+                switch entryType
+                    case "Value"
+                        proxObj.nCORTEx.(appField).ValueChangedFcn([], app);
+                    case "Items"
+                    otherwise
+                end
+                
+            catch e
+                disp(getReport(e));
+            end
         end
     end
 
