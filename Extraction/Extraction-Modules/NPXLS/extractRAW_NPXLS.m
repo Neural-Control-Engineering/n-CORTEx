@@ -110,6 +110,15 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             lfp = ReadSGLXData(lfpFileName, binFldr, chan_imec);
                             % keyboard
                             Fs = lfp.meta.imSampRate;  % Sampling frequency (Hz)
+                            % synch-validation
+                            synch1 = nidq.dataArray(9,:); % 1Hz pulser
+                            synch2 = lfp.dataArray(385,:); % 250 Hz pulser
+                            Fs1 = str2double(lfp.meta.imSampRate);
+                            Fs2 = nidq.meta.niSampRate;
+                            F_synch1 = 1;
+                            F_synch2 = 250;
+                            args.groupSize = 10;
+                            validate_temporalPrecision(synch1, synch2, Fs1, Fs2, F_synch1, F_synch2, args);
                             % Design the notch filter
                             % d = designfilt('bandpassiir', ...
                             %             'FilterOrder', 4, ...
