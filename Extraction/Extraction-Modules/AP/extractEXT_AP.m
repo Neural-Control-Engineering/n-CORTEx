@@ -12,7 +12,7 @@ function AP = extractEXT_AP(SLRT, dataDir)
     for j = 1:numTrigs              
         sortedFldr = sortedTrigs{i};
         kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
-        lfpPath = fullfile(imecPath,sortedFldr);
+        % lfpPath = fullfile(imecPath,sortedFldr);
         AP = extAP(SLRT, kSortPath);
         % LFP = extLFP(SLRT, lfpPath);
     end

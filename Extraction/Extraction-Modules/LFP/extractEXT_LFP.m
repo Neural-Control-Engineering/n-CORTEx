@@ -8,10 +8,10 @@ function LFP = extractEXT_LFP(SLRT, dataDir)
     numTrigs = size(sortedTrigs,1);
     for j = 1:numTrigs              
         sortedFldr = sortedTrigs{i};
-        kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
+        % kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
         lfpPath = fullfile(imecPath,sortedFldr);
         % AP = extAP(SLRT, kSortPath);
-        LFP = extLFP(SLRT, lfpPath);
+        LFP = extLFP(SLRT, lfpPath, j);
     end
     
 end
