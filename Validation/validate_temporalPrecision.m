@@ -38,7 +38,7 @@ function [IPD_A, IPD_B, PC_B] = validate_temporalPrecision(synch1, synch2, Fs1, 
         synchA = synch2;
         synchB = synch1;
         tA = t2;
-        tB = t2;
+        tB = t1;
     end
     
     % Report metrics 
@@ -53,6 +53,8 @@ function [IPD_A, IPD_B, PC_B] = validate_temporalPrecision(synch1, synch2, Fs1, 
     % plot group-wise and total-trial inter-pulse-delay stats
     % A:  
     IPD_A = measureInterPulseDelay(t_risingEdgeA, groupSize);
+    IPD_A.t_RE = t_risingEdgeA;
     % B:    
     IPD_B = measureInterPulseDelay(t_risingEdgeB, groupSize);
+    IPD_B.t_RE = t_risingEdgeB;
 end

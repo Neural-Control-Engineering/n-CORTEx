@@ -7,7 +7,7 @@ function [out, slrt] = extractEXT_SLRT(filename)
     % DONE - add session label
     % DONE - add column with column name - logged data type (e.g. event) pairings
     % DONE - allow seg_trialNum or cont_trialNum for segmentation data
-
+    
     % load slrt data, get logged  signals
     slrt = load(filename);
     try
@@ -16,7 +16,7 @@ function [out, slrt] = extractEXT_SLRT(filename)
         logsout = slrt.logsout;
     end
     signals = logsout.getElementNames();
-    try
+    try        
         trialNum = logsout.getElement("seg_trialNum").Values.Data;
         trial_starts = find(trialNum == 1);
     catch
@@ -29,14 +29,27 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 trial_starts = find(trialNum == 1);
             catch
                 try
+                    % trialNum: target acquisition and trial segmentations are coupled
                     trialNum = logsout.getElement("seg_trialGate").Values.Data;
                     trial_starts = find(diff(trialNum)>=1);                    
+                    % trial_starts = find(diff(trialNum)>=1) - 1;                    
+                    gate_starts = trial_starts;
                 catch
                     error("Simulink model does not contain logged signal named 'cont_trialCounter' or 'seg_trialCounter")
                 end
             end
         end
+    end    
+
+    % meta params
+    try
+        Fs = slrt.realtimeLog.metadata.Fs;
+    catch e
+        Fs = 1000;
+        disp(getReport(e));
     end
+    preBuffLen = 3.5; % preBuffer length for signal context (matching target modalities)
+    postBuffLen = 5.0; % postBuffer length for signal context (not necessarily matching targ.)
 
     % get session label
     file_parts = strsplit(filename, filesep());
@@ -85,6 +98,9 @@ function [out, slrt] = extractEXT_SLRT(filename)
     % trial_starts = find(trialNum == 1);
     trial_ends = zeros(length(trial_starts),1);
     for i = 1:length(trial_starts)
+        % gate_start decision boundary
+        gatePtr = find((trial_starts(i) >= gate_starts), 1, 'last' ); % address most recent gate, relative to current trial_start index
+        gate_start = gate_starts(gatePtr);
         % get end of each trial
         if i == length(trial_starts) 
             trial_ends(i) = length(trialNum);
@@ -108,8 +124,8 @@ function [out, slrt] = extractEXT_SLRT(filename)
                     % duplicates
                     data_raw = sig.getElement(1).Values.Data;
             end            
-            % segment data 
-            if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal') || strcmp(signal_split{1}, 'event')
+            %% SEGMENTATION
+            if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal') || strcmp(signal_split{1}, 'event') 
                 % pre-buffer for first trial in session (special case)
                 if i == 1
                     try
@@ -126,21 +142,27 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 else
                     data = data_raw(trial_starts(i):trial_ends(i));
                 end
+            elseif strcmp(signal_split{1}, 'sync') % always prebuffer                
+                data = data_raw(trial_starts(i)-preBuffLen*Fs: trial_ends(i));
             else
                 data = data_raw(trial_starts(i):trial_ends(i));
-            end
+            end            
+            %% CONDITIONING
             % determine if event, continuous (cont), or tag 
             if length(signal_split) == 2
                 data_name = signal_split{2};
             elseif length(signal_split) > 2
                 data_name = strcat(signal_split{2}, '_', signal_split{3});
-            end
+            end            
+            % CONT / SIGNAL
             if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal')                              
                 % cell array for continuous data
                 row = [row, table({data}, 'VariableNames', {data_name})];
+            % TAG
             elseif strcmp(signal_split{1}, 'tag')
                 % single value for tag 
                 row = [row, table(data(1), 'VariableNames', {data_name})];
+            % EVENT
             elseif strcmp(signal_split{1}, 'event')
                 % index for for events 
                 ind = find(data == 1);
@@ -153,14 +175,36 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 else
                     row = [row, table(nan, 'VariableNames', {data_name})];
                 end
+            % AFFIX
+            elseif strcmp(signal_split{1},'affix')
+                % tag trial with final value included in signal (prior to
+                % subsequent trial)
+                % disp('affix test');
+                % assign affix as the most recent value
+                row = [row, table(data(end),'VariableNames',{data_name})];
+            % SYNCHRONIZATION
+            elseif strcmp(signal_split{1}, 'sync')
+                % append sync pulse titled by its frequency; expecting
+                % other modalities will have matching columns to align by
+                % disp('sync test');
+                t = ([0:length(data)-1] + trial_starts(i) - gate_start) ./ Fs; % time vector relative to current slrt time and most recent acquisition
+                idx_RE = diff(data) > 0; % rising edge indices
+                t_RE = t(idx_RE); % rising edge time stamps
+                % t_RE_startAligned = t_RE; % align rising edges to trial starts (with 3.5 second prior context)
+                row = [row, table({t_RE},'VariableNames',{sprintf('t-RE_%s',data_name)})];
             elseif ~strcmp(signal_split{1}, 'seg')
                 % otherwise it's an invalid signal name 
                 % error(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))
-                warning(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))
+                warning(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))            
             end
         end
+        % TRIAL-GATE IDX
+        row = [row, table({gatePtr}, 'VariableNames', {'t'})]; % tN trigger number (as opposed to gate gN)
         % add signal types 
         row = [row, table({signal_types}, 'VariableNames', {'signal_types'})];
+        % trial-gate adjusted clock times
+        gate_clock_time = row.clock_time{1} - gate_starts(gatePtr)/Fs;
+        row = [row, table({gate_clock_time}, 'VariableNames', {'trial-gate_clock_time'})];
         % put output table together 
         if i == 1
             out = row;
@@ -168,10 +212,14 @@ function [out, slrt] = extractEXT_SLRT(filename)
             out = [out; row];
         end
     end
-    out = alignSignalsToEvents(out);
+    out = alignSignalsToEvents(out);    
 end
 
 function out = alignSignalsToEvents(slrt_data)
+    
+    % DEFINE
+    preBuffLen = 3.5; % alignment features 3.5 second prebuffering (for each trial)
+
     signal_types = slrt_data(1,:).signal_types{1};
     signal_inds = find(strcmp(signal_types(:,2), 'signal'));
     event_inds = find(strcmp(signal_types(:,2), 'event'));
@@ -183,7 +231,7 @@ function out = alignSignalsToEvents(slrt_data)
             event_name = signal_types{event_inds(e),1};
             aligned_signals = cell(size(slrt_data,1), 1);
             aligned_times = cell(size(slrt_data,1), 1);
-            for t = 1:size(slrt_data,1)
+            for t = 1:size(slrt_data,1) % for each trial
                 event_ind = slrt_data(t,:).(event_name);
                 if ~isnan(event_ind)
                     event_time = slrt_data(t,:).clock_time{1}(event_ind);
@@ -197,8 +245,8 @@ function out = alignSignalsToEvents(slrt_data)
                         peri_time = [slrt_data(t-1,:).clock_time{1}; slrt_data(t,:).clock_time{1}] - event_time;
                         peri_signal = [slrt_data(t-1,:).(signal_name){1}; slrt_data(t,:).(signal_name){1}];
                     end
-                    aligned_signal = peri_signal(peri_time >= -3.5 & peri_time <= 5.0);
-                    aligned_time = peri_time(peri_time >= -3.5 & peri_time <= 5.0);
+                    aligned_signal = peri_signal(peri_time >= -preBuffLen & peri_time <= 5.0);
+                    aligned_time = peri_time(peri_time >= -preBuffLen & peri_time <= 5.0);
                     aligned_signals{t} = aligned_signal;
                     aligned_times{t} = aligned_time;
                 end
@@ -210,3 +258,15 @@ function out = alignSignalsToEvents(slrt_data)
         end
     end
 end
+
+% function out = alignSyncToTrialStarts(slrt_data)
+%     preBuffLen = 3.5;
+% 
+%     signal_types = slrt_data(1,:).signal_types{1};
+%     sync_inds = find(strcmp(signal_types(:,2), 'sync'));
+%     event_inds = find(strcmp(signal_types(:,2), 'event'));
+%     out = slrt_data;
+%     for i = 1:length(sync_inds)
+% 
+%     end
+% end

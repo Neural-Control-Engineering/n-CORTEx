@@ -108,36 +108,43 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             nidqFileName = strrep(bin,'.imec0.ap.bin','.nidq.bin');
                             nidqFolder = nidqBinDir(k).folder;
                             lfp = ReadSGLXData(lfpFileName, binFldr, chan_imec);
-                            % keyboard
-                            Fs = lfp.meta.imSampRate;  % Sampling frequency (Hz)
+                            nidq = ReadSGLXData(nidqFileName,nidqFolder, chan_nidq);                                                                                                            
+                            % keyboard                            
                             % synch-validation
                             synch1 = nidq.dataArray(9,:); % 1Hz pulser
-                            synch2 = lfp.dataArray(385,:); % 250 Hz pulser
-                            Fs1 = str2double(lfp.meta.imSampRate);
-                            Fs2 = nidq.meta.niSampRate;
+                            synch2 = lfp.dataArray(385,:); % 250 Hz pulser                            
+                            Fs1 = str2double(nidq.meta.niSampRate);
+                            Fs2 = str2double(lfp.meta.imSampRate);                            
                             F_synch1 = 1;
                             F_synch2 = 250;
                             args.groupSize = 10;
-                            validate_temporalPrecision(synch1, synch2, Fs1, Fs2, F_synch1, F_synch2, args);
+                            [IPD_A, IPD_B, PC_B] = validate_temporalPrecision(synch1, synch2, Fs1, Fs2, F_synch1, F_synch2, args);
+                            sync.lines.sync_1Hz.IPD = IPD_A;
+                            sync.lines.sync_1Hz.PC = [];
+                            sync.lines.sync_1Hz.t_RE = IPD_A.t_RE;
+                            sync.lines.sync_250Hz.IPD = IPD_B;
+                            sync.lines.sync_250Hz.PC = PC_B;
+                            sync.lines.sync_250Hz.t_RE = IPD_B.t_RE;
+                            %% ANTIALIASING & DOWNSAMPLING
                             % Design the notch filter
-                            % d = designfilt('bandpassiir', ...
-                            %             'FilterOrder', 4, ...
-                            %             'HalfPowerFrequency1', 0.1, ...
-                            %             'HalfPowerFrequency2', 100, ...
-                            %             'DesignMethod', 'butter', ...
-                            %             'SampleRate', Fs);
-                            % rmpath('C:\Code_Repo\n-CORTEx\utils\fieldtrip-20230522\external\signal\')
-                            % tmpLfp = filtfilt(d, lfp.dataArray);
-                            % addpath(genpath('C:\Code_Repo\n-CORTEx\utils\fieldtrip-20230522\external\signal\'))
-                            % lfp = downsample(tmpLfp', 5)';
-                            % lfp = downsample(lfp.dataArray',5)';
-                            lfp = lfp.dataArray;
-                            nidq = ReadSGLXData(nidqFileName,nidqFolder, chan_nidq);                                                                                                            
+                            Fs = str2double(lfp.meta.imSampRate);
+                            d = designfilt('bandpassiir', ...
+                                        'FilterOrder', 4, ...
+                                        'HalfPowerFrequency1', 0.1, ...
+                                        'HalfPowerFrequency2', 100, ...
+                                        'DesignMethod', 'butter', ...
+                                        'SampleRate', Fs);                                                       
+                            args_antiAlias.Fs = Fs;
+                            args_antiAlias.contextWin = 50;
+                            lfp_filt = antiAlias(lfp.dataArray, d, args_antiAlias );
+                            lfp = downsample(lfp_filt,5)';        
+                            %% SAVE RESULTS                            
                             save(fullfile(strcat("\\?\",kSortOutPath),"lfp.mat"),"lfp");
                             save(fullfile(strcat("\\?\",kSortOutPath),"nidq.mat"),"nidq");                              
+                            save(fullfile(strcat("\\?\",kSortOutPath),"sync.mat"),"sync");
+                            %% UPDATE UI
                             progress = cell(2,1);
-                            progress{1} = modality;
-                            % progress{2} = i/length(sessions);
+                            progress{1} = modality;                     
                             progress{2} = (i-1)/length(sessions) + k/numBins;
                             send(Q.q, 1);
                             send(Q.pq, progress);     
@@ -175,10 +182,10 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                 cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
                 % migrate to cloud
                 % DEBUGGING, DECOMMENT HERE
-                % if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
-                %     copyfile(fullfile(params.paths.Data.RAW.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.Data.RAW.(modality).cloud,exp_template)));                
-                %     rmdir(fullfile(params.paths.Data.RAW.(modality).local,exp_template),'s');
-                % end
+                if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
+                    copyfile(fullfile(params.paths.Data.RAW.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.Data.RAW.(modality).cloud,exp_template)));                
+                    rmdir(fullfile(params.paths.Data.RAW.(modality).local,exp_template),'s');
+                end
                 extractionLog = updateExtractionLog(extractionLog, sessionLabel, "Extracted_npxls", 1, 0);
                 writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","RAW")));
             end

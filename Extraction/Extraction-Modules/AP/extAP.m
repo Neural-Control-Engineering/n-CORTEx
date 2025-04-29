@@ -1,23 +1,27 @@
-function out = extAP(SLRT, npxls_path)
+function AP = extAP(SLRT, npxls_path, trigNum)
     % DONE - add session labels 
     % DONE - align spike times to all events 
     % DONE - merge spiking data and cluster info
-         
-    amplitudes = readNPY(fullfile(npxls_path, 'amplitudes.npy'));
-    % channel_map = readNPY(strcat(npxls_path, 'channel_map.npy'));
-    channel_positions = readNPY(fullfile(npxls_path, 'channel_positions.npy'));
-    % kept_spikes = readNPY(strcat(npxls_path, 'kept_spikes.npy'));
-    % ops = readNPY(strcat(npxls_path, 'ops.npy'));
-    % similar_templates = readNPY(strcat(npxls_path, 'similar_templates.npy'));
-    spike_clusters = readNPY(fullfile(npxls_path, 'spike_clusters.npy'));
-    % spike_templates = readNPY(strcat(npxls_path, 'spike_templates.npy'));
-    spike_inds = readNPY(fullfile(npxls_path, 'spike_times.npy'));
-    templates = readNPY(fullfile(npxls_path, 'templates.npy'));
-    % templates_ind = readNPY(strcat(npxls_path, 'templates_ind.npy'));
-    % cluster_KSLabel = readtable(strcat(npxls_path, 'cluster_KSLabel.tsv'), 'FileType','text','Delimiter', '\t');
-    cluster_ContamPct = readtable(fullfile(npxls_path, 'cluster_ContamPct.tsv'), 'FileType','text','Delimiter', '\t');
-    cluster_group = readtable(fullfile(npxls_path, 'cluster_group.tsv'), 'FileType','text','Delimiter', '\t');
-    cluster_Amplitude = readtable(fullfile(npxls_path, 'cluster_Amplitude.tsv'), 'FileType','text','Delimiter', '\t');
+    
+    % load sync data (from RAW layer)
+    load(fullfile(npxls_path,"sync.mat")); % time vectors and QC meta analysis for cross-device sync pulses    
+    % load spiking data (kilosort output)
+    kilosort_path = fullfile(npxls_path,"kilosort4");
+    amplitudes = readNPY(fullfile(kilosort_path, 'amplitudes.npy'));
+    % channel_map = readNPY(strcat(kilosort_path, 'channel_map.npy'));
+    channel_positions = readNPY(fullfile(kilosort_path, 'channel_positions.npy'));
+    % kept_spikes = readNPY(strcat(kilosort_path, 'kept_spikes.npy'));
+    % ops = readNPY(strcat(kilosort_path, 'ops.npy'));
+    % similar_templates = readNPY(strcat(kilosort_path, 'similar_templates.npy'));
+    spike_clusters = readNPY(fullfile(kilosort_path, 'spike_clusters.npy'));
+    % spike_templates = readNPY(strcat(kilosort_path, 'spike_templates.npy'));
+    spike_inds = readNPY(fullfile(kilosort_path, 'spike_times.npy'));
+    templates = readNPY(fullfile(kilosort_path, 'templates.npy'));
+    % templates_ind = readNPY(strcat(kilosort_path, 'templates_ind.npy'));
+    % cluster_KSLabel = readtable(strcat(kilosort_path, 'cluster_KSLabel.tsv'), 'FileType','text','Delimiter', '\t');
+    cluster_ContamPct = readtable(fullfile(kilosort_path, 'cluster_ContamPct.tsv'), 'FileType','text','Delimiter', '\t');
+    cluster_group = readtable(fullfile(kilosort_path, 'cluster_group.tsv'), 'FileType','text','Delimiter', '\t');
+    cluster_Amplitude = readtable(fullfile(kilosort_path, 'cluster_Amplitude.tsv'), 'FileType','text','Delimiter', '\t');
 
     events_logical = strcmp(SLRT(1,:).signal_types{1}(:,2), 'event');
     event_signals = SLRT(1,:).signal_types{1}(events_logical,1);
@@ -82,7 +86,7 @@ function out = extAP(SLRT, npxls_path)
                 'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes', ...
                 'template_amplitude', 'position', 'contam_pct', 'waveform_class', 'template', 'channel'});
 
-            % align spike times to events
+            % align spike times to events (including sync pulse)
             if ~isempty(cluster_spike_times)
                 for es = 1:length(event_signals)
                     signal = event_signals{es};
@@ -123,6 +127,8 @@ function out = extAP(SLRT, npxls_path)
                 'VariableNames', {'trial_num', 'session_label', 'spiking_data'})];
         end
     end
+
+    AP = out;
 end
 
 function out = classifySpikeWvfrm(wvfrm, fsRsThreshold)

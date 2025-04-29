@@ -1,9 +1,17 @@
-function out = extLFP(SLRT, lfpPath)
-    
+function LFP = extLFP(SLRT, lfpPath, trigNum)
+
+    % DEFINE
+    preBuffLen = 3.5; % pre-trial buffered sample length (seconds)
+    postBuffLen = 5.0; % trial segmentation duration (seconds)
+
+    % load sync data (from RAW layer); this should match SLRT and/or externally generated
+    % sync data
+    load(fullfile(lfpPath,"sync.mat")); % rising edge time vectors and QC meta analysis for cross-device sync pulses
+    % load lfp  (from RAW layer)
     load(fullfile(lfpPath,"lfp.mat"));
     lfpFs = 500;
-    max_time = SLRT(end,:).clock_time{1}(end);
-    lfpTime = linspace(-3.5, max(max_time)+3.5, size(lfp,2));
+    max_time = SLRT(end,:).clock_time{1}(end); % total duration of the session
+    lfpTime = linspace(-preBuffLen, max(max_time)+preBuffLen, size(lfp,2));
 
     events_logical = strcmp(SLRT(1,:).signal_types{1}(:,2), 'event');
     event_signals = SLRT(1,:).signal_types{1}(events_logical,1);
@@ -12,6 +20,8 @@ function out = extLFP(SLRT, lfpPath)
         % 'VariableNames', {'trial_num', 'session_label','lfp'});
     out = [];
     for trial = 1:size(SLRT,1)
+
+        % only apply to SLRT trials matching trigNum
         
         % define output table
         session_label = SLRT(trial,:).session_label{1};
@@ -22,22 +32,27 @@ function out = extLFP(SLRT, lfpPath)
         start_time = SLRT(trial,:).clock_time{1}(1);
         fin_time = SLRT(trial,:).clock_time{1}(end);
         
-        trial_lfp_inds = find(lfpTime >= (start_time-3.5) & lfpTime <= (fin_time+5.0));
+        trial_lfp_inds = find(lfpTime >= (start_time-preBuffLen) & lfpTime <= (fin_time+postBuffLen));       
+        % slice lfp signal by trial windows
         try
             lfpSeg = lfp(:,trial_lfp_inds);
             trial_lfpTimes = lfpTime(trial_lfp_inds);
         catch
             lfpSeg = [];
         end
+        % slice sync lines by trial windows
+        syncID = "";
+        trial_sync_inds = find(syncTime >= (start_time-preBuffLen) & syncTime <= (fin_time+postBuffLen));
+        try
+            syncSeg = sync.lines.(syncID);
+        catch
+            syncSeg = [];
+        end
         row = [row, table({lfpSeg}, {trial_lfpTimes},'VariableNames',{'lfp', 'lfpTime'})];
+        
+        % row = [row, table({syncSeg},'VariableNames',{sprintf('sync_%d',F_synch)})];
 
-        % row = table(cluster_id, {cluster_spike_times}, cluster_quality, {cluster_spike_amplitudes}, ...
-        %         cluster_info(c,:).amplitude, {cluster_info(c,:).position}, cluster_info(c,:).contam_pct, ...
-        %         {cluster_info(c,:).waveform_class}, {cluster_info(c,:).template}, ...
-        %         'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes', ...
-        %         'template_amplitude', 'position', 'contam_pct', 'waveform_class', 'template'});
-
-        % align lfpTime to events
+        % align lfpTime to events (including sync pulse)
         if ~isempty(lfpSeg)
             for es = 1:length(event_signals)
                     signal = event_signals{es};
@@ -63,4 +78,6 @@ function out = extLFP(SLRT, lfpPath)
             out = [out; row];
         end              
     end
+
+    LFP = out;
 end

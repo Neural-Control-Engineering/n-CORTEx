@@ -73,13 +73,13 @@ function extractEXT(params)
                                 extData.(extMod) = extractCfg.EXT.(extMod).boostFcn(params, extData.(extMod) , args);
                             catch e
                                 fprintf("WARNING: boostFcn for %s failed \n",extMod)
-                                disp(e);
+                                disp(getReport(e));
                             end
                         end
                         extModPath = fullfile(params.paths.Data.EXT.(extMod).cloud,sprintf("%s.mat",session));
                         save(extModPath,extData.(extMod));
                     catch e
-                        disp(e);
+                        disp(getReport(e));
                     end         
                 end
             end
