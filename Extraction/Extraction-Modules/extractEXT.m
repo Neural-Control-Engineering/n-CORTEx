@@ -65,7 +65,7 @@ function extractEXT(params)
                     % extrctHndl = str2func(sprintf("extractEXT_%s", extrctModule));                        
                     extrctHndl = str2func(sprintf("extractEXT_%s", extMod));                        
                     try
-                        extData.(extMod) = extrctHndl(SLRT, params.paths.Data);
+                        extData.(extMod) = extrctHndl(SLRT, params.paths.Data, session);
                         % BOOST FCN
                         if isfield(extractCfg.EXT,(extMod))
                             try

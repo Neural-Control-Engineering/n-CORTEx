@@ -199,7 +199,7 @@ function [out, slrt] = extractEXT_SLRT(filename)
             end
         end
         % TRIAL-GATE IDX
-        row = [row, table({gatePtr}, 'VariableNames', {'t'})]; % tN trigger number (as opposed to gate gN)
+        row = [row, table({gatePtr}, 'VariableNames', {'trial-gate'})]; % tN trigger number (as opposed to gate gN)
         % add signal types 
         row = [row, table({signal_types}, 'VariableNames', {'signal_types'})];
         % trial-gate adjusted clock times

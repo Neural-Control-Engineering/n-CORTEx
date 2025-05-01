@@ -119,6 +119,7 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             F_synch2 = 250;
                             args.groupSize = 10;
                             [IPD_A, IPD_B, PC_B] = validate_temporalPrecision(synch1, synch2, Fs1, Fs2, F_synch1, F_synch2, args);
+                            plot_temporalPrecision(IPD_A, IPD_B, PC_B)
                             sync.lines.sync_1Hz.IPD = IPD_A;
                             sync.lines.sync_1Hz.PC = [];
                             sync.lines.sync_1Hz.t_RE = IPD_A.t_RE;
@@ -137,7 +138,11 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             args_antiAlias.Fs = Fs;
                             args_antiAlias.contextWin = 50;
                             lfp_filt = antiAlias(lfp.dataArray, d, args_antiAlias );
-                            lfp = downsample(lfp_filt,5)';        
+                            downSampleRate=5;
+                            lfp_downSample = downsample(lfp_filt',downSampleRate)';   
+                            lfp.dataArray = lfp_downSample;
+                            lfp.meta.Fs=Fs/downSampleRate;
+                            lfp.meta.preBuffLen = 3.5;
                             %% SAVE RESULTS                            
                             save(fullfile(strcat("\\?\",kSortOutPath),"lfp.mat"),"lfp");
                             save(fullfile(strcat("\\?\",kSortOutPath),"nidq.mat"),"nidq");                              

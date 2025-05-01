@@ -3,6 +3,11 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     % DONE - align spike times to all events 
     % DONE - merge spiking data and cluster info
     
+    % DEFINE
+    preBuffLen = 3.5; % seconds
+    postBuffLen = 3.5; % seconds
+    Fs = 30000;
+
     % load sync data (from RAW layer)
     load(fullfile(npxls_path,"sync.mat")); % time vectors and QC meta analysis for cross-device sync pulses    
     % load spiking data (kilosort output)
@@ -54,77 +59,98 @@ function AP = extAP(SLRT, npxls_path, trigNum)
         'VariableNames', {'id', 'template', 'position', 'quality', ...
         'amplitude', 'contam_pct', 'waveform_class', 'channel'});
 
-    max_time = SLRT(end,:).clock_time{1}(end);
+    % max_time = SLRT(end,:).("trial-gate_clock_time"){1}(end);
+    idx_latestSpike = max(spike_inds);
+    % max_time = round(idx_latestSpike,3,"significant")
+    max_time = ceil(idx_latestSpike / 10000) * 10000; % latest-recorded AP; round up from the nearest 10K    
     % npxls_time = linspace(-3.5, max(max_time)+3.5, max(spike_inds));
-    npxls_time = linspace(-3.5, max(max_time)+3.5, 30000 * max_time + 7); Fs
+    % npxls_time = linspace(-3.5, max(max_time)+3.5, 30000 * max_time + 7); Fs
     % (30K) * (max(max_time) + 7.0)
-    spike_times = npxls_time(spike_inds);
+    % spike_times = npxls_time(spike_inds);
+    % t_ap = linspace(-preBuffLen, max(max_time)+postBuffLen, Fs * max_time + 7);
+    t_ap = linspace(0, double(max_time/Fs), max_time) - preBuffLen;
+    % t_ap = [0: max_time] ./ Fs; - preBuffLen;
+    spike_times = t_ap(spike_inds(spike_inds>0)); % for now: ignore negative spike inds
+    spike_clusters = spike_clusters(spike_inds>0);
     
     % out = table('Size', [size(slrt_data,1),3],  'VariableTypes', {'double', 'cell', 'cell'}, ...
     %     'VariableNames', {'trial_num', 'spiking_data', 'cluster_info'});
+    out = [];
+    prevSyncOffset = [];
     for trial = 1:size(SLRT,1)
-        % beginning, end, and stimulus time for trial 
-        session_label = SLRT(trial,:).session_label{1};
-        start_time = SLRT(trial,:).clock_time{1}(1);
-        fin_time = SLRT(trial,:).clock_time{1}(end);
-        
-        trial_spike_inds = find(spike_times >= (start_time-3.5) & spike_times <= (fin_time+5.0));
-        trial_spike_times = spike_times(trial_spike_inds);
-        trial_spike_clusters = spike_clusters(trial_spike_inds);
-        trial_spike_amplitudes = amplitudes(trial_spike_inds);
-
-        for c = 1:size(cluster_info,1)
-            % basic spiking data for each cluster/trial 
-            cluster_id = cluster_info(c,:).id;
-            cluster_spike_times = trial_spike_times(trial_spike_clusters == cluster_id);
-            cluster_spike_amplitudes = trial_spike_amplitudes(trial_spike_clusters == cluster_id);
+        % only apply to SLRT trials matching trigNum
+        trialGate = SLRT(trial,:).t{1}; % find which acquisition gate
+        if trialGate == trigNum
+            row_SLRT = SLRT(trial,:);            
+            % trial-wise temporal offset tracking 
+            syncOffset = extractSyncOffset(row_SLRT, sync, prevSyncOffset);            
+            prevSyncOffset = syncOffset; % update prevSyncOffset for next itr
+            % beginning, end, and stimulus time for trial 
+            session_label = SLRT(trial,:).session_label{1};
+            start_time = SLRT(trial,:).("trial-gate_clock_time"){1}(1);
+            fin_time = SLRT(trial,:).("trial-gate_clock_time"){1}(end);
             
-            cluster_quality = cluster_group(cluster_group(:,1).cluster_id == cluster_id, 2).KSLabel;
-            row = table(cluster_id, {cluster_spike_times}, cluster_quality, {cluster_spike_amplitudes}, ...
-                cluster_info(c,:).amplitude, {cluster_info(c,:).position}, cluster_info(c,:).contam_pct, ...
-                {cluster_info(c,:).waveform_class}, {cluster_info(c,:).template}, {cluster_info(c,:).channel}, ...
-                'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes', ...
-                'template_amplitude', 'position', 'contam_pct', 'waveform_class', 'template', 'channel'});
-
-            % align spike times to events (including sync pulse)
-            if ~isempty(cluster_spike_times)
-                for es = 1:length(event_signals)
-                    signal = event_signals{es};
-                    if ~isnan(SLRT(trial,:).(signal))
-                        event_time = SLRT(trial,:).clock_time{1}(SLRT(trial,:).(signal));
-                        peri_trial_spike_inds = find(spike_times >= (event_time-3.5) & spike_times <= (event_time+5));
-                        peri_trial_spike_times = spike_times(peri_trial_spike_inds);
-                        peri_trial_spike_clusters = spike_clusters(peri_trial_spike_inds);
-                        ptcst = peri_trial_spike_times(peri_trial_spike_clusters == cluster_id);
-                        aligned_pscst = ptcst - event_time;
-                    else
-                        aligned_pscst = [];
+            trial_spike_inds = find(spike_times >= (start_time-3.5) & spike_times <= (fin_time+5.0));
+            trial_spike_times = spike_times(trial_spike_inds) + syncOffset;
+            trial_spike_clusters = spike_clusters(trial_spike_inds);
+            trial_spike_amplitudes = amplitudes(trial_spike_inds);
+    
+            for c = 1:size(cluster_info,1)
+                % basic spiking data for each cluster/trial 
+                cluster_id = cluster_info(c,:).id;
+                cluster_spike_times = trial_spike_times(trial_spike_clusters == cluster_id);
+                cluster_spike_amplitudes = trial_spike_amplitudes(trial_spike_clusters == cluster_id);
+                
+                cluster_quality = cluster_group(cluster_group(:,1).cluster_id == cluster_id, 2).KSLabel;
+                row = table(cluster_id, {cluster_spike_times}, cluster_quality, {cluster_spike_amplitudes}, ...
+                    cluster_info(c,:).amplitude, {cluster_info(c,:).position}, cluster_info(c,:).contam_pct, ...
+                    {cluster_info(c,:).waveform_class}, {cluster_info(c,:).template}, {cluster_info(c,:).channel}, ...
+                    'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes', ...
+                    'template_amplitude', 'position', 'contam_pct', 'waveform_class', 'template', 'channel'});                
+    
+                % align spike times to events (including sync pulse)
+                if ~isempty(cluster_spike_times)
+                    for es = 1:length(event_signals)
+                        signal = event_signals{es};
+                        if ~isnan(SLRT(trial,:).(signal))
+                            event_time = SLRT(trial,:).("trial-gate_clock_time"){1}(SLRT(trial,:).(signal));
+                            peri_trial_spike_inds = find(spike_times >= (event_time-3.5) & spike_times <= (event_time+5));
+                            peri_trial_spike_times = spike_times(peri_trial_spike_inds);
+                            peri_trial_spike_clusters = spike_clusters(peri_trial_spike_inds);
+                            ptcst = peri_trial_spike_times(peri_trial_spike_clusters == cluster_id);
+                            aligned_pscst = ptcst - event_time;
+                        else
+                            aligned_pscst = [];
+                        end
+                        row = [row, table({aligned_pscst}, ...
+                            'VariableNames', {strcat(signal,'_aligned_spike_times')})];
                     end
-                    row = [row, table({aligned_pscst}, ...
-                        'VariableNames', {strcat(signal,'_aligned_spike_times')})];
+                else 
+                    for es = 1:length(event_signals)
+                        signal = event_signals{es};
+                        aligned_pscst = [];
+                        row = [row, table({aligned_pscst}, ...
+                            'VariableNames', {strcat(signal,'_aligned_spike_times')})];
+                    end
                 end
-            else 
-                for es = 1:length(event_signals)
-                    signal = event_signals{es};
-                    aligned_pscst = [];
-                    row = [row, table({aligned_pscst}, ...
-                        'VariableNames', {strcat(signal,'_aligned_spike_times')})];
+                
+                if c == 1
+                    cluster_table = row;
+                else
+                    cluster_table = [cluster_table; row];
                 end
             end
-            
-            if c == 1
-                cluster_table = row;
-            else
-                cluster_table = [cluster_table; row];
-            end
-        end
 
-        if trial == 1
-            out = table(trial, {session_label}, {cluster_table}, ...
-                'VariableNames', {'trial_num', 'session_label', 'spiking_data'});
-        else
-            out = [out; table(trial, {session_label}, {cluster_table}, ...
-                'VariableNames', {'trial_num', 'session_label', 'spiking_data'})];
+            % store offset
+            row = [row, table({syncOffset},'VariableNames',{'syncOffset_ap'})];
+
+            if trial == 1
+                out = table(trial, {session_label}, {cluster_table}, ...
+                    'VariableNames', {'trial_num', 'session_label', 'spiking_data'});
+            else
+                out = [out; table(trial, {session_label}, {cluster_table}, ...
+                    'VariableNames', {'trial_num', 'session_label', 'spiking_data'})];
+            end
         end
     end
 
