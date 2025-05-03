@@ -22,7 +22,7 @@ classdef nexObj_npxlsTimeCourse < handle
             obj.dfID = dfID;
             obj.UserData=struct();
             obj.UserData.Fs = 500;
-            obj.UserData.preBufferLen;
+            obj.UserData.preBufferLen=3.5; % initial lab standard
             obj = nexPlot_npxls_timeCourse(nexon, shank, obj);
         end
 

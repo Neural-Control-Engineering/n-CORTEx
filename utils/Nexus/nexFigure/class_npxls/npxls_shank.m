@@ -73,3 +73,5 @@ classdef npxls_shank < handle
         end       
     end
 end
+
+% nexon.console.NPXLS.shanks.shank1.Children.embedding=nexObj_embedding(nexon, obj, opFcn, dfID);

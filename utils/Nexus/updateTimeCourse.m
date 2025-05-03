@@ -9,8 +9,10 @@ function updateTimeCourse(shank, timeCourse, altRegMap)
     % dataFrame = timeCourse.dataFrame;
     dataFrame = timeCourse.DF.df;
     if ~isfield(timeCourse.DF,"ax")
+        timeCourse.DF.ax=struct;
         if ~isfield(timeCourse.DF.ax,"t")
             t_df = [1:size(dataFrame,2)] ./ Fs - preBuffer;
+            timeCourse.DF.ax.t=t_df;
         end
     elseif (size(timeCourse.DF.ax.t,2) ~= size(dataFrame,2))
         t_df = [1:size(dataFrame,2)] ./ Fs - preBuffer;
