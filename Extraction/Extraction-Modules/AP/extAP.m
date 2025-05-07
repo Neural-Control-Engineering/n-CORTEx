@@ -10,6 +10,13 @@ function AP = extAP(SLRT, npxls_path, trigNum)
 
     % load sync data (from RAW layer)
     load(fullfile(npxls_path,"sync.mat")); % time vectors and QC meta analysis for cross-device sync pulses    
+    load(fullfile(npxls_path,"lfp.mat"));
+    load(fullfile(npxls_path,"ap.mat"));
+    % meta fields:
+    % first sample
+    firstSample = str2double(lfp.meta.firstSample);
+    Fs_original = str2double(lfp.meta.imSampRate);
+    t_start = firstSample / Fs_original; % seconds prior to recording
     % load spiking data (kilosort output)
     kilosort_path = fullfile(npxls_path,"kilosort4");
     amplitudes = readNPY(fullfile(kilosort_path, 'amplitudes.npy'));
@@ -79,11 +86,15 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     prevSyncOffset = [];
     for trial = 1:size(SLRT,1)
         % only apply to SLRT trials matching trigNum
-        trialGate = SLRT(trial,:).t{1}; % find which acquisition gate
+        trialGate = SLRT(trial,:).("trial-gate"){1}; % find which acquisition gate
         if trialGate == trigNum
             row_SLRT = SLRT(trial,:);            
             % trial-wise temporal offset tracking 
-            syncOffset = extractSyncOffset(row_SLRT, sync, prevSyncOffset);            
+            % [syncOffset, sync_adj] = extractSyncOffset(row_SLRT, sync, prevSyncOffset);
+            sync = extractSyncOffset(row_SLRT, sync, prevSyncOffset, t_start);
+            
+            % t_ap = mapSyncTimeline(sync_adj.lines.sync_250Hz,Fs);
+            % t_ap_1Hz = mapSyncTimeline(sync_adj.lines.sync_1Hz,Fs);
             prevSyncOffset = syncOffset; % update prevSyncOffset for next itr
             % beginning, end, and stimulus time for trial 
             session_label = SLRT(trial,:).session_label{1};

@@ -47,6 +47,11 @@ function [IPD_A, IPD_B, PC_B] = validate_temporalPrecision(synch1, synch2, Fs1, 
     idx_risingEdgeB = diff(synchB) > 0;
     t_risingEdgeA = tA(idx_risingEdgeA);
     t_risingEdgeB = tB(idx_risingEdgeB);    
+    % falling edges (A)
+    idx_fallingEdgeA = diff(synchA) < 0;
+    idx_fallingEdgeB = diff(synchB) < 0;
+    t_fallingEdgeA = tA(circshift(idx_fallingEdgeA,1));
+    t_fallingEdgeB = tB(idx_fallingEdgeB+1);    
     % count number of rising edges of B in A       
     % B:  
     PC_B = countPulsesContained(t_risingEdgeA, t_risingEdgeB, groupSize);

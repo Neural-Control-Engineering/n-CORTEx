@@ -187,11 +187,13 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 % append sync pulse titled by its frequency; expecting
                 % other modalities will have matching columns to align by
                 % disp('sync test');
-                t = ([0:length(data)-1] + trial_starts(i) - gate_start) ./ Fs; % time vector relative to current slrt time and most recent acquisition
-                idx_RE = diff(data) > 0; % rising edge indices
-                t_RE = t(idx_RE); % rising edge time stamps
+                % t = ([0:length(data)-1] + trial_starts(i) - gate_start) ./ Fs; % time vector relative to current slrt time and most recent acquisition
+                % idx_RE = diff(data) > 0; % rising edge indices
+                % t_RE = t(idx_RE); % rising edge time stamps
+                syncLine = extractSyncLine(data,Fs,[],"RE-end","slrt",10);
+                t_edges = syncLine.t_edges;
                 % t_RE_startAligned = t_RE; % align rising edges to trial starts (with 3.5 second prior context)
-                row = [row, table({t_RE},'VariableNames',{sprintf('t-RE_%s',data_name)})];
+                row = [row, table({t_edges},'VariableNames',{sprintf('t-syncEdges_%s',data_name)})];
             elseif ~strcmp(signal_split{1}, 'seg')
                 % otherwise it's an invalid signal name 
                 % error(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))

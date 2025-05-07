@@ -33,15 +33,18 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
     prevSyncOffset = []; % initialize empty syncOffset for recursive offset finding (extractSyncOffset)
     for trial = 1:size(SLRT,1)
         % only apply to SLRT trials matching trigNum
-        trialGate = SLRT(trial,:).t{1}; % find which acquisition gate
+        trialGate = SLRT(trial,:).("trial-gate"){1}; % find which acquisition gate
         if trialGate == trigNum
             % define output table
             session_label = SLRT(trial,:).session_label{1};
             row_SLRT = SLRT(trial,:);            
 
             % trial-wise temporal offset tracking 
-            syncOffset = extractSyncOffset(row_SLRT, sync, prevSyncOffset);            
+            sync = extractSyncOffset(row_SLRT, sync, [], t_start);            
+            offset0 = sync.lines.sync_1Hz.offset0;
             prevSyncOffset = syncOffset; % update prevSyncOffset for next itr
+            t_lfp = mapSyncTimeline(lfp, sync.lines.sync_250Hz, offset0);
+            % t_lfp = mapSyncTimeline(sync_adj.lines.sync_250Hz,Fs);
             row = table(trial,{session_label},'VariableNames',{'trial_num','session_label'});            
     
             % beginning, end, and stimulus time for trial         
