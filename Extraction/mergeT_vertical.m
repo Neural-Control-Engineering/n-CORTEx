@@ -1,7 +1,11 @@
 function M = mergeT_vertical(T1, T2)
     T1Vars = T1.Properties.VariableNames;
     sizeT1 = size(T1);
-    T2Vars = T2.Properties.VariableNames;
+    if ~isempty(T2)
+        T2Vars = T2.Properties.VariableNames;
+    else
+        T2Vars = [];
+    end
     sizeT2 = size(T2);
     allVars = [T1Vars T2Vars];
     for i = 1:length(allVars)

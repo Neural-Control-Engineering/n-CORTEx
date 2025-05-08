@@ -44,7 +44,7 @@ function cameraPlay(params, camera, filePath, fileName, cue)
     end
     % cmd = sprintf("%s %s", cmd);
     cmd = sprintf("%s %s", cmd, ' &');
-    cmd = sprintf("%s %s", cmd, '');
+    % cmd = sprintf("%s %s", cmd, '');
     system(cmd);
     % pause(5)
 end

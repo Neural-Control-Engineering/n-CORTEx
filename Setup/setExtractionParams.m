@@ -6,12 +6,16 @@ function params = setExtractionParams(opts)
         if ~isfield(opts,'paths'), opts.paths=struct; end
         if ~isfield(opts.paths,'stem'), opts.paths.stem=fullfile("/home",hostName); end    
         if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile(opts.paths.stem,"nCORTEx_cloud"); end                       
+        if ~isfield(opts.paths,'nCORTEx_cloud'), opts.paths.nCORTEx_cloud = fullfile(opts.paths.stem,"nCORTEx_cloud"); end                       
+        if ~isfield(opts.paths,'nCORTEx_local'), opts.paths.nCORTEx_local = fullfile(opts.paths.stem,"nCORTEx_local"); end                       
     elseif ispc
         hostName = getenv("COMPUTERNAME");
         if ~isfield(opts,'hostName'), opts.hostName=hostName; end
         if ~isfield(opts,'paths'), opts.paths=struct; end
         if ~isfield(opts.paths,'stem'), opts.paths.stem=fullfile("C:"); end
         if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("I:\"); end       
+        if ~isfield(opts.paths,'nCORTEx_cloud'), opts.paths.nCORTEx_cloud =fullfile("I:\"); end                       
+        if ~isfield(opts.paths,'nCORTEx_local'), opts.paths.nCORTEx_local = fullfile(opts.paths.stem,"nCORTEx_local"); end                       
     end      
 
     % if ~isfield(opts.paths,"Code_Repo"); end

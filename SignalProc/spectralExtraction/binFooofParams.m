@@ -2,7 +2,12 @@ function [S, P, msk] = binFooofParams(bands, fooofparams)
     % S : channel wise readout of fooof params
     % P : column labeling of fooof params
     % msk : center frequency binary mask 
-    F = struct2table(fooofparams);
+    % F = struct2table(fooofparams,'AsArray',true);
+    try
+        F = struct2table(fooofparams);
+    catch
+        F = struct2table(fooofparams,'AsArray',true);
+    end
     oscillatory = F.peak_params;
     fractal = F.aperiodic_params;
     bandNames = fieldnames(bands);
@@ -16,7 +21,11 @@ function [S, P, msk] = binFooofParams(bands, fooofparams)
     msk = zeros(size(F,1),size(fRange,2));
     for i = 1:height(F)
         % disp(i);
-        specs = F.peak_params{i};
+        try
+            specs = F.peak_params{i};
+        catch
+            specs = F.peak_params(i,:);
+        end
         specParams = [];
         for j = 1:length(bandNames)
             % disp(j);

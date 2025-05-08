@@ -38,10 +38,10 @@ function [oscPRE, oscPOST, mPRE, mPOST, frqPRE, frqPOST, P] = computeOScores(par
             lfpPRE = lfpPRE(:,1:segSize);
             lfpPOST = lfpPOST(:,1:segSize);
             % FOOOF / SpecParams
-            freqsPRE = fooof(params, lfpPRE);
+            freqsPRE = fooof(params, lfpPRE,[]);
             freqsPRE.sessionLabel = sessLabel;
             freqsPRE.trialNum = trialNum;
-            freqsPOST = fooof(params, lfpPOST);
+            freqsPOST = fooof(params, lfpPOST,[]);
             freqsPOST.sessionLabel = sessLabel;
             freqsPOST.trialNum = trialNum;
             [Spre, P, maskPRE] = binFooofParams(bands, freqsPRE.fooofparams);
@@ -72,10 +72,12 @@ function [oscPRE, oscPOST, mPRE, mPOST, frqPRE, frqPOST, P] = computeOScores(par
             frqPOST = [frqPOST; freqsPOST];
             
 
-            oscPRE = computeOscillationScore(bands, P, PRE);
-            oscPOST = computeOscillationScore(bands, P, POST);
+            % oscPRE = computeOscillationScore(bands, P, PRE);
+            % oscPOST = computeOscillationScore(bands, P, POST);
         end     
     end
+     oscPRE = computeOscillationScore(bands, P, PRE);
+     oscPOST = computeOscillationScore(bands, P, POST);
 end
 
 
