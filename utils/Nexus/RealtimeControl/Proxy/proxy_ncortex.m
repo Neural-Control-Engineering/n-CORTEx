@@ -16,7 +16,8 @@ classdef proxy_ncortex < handle
         
         % CONSTRUCTOR
         function proxObj = proxy_ncortex(nCORTEx, serverIP, serverPort, clientIP, clientPort, tgProxies, DTS, connectionChangedFcn)
-            proxObj.Server = tcpserver(serverIP, serverPort,"ConnectionChangedFcn",@(src,event)connectionChangedFcn(src, event));
+            proxObj.Server = tcpserver(serverIP, serverPort,"ConnectionChangedFcn",@(src,event)connectionChangedFcn(nCORTEx));
+            configureCallback(proxObj.Server,"terminator",@(~,~)proxObj.relayTransmission());
             proxObj.Targets = tgProxies;
             proxObj.DTS = DTS;
             % proxObj.ctxKey = ctxKey;
@@ -32,14 +33,18 @@ classdef proxy_ncortex < handle
         end
 
         function relayTransmission(proxObj)
-            methodID = readline(proxObj.Server);
-            % app-relative subassignment of transmitted values            
-            % decode command
-            % recover method arguments
-            dataRx = read(proxObj.Server, proxObj.Server.NumBytesAvailable,"uint8");
-            rxArgs = getArrayFromByteStream(uint8(dataRx));
-            % execute method
-            proxObj.(methodID)(rxArgs);
+            try
+                methodID = readline(proxObj.Server);
+                % app-relative subassignment of transmitted values            
+                % decode command
+                % recover method arguments
+                dataRx = read(proxObj.Server, proxObj.Server.NumBytesAvailable,"uint8");
+                rxArgs = getArrayFromByteStream(uint8(dataRx));
+                % execute method
+                proxObj.(methodID)(rxArgs);
+            catch e
+               disp(getReport(e));
+            end
         end
 
         % function s = dynamicSetStruct(s, fieldPath, value)
