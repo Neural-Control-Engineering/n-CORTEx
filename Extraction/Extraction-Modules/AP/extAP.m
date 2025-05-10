@@ -3,15 +3,16 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     % DONE - align spike times to all events 
     % DONE - merge spiking data and cluster info
     
-    % DEFINE
-    preBuffLen = 3.5; % seconds
-    postBuffLen = 3.5; % seconds
-    Fs = 30000;
+    % DEFINE    
+    % Fs = 30000;
+    % nChans = 385;
 
     % load sync data (from RAW layer)
-    load(fullfile(npxls_path,"sync.mat")); % time vectors and QC meta analysis for cross-device sync pulses    
-    load(fullfile(npxls_path,"lfp.mat"));
-    load(fullfile(npxls_path,"ap.mat"));
+    load(fullfile(npxls_path,"sync.mat"),'sync'); % time vectors and QC meta analysis for cross-device sync pulses    
+    load(fullfile(npxls_path,"lfp.mat"),'lfp');
+    load(fullfile(npxls_path,"ap.mat"),'ap');
+    preBuffLen = str2double(ap.meta.trgTTLMarginS); % seconds
+    postBuffLen = preBuffLen; % seconds
     % meta fields:
     % first sample
     firstSample = str2double(lfp.meta.firstSample);
@@ -75,34 +76,47 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     % (30K) * (max(max_time) + 7.0)
     % spike_times = npxls_time(spike_inds);
     % t_ap = linspace(-preBuffLen, max(max_time)+postBuffLen, Fs * max_time + 7);
-    t_ap = linspace(0, double(max_time/Fs), max_time) - preBuffLen;
+    % t_ap = linspace(0, double(max_time/Fs), max_time) - preBuffLen;
     % t_ap = [0: max_time] ./ Fs; - preBuffLen;
+    nSamples = (str2double(ap.meta.fileSizeBytes) / str2double(ap.meta.nSavedChans)) / 2; % two bytes per sample (16 bit precision)
+    ap.dataArray = ones([1,nSamples]);
+    ap.meta.Fs = str2double(ap.meta.imSampRate);
+    sync_ref = constructSync_slrt(SLRT);
+    sync = extractSyncOffset(sync_ref.lines.sync_1Hz_slrt, sync, t_start);
+    t_ap = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
     spike_times = t_ap(spike_inds(spike_inds>0)); % for now: ignore negative spike inds
     spike_clusters = spike_clusters(spike_inds>0);
     
     % out = table('Size', [size(slrt_data,1),3],  'VariableTypes', {'double', 'cell', 'cell'}, ...
     %     'VariableNames', {'trial_num', 'spiking_data', 'cluster_info'});
     out = [];
-    prevSyncOffset = [];
+    % prevSyncOffset = [];
     for trial = 1:size(SLRT,1)
         % only apply to SLRT trials matching trigNum
         trialGate = SLRT(trial,:).("trial-gate"){1}; % find which acquisition gate
         if trialGate == trigNum
-            row_SLRT = SLRT(trial,:);            
+            % row_SLRT = SLRT(trial,:);            
             % trial-wise temporal offset tracking 
             % [syncOffset, sync_adj] = extractSyncOffset(row_SLRT, sync, prevSyncOffset);
-            sync = extractSyncOffset(row_SLRT, sync, prevSyncOffset, t_start);
-            
+            % sync = extractSyncOffset(row_SLRT, sync, prevSyncOffset, t_start);
+            % simulate data array matching number of imec samples
+            % (spiking)
+            % data)
+            % nSamples = (str2double(ap.meta.fileSizeBytes) / str2double(ap.meta.nSavedChans)) / 2; % two bytes per sample (16 bit precision)
+            % ap.dataArray = ones([1,nSamples]);
+            % ap.meta.Fs = str2double(ap.meta.imSampRate);
+            % t_ap = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
             % t_ap = mapSyncTimeline(sync_adj.lines.sync_250Hz,Fs);
             % t_ap_1Hz = mapSyncTimeline(sync_adj.lines.sync_1Hz,Fs);
-            prevSyncOffset = syncOffset; % update prevSyncOffset for next itr
+            % prevSyncOffset = syncOffset; % update prevSyncOffset for next itr
             % beginning, end, and stimulus time for trial 
             session_label = SLRT(trial,:).session_label{1};
             start_time = SLRT(trial,:).("trial-gate_clock_time"){1}(1);
             fin_time = SLRT(trial,:).("trial-gate_clock_time"){1}(end);
             
-            trial_spike_inds = find(spike_times >= (start_time-3.5) & spike_times <= (fin_time+5.0));
-            trial_spike_times = spike_times(trial_spike_inds) + syncOffset;
+            % trial_spike_inds = find(spike_times >= (start_time-3.5) & spike_times <= (fin_time+5.0));            
+            trial_spike_inds = find(spike_times >= (start_time) & spike_times <= (fin_time+postBuffLen));
+            trial_spike_times = spike_times(trial_spike_inds);
             trial_spike_clusters = spike_clusters(trial_spike_inds);
             trial_spike_amplitudes = amplitudes(trial_spike_inds);
     
@@ -152,8 +166,8 @@ function AP = extAP(SLRT, npxls_path, trigNum)
                 end
             end
 
-            % store offset
-            row = [row, table({syncOffset},'VariableNames',{'syncOffset_ap'})];
+            % store offset (excluded as duplicate of ext-AP)
+            % row = [row, table({sync},'VariableNames',{'syncOffset_ap'})];
 
             if trial == 1
                 out = table(trial, {session_label}, {cluster_table}, ...

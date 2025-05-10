@@ -12,7 +12,7 @@ function LFP = extractEXT_LFP(SLRT, dataDir, session)
         % kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
         lfpPath = fullfile(strcat("\\?\",imecPath),sortedFldr);
         % AP = extAP(SLRT, kSortPath);
-        LFP = extLFP(SLRT, lfpPath, j);
+        LFP = [LFP; extLFP(SLRT, lfpPath, j)];
     end
     
 end

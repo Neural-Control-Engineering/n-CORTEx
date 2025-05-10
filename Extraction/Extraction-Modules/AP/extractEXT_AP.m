@@ -13,7 +13,7 @@ function AP = extractEXT_AP(SLRT, dataDir, session)
         sortedFldr = sortedTrigs{j};
         % kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
         npxlsPath = fullfile(strcat("\\?\",imecPath),sortedFldr);
-        AP = extAP(SLRT, npxlsPath);
+        AP = [AP; extAP(SLRT, npxlsPath, j)];
         % LFP = extLFP(SLRT, lfpPath);
     end
 

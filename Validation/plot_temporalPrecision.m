@@ -20,8 +20,10 @@ function plot_temporalPrecision(IPD_A, IPD_B, PC_B)
     plot(validationFigure.panel1.tiles.Axes.IPD.(tileTag), IPD_B.mean_tc);
     colorAx_green(validationFigure.panel1.tiles.Axes.IPD.(tileTag));        
 
-    validationFigure.panel2.tiles.Axes.PC.(tileTag) = nexttile(validationFigure.panel2.tiles.t);
-    plot(validationFigure.panel2.tiles.Axes.PC.(tileTag),PC_B.mean_tc);
-    colorAx_green(validationFigure.panel2.tiles.Axes.PC.(tileTag));        
+    if ~isempty(PC_B)
+        validationFigure.panel2.tiles.Axes.PC.(tileTag) = nexttile(validationFigure.panel2.tiles.t);
+        plot(validationFigure.panel2.tiles.Axes.PC.(tileTag),PC_B.mean_tc);
+        colorAx_green(validationFigure.panel2.tiles.Axes.PC.(tileTag));        
+    end
 
 end

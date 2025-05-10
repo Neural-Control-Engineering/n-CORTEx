@@ -32,6 +32,11 @@ function sync = extractSyncOffset(row_SLRT, sync, prevSyncOffset, t_start)
             syncOffsets_next = measureSyncOffsets(t_edge,t_edge_ref,syncLine.ref);
             sync.lines.(syncLineName).syncOffsets = syncOffsets_next;
             sync.lines.(syncLineName).t_edges_ref = t_edge_ref;
+            slope_offsets = (syncOffsets_next(end)-syncOffsets_next(1))/(t_edge_ref(end) - t_edge_ref(1));
+            offset0 = slope_offsets * (-t_start) + syncOffsets(1);
+            if strcmp(syncLine.ref,"world")
+                sync.lines.(syncLineName).offset0=offset0;
+            end
             % figure; plot(t_edge_ref(1:length(t_edge_ref)-1),syncOffsets_next);
             % t_RE = t_RE + syncOffset; % new-corrected t_RE (from previous, slower line)
             % t_edge0_slrt = t_edge_ref(1); 

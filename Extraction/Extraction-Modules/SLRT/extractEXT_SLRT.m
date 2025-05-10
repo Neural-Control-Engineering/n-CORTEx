@@ -127,7 +127,8 @@ function [out, slrt] = extractEXT_SLRT(filename)
             %% SEGMENTATION
             if strcmp(signal_split{1}, 'cont') || strcmp(signal_split{1}, 'signal') || strcmp(signal_split{1}, 'event') 
                 % pre-buffer for first trial in session (special case)
-                if i == 1
+                % if i == 1
+                if i == gatePtr % pre-buffer for first trial in each trial gate (matching external stream prebuffer)
                     try
                         data = data_raw(trial_starts(i) - 3500: trial_ends(i)); % 3.5 add seconds prior (if possible)
                     catch e
@@ -191,9 +192,9 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 % idx_RE = diff(data) > 0; % rising edge indices
                 % t_RE = t(idx_RE); % rising edge time stamps
                 syncLine = extractSyncLine(data,Fs,[],"RE-end","slrt",10);
-                t_edges = syncLine.t_edges;
+                % t_edges = syncLine.t_edges;
                 % t_RE_startAligned = t_RE; % align rising edges to trial starts (with 3.5 second prior context)
-                row = [row, table({t_edges},'VariableNames',{sprintf('t-syncEdges_%s',data_name)})];
+                row = [row, table({syncLine},'VariableNames',{sprintf('syncLine_%s',data_name)})];
             elseif ~strcmp(signal_split{1}, 'seg')
                 % otherwise it's an invalid signal name 
                 % error(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))
@@ -205,7 +206,7 @@ function [out, slrt] = extractEXT_SLRT(filename)
         % add signal types 
         row = [row, table({signal_types}, 'VariableNames', {'signal_types'})];
         % trial-gate adjusted clock times
-        gate_clock_time = row.clock_time{1} - gate_starts(gatePtr)/Fs;
+        gate_clock_time = row.clock_time{1} - gate_start/Fs;
         row = [row, table({gate_clock_time}, 'VariableNames', {'trial-gate_clock_time'})];
         % put output table together 
         if i == 1
@@ -236,15 +237,15 @@ function out = alignSignalsToEvents(slrt_data)
             for t = 1:size(slrt_data,1) % for each trial
                 event_ind = slrt_data(t,:).(event_name);
                 if ~isnan(event_ind)
-                    event_time = slrt_data(t,:).clock_time{1}(event_ind);
+                    event_time = slrt_data(t,:).("trial-gate_clock_time"){1}(event_ind);
                     if t < size(slrt_data,1) && t > 1
-                        peri_time = [slrt_data(t-1,:).clock_time{1}; slrt_data(t,:).clock_time{1}; slrt_data(t+1,:).clock_time{1}] - event_time;
+                        peri_time = [slrt_data(t-1,:).("trial-gate_clock_time"){1}; slrt_data(t,:).("trial-gate_clock_time"){1}; slrt_data(t+1,:).("trial-gate_clock_time"){1}] - event_time;
                         peri_signal = [slrt_data(t-1,:).(signal_name){1}; slrt_data(t,:).(signal_name){1}; slrt_data(t+1,:).(signal_name){1}];
                     elseif t == 1
-                        peri_time = [slrt_data(t,:).clock_time{1}; slrt_data(t+1,:).clock_time{1}] - event_time;
+                        peri_time = [slrt_data(t,:).("trial-gate_clock_time"){1}; slrt_data(t+1,:).("trial-gate_clock_time"){1}] - event_time;
                         peri_signal = [slrt_data(t,:).(signal_name){1}; slrt_data(t+1,:).(signal_name){1}];
                     else
-                        peri_time = [slrt_data(t-1,:).clock_time{1}; slrt_data(t,:).clock_time{1}] - event_time;
+                        peri_time = [slrt_data(t-1,:).("trial-gate_clock_time"){1}; slrt_data(t,:).("trial-gate_clock_time"){1}] - event_time;
                         peri_signal = [slrt_data(t-1,:).(signal_name){1}; slrt_data(t,:).(signal_name){1}];
                     end
                     aligned_signal = peri_signal(peri_time >= -preBuffLen & peri_time <= 5.0);

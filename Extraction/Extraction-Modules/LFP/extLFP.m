@@ -10,10 +10,15 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
     % load lfp  (from RAW layer)
     load(fullfile(lfpPath,"lfp.mat"));
     try % update: storing metadata from initial RAW extraction
+        lfpMeta = lfp.meta; % store metadata
         Fs = lfp.meta.Fs;
         preBuffLen = lfp.meta.preBuffLen;
-        lfp = lfp.dataArray;
-    catch
+        % lfp = lfp.dataArray;
+        firstSample = str2double(lfpMeta.firstSample);
+        Fs_original = str2double(lfpMeta.imSampRate);
+        t_start = firstSample / Fs_original; % seconds passed until trial-gate started - aligned with trigNum
+    catch e
+        disp(getReport(e));
         Fs = 500;
         preBuffLen = 3.5;
     end    
@@ -41,32 +46,31 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
 
             % trial-wise temporal offset tracking 
             sync = extractSyncOffset(row_SLRT, sync, [], t_start);            
-            offset0 = sync.lines.sync_1Hz.offset0;
-            prevSyncOffset = syncOffset; % update prevSyncOffset for next itr
-            t_lfp = mapSyncTimeline(lfp, sync.lines.sync_250Hz, offset0);
+            % offset0_nidq = sync.lines.sync_1Hz_nidq.offset0;
+            offset0_imec = sync.lines.sync_1Hz_imec.offset0;
+            % prevSyncOffset = syncOffset; % update prevSyncOffset for next itr            
             % t_lfp = mapSyncTimeline(sync_adj.lines.sync_250Hz,Fs);
-            row = table(trial,{session_label},'VariableNames',{'trial_num','session_label'});            
-    
+            t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, offset0_imec);
+                  
             % beginning, end, and stimulus time for trial         
             % start_time = SLRT(trial,:).clock_time{1}(1);
             % fin_time = SLRT(trial,:).clock_time{1}(end);
-            start_time = SLRT(trial,:).("trial-gate_clock_time"){1}(1);
-            fin_time = SLRT(trial,:).("trial-gate_clock_time"){1}(end);
+            t_start = SLRT(trial,:).("trial-gate_clock_time"){1}(1);
+            t_stop = SLRT(trial,:).("trial-gate_clock_time"){1}(end);
             
-            trial_lfp_inds = find(t_lfp >= (start_time-preBuffLen) & t_lfp <= (fin_time+postBuffLen));       
-            % update lfp time vector by offset
-            t_lfp = t_lfp + syncOffset;
+            trial_lfp_inds = find(t_lfp >= (t_start-preBuffLen) & t_lfp <= (t_stop+postBuffLen));                   
             % slice lfp signal by trial windows
             try
-                lfpSeg = lfp(:,trial_lfp_inds);
+                lfpSeg = lfp.dataArray(:,trial_lfp_inds);
                 trial_lfpTimes = t_lfp(trial_lfp_inds);
             catch
                 lfpSeg = [];
             end                    
+            row = table(trial,{session_label},'VariableNames',{'trial_num','session_label'});        
             % trial_sync_inds = find(syncTime >= (start_time-preBuffLen) & syncTime <= (fin_time+postBuffLen));           
             row = [row, table({lfpSeg}, {trial_lfpTimes},'VariableNames',{'lfp', 't_lfp'})];
             % store offset
-            row = [row, table({syncOffset},'VariableNames',{'syncOffset_lfp'})];
+            row = [row, table({sync},'VariableNames',{'sync_SGL'})];
     
             % align lfpTime to events (including sync pulse)
             if ~isempty(lfpSeg)
