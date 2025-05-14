@@ -18,6 +18,7 @@ classdef proxy_ncortex < handle
         function proxObj = proxy_ncortex(nCORTEx, serverIP, serverPort, clientIP, clientPort, tgProxies, DTS, connectionChangedFcn)
             proxObj.Server = tcpserver(serverIP, serverPort,"ConnectionChangedFcn",@(src,event)connectionChangedFcn(nCORTEx));
             configureCallback(proxObj.Server,"terminator",@(~,~)proxObj.relayTransmission());
+            configureTerminator(proxObj.Server, "CR/LF");
             proxObj.Targets = tgProxies;
             proxObj.DTS = DTS;
             % proxObj.ctxKey = ctxKey;
@@ -35,13 +36,45 @@ classdef proxy_ncortex < handle
         function relayTransmission(proxObj)
             try
                 methodID = readline(proxObj.Server);
+                write(proxObj.Server,uint8(0));
+                waitForReturn(proxObj.Server, 0);
                 % app-relative subassignment of transmitted values            
                 % decode command
                 % recover method arguments
-                dataRx = read(proxObj.Server, proxObj.Server.NumBytesAvailable,"uint8");
-                rxArgs = getArrayFromByteStream(uint8(dataRx));
-                % execute method
-                proxObj.(methodID)(rxArgs);
+                timer = 0;
+                timeout = 5;
+                delay=0.1;
+                while true
+                    if timer > timeout
+                        disp("transmission timeout: please try again")
+                        write(proxObj.Server,3);
+                        break
+                    end
+                    % if proxObj.Server.NumBytesAvailable <= 0                        
+                    %     % wait until data is recieved
+                    
+                    if proxObj.Server.NumBytesAvailable > 0                        
+                        dataRx = read(proxObj.Server, proxObj.Server.NumBytesAvailable,"uint8");
+                        try
+                            rxArgs = getArrayFromByteStream(uint8(dataRx));
+                            % execute method
+                            proxObj.(methodID)(rxArgs);
+                            disp("command complete");
+                            write(proxObj.Server,uint8(1));                        
+                            % flush(proxObj.Server);
+                            break
+                        catch e
+                            disp(getReport(e));
+                            disp("command failed");
+                            write(proxObj.Server,2);
+                            flush(proxObj.Server);                            
+                        end                        
+                    end                   
+                    pause(delay);
+                    timer = timer+delay;
+                    disp(timer);
+                end                
+                
             catch e
                disp(getReport(e));
             end
@@ -71,16 +104,26 @@ classdef proxy_ncortex < handle
         function migrateTmp(proxObj, rxArgs)
         end
 
-        function sessionLabelChanged(proxObj, rxArgs)
+        function updateSessionLabel(proxObj, rxArgs)
             % update nCORTEx and invoke sessionLabelChanged method on all
             % associated tgProxies
             sessionLabel = rxArgs.sessionLabel;
             % apply sessionLabelChanged for each target proxy            
+            tgProxyNames = fieldnames(proxObj.Targets)
+            for i = 1:length(tgProxyNames)
+                tgProxyName = tgProxyNames{i};
+                % call sessionLabel handle
+                try
+                    proxObj.Targets.(tgProxyName).updateSessionLabel()
+                catch e
+                    disp(getReport(e));
+                end
+            end
         end
 
-        function updateProperty(proxObj, rxArgs)
+        function assignField(proxObj, rxArgs)
             fieldPath = rxArgs.fieldPath;
-            value = rxArgs.value;
+            value = rxArgs.Value;
             fields = strsplit(fieldPath, "--");
             S = struct('type', '.', 'subs', fields);
             s = subsasgn(s, S, value);
@@ -88,21 +131,34 @@ classdef proxy_ncortex < handle
 
         function updateField(proxObj, rxArgs)
             % Automated remote host-target entry updates
-            appField = rxArgs.appField;
-            entryType = rxArgs.entryType;
-            entry = rxArgs.Value;
-            try
-                proxObj.nCORTEx.(appField).(entryType) = entry;
-                switch entryType
-                    case "Value"
-                        proxObj.nCORTEx.(appField).ValueChangedFcn([], app);
-                    case "Items"
-                    otherwise
+            % fieldID
+            fieldID = rxArgs.fieldID;
+            % entryType = rxArgs.entryType;
+            if isfield(rxArgs,"Value")
+                proxObj.nCORTEx.(fieldID).Value = rxArgs.Value;
+                try
+                    % proxObj.nCORTEx.(fieldID).ValueChangedFcn([], app);
+                    proxObj.nCORTEx.(fieldID).ValueChangedFcn(proxObj.nCORTEx,[]);
+                catch e
+                    disp(getReport(e));
                 end
-                
-            catch e
-                disp(getReport(e));
             end
+            if isfield(rxArgs,"Items")
+                proxObj.nCORTEx.(fieldID).Items = rxArgs.Items;
+            end
+            % entry = rxArgs.Value;
+            % try
+            %     proxObj.nCORTEx.(fieldID).(entryType) = entry;
+            %     switch entryType
+            %         case "Value"
+            %             proxObj.nCORTEx.(fieldID).ValueChangedFcn([], app);
+            %         case "Items"
+            %         otherwise
+            %     end
+            % 
+            % catch e
+            %     disp(getReport(e));
+            % end
         end
     end
 

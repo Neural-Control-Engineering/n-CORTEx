@@ -27,7 +27,12 @@ classdef proxy_npxls < handle
             % return template data if server does not exist
         end
 
-        function sessionLabelChanged(proxObj)
+        function updateSessionLabel(proxObj, SL)
+            % remove gate suffix
+            ungatedSL = split(SL,'_');
+            ungatedSL = ungatedSL(1:end-1);
+            ungatedSL = string(join(ungatedSL,'_'));
+            if ~IsRunning(proxObj.Server); SetRunName(proxObj.Server,char(ungatedSL)); end  
         end
     end
 
