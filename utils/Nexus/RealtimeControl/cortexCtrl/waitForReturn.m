@@ -1,4 +1,4 @@
-function waitForReturn(Server, returnVal)
+function waitForReturn(Server, returnVal, isInitial)
     timer = 0;
     timeout = 5;
     delay=0.1;
@@ -6,6 +6,11 @@ function waitForReturn(Server, returnVal)
         if Server.NumBytesAvailable > 0
             rxData = read(Server,1);
             if rxData == returnVal
+                if ~isInitial % if server is not the initiator, reply
+                    write(Server, returnVal);
+                end
+                disp("return successful, proceeding...");
+                flush(Server);
                 break
             else
                 % empty and continue waiting (until timeout)
