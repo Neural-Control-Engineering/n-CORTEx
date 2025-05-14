@@ -6,6 +6,9 @@ function waitForReturn(Server, returnVal)
         if Server.NumBytesAvailable > 0
             rxData = read(Server,1);
             if rxData == returnVal
+                write(Server, returnVal);
+                disp("return successful, proceeding...")
+                flush(Server);
                 break
             else
                 % empty and continue waiting (until timeout)
