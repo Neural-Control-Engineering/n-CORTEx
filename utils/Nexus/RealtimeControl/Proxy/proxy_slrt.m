@@ -10,7 +10,9 @@ classdef proxy_slrt < handle
     % these capacities are distributed among the slrt proxy and its
     % associated target/device proxies
     properties
+        proxon
         proxyID = "slrt"
+        type=1
         Partners
         slTarget
         Server % transport layer server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
@@ -52,6 +54,9 @@ classdef proxy_slrt < handle
         end
 
         function addPartner(proxObj, partnerProxObj)
+            % share primary peripherals
+            partnerProxObj.Targets = proxObj.Targets;
+            partnerProxObj.DTS = proxObj.DTS;
         end
 
         function addTarget(proxObj, targetProxy)

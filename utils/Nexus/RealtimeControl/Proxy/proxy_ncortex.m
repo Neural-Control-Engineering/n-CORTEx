@@ -2,7 +2,9 @@ classdef proxy_ncortex < handle
     % ncortex proxy to facilitate direct host-target transmissions,
     % experimental configuration protocols, and session data extraction pipeline management
     properties
+        proxon
         proxyID = "ncortex"
+        type=1
         partnerProxies      
         nCORTEx % a handle on the main ncortex application
         Server % tcp server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
@@ -37,7 +39,8 @@ classdef proxy_ncortex < handle
             try
                 methodID = readline(proxObj.Server);
                 write(proxObj.Server,uint8(0));
-                waitForReturn(proxObj.Server, 0);
+                pause(0.5);
+                % waitForReturn(proxObj.Server, 0, 0);
                 % app-relative subassignment of transmitted values            
                 % decode command
                 % recover method arguments
@@ -48,6 +51,7 @@ classdef proxy_ncortex < handle
                     if timer > timeout
                         disp("transmission timeout: please try again")
                         write(proxObj.Server,3);
+                        flush(proxObj.Server);
                         break
                     end
                     % if proxObj.Server.NumBytesAvailable <= 0                        
@@ -61,7 +65,7 @@ classdef proxy_ncortex < handle
                             proxObj.(methodID)(rxArgs);
                             disp("command complete");
                             write(proxObj.Server,uint8(1));                        
-                            % flush(proxObj.Server);
+                            flush(proxObj.Server);
                             break
                         catch e
                             disp(getReport(e));
@@ -96,6 +100,12 @@ classdef proxy_ncortex < handle
             % execute key/value-specific callback 
         end
 
+        function addPartner(proxObj, partnerProxObj)
+            % share primary peripherals
+            partnerProxObj.Targets = proxObj.Targets;
+            partnerProxObj.DTS = proxObj.DTS;
+        end
+
         function discardSession(proxObj, rxArgs)            
             session2Discard = rxArgs;
             uploadRaw(proxObj.nCORTEx.params.paths.Data.RAW,session2Discard,1);
@@ -108,13 +118,16 @@ classdef proxy_ncortex < handle
             % update nCORTEx and invoke sessionLabelChanged method on all
             % associated tgProxies
             sessionLabel = rxArgs.sessionLabel;
+            proxObj.nCORTEx.params.sessionLabel = sessionLabel;
             % apply sessionLabelChanged for each target proxy            
-            tgProxyNames = fieldnames(proxObj.Targets)
-            for i = 1:length(tgProxyNames)
-                tgProxyName = tgProxyNames{i};
+            targetProxyNames = fieldnames(proxObj.proxon.index_type2);
+            % tgProxyNames = fieldnames(proxObj.Targets)
+            for i = 1:length(targetProxyNames)
+                tgProxyName = targetProxyNames{i};
                 % call sessionLabel handle
+                tgProxObj = proxObj.proxon.index_type2.(tgProxyName);
                 try
-                    proxObj.Targets.(tgProxyName).updateSessionLabel()
+                    tgProxObj.updateSessionLabel(sessionLabel)
                 catch e
                     disp(getReport(e));
                 end
@@ -124,9 +137,14 @@ classdef proxy_ncortex < handle
         function assignField(proxObj, rxArgs)
             fieldPath = rxArgs.fieldPath;
             value = rxArgs.Value;
-            fields = strsplit(fieldPath, "--");
+            fields = convertStringsToChars(strsplit(fieldPath, "--"));
+            subField0 = fields{1};
             S = struct('type', '.', 'subs', fields);
-            s = subsasgn(s, S, value);
+            s=struct;
+            s_subasgn = subsasgn(s, S, value);
+            proxObj.nCORTEx.(subField0)=mergeStructs(proxObj.nCORTEx.(subField0), s_subasgn.(subField0));
+            % proxObj.nCORTEx = subAssign(proxObj.nCORTEx, subFields, subFields{1}, value)
+            % proxObj.nCORTEx = safeSetNestedField(proxObj.nCORTEx, fieldPath, value, '--');
         end
 
         function updateField(proxObj, rxArgs)

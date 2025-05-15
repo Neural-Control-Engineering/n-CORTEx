@@ -1,6 +1,8 @@
 classdef proxy_npxls < handle
     properties
-        proxyID = "npxls";                        
+        proxon
+        proxyID = "npxls";  
+        type=2
         Server      
         compCfg
         nexFigures % handles to interactive figures
@@ -15,7 +17,10 @@ classdef proxy_npxls < handle
     methods
         % CONSTRUCTOR
         function proxObj = proxy_npxls(serverIP)
-            proxObj.Server = SpikeGL(chat(serverIP)); % spikeGL            
+            startSGL();
+            % SpikeGL('start');
+
+            proxObj.Server = SpikeGL(char(serverIP)); % spikeGL            
             proxObj.writeBuffer = timer("ExecutionMode","fixedRate","BusyMode","queue","Period",0.1,"TimerFcn",@(~,~)proxObj.readData);                        
         end
 

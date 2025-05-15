@@ -7,6 +7,7 @@ function waitForReturn(Server, returnVal, isInitial)
             rxData = read(Server,1);
             if rxData == returnVal
                 if ~isInitial % if server is not the initiator, reply
+                    disp("replying...")
                     write(Server, returnVal);
                 end
                 disp("return successful, proceeding...");
