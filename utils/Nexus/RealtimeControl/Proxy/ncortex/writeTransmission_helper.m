@@ -1,7 +1,7 @@
 function writeTransmission_helper(cortexClient, methodID, txArgs)
     % method ID        
     writeline(cortexClient,methodID);
-    waitForReturn(cortexClient, 0, "start");
+    waitForReturn(cortexClient, 0, 1);
     % while true
     %     if cortexClient.NumBytesAvailable > 0
     %         txReturn = read(cortexClient);

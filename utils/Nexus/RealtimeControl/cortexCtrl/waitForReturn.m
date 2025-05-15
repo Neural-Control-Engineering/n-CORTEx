@@ -9,6 +9,7 @@ function waitForReturn(Server, returnVal, isInitial)
                 if ~isInitial % if server is not the initiator, reply
                     disp("replying...")
                     write(Server, returnVal);
+                    disp("replying...");
                 end
                 disp("return successful, proceeding...");
                 flush(Server);
