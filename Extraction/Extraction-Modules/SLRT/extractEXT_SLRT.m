@@ -161,8 +161,12 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 row = [row, table({data}, 'VariableNames', {data_name})];
             % TAG
             elseif strcmp(signal_split{1}, 'tag')
-                % single value for tag 
-                row = [row, table(data(1), 'VariableNames', {data_name})];
+               % single value for tag 
+                if size(data,2) > 1
+                    row = [row, table(data(1,:), 'VariableNames', {data_name})];
+                else
+                    row = [row, table(data(1), 'VariableNames', {data_name})];
+                end
             % EVENT
             elseif strcmp(signal_split{1}, 'event')
                 % index for for events 
