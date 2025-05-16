@@ -13,7 +13,7 @@ function extractRAW(params)
         try
             extrctHndl(params, sessionsLeftToExtract, params.extrctItms.RAW.extrctModules.(extrctModule).Q);              
         catch e
-            disp(e);
+            disp(getReport(e));
         end
     end
     % Final mark of completed extraction for raw layer

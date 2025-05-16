@@ -68,7 +68,7 @@ classdef proxy_ncortex < handle
                             flush(proxObj.Server);
                             break
                         catch e
-                            disp(getReport(e));
+                            % disp(getReport(e));
                             disp("command failed");
                             write(proxObj.Server,2);
                             flush(proxObj.Server);                            
