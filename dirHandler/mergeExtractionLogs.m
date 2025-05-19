@@ -10,12 +10,21 @@ function mergeExtractionLogs(paths, expmnt, extLogDir_local, extLogDir_cloud)
         if strcmp(type_localSessName, 'double')        
             extractionLog_local.SessionName = num2cell(extractionLog_local.SessionName);
         end
-        % type_cloudSessName = class(extractionLog_cloud.SessionName)
-        extractionLog_local = extractionLog_local(~ismember(extractionLog_local.SessionName,extractionLog_cloud.SessionName),:);
-        for j = 1:height(extractionLog_local)
-            extractionRow = extractionLog_local(j,:);
-            log4Extraction(expmntPath_cloud, extractionRow, "csv");
+        % type_cloudSessName = class(extractionLog_cloud.SessionName) 
+        try
+            extractionLog_local = extractionLog_local(~ismember(extractionLog_local.SessionName,extractionLog_cloud.SessionName),:);
+        catch e
+            disp(getReport(e));
         end
+        if isempty(extractionLog_local) && isempty(extractionLog_cloud)
+            return;
+        else
+            for j = 1:height(extractionLog_local)
+                extractionRow = extractionLog_local(j,:);
+                log4Extraction(expmntPath_cloud, extractionRow, "csv");
+            end
+        end
+        
         % save local extractionLog back
         writetable(extractionLog_local, fullfile(paths.projDir_local,"Experiments",expmnt,"Extraction-Logs",extLogFilename));
     end
