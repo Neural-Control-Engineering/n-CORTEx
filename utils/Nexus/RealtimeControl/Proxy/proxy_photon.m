@@ -1,5 +1,6 @@
 classdef proxy_photon < handle
     properties
+        proxon
         proxyID = "photon";       
         type=2
         Server

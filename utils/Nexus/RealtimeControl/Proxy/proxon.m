@@ -3,6 +3,7 @@ classdef proxon < handle
     properties
         index_type1 % primary proxies (ncortex, slrt, etc.)
         index_type2 % target/instrument proxies (npxls, photon, camera, etc.)
+        % proxy_ncortex
     end
 
     methods
