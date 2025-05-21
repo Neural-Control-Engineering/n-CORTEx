@@ -1,4 +1,4 @@
-function syncOffsets = measureSyncOffsets(t_edge, t_edge_ref, refType)
+function syncOffsets = measureSyncOffsets(t_edge, t_edge_ref, t_inserts, t_inserts_ref, refType)
     t_edge0_ref = t_edge_ref(1);
     t_edge1_ref = t_edge_ref(2);
     prevSyncOffset=[]; % vestigial code
@@ -33,8 +33,9 @@ function syncOffsets = measureSyncOffsets(t_edge, t_edge_ref, refType)
             syncOffsets = syncOffsets(syncOffsets>0); % positive only
             [syncOffset, idx_trueOffset] = min(syncOffsets);
             t_edges_ref = t_edge_ref(idx_trueOffset:end);
-            t_edges = t_edge(1:length(t_edges_ref)); % tentative slicing rule
-            syncOffsets = t_edges_ref - t_edges;
+            % t_edges = t_edge(1:length(t_edges_ref)); % tentative slicing rule
+            t_edges_ref = t_edges_ref(1:length(t_edge));
+            syncOffsets = t_edges_ref - t_edge;
         otherwise
             % slrt-ref synchronizer implies mod-recorded slrt signals lag
             % behind slrt-recorded slrt signals

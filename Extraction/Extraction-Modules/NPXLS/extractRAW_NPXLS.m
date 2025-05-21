@@ -114,14 +114,15 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             % keyboard                            
                             % synch-validation
                             synch1 = nidq.dataArray(9,:); % 1Hz pulser
+                            insert1 = nidq.dataArray(2,:); % slrt insert data
                             synch2 = lfp.dataArray(385,:); % 1Hz pulser                            
                             Fs1 = str2double(nidq.meta.niSampRate);
                             Fs2 = str2double(lfp.meta.imSampRate);                            
                             F_synch1 = 1;
                             F_synch2 = 1;
                             args.groupSize = 10;
-                            sync.lines.sync_1Hz_nidq=extractSyncLine(synch1,Fs1,1,"RE-end","world",args.groupSize);
-                            sync.lines.sync_1Hz_imec=extractSyncLine(synch2,Fs2,1,"RE-end","world",args.groupSize);
+                            sync.lines.sync_1Hz_nidq=extractSyncLine(synch1,insert1,Fs1,1,"RE-end","world",args.groupSize);
+                            sync.lines.sync_1Hz_imec=extractSyncLine(synch2,[],Fs2,1,"RE-end","world",args.groupSize);
                             % [IPD_A, IPD_B, PC_B] = validate_temporalPrecision(synch1, synch2, Fs1, Fs2, F_synch1, F_synch2, args);
                             plot_temporalPrecision(sync.lines.sync_1Hz_imec.IPD, sync.lines.sync_1Hz_nidq.IPD, []);
                             % sync.lines.sync_1Hz.IPD = IPD_A;

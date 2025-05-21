@@ -24,13 +24,15 @@ function sync = extractSyncOffset(syncLine_ref, sync, t_start)
         % t_edge_refCol = contains(colNames_slrt,"t-syncEdges") & contains(colNames_slrt,freqTitle);
         % t_edge_ref = row_SLRT.(colNames_slrt(t_edge_refCol==1)){1}; % slrt sync line
         t_edge_ref = syncLine_ref.t_edges;
+        t_inserts = syncLine.t_inserts;
+        t_inserts_ref = syncLine_ref.t_inserts;
         % to achieve full sync-precision:
         % cascade offset correction from previous, slower pulses (update each t_RE to reflect
         % offset from slower sync line - this is a recurrent process as we
         % iterate to faster sync lines)
         if ~isempty(syncOffsets) % assuming previous, slowest, initial syncLine has been visited
             % recurse ...
-            syncOffsets_next = measureSyncOffsets(t_edge,t_edge_ref,syncLine.ref);
+            syncOffsets_next = measureSyncOffsets(t_edge,t_edge_ref,t_inserts,t_inserts_ref,syncLine.ref);
             sync.lines.(syncLineName).syncOffsets = syncOffsets_next;
             sync.lines.(syncLineName).t_edges_ref = t_edge_ref;
             slope_offsets = (syncOffsets_next(end)-syncOffsets_next(1))/(t_edge_ref(end) - t_edge_ref(1));
@@ -76,7 +78,7 @@ function sync = extractSyncOffset(syncLine_ref, sync, t_start)
             % disp(syncOffset);
         else % still on first, slowest line, self-locate (using prevSyncOffset, if available) and compute first itr. of next syncOffset
             % first (two) RE offsets
-            syncOffsets = measureSyncOffsets(t_edge,t_edge_ref,syncLine.ref);
+            syncOffsets = measureSyncOffsets(t_edge,t_edge_ref,t_inserts,t_inserts_ref,syncLine.ref);
             sync.lines.(syncLineName).syncOffsets=syncOffsets;
             % extrapolate (backwards)
             slope_offsets = (syncOffsets(end)-syncOffsets(1))/(t_edge_ref(end) - t_edge_ref(1));

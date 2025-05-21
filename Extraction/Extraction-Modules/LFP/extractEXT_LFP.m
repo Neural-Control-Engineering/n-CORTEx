@@ -7,6 +7,7 @@ function LFP = extractEXT_LFP(SLRT, dataDir, session)
     sortedTrigs = sortedTrigs.name;
     sortedTrigs = sortedTrigs(contains(sortedTrigs,"sorted"));
     numTrigs = size(sortedTrigs,1);
+    LFP = [];
     for j = 1:numTrigs % visit each trial-gate              
         sortedFldr = sortedTrigs{j};
         % kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");

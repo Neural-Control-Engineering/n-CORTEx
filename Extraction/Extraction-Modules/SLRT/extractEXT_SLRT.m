@@ -149,7 +149,8 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 else
                     data = data_raw(trial_starts(i):trial_ends(i));
                 end
-            elseif strcmp(signal_split{1}, 'sync') % always prebuffer                
+            % trial time alignment
+            elseif strcmp(signal_split{1}, 'sync') || strcmp(signal_split{1}, 'insert') % always prebuffer                
                 data = data_raw(trial_starts(i)-preBuffLen*Fs: trial_ends(i));
             else
                 % data = data_raw(trial_starts(i):trial_ends(i));
@@ -205,11 +206,21 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 % disp('sync test');
                 % t = ([0:length(data)-1] + trial_starts(i) - gate_start) ./ Fs; % time vector relative to current slrt time and most recent acquisition
                 % idx_RE = diff(data) > 0; % rising edge indices
-                % t_RE = t(idx_RE); % rising edge time stamps
-                syncLine = extractSyncLine(data,Fs,[],"RE-end","slrt",10);
+                % t_RE = t(idx_RE); % rising edge time stamps                
+                % pull associated insert data
+                % insertID = sprintf("insert")
+                % data_insert = logsout.getElement(insertID).Values.Data;
+                try
+                    insertData_raw = logsout.getElement("insert_slrt").Values.Data;
+                    insertData = insertData_raw(trial_starts(i)-preBuffLen*Fs: trial_ends(i));
+                catch e
+                    disp(getReport(e)); % no insert data found
+                    insertData = [];
+                end
+                syncLine = extractSyncLine(data, insertData, Fs,[],"RE-end","slrt",10);
                 % t_edges = syncLine.t_edges;
                 % t_RE_startAligned = t_RE; % align rising edges to trial starts (with 3.5 second prior context)
-                row = [row, table({syncLine},'VariableNames',{sprintf('syncLine_%s',data_name)})];
+                row = [row, table({syncLine},'VariableNames',{sprintf('syncLine_%s',data_name)})];           
             elseif ~strcmp(signal_split{1}, 'seg')
                 % otherwise it's an invalid signal name 
                 % error(sprintf('Error: Invalid logged signal name: %s\nMust begin with cont_ (for continuous data), event_ (for e.g. triggers), or tags (single value for whole trial)\n', signals{s}))
