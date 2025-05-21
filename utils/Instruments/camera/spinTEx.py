@@ -2,9 +2,10 @@ import sys
 import os
 import json
 from simple_pyspin import Camera, list_cameras
-from PIL import Image
+# from PIL import Image
 import cv2
 import signal
+import numpy as np
 import socket
 import multiprocessing
 from multiprocessing import Process
@@ -19,7 +20,7 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python script.py <spinParams_json>")
         sys.exit(1)
-
+    print("STARTING")
     spinParams = sys.argv[1] 
     # spinParams="{\"saveDir\": \"Select Project Directory\", \"pupilCam\": {\"TriggerMode\": \"On\"}, \"whiskCam\": {\"TriggerMode\": \"On\"}, \"execStatus\": \"start\"}"
     spinParams = json.loads(spinParams)     
@@ -56,6 +57,7 @@ def main():
         cam = setSpinParams(cam, spinParams['spinParams'])
         # listenerPort = int(SN(-6:-1)) # last 5 digits of SN 
         acqDir = spinParams['saveDir']
+        print(acqDir)
        
         # if camSelect==pupilSN:
         #     cam = Camera(pupilSN)
@@ -168,9 +170,22 @@ def saveFrames(frameBuffer, acqDir, isTerm):
     while True:
         if len(frameBuffer)>0:
             frame = frameBuffer.pop(0)
+            frame = frame.astype(np.uint8)
+            # print("Type:", type(frame))
+            # print("Dtype:", frame.dtype)
+            # print("Shape:", frame.shape)
+            # print("Any NaNs?", np.isnan(frame).any())
+            # print("Any Infs?", np.isinf(frame).any())
+            # print("Max/Min:", np.max(frame), np.min(frame))            
+            # frame = np.asarray(frame)
+            # print((frame))
             # cv2.imwrite(os.path.join(acqDir, "frame_"+str(i)+".png"), frame, [cv2.IMWRITE_PNG_COMPRESSION, COMPRESSIONLEVEL])
             frmNum = str(i)
             frmNum = frmNum.rjust(10,'0')
+            # print(os.path.join(acqDir, frmNum + ".png"))
+            # print("Saving to:", os.path.join(acqDir, "frame_"+str(i)+".png"))
+            # print("Dir exists:", os.path.exists(acqDir))
+            # print("Dir writable:", os.access(acqDir, os.W_OK))
             cv2.imwrite(os.path.join(acqDir, frmNum + ".png"), frame, [cv2.IMWRITE_PNG_COMPRESSION, COMPRESSIONLEVEL])
             # cv2.imwrite(os.path.join(acqDir, "frame_"+str(i)+".png"), frame)
             i+=1 
