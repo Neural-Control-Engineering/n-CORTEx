@@ -5,6 +5,11 @@ classdef ctrlKey < Simulink.IntEnumType
         startCapture (3)
         stopCapture (4)
         endOfTrial (5)
+        zSeries (6)
+        tSeries (7)
+        state (8)
+        % state_rtn (9)
+
     end
 
     methods (Static)        
@@ -40,9 +45,9 @@ classdef ctrlKey < Simulink.IntEnumType
 
 end
 
-ctrxControl("startDatastream","photon"); % return 1 if successful
-ctrxControl("startDatastream","npxls");
-
-
-PVrx 
-PVtx
+% ctrxControl("startDatastream","photon"); % return 1 if successful
+% ctrxControl("startDatastream","npxls");
+% 
+% 
+% PVrx 
+% PVtx
