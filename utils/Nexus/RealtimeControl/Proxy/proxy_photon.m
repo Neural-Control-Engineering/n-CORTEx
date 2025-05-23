@@ -1,6 +1,7 @@
 classdef proxy_photon < handle
     properties
         proxon
+        nCORTEx
         proxyID = "photon";       
         type=2
         Server
@@ -19,6 +20,10 @@ classdef proxy_photon < handle
         function proxObj = proxy_photon(serverIP)            
             proxObj.Server = actxserver('PrairieLink64.Application');   
             proxObj.stream = timer("ExecutionMode","fixedRate","BusyMode","queue","Period",0.1,"TimerFcn",@(~,~)proxObj.readData);                        
+            % startup and configuration
+            setupRepo = fullfile(proxObj_photon.nCORTEx.params.paths.repo_path,"Setup","photon");
+            proxObj_photon.Server.SendScriptCommands("-spc");
+            proxObj_photon.Server.SendScriptCommands(sprintf("-lspf %s", fullfile(setupRepo,"stage_default.xy")));
         end
 
         % FETCH DATA
@@ -30,6 +35,7 @@ classdef proxy_photon < handle
 
         % Z-Stack
         function zStack(proxObj)
+            
         end
 
         % T-series

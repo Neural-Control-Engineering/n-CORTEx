@@ -28,11 +28,16 @@ classdef proxy_slrt < handle
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_slrt(serverIP, serverPort, clientIP, clientPort, ctrlKey, slTarget, tgProxies, connectionChangedFcn)
+        function proxObj = proxy_slrt(serverIP, serverPort, clientIP, clientPort, slTarget, tgProxies, connectionChangedFcn)            
             proxObj.Server = tcpserver(serverIP, serverPort,"ConnectionChangedFcn",@(src,event)connectionChangedFcn(src, event));
-            proxObj.Client = tcpclient(clientIP, clientPort, "ConnectionChangedFcn", @(src, event)connectionChangedFcn(src, event));
+            if ~isempty(clientIP)
+                proxObj.Client = tcpclient(clientIP, clientPort, "ConnectionChangedFcn", @(src, event)connectionChangedFcn(src, event));                
+            else
+                proxObj.Client = [];
+            end
             % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(params,server,modalityServer.modSrv));    
-            configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(proxObj));    
+            % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(proxObj));    
+            configureCallback(proxObj.Server,"byte",25,@(~,~)proxObj.relayTransmission());
             
             proxObj.Targets = tgProxies;            
             % proxObj.ctrlKey = ctrlKey();
@@ -40,16 +45,25 @@ classdef proxy_slrt < handle
         end
 
         function relayTransmission(proxObj)            
-            %% read command code
+            %% read command code (simple for now)
             % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");             
-            cmdCode = read(proxObj.Server,1,"uint8");             
+            cmdCode = read(proxObj.Server,25,"uint8");             
+            cmdRx = uint8(zeros(25,1));
+            cmdBuffer = find(cmdCode>=1);
+            for i = 1:length(cmdBuffer)
+                idx_cmd = cmdBuffer(i);
+                switch idx_cmd
+                    case 7 % z-stack
+                        proxObj.proxon.index_type2.photon_2.zStack();                        
+                end
+            end
             %% command lookup
-            command = proxObj.ctrlKey.getCmd(cmdCode);                                 
+            % command = proxObj.ctrlKey.getCmd(cmdCode);                                 
             % execute designated command (using corresponding target (e.g.
             % start datastream should initiate a subroutine that fetches
             % data from all targets))
             %% execute command
-            proxObj.(methodHandle);
+            % proxObj.(methodHandle);
 
         end
 
