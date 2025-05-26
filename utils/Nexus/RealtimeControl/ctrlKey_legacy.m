@@ -1,4 +1,4 @@
-classdef ctrlKey < Simulink.IntEnumType
+classdef ctrlKey_legacy < Simulink.IntEnumType
     enumeration
         % NEUROPIXELS COMMANDS
         startDataStream_npxls (1)

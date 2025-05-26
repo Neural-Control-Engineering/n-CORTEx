@@ -12,7 +12,7 @@ classdef ctrlKey < Simulink.IntEnumType
 
     end
 
-    methods (Static)        
+    methods (Static)         
 
         function code = getCode(cmd)
             switch cmd
