@@ -17,11 +17,14 @@ classdef proxy_photon < handle
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_photon(serverIP)            
-            proxObj.Server = actxserver('PrairieLink64.Application');   
+        function proxObj = proxy_photon(serverIP, nCORTEx)            
+            proxObj.Server = actxserver('PrairieLink64.Application');  
+            proxObj.Server.Connect()
             proxObj.stream = timer("ExecutionMode","fixedRate","BusyMode","queue","Period",0.1,"TimerFcn",@(~,~)proxObj.readData);                        
+            % application handle
+            proxObj.nCORTEx = nCORTEx;
             % startup and configuration
-            setupRepo = fullfile(proxObj_photon.nCORTEx.params.paths.repo_path,"Setup","photon");
+            setupRepo = fullfile(proxObj.nCORTEx.params.paths.repo_path,"Setup","photon");
             proxObj.Server.SendScriptCommands("-spc");
             proxObj.Server.SendScriptCommands(sprintf("-lspf %s", fullfile(setupRepo,"stage_default.xy")));
         end

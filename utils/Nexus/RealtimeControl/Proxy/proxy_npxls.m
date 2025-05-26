@@ -1,6 +1,7 @@
 classdef proxy_npxls < handle
     properties
         proxon
+        nCORTEx
         proxyID = "npxls";  
         type=2
         Server      
@@ -16,10 +17,11 @@ classdef proxy_npxls < handle
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_npxls(serverIP)
+        function proxObj = proxy_npxls(serverIP, nCORTEx)
             startSGL();
             % SpikeGL('start');
-
+            % application handle
+            proxObj.nCORTEx = nCORTEx;
             proxObj.Server = SpikeGL(char(serverIP)); % spikeGL            
             proxObj.writeBuffer = timer("ExecutionMode","fixedRate","BusyMode","queue","Period",0.1,"TimerFcn",@(~,~)proxObj.readData);                        
         end

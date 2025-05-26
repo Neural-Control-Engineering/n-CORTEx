@@ -4,13 +4,17 @@ classdef proxon < handle
         index_type1 % primary proxies (ncortex, slrt, etc.)
         index_type2 % target/instrument proxies (npxls, photon, camera, etc.)
         % proxy_ncortex
+        nCORTEx
+        nexon
     end
 
     methods
         % constructor
-        function proxon = proxon()
+        function proxon = proxon(nCORTEx, nexon)
             proxon.index_type1=struct;
             proxon.index_type2=struct;
+            proxon.nCORTEx = nCORTEx;
+            proxon.nexon = nexon;
         end
 
         function addProxy(proxon, proxObj, partnerProxObj)

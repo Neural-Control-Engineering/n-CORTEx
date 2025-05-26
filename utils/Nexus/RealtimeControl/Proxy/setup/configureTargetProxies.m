@@ -10,7 +10,7 @@ function configureTargetProxies(proxon, expmntCfg)
         proxyID = str2func(sprintf("proxy_%s",targetID));
         try
             serverIP = expmntCfg.targets.(targetID).ethernetIP;
-            proxObj = proxyID(serverIP);
+            proxObj = proxyID(serverIP, proxon.nCORTEx);
             proxon.addProxy(proxObj);
         catch e
             disp(getReport(e));
