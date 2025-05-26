@@ -1,0 +1,2 @@
+function photonCtrl_updateStagePosition(nexObj)
+end
