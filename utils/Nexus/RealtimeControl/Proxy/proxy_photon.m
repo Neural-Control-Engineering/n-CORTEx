@@ -22,8 +22,8 @@ classdef proxy_photon < handle
             proxObj.stream = timer("ExecutionMode","fixedRate","BusyMode","queue","Period",0.1,"TimerFcn",@(~,~)proxObj.readData);                        
             % startup and configuration
             setupRepo = fullfile(proxObj_photon.nCORTEx.params.paths.repo_path,"Setup","photon");
-            proxObj_photon.Server.SendScriptCommands("-spc");
-            proxObj_photon.Server.SendScriptCommands(sprintf("-lspf %s", fullfile(setupRepo,"stage_default.xy")));
+            proxObj.Server.SendScriptCommands("-spc");
+            proxObj.Server.SendScriptCommands(sprintf("-lspf %s", fullfile(setupRepo,"stage_default.xy")));
         end
 
         % FETCH DATA
