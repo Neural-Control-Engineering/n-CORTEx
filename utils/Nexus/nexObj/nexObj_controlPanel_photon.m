@@ -11,11 +11,12 @@ classdef nexObj_controlPanel_photon < handle
     end
     methods
         % CONSTRUCTOR
-        function obj = nexObj_controlPanel(nexon, proxon)
+        function obj = nexObj_controlPanel_photon(nexon, proxon)
             obj.nexon = nexon;
+            obj.proxon = proxon;
             %% Averaging Selection        
             % obj.averagingSelection = nexObj_selectionBus(obj, key, values)            
-            nexFigure_controlPanel(obj);
+            nexFigure_controlPanel_photon(obj);
             %% 
         end
     end

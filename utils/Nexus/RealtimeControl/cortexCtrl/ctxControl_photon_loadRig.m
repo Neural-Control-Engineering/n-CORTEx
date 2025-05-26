@@ -1,2 +1,0 @@
-function ctxControl_photon_loadRig()
-end
