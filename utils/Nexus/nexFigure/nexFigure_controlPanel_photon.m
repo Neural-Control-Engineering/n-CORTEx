@@ -1,4 +1,7 @@
 function nexFigure_controlPanel_photon(nexObj)
+    % color settings
+    color1 = [1,1,1];
+    stagePositionList = fieldnames(nexObj.nCORTEx.params.expmntCfg_target.targets.photon.stagePositions);
      %% DRAW FIGURE
     nexObj.Figure.fh = uifigure("Position",[100, 500, 1020, 620], "Color",[0,0,0]);
     % plot panel
@@ -10,16 +13,16 @@ function nexFigure_controlPanel_photon(nexObj)
     % inputs (buttons)
     % load rig
     % nexObj.Figure.loadRigButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",nexObj.nexon.settings.Colors.cyberGreen,"FontColor",[0,0,0],"Position",[10,10,100,150],"Text","","ButtonPushedFcn",@(~,~)ctxControl_photon_loadRig(nexObj.nexon,[]));
-    nexObj.Figure.loadRigButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",[1,1,1],"FontColor",[0,0,0],"Position",[10,10,100,150],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_loadRig(nexObj,[]));
-    nexObj.Figure.saveLoadRigPos_Button = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",[1,1,1],"FontColor",[0,0,0],"Position",[10,165,100,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_loadRig(nexObj,[]));
-    % load objective
-    nexObj.Figure.loadObjectiveButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",[1,1,1],"FontColor",[0,0,0],"Position",[130,10,100,150],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_loadObjective(nexObj,[]));
-    nexObj.Figure.saveLoadObjectivePos_Button = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",[1,1,1],"FontColor",[0,0,0],"Position",[130,165,100,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_loadRig(nexObj,[]));
+    % rig position control
+    nexObj.Figure.updatePositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,40,180,150],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_updateStagePosition(nexObj));
+    nexObj.Figure.savePositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,10,180,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_saveStagePosition(nexObj));        
+    nexObj.Figure.selectPositionDropDown = uidropdown(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,195,150,25],"Items",stagePositionList,"ValueChangedFcn",@(~,~)photonCtrl_selectPositionDropDownValueChanged(nexObj));
+    nexObj.Figure.addPositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[165,195,25,25],"ButtonPushedFcn",@(~,~)photonCtrl_addStagePosition(nexObj),"Text","+");
     % move to image subject
-    nexObj.Figure.locateSubjectButton_over = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",[1,1,1],"FontColor",[0,0,0],"Position",[250,110,100,40],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_locateSubject_over(nexObj,[])); % idx 3
-    nexObj.Figure.locateSubjectButton_hover = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",[1,1,1],"FontColor",[0,0,0],"Position",[250,60,100,40],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_locateSubject_hover(nexObj,[])); % idx 4
-    nexObj.Figure.locateSubjectButton_start = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",[1,1,1],"FontColor",[0,0,0],"Position",[250,10,100,40],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_locateSubject(nexObj,[])); % idx 5
-    nexObj.Figure.saveLocateSubjectPos_Button = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",[1,1,1],"FontColor",[0,0,0],"Position",[250,165,100,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_setSubjectLocation(nexObj,[]));
+    nexObj.Figure.updatePositionButton_subject_over = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[250,110,100,40],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_locateSubject_over(nexObj,[])); % idx 3
+    nexObj.Figure.updatePositionButton_subject_hover = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[250,60,100,40],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_locateSubject_hover(nexObj,[])); % idx 4
+    nexObj.Figure.updatePositionButton_subject_image = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[250,10,100,40],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_locateSubject(nexObj,[])); % idx 5
+    nexObj.Figure.saveNewPositionButton_subject = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[250,165,100,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_setSubjectLocation(nexObj,[]));
     % lisCfg 
     nexObj.Figure.SubjectLocationsList = nexObj_listCfgPanel(nexObj.nexon, panel3, nexObj.visSelection, [3,1]);
     % set current position as buttons
