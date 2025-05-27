@@ -144,6 +144,8 @@ function params = setExtractionParams(opts)
         case 'user'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "128.59.149.107";
+            opts.netConfig.MAC_slrt = [];
+            opts.netConfig.MAC_net = "128.59.149.107"; 
         otherwise
             opts.staticColor = [0.31,0.94,0.46];
 
