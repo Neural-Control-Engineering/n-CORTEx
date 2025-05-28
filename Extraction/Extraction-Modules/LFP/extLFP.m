@@ -27,7 +27,14 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
     %% SYNC ALIGNMENT
     % syncOffset = extractSyncOffset(row_SLRT, sync);
     % lfp time vector
-    t_lfp = [0:size(lfp,2)-1]./Fs - preBuffLen;
+    % t_lfp = [0:size(lfp,2)-1]./Fs - preBuffLen;
+    sync_ref = constructSync_slrt(SLRT, trigNum);
+    sync = extractSyncOffset(sync_ref.lines.sync_1Hz_slrt, sync, t_start);
+    % visualize offsets
+    % plotSyncOffsets_postProc(sync.lines.sync_1Hz_nidq, sync_ref.lines.sync_1Hz_slrt, sessionDetails);
+    % t_lfp = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
+    t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
+    % t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, offset0_imec);
 
     events_logical = strcmp(SLRT(1,:).signal_types{1}(:,2), 'event');
     event_signals = SLRT(1,:).signal_types{1}(events_logical,1);
@@ -42,15 +49,14 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
         if trialGate == trigNum
             % define output table
             session_label = SLRT(trial,:).session_label{1};
-            row_SLRT = SLRT(trial,:);            
-
+            % row_SLRT = SLRT(trial,:);            
             % trial-wise temporal offset tracking 
-            sync = extractSyncOffset(row_SLRT, sync, [], t_start);            
+            % sync = extractSyncOffset(row_SLRT, sync, [], t_start);            
             % offset0_nidq = sync.lines.sync_1Hz_nidq.offset0;
-            offset0_imec = sync.lines.sync_1Hz_imec.offset0;
+            % offset0_imec = sync.lines.sync_1Hz_imec.offset0;
             % prevSyncOffset = syncOffset; % update prevSyncOffset for next itr            
             % t_lfp = mapSyncTimeline(sync_adj.lines.sync_250Hz,Fs);
-            t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, offset0_imec);
+            % t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, offset0_imec);
                   
             % beginning, end, and stimulus time for trial         
             % start_time = SLRT(trial,:).clock_time{1}(1);
@@ -76,9 +82,14 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
             if ~isempty(lfpSeg)
                 for es = 1:length(event_signals)
                         signal = event_signals{es};
-                        if ~isnan(SLRT(trial,:).(signal))
+                        eventData = SLRT(trial,:).(signal);
+                        switch class(eventData)
+                            case 'cell'
+                                eventData=eventData{1};                            
+                        end
+                        if ~isnan(eventData)
                             % event_time = SLRT(trial,:).clock_time{1}(SLRT(trial,:).(signal));
-                            event_time = SLRT(trial,:).("trial-gate_clock_time"){1}(SLRT(trial,:).(signal));
+                            event_time = SLRT(trial,:).("trial-gate_clock_time"){1}(eventData);
                             aligned_lfpTime = trial_lfpTimes - event_time;
                         else
                             aligned_lfpTime = [];

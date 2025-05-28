@@ -15,7 +15,11 @@ function t_sync = mapSyncTimeline(DF, syncLine, offset0)
     t_sync = t_base;
     syncOffsets = syncLine.syncOffsets;
     %% Apply second-wise offset correction
-    for i = 1:length(t_edges_ref)
+    % for i = 1:length(t_edges_ref)
+    if length(t_edges) > length(t_edges_ref)
+        t_edges = t_edges(1:length(t_edges_ref));
+    end
+    for i = 1:length(t_edges)
         % time boundaries
         t1 = t_edges_ref(i);
         if i == 1

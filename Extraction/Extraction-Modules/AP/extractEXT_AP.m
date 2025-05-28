@@ -14,8 +14,10 @@ function AP = extractEXT_AP(SLRT, dataDir, session)
         sortedFldr = sortedTrigs{j};
         % kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
         npxlsPath = fullfile(strcat("\\?\",imecPath),sortedFldr);
-        AP = [AP; extAP(SLRT, npxlsPath, j)];
-        % LFP = extLFP(SLRT, lfpPath);
+        expmntLabel = strrep(string(sortedTrigs{j}),"_sorted","");
+        [trigNum, gateNum] = decodeTrigger(expmntLabel);
+        AP = [AP; extAP(SLRT, npxlsPath, trigNum+1)];
+        % LFP = extLFP(SLRT, lfpPath);      
     end
 
     

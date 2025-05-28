@@ -60,6 +60,8 @@ function extractEXT(params)
                 extrctModules = params.extrctItms.EXT.extrctModules;
                 extModNames = fieldnames(extrctModules);
                 extData = struct;
+                % sync validation
+                % SYNC = extractEXT_SYNC(SLRT, params.paths.Data, session);
                 for j = 1:length(extModNames)
                     extMod = extModNames{j};
                     % extrctHndl = str2func(sprintf("extractEXT_%s", extrctModule));                        
@@ -77,11 +79,14 @@ function extractEXT(params)
                             end
                         end
                         extModPath = fullfile(params.paths.Data.EXT.(extMod).cloud,sprintf("%s.mat",session));
-                        save(extModPath,extData.(extMod));
+                        % save ext data to designated layer/subfolder
+                        extSave.(extMod) = extData.(extMod);
+                        save(extModPath,'-struct','extSave');   
+                        clear('extSave');
                     catch e
                         disp(getReport(e));
                     end         
-                end
+                end                
             end
     end
    

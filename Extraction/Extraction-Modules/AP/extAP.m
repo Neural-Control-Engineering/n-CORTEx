@@ -81,8 +81,10 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     nSamples = (str2double(ap.meta.fileSizeBytes) / str2double(ap.meta.nSavedChans)) / 2; % two bytes per sample (16 bit precision)
     ap.dataArray = ones([1,nSamples]);
     ap.meta.Fs = str2double(ap.meta.imSampRate);
-    sync_ref = constructSync_slrt(SLRT);
+    [sync_ref, sessionDetails] = constructSync_slrt(SLRT, trigNum);
     sync = extractSyncOffset(sync_ref.lines.sync_1Hz_slrt, sync, t_start);
+    % visualize offsets
+    plotSyncOffsets_postProc(sync.lines.sync_1Hz_nidq, sync_ref.lines.sync_1Hz_slrt, sessionDetails);
     t_ap = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
     spike_times = t_ap(spike_inds(spike_inds>0)); % for now: ignore negative spike inds
     spike_clusters = spike_clusters(spike_inds>0);
@@ -137,8 +139,14 @@ function AP = extAP(SLRT, npxls_path, trigNum)
                 if ~isempty(cluster_spike_times)
                     for es = 1:length(event_signals)
                         signal = event_signals{es};
-                        if ~isnan(SLRT(trial,:).(signal))
-                            event_time = SLRT(trial,:).("trial-gate_clock_time"){1}(SLRT(trial,:).(signal));
+                        eventData = SLRT(trial,:).(signal);
+                        switch class(eventData)
+                            case 'cell'
+                                eventData=eventData{1};                            
+                        end
+                        if ~isnan(eventData)
+                            % event_time = SLRT(trial,:).("trial-gate_clock_time"){1}(SLRT(trial,:).(signal));
+                            event_time = SLRT(trial,:).("trial-gate_clock_time"){1}(eventData);
                             peri_trial_spike_inds = find(spike_times >= (event_time-3.5) & spike_times <= (event_time+5));
                             peri_trial_spike_times = spike_times(peri_trial_spike_inds);
                             peri_trial_spike_clusters = spike_clusters(peri_trial_spike_inds);

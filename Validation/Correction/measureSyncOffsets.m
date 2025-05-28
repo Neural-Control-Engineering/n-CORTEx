@@ -1,11 +1,16 @@
-function syncOffsets = measureSyncOffsets(t_edge, t_edge_ref, t_inserts, t_inserts_ref, refType)
+function [syncOffsets, insertOffsets] = measureSyncOffsets(t_edge, t_edge_ref, t_inserts, t_inserts_ref, refType)
+    % matching pulse edge candidates
     t_edge0_ref = t_edge_ref(1);
+    % t_edge2Insrt0_ref = t_inserts_ref - t_edge0_ref; 
     t_edge1_ref = t_edge_ref(2);
+    % t_edge2Insrt1_ref = t_inserts_ref - t_edge1_ref;
     prevSyncOffset=[]; % vestigial code
     %% prevSyncOffset landmarking
     if isempty(prevSyncOffset) % if no previous syncOffset (this is the first trial from the assoc. trial-gate)
         t_edge0 = t_edge(1); % use first RE-time 
+        % t_edge2Insrt0 = t_inserts - t_edge0;
         t_edge1 = t_edge(2);
+        % t_edge2Insrt1 = t_inserts - t_edge1;
     else % locate matching RE-latency idx using previously discovered syncOffset (important for multiple trials in one trial-gate)
         projected_firstEdge = t_edge0_ref - prevSyncOffset;
         % locate corresponding RE in pMOD data (peripheral modality) 
@@ -33,9 +38,28 @@ function syncOffsets = measureSyncOffsets(t_edge, t_edge_ref, t_inserts, t_inser
             syncOffsets = syncOffsets(syncOffsets>0); % positive only
             [syncOffset, idx_trueOffset] = min(syncOffsets);
             t_edges_ref = t_edge_ref(idx_trueOffset:end);
-            % t_edges = t_edge(1:length(t_edges_ref)); % tentative slicing rule
-            t_edges_ref = t_edges_ref(1:length(t_edge));
+            % t_edges = t_edge(1:length(t_edges_ref)); % tentative slicing rule            
+            syncCutoff = min([length(t_edge),length(t_edges_ref)]);
+            if length(t_edge) > length(t_edges_ref)
+                t_edge = t_edge(1:syncCutoff);
+            else                
+                t_edges_ref = t_edges_ref(1:syncCutoff);
+            end
+            
+            % validate insert distance
+            if ~isempty(t_inserts_ref)
+                insertDists_ref = t_edges_ref - t_inserts_ref;
+            else
+                insertDists_ref = [];
+            end
+            if ~isempty(t_inserts)
+                insertDists = t_edge - t_inserts;
+            else                
+                insertDists = [];
+                insertDists_ref = []; % cancel insert differential measurement
+            end            
             syncOffsets = t_edges_ref - t_edge;
+            insertOffsets = insertDists_ref - insertDists;
         otherwise
             % slrt-ref synchronizer implies mod-recorded slrt signals lag
             % behind slrt-recorded slrt signals

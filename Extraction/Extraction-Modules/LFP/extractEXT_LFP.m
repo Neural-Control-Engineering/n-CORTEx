@@ -13,7 +13,9 @@ function LFP = extractEXT_LFP(SLRT, dataDir, session)
         % kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
         lfpPath = fullfile(strcat("\\?\",imecPath),sortedFldr);
         % AP = extAP(SLRT, kSortPath);
-        LFP = [LFP; extLFP(SLRT, lfpPath, j)];
+        expmntLabel = strrep(string(sortedTrigs{j}),"_sorted","");
+        [trigNum, gateNum] = decodeTrigger(expmntLabel);
+        LFP = [LFP; extLFP(SLRT, lfpPath, trigNum+1)];
     end
     
 end
