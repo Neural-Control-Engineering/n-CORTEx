@@ -1,4 +1,4 @@
-function photonCtrl_resetStagePosition(nexObj)
+function photonCtrl_resetStagePosition(nexObj, operation)
     %% reset selected stage position save to current stage position
     prxObj_photon = nexObj.proxon.index_type2.photon_1;
     %% get selected position and index

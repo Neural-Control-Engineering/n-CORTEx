@@ -1,4 +1,4 @@
-function photonCtrl_addStagePosition(nexObj)
+function photonCtrl_addStagePosition(nexObj, operation)
     % user-dialog for name
     prompt = {'Enter position name:'};    
     dlgtitle = 'New Stage Position';

@@ -1,2 +1,0 @@
-function stageIO_writePosition(prxObj)
-end
