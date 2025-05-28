@@ -1,9 +1,9 @@
-function photonCtrl_moveToPos(proxObj, idx_pos)        
+function photonCtrl_moveToPos(proxObj, idx_pos, filePath)        
     % clear current positions
-    proxObj.Server.sendScriptCommands('spc');
+    proxObj.Server.SendScriptCommands('-spc');
     % load xy file 
-    proxObj.Server.sendScriptCommands('lspf');
+    proxObj.Server.SendScriptCommands(sprintf('-lspf %s', filePath));
     % index position coordinates (idx=1) &    
     % move to position (throw error if invalid)
-    proxObj.Server.sendScriptCommands(sprintf('mtsp %d', idx_pos));
+    proxObj.Server.SendScriptCommands(sprintf('-mtsp %d', idx_pos));
 end

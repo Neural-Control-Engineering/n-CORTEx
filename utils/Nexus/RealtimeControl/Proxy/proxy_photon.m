@@ -24,10 +24,12 @@ classdef proxy_photon < handle
             % application handle
             proxObj.nCORTEx = nCORTEx;
             % startup and configuration
-            setupRepo = fullfile(proxObj.nCORTEx.params.paths.repo_path,"Setup","photon");
+            % proxObj.nCORTEx.params
+            setupRepo = fullfile(proxObj.nCORTEx.nCORTEx_repo,"Setup","photon");
             proxObj.Server.SendScriptCommands("-spc");
             proxObj.Server.SendScriptCommands(sprintf("-lspf %s", fullfile(setupRepo,"stage_default.xy")));
         end
+        
 
         % FETCH DATA
         function readData(proxObj)

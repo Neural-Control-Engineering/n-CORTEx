@@ -15,7 +15,7 @@ function nexFigure_controlPanel_photon(nexObj)
     % nexObj.Figure.loadRigButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",nexObj.nexon.settings.Colors.cyberGreen,"FontColor",[0,0,0],"Position",[10,10,100,150],"Text","","ButtonPushedFcn",@(~,~)ctxControl_photon_loadRig(nexObj.nexon,[]));
     % rig position control
     nexObj.Figure.updatePositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,40,180,150],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_updateStagePosition(nexObj));
-    nexObj.Figure.savePositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,10,180,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_saveStagePosition(nexObj));        
+    nexObj.Figure.savePositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,10,180,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_resetStagePosition(nexObj));        
     nexObj.Figure.selectPositionDropDown = uidropdown(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,195,150,25],"Items",stagePositionList,"ValueChangedFcn",@(~,~)photonCtrl_selectPositionDropDownValueChanged(nexObj));
     nexObj.Figure.addPositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[165,195,25,25],"ButtonPushedFcn",@(~,~)photonCtrl_addStagePosition(nexObj),"Text","+");
     % move to image subject
@@ -24,7 +24,7 @@ function nexFigure_controlPanel_photon(nexObj)
     nexObj.Figure.updatePositionButton_subject_image = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[250,10,100,40],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_locateSubject(nexObj,[])); % idx 5
     nexObj.Figure.saveNewPositionButton_subject = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[250,165,100,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_setSubjectLocation(nexObj,[]));
     % lisCfg 
-    nexObj.Figure.SubjectLocationsList = nexObj_listCfgPanel(nexObj.nexon, panel3, nexObj.visSelection, [3,1]);
+    % nexObj.Figure.SubjectLocationsList = nexObj_listCfgPanel(nexObj.nexon, panel3, nexObj.visSelection, [3,1]);
     % set current position as buttons
     % operation control panel
 end
