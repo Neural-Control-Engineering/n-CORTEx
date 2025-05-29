@@ -1,12 +1,12 @@
 function photonCtrl_updateStagePosition(nexObj, operation)
     prxObj_photon = nexObj.proxon.index_type2.photon_1;
     % get selected position and index
-    switch source
+    switch operation
         case "load"
             stagePositionSelection = nexObj.Figure.selectPositionDropDown.Value;
             idx_stagePositionSelection = nexObj.nCORTEx.params.expmntCfg_target.targets.photon.stagePositions.(stagePositionSelection).index;    
             expmntModulePath = fullfile(nexObj.nCORTEx.params.paths.experimentModules,nexObj.nCORTEx.params.experiment);
-            filePath_spf = fullfile(expmntModulePath,"stagePositions.xy");
+            filePath_spf = fullfile(expmntModulePath,"photon","stagePositions.xy");
         case "over"            
             idx_stagePositionSelection = 1; 
             subjectFolderPath = fullfile(nexObj.nCORTEx.params.paths.expmntPath_cloud,"Subjects/",nexObj.nCORTEx.params.subject);

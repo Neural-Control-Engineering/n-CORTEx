@@ -2,6 +2,7 @@ function nexFigure_controlPanel_photon(nexObj)
     % color settings
     color1 = [1,1,1];
     stagePositionList = fieldnames(nexObj.nCORTEx.params.expmntCfg_target.targets.photon.stagePositions);
+    stagePositionList_subject = fieldnames(nexObj.nCORTEx.params.subjectCfg.targets.photon.stagePositions);
      %% DRAW FIGURE
     nexObj.Figure.fh = uifigure("Position",[100, 500, 1020, 620], "Color",[0,0,0]);
     % plot panel
@@ -16,14 +17,17 @@ function nexFigure_controlPanel_photon(nexObj)
     % stage position control LOADING CONTROL
     nexObj.Figure.updatePositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,40,185,150],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_updateStagePosition(nexObj, "load"));
     nexObj.Figure.resetPositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,10,185,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_resetStagePosition(nexObj,"load"));        
-    nexObj.Figure.selectPositionDropDown = uidropdown(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,195,155,25],"Items",stagePositionList,"ValueChangedFcn",@(~,~)photonCtrl_selectPositionDropDownValueChanged(src, event, nexObj));
+    % nexObj.Figure.selectPositionDropDown = uidropdown(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,195,155,25],"Items",stagePositionList,"ValueChangedFcn",@(~,~)photonCtrl_selectPositionDropDownValueChanged(src, event, nexObj));
+    nexObj.Figure.selectPositionDropDown = uidropdown(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[10,195,155,25],"Items",stagePositionList);
     nexObj.Figure.addPositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[170,195,25,25],"ButtonPushedFcn",@(~,~)photonCtrl_addStagePosition(nexObj,"load"),"Text","+");
     % stage position control (subject) IMAGING CONTROL
+    
     nexObj.Figure.updatePositionButton_subject_over = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[205,144,185,45],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_updateStagePosition(nexObj,"over")); % idx 3
     nexObj.Figure.updatePositionButton_subject_hover = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[205,92,185,45],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_updateStagePosition(nexObj,"hover")); % idx 4
     nexObj.Figure.updatePositionButton_subject_image = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[205,40,185,45],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_updateStagePosition(nexObj,"image")); % idx 5
     nexObj.Figure.resetPositionButton_subject_hover = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[205,10,185,25],"Text","","ButtonPushedFcn",@(~,~)photonCtrl_resetStagePosition(nexObj,"image")); % idx 4
-    nexObj.Figure.selectPositionDropDown_subject = uidropdown(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[205,195,155,25],"Items",stagePositionList,"ValueChangedFcn",@(~,~)photonCtrl_selectImagePositionDropDownValueChanged(src, event, nexObj));
+    % nexObj.Figure.selectPositionDropDown_subject = uidropdown(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[205,195,155,25],"Items",stagePositionList_subject,"ValueChangedFcn",@(~,~)photonCtrl_selectImagePositionDropDownValueChanged(src, event, nexObj));
+    nexObj.Figure.selectPositionDropDown_subject = uidropdown(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[205,195,155,25],"Items",stagePositionList_subject);
     nexObj.Figure.addImagePositionButton = uibutton(nexObj.Figure.panel2.ph,"BackgroundColor",color1,"FontColor",[0,0,0],"Position",[365,195,25,25],"ButtonPushedFcn",@(~,~)photonCtrl_addStagePosition(nexObj,"image"),"Text","+");
 
     % lisCfg 
