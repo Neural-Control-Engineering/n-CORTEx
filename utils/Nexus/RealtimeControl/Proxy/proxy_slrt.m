@@ -17,6 +17,7 @@ classdef proxy_slrt < handle
         slTarget
         Server % transport layer server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
         Client % transport layer client 
+        streamBuffer
         compCfg
         nexFigures
         ctrlKey
@@ -24,6 +25,8 @@ classdef proxy_slrt < handle
         % isCapturing=0;
         % isStreaming=0;
         DTS
+        axon
+        Q % data queue for parallel interfacing (With other proxies)
     end
     
     methods
