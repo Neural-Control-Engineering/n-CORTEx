@@ -1,4 +1,4 @@
-classdef ctrlKey < Simulink.IntEnumType
+classdef photonCtrl < Simulink.IntEnumType
     enumeration    
         % client-side
         startDataStream (1)
