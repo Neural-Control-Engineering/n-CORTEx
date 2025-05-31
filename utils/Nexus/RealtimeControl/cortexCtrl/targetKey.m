@@ -1,6 +1,5 @@
 classdef targetKey < Simulink.IntEnumType
-    enumeration
-        all (0)
+    enumeration        
         npxls  (1)
         photon (2)
         photom (3)        

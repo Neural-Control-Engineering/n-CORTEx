@@ -1,5 +1,6 @@
 function ax = axon_build(class)
     numCmds = numel(enumeration('ctrlKey'));
+    numTgts = numel(enumeration('targetKey'));
     bufferSize = 1000;
     maxDim = 3;
     switch class
@@ -35,14 +36,14 @@ function ax = axon_build(class)
             elems(1) = Simulink.BusElement;
             elems(1).Name = 'SZE';
             elems(1).DataType = 'uint8';
-            elems(1).Dimensions = [numCmds, maxDim];
+            elems(1).Dimensions = [numTgts, maxDim];
             % elems(1).Value = zeros(numCmds,maxDim);
             % elems(1).DimensionsMode = 'Variable';
             %% PYD
             elems(2) = Simulink.BusElement;
             elems(2).Name = "PYD";
             elems(2).DataType = 'uint8';
-            elems(2).Dimensions = [numCmds, bufferSize];
+            elems(2).Dimensions = [numTgts, bufferSize];
             % elems(2).Value = zeros(numCmds,bufferSize);
             % elems(2).DimensionsMode = 'Variable';
             %% assembly
