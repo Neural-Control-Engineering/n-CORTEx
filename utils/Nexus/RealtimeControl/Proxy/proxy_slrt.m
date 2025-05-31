@@ -24,6 +24,7 @@ classdef proxy_slrt < handle
         Targets; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)        
         % isCapturing=0;
         % isStreaming=0;
+        numBytes_cmd = numel(enumeration('ctrlKey'));
         DTS
         axon
         Q % data queue for parallel interfacing (With other proxies)
@@ -40,7 +41,8 @@ classdef proxy_slrt < handle
             end
             % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(params,server,modalityServer.modSrv));    
             % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(proxObj));    
-            configureCallback(proxObj.Server,"byte",25,@(~,~)proxObj.relayTransmission());
+            % numBytes_cmd = numel(enumeration('ctrlKey'));
+            configureCallback(proxObj.Server,"byte",proxObj.numBytes_cmd,@(~,~)proxObj.relayTransmission());
             
             proxObj.Targets = tgProxies;            
             % proxObj.ctrlKey = ctrlKey();
@@ -49,8 +51,10 @@ classdef proxy_slrt < handle
 
         function relayTransmission(proxObj)            
             %% read command code (simple for now)
-            % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");             
-            cmdCode = read(proxObj.Server,25,"uint8");             
+            % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");       
+            % proxObj.numBytes_cmd = numel(enumeration('ctrlKey'));
+            % cmdCode = read(proxObj.Server,25,"uint8");             
+            cmdCode = read(proxObj.Server,proxObj.numBytes_cmd,"uint8");             
             cmdRx = uint8(zeros(25,1));
             cmdBuffer = find(cmdCode>=1);
             for i = 1:length(cmdBuffer)

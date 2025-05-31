@@ -45,10 +45,30 @@ function photonCtrl_resetStagePosition(nexObj, operation)
     spt(idx_stagePositionSelection,:).y = (stagePosition_y);
     % position z special formatting
     zCell = spt(idx_stagePositionSelection,:).z;
-    zCell_split = split(zCell,",");
-    zCell_split{1} = num2str(stagePosition_z);
-    zCell_new = join(zCell_split,",");
+    % zCell_split = split(zCell,",");
+    % zCell_split{1} = num2str(stagePosition_z);
+    % zCell_new = join(zCell_split,",");
+    zCell_new = pv_updateZCell(zCell,stagePosition_z);
     spt(idx_stagePositionSelection,:).z = zCell_new;
+    %% conditional: refPlane update
+    % update index 0:1 planes relative to refPlane
+    if strcmp(stagePositionSelection,"refPlane")
+        ref_x = stagePosition_x;
+        ref_y = stagePosition_y;
+        ref_z = stagePosition_z;
+        overOffset = 8000;
+        hoverOffset = 2000;
+        zCell_over = pv_updateZCell(zCell,ref_z-overOffset);
+        zCell_hover = pv_updateZCell(zCell,ref_z-hoverOffset);
+        % idx 1 - over
+        spt(1,:).x = ref_x;
+        spt(1,:).y = ref_y;
+        spt(1,:).z = zCell_over;
+        % idx 2 - hover
+        spt(2,:).x = ref_x;
+        spt(2,:).y = ref_y;
+        spt(2,:).z = zCell_hover;
+    end
     % write back to file
     pv_writeSPF(filePath_spf,spt);
 end
