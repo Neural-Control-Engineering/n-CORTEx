@@ -44,7 +44,11 @@ classdef proxy_photon < handle
         end
 
         % T-series
-        function tSeries(proxObj)
+        function tSeries(proxObj, txArgs)
+            switch 
+                case
+                case
+            end
         end
 
         % Open shuter
