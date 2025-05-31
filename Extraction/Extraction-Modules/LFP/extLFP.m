@@ -72,7 +72,8 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
             catch
                 lfpSeg = [];
             end                    
-            row = table(trial,{session_label},'VariableNames',{'trial_num','session_label'});        
+            % row = table(trial,{session_label},'VariableNames',{'trial_num','session_label'});        
+            row = table(trialGate,{session_label},'VariableNames',{'trial_num','session_label'});        
             % trial_sync_inds = find(syncTime >= (start_time-preBuffLen) & syncTime <= (fin_time+postBuffLen));           
             row = [row, table({lfpSeg}, {trial_lfpTimes},'VariableNames',{'lfp', 't_lfp'})];
             % store offset
