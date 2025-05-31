@@ -1,14 +1,17 @@
 classdef ctrlKey < Simulink.IntEnumType
-    enumeration        
+    enumeration    
+        % client-side
         startDataStream (1)
         stopDataStream (2)
         startCapture (3)
         stopCapture (4)
-        endOfTrial (5)
-        zSeries (6)
-        tSeries (7)
-        state (8)
+        transmitDataStream (5)
+        endOfTrial (6)
+        zSeries (7)
+        tSeries (8)
+        state (9)
         % state_rtn (9)
+        % server-side        
 
     end
 

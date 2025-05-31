@@ -1,4 +1,5 @@
 function generateAxonDataDict()
+    Simulink.data.dictionary.closeAll('-discard')
     dictName = 'dictionary_axon.sldd';
     if exist(dictName, 'file')
         delete(dictName);  % overwrite if needed
@@ -6,17 +7,21 @@ function generateAxonDataDict()
     
     dictObj = Simulink.data.dictionary.create(dictName);
     dDataSect = getSection(dictObj, 'Design Data');
-
+    cls_abv = ["CMD","STM"];
+    i=1;
     for cls = ["command", "stream"]
         axonBus = axon_build(cls);                     % Build the bus object
         busName = "axon_" + cls;
         defaultName = busName + "_default";
+        defaultValName = sprintf("axon_%s",cls_abv(i));
+        % defaultValName = sprintf("axon_STM")
 
         % Register the bus object in the dictionary
         addEntry(dDataSect, busName, axonBus);
 
         % Create the default struct from the BUS NAME, not the object
         % Simulink.Bus.cellToObject({busName, axonBus});
+        assignin("base","axonBus",axonBus);
         defaultStruct = Simulink.Bus.createMATLABStruct("axonBus");
 
         % Wrap in a Simulink.Parameter object
@@ -27,10 +32,13 @@ function generateAxonDataDict()
         param.Description = "Default value for " + busName;
 
         % Add the parameter to the dictionary
-        addEntry(dDataSect, defaultName, param);
+        addEntry(dDataSect, defaultValName, param);
+        % addEntry(dDataSect,defaultValName, defaultStruct);
+        i=i+1;
     end
 
-    saveChanges(dictObj);
+    saveChanges(dictObj);    
+    Simulink.data.dictionary.closeAll('-save')
     close(dictObj);
     disp("Data dictionary created: " + dictName);
 end
