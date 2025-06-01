@@ -1,7 +1,11 @@
 function regMap = mapChan2Regs(probe_areas)   
     [metaFile, metaFldr] = uigetfile(".bin.meta");
     % metaPath = fullfile(metaPath, metaFile);
-    meta = ReadMeta(metaFile,metaFldr);
+    try
+        meta = ReadMeta(metaFile,metaFldr);
+    catch
+        meta = ReadMeta(strcat("\\?\",metaFile),metaFldr);
+    end
     geomap = meta.snsGeomMap;
     geom = split(geomap,')');
     geom = cellfun(@(x) strrep(x,'(',''), geom, "UniformOutput",false);
