@@ -29,15 +29,15 @@ function storeFrameBuffer(nexObj, args)
         if isNew % append new
             frameBuffer_update = [frameBuffer_prev; nexObj.frameBuffer]; % concatenate with new frame buffer
             % write back
-            writeDf(nexObj.nexon, frameBufferID, frameBuffer_update,[]);
+            writeDataframe(nexObj.nexon, frameBufferID, frameBuffer_update,[]);
         else % write back to existing frame buffer
             frameBuffer_prev{allDiffs == 1} = nexObj.frameBuffer;
-            writeDf(nexObj.nexon, frameBufferID, frameBuffer_prev,[]);
+            writeDataframe(nexObj.nexon, frameBufferID, frameBuffer_prev,[]);
         end
     catch e
         disp(getReport(e));
         disp("the frame buffer could not be appended, overwriting existing buffer");
-        writeDf(nexObj.nexon, frameBufferID, {nexObj.frameBuffer}, [])
+        writeDataframe(nexObj.nexon, frameBufferID, {nexObj.frameBuffer}, [])
     end
     
 end

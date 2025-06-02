@@ -11,7 +11,7 @@ function writeDF(nexon, dfID, DF, dtsIdx)
             continue % to next dfField
         else
             colTag = sprintf("%s_%s",dfID,dfField);
-            writeDf(nexon,colTag,fieldVal,dtsIdx);
+            writeDataframe(nexon,colTag,fieldVal,dtsIdx);
         end                     
     end
 end

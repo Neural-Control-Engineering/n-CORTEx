@@ -47,6 +47,12 @@ classdef npxls_shank < handle
                 spg1.visFcn = str2func("nexVisualization_spectroGram");
                 spg1.isOnline = 1;
                 obj.scope.channelGram1.Children.spectroGram1 = nexObj_spectroGram(nexon, obj.scope.channelGram1, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, spg1.opFcn, spg1.visFcn);
+                spectroGram1 = obj.scope.channelGram1.Children.spectroGram1;
+            catch e
+                disp(getReport(e));
+            end
+            try
+                obj.scope.channelGram1.Children.spectroGram1.Children.spectroGraph1 = nexObj_spectroGraph(nexon, spectroGram1, [], [], [], []);
             catch e
                 disp(getReport(e));
             end
@@ -59,7 +65,8 @@ classdef npxls_shank < handle
             % Embedding figure
             opFcn = str2func("embedUMAP");
             dfID = "rtPMTM_magnitude_temporal";
-            obj.Children.embedding1 = nexObj_embedding(nexon, obj, opFcn, dfID);
+            % obj.Children.embedding1 = nexObj_embedding(nexon, obj, opFcn, dfID);
+            
             % add CWT spectrogram (wavelet transform)
             % try
             %     spg2 = grabSpectrogram(nexon, "cwt",[]);

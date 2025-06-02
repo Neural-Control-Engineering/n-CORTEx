@@ -26,7 +26,11 @@ classdef nexObj_slrtTimeCourse < handle
 
         function updateScope(obj,  nexon, parent)  
             colorMap = obj.UserData.colorMap;
-            updateSlrtTimeCourse(obj, colorMap)
+            try
+                updateSlrtTimeCourse(obj, colorMap)
+            catch e
+                disp(getReport(e));
+            end
         end
         
         % Example method to set UserData

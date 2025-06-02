@@ -88,7 +88,7 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
     %% VISUALIZE            
     % channelGram.visCfg.visFcn(nexon, shank, channelGram, df_out, ax, visArgs);    
     channelGram.visCfg.visFcn(nexon, channelGram, visArgs);
-    channelGram.chgFigure.panel1.tiles.Axes.channelGram.Parent.Parent.Title.String=(sprintf("%0f (s)",t_frame));        
+    channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.Parent.Title.String=(sprintf("%0f (s)",t_frame));        
     drawnow;
 
     % save buffer; using previous dfID

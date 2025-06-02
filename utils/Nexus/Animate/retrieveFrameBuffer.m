@@ -10,12 +10,13 @@ function frameBuffer = retrieveFrameBuffer(nexObj)
         aniArgs = [];
     end
     % try DTS standard columns
-    dtsMemberID = sprintf("%s--%s", nexObj.classID, func2str(nexObj.opCfg.opFcn));
+    dtsMemberID = sprintf("%s--%s", nexObj.classID, func2str(nexObj.opCfg.opFcn));    
     % compile MatchArgs = opArgs + visArgs    
     matchArgs = mergeStructs(nexObj.opCfg.entryParams, nexObj.aniCfg.entryParams);
+    % matchArgs = rmfield(matchArgs,"frameNum");
     dtsIdx = [];
     % [colIdx] = nex_isDtsMember(dtsMemberID, matchArgs, dtsIdx);
-    if nex_isDtsMember(nexObj.nexon, dtsMemberID, matchArgs, dtsIdx);        
+    if nex_isDtsMember(nexObj.nexon, dtsMemberID, matchArgs, dtsIdx)
         DF = nex_grabDF(nexObj.nexon, dtsMemberID, dtsIdx);
         frameBuffer.opArgs = nexObj.opCfg.entryParams;
         frameBuffer.aniArgs = nexObj.aniCfg.entryParams;

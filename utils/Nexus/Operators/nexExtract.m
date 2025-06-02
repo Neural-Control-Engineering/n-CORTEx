@@ -22,7 +22,8 @@ function nexExtract(nexon, fcn, dfID, mask)
         else
             df_out = [];
         end
-        writeDf(nexon, dfColName, df_out,i);
+        % writeDf(nexon, dfColName, df_out,i);
+        writeDataframe(nexon, dfColName, df_out,i);
         DFOUT = [DFOUT; df_out];
     end
     % assign to new column with custom dfID

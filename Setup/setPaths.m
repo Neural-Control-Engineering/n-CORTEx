@@ -103,6 +103,7 @@ elseif ispc
     end
 elseif isunix
     hostname = getenv("USER");    
+    paths.repo_path = 'C:\Code_Repo';
     % paths.repo_path = 'C:\STATIC';
 
     % Kilosort repository

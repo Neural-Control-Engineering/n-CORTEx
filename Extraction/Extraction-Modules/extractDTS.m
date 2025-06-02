@@ -12,8 +12,9 @@ function extractDTS(params)
         dirMask = cell2mat(cellfun(@(x) ~strcmp(x,"local") & ~strcmp(x,"cloud"), extFields, "UniformOutput", false));
         extFields = extFields(dirMask);
         dts = [];
+        % horizontal concatenation
         for j = 1:length(extFields)
-            extField = extFields{j};  
+            extField = extFields{j};
             disp(extField);
             if sessionExists(params, session, extField, "EXT")
                 sessionFile = sprintf("%s.mat",session);
@@ -27,6 +28,9 @@ function extractDTS(params)
                 if any(ismember(DT.Properties.VariableNames,"trial_number"))
                     DT = renamevars(DT,["trial_number"],["trialNumber"]);
                 end
+                if any(ismember(DT.Properties.VariableNames,"trial_num"))
+                    DT = renamevars(DT,["trial_num"],["trialNumber"]);
+                end
                 if any(ismember(DT.Properties.VariableNames,"session_label"))
                     DT = renamevars(DT,["session_label"],["sessionLabel"]);
                 end
@@ -35,11 +39,15 @@ function extractDTS(params)
                 end
                 
                 % DT.trialNum = cell2mat(DT.trialNum(~cellfun('isempty',DT.trialNum)));   
-                DT.trialNumber = (DT.trialNumber(~cellfun('isempty',num2cell(DT.trialNumber))));   
-                % ensure trialNumber is a cell array
-                if ~(strcmp(class(DT.trialNumber),"cell"))
-                    DT.trialNumber = num2cell(DT.trialNumber);
+                % DT.trialNumber = (DT.trialNumber(~cellfun('isempty',num2cell(DT.trialNumber))));   
+                if iscell(DT.trialNumber)
+                    DT.trialNumber = cell2mat(DT.trialNumber);
+                    % DT.trialNumber = (DT.trialNumber(~cellfun('isempty',cell2mat(DT.trialNumber))));   
                 end
+                % ensure trialNumber is a cell array
+                % if ~(strcmp(class(DT.trialNumber),"cell"))
+                %     DT.trialNumber = num2cell(DT.trialNumber);
+                % end
                 if isempty(dts)
                     dts = DT;
                 else
