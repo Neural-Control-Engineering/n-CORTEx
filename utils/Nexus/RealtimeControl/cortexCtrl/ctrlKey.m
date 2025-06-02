@@ -1,4 +1,5 @@
 classdef ctrlKey < Simulink.IntEnumType
+    
     enumeration    
         % client-side
         startDataStream (1)
@@ -9,13 +10,12 @@ classdef ctrlKey < Simulink.IntEnumType
         endOfTrial (6)
         zSeries (7)
         tSeries (8)
-        loadTseries
-        getState
-        getLIneScan
-        state (9)
+        loadTseries (9)
+        getState (10)
+        getLIneScan (11)
+        state (12)
         % state_rtn (9)
-        % server-side        
-
+        % server-side      
     end
 
     methods (Static)         
@@ -44,11 +44,8 @@ classdef ctrlKey < Simulink.IntEnumType
                 case ctrlKey.stopCapture
                     cmd = "stopCapture";
             end
-        end
-
-        
+        end        
     end
-
 end
 
 % ctrxControl("startDatastream","photon"); % return 1 if successful
