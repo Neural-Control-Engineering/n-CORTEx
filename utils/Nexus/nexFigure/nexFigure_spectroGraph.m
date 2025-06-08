@@ -10,6 +10,10 @@ function nexFigure_spectroGraph(nexObj)
     % nexObj.Figure.panel2 = nexObj_cfgPanel(nexObj.nexon,nexObj,nexObj.Figure.panel2,nexObj.opCfg.entryParams,opCfgEntryChangedFcn,[]);
     visCfgEntryChangedFcn = str2func("visCfgEntryChanged");
     nexObj.Figure.panel2 = nexObj_cfgPanel_spinner(nexObj.nexon,nexObj,nexObj.Figure.panel2,nexObj.visCfg.entryParams,visCfgEntryChangedFcn,[]);
+    % plot axes
+    nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,1,1);
+    nexObj.Figure.panel1.tiles.Axes.(nexObj.classID) = nexttile(nexObj.Figure.panel1.tiles.t);
+    nexObj.Figure.panel1.tiles.Axes.(nexObj.classID) = boundedline(nexObj.Figure.panel1.tiles.Axes.(nexObj.classID),nan,nan,nan,"-b","alpha");
     % color mapping
     load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
     colormap(nexObj.Figure.fh,CT);
