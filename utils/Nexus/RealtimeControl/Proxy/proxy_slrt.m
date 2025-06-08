@@ -53,17 +53,28 @@ classdef proxy_slrt < handle
             %% read command code (simple for now)
             % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");       
             % proxObj.numBytes_cmd = numel(enumeration('ctrlKey'));
-            cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");             
+            cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");    
+            axon_rx = ctxCtrl_RX(cmdCode);
+            CMD = axon_rx.CMD;
+            % get command list
+            CMD_sel = find(CMD~=0);
+            % cmdIDs = arrayfun(@(cmd) ctxCtrl_decodeCommand(cmdSel), CMD, "UniformOutput",false);
+            cmdIDs = arrayfun(@(cmd_sel) ctrlKey.getCmd(cmd_sel), CMD_sel, "UniformOutput",false);
+            pyds = (arrayfun(@(cmd_sel) axon_rx.PYD(cmd_sel,:),CMD_sel, "UniformOutput",false));
+            szes = (arrayfun(@(cmd_sel) axon_rx.SZE(cmd_sel,:),CMD_sel,"UniformOutput",false));
+            cellfun(@(cmdID, pyd, sze) proxObj.(cmdID)(pyd, sze), cmdIDs, pyds, szes, "UniformOutput", false);
+            % invoke methods
+            ctxCtrl_invokeCommand(@(cmdID) proxObj.(cmdID)(pyd))
             % cmdCode = read(proxObj.Server,proxObj.numBytes_cmd,"uint8");             
-            cmdRx = uint8(zeros(25,1));
-            cmdBuffer = find(cmdCode>=1);
-            for i = 1:length(cmdBuffer)
-                idx_cmd = cmdBuffer(i);
-                switch idx_cmd
-                    case 7 % z-stack
-                        proxObj.proxon.index_type2.photon_2.zStack();                        
-                end
-            end
+            % cmdRx = uint8(zeros(25,1));
+            % cmdBuffer = find(cmdCode>=1);
+            % for i = 1:length(cmdBuffer)
+            %     idx_cmd = cmdBuffer(i);
+            %     switch idx_cmd
+            %         case 7 % z-stack
+            %             proxObj.proxon.index_type2.photon_2.zStack();                        
+            %     end
+            % end
             %% command lookup
             % command = proxObj.ctrlKey.getCmd(cmdCode);                                 
             % execute designated command (using corresponding target (e.g.
@@ -98,7 +109,7 @@ classdef proxy_slrt < handle
             targetCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");
             targetID = targetKey.getTargetID(targetCode);
             % end target capStream
-        end
+        end        
 
         function writeToDTS(proxObj) % recieve a datagram and assign to associated DTS
         end
@@ -113,6 +124,10 @@ classdef proxy_slrt < handle
         end
 
         function endOfTrial(proxObj)
+        end
+
+        function loadTSeries(pyd, sze)
+            
         end
 
 
