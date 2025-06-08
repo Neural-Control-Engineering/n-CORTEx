@@ -48,9 +48,9 @@ function params = setExtractionParams(opts)
     %% Spectral Band Ranges
     if ~isfield(opts,'bands'); opts.bands = struct; end % specify frequency band ranges in format [low, high]
     if ~isfield(opts.bands,'delta'); opts.bands.delta = [1, 4]; end  % 1 - 4 Hz
-    if ~isfield(opts.bands,'theta'); opts.bands.theta = [4, 10]; end % 4 - 10 Hz
-    if ~isfield(opts.bands,'alpha'); opts.bands.alpha = [10, 15]; end % 10 - 15 Hz
-    if ~isfield(opts.bands,'beta'); opts.bands.beta = [15, 30]; end % 15 - 30 Hz
+    if ~isfield(opts.bands,'theta'); opts.bands.theta = [4, 8]; end % 4 - 10 Hz
+    if ~isfield(opts.bands,'alpha'); opts.bands.alpha = [8, 12]; end % 10 - 15 Hz
+    if ~isfield(opts.bands,'beta'); opts.bands.beta = [12, 30]; end % 15 - 30 Hz
     if ~isfield(opts.bands,'gamma'); opts.bands.gamma = [30, 50]; end % 30 - 100 Hz
 
     %% Fieldtrip config (preprocessing)

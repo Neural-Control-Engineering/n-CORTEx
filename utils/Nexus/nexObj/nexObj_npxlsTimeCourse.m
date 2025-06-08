@@ -1,5 +1,6 @@
 classdef nexObj_npxlsTimeCourse < handle
     properties
+        classID = "tc_npxls"
         nexon
         Parent
         Children
@@ -15,6 +16,7 @@ classdef nexObj_npxlsTimeCourse < handle
         % Constructor
         function obj = nexObj_npxlsTimeCourse(nexon, shank, dataFrame, dfID)
             obj.nexon = nexon;
+            obj.nexon.console.BASE.nexObjs.npxlsTc_1 = obj;
             obj.Parent = shank;
             obj.Children = struct;
             obj.dataFrame=dataFrame;       
@@ -52,15 +54,21 @@ classdef nexObj_npxlsTimeCourse < handle
                 maskIdx = selIdx;
             end
             %% ALIGNMENT
-            S_slrt = nex_returnSelectionMask(obj.nexon.console.SLRT.signals.eventAlignmentSelection);
-            alignColTags = split(S_slrt.events,"_");
-            tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
-            tCol_slrt = obj.nexon.console.BASE.DTS.(tColID)(maskIdx);
-            fs_slrt = obj.nexon.console.SLRT.signals.UserData.Fs;
-            t_preBuff = obj.UserData.preBufferLen;
-            [dfCol_aligned, tCol_aligned] = nexAlign_signals(dfCol_sel, tCol_sel, tCol_slrt, fs_slrt, t_preBuff, 2);            
+            try
+                S_slrt = nex_returnSelectionMask(obj.nexon.console.SLRT.signals.eventAlignmentSelection);
+                alignColTags = split(S_slrt.events,"_");
+                tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
+                tCol_slrt = obj.nexon.console.BASE.DTS.(tColID)(maskIdx);
+                fs_slrt = obj.nexon.console.SLRT.signals.UserData.Fs;
+                t_preBuff = obj.UserData.preBufferLen;
+                [dfCol_aligned, tCol_aligned] = nexAlign_signals(dfCol_sel, tCol_sel, tCol_slrt, fs_slrt, t_preBuff, 2);            
+            catch e
+                disp(getReport(e))
+                dfCol_aligned = dfCol_sel;
+                tCol_aligned = tCol_sel;
+            end
             %% AVERAGE RESULT
-            dfAvg = nex_colAvg(dfCol_aligned, 2);                        
+            [dfAvg, dfStd] = nex_colAvg(dfCol_aligned, 2);                        
             t = cellfun(@(t) nex_trimDf(t,2,[1:size(dfAvg,2)]), tCol_aligned,"UniformOutput",false);
             %% VISUALIZE RESULT
             obj.DF.df = dfAvg;

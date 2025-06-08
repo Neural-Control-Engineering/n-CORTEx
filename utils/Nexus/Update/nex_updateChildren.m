@@ -4,6 +4,10 @@ function nex_updateChildren(nexon, nexObj)
         nexObjChildName = nexObjChildrenList{i};
         nexObjChild = nexObj.Children.(nexObjChildName);
         % run update method
-        nexObjChild.updateScope(nexon);
+        try
+            nexObjChild.updateScope(nexon);
+        catch e
+            disp(getReport(e));
+        end
     end
 end

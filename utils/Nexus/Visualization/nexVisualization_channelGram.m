@@ -14,19 +14,28 @@ function nexVisualization_channelGram(nexon, channelGram, args)
     df = channelGram.DF_postOp.df(:,:,channelGram.frameBuffer.frameIds==channelGram.frameNum);
     f = ax.f;
     fCond = (f>fRange_start & f<fRange_end); % select frequencies   
+    fCond_2 =[1:size(df,2)];
+    if length(fCond_2) < length(fCond)
+        fCond = fCond_2;    
+    end
+    % fCond = min([fCond,fRange]);
     df = df(:,fCond); % index select frequencies 
     % tic
+    f = f(fCond);
+    chans = [1:size(df,1)];
     channelGram.Figure.panel1.tiles.Axes.channelGram.YData = gather([1:size(df,1)]);
-    channelGram.Figure.panel1.tiles.Axes.channelGram.XData = gather(f(fCond));
+    channelGram.Figure.panel1.tiles.Axes.channelGram.XData = gather(f);
     channelGram.Figure.panel1.tiles.Axes.channelGram.ZData = gather(df);
     channelGram.Figure.panel1.tiles.Axes.channelGram.CData = gather(df);
     % toc
     % set ax Lims
-    % Zmax = max(max(df));
-    % Zmin = min(min(df));
-    % channelGram.chgFigure.panel1.tiles.Axes.channelGram.Parent.ZLim = [Zmin*1.05,Zmax*0.9];
+    Zmax = max(max(df));
+    Zmin = min(min(df));
+    % channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.ZLim = [Zmin*1.05,Zmax*0.9];
     channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.CLim=[cLim_low, cLim_high];
     channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.ZLim = [zLim_low, zLim_high];
+    channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.XLim = [f(1),f(end)];
+    channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.YLim = [chans(1),chans(end)];
     %% plot Fooof reconstruction
     % channelGram.chgFigure.panel1.tiles.Axes.fooof = nexttile(channelGram.chgFigure.panel1.tiles.t);
     % fooofPredictions = extractRT_fooof(channelGram.rtSpec,df);

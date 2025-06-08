@@ -8,7 +8,8 @@ classdef nexPanel_SLRT < handle
 
         function obj = nexPanel_SLRT(nexon)
             obj.config = struct;
-            dfID = ["stimTrace_raw";"stimTrace_lowess_span2"]; % temporary; will be dynamically allocated by GUI or cfg
+            % dfID = ["stimTrace_raw";"stimTrace_lowess_span2"]; % temporary; will be dynamically allocated by GUI or cfg
+            dfID = ["stimOnset_aligned_stimLowess"];
             dataFrame = compileDataFrames(nexon, dfID); % return cell array of dataframes by dfIDs
             obj.signals = nexObj_slrtTimeCourse(nexon, dataFrame, dfID);
         end

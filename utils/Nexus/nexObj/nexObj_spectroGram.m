@@ -1,13 +1,17 @@
 classdef nexObj_spectroGram < handle
     properties
         classID
-        nexon        
+        nexon
+        Origin
         Parent % hold parent nexObjs (e.g. channelgram)
+        Children
         DF
         DF_postOp
         dataFrame % This will hold any type of data, such as a struct     
         entryPanel
         dfID % DTS df identifier (trial-wise)
+        dfID_source
+        dfID_target
         f % frequency axis
         t % time axis
         opCfg
@@ -25,6 +29,7 @@ classdef nexObj_spectroGram < handle
         function obj = nexObj_spectroGram(nexon, channelGram, dataFrame, dfID, f, t, opFcn, visFcn)
             obj.classID = "spg";
             obj.nexon = nexon;
+            obj.Origin = channelGram;
             obj.Parent = channelGram;
             obj.DF = obj.Parent.DF_postOp;
             obj.DF_postOp.df=[]; obj.DF_postOp.ax.t=[]; obj.DF_postOp.ax.f=[];
@@ -67,6 +72,7 @@ classdef nexObj_spectroGram < handle
 
         function updateScope(obj, nexon)
             nexUpdate_spectroGram(nexon, obj);  
+            nex_updateChildren(nexon, obj);
         end          
     end
 end
