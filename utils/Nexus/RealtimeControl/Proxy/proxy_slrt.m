@@ -53,8 +53,8 @@ classdef proxy_slrt < handle
             %% read command code (simple for now)
             % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");       
             % proxObj.numBytes_cmd = numel(enumeration('ctrlKey'));
-            % cmdCode = read(proxObj.Server,25,"uint8");             
-            cmdCode = read(proxObj.Server,proxObj.numBytes_cmd,"uint8");             
+            cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");             
+            % cmdCode = read(proxObj.Server,proxObj.numBytes_cmd,"uint8");             
             cmdRx = uint8(zeros(25,1));
             cmdBuffer = find(cmdCode>=1);
             for i = 1:length(cmdBuffer)
