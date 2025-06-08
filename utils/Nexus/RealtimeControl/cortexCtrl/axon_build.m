@@ -1,7 +1,7 @@
 function ax = axon_build(class)
     numCmds = numel(enumeration('ctrlKey'));
     numTgts = numel(enumeration('targetKey'));
-    bufferSize = 1000;
+    bufferSize = 10;
     maxDim = 3;
     switch class
         case "command"

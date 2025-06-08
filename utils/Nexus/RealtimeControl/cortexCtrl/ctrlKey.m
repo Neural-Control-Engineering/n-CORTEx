@@ -18,7 +18,11 @@ classdef ctrlKey < Simulink.IntEnumType
         % server-side      
     end
 
-    methods (Static)         
+    methods (Static=true)   
+        
+        function retVal = addClassNameToEnumNames()
+            retVal = true;
+        end
 
         function code = getCode(cmd)
             switch cmd
