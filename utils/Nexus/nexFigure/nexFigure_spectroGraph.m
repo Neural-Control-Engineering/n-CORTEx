@@ -13,9 +13,16 @@ function nexFigure_spectroGraph(nexObj)
     % plot axes
     nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,1,1);
     nexObj.Figure.panel1.tiles.Axes.(nexObj.classID) = nexttile(nexObj.Figure.panel1.tiles.t);
-    nexObj.Figure.panel1.tiles.Axes.(nexObj.classID) = boundedline(nexObj.Figure.panel1.tiles.Axes.(nexObj.classID),nan,nan,nan,"-b","alpha");
+    % [l, p] = boundedline(nexObj.Figure.panel1.tiles.Axes.(nexObj.classID),[nan],[nan],[nan],"-b","alpha");
+    ax_canvas= nexObj.Figure.panel1.tiles.Axes.(nexObj.classID);
+    [l, p] = plotWithSEM(nexObj.Figure.panel1.tiles.Axes.(nexObj.classID), nan, nan)
+    nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_canvas_l",nexObj.classID)) = l;
+    nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_canvas_p",nexObj.classID)) = p;
+    tIdx = nexObj.Origin.frameNum / nexObj.Origin.Fs - nexObj.Origin.preBufferLen;
+    nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_xline",nexObj.classID)) = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
     % color mapping
     load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
     colormap(nexObj.Figure.fh,CT);
+    colorAx_green(nexObj.Figure.panel1.tiles.Axes.(nexObj.classID));
     % 
 end
