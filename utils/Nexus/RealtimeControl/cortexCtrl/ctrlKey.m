@@ -23,6 +23,7 @@ classdef ctrlKey < Simulink.IntEnumType
         parameterSet (19)
         getLIneScan (20)
         state (21)
+        
         % server-side      
     end
 

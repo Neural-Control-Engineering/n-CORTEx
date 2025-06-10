@@ -126,9 +126,25 @@ classdef proxy_slrt < handle
         function endOfTrial(proxObj)
         end
 
-        function loadTSeries(pyd, sze)
-            
+        function loadTSeries(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, pyd, sze);            
         end
+
+        function startTSeries(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, pyd, sze);
+        end
+
+        function setSavePath(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, pyd, sze);
+        end
+
+        function setFileIteration(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, pyd, sze);
+        end
+
+        function setFileName(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, pyd, sze);
+        end        
 
 
     end
