@@ -209,13 +209,13 @@ classdef nexObj_channelGram < handle
                 % tCol_pooled =
             end
             %% AVERAGE RESULT
-            [dfAvg, dfStd] = nex_colAvg(dfCol_pooled, 3);                        
+            [dfAvg, dfSem] = nex_colAvg(dfCol_pooled, 3);                        
             % dfStd = nex_colStd(dfCol_aligned, 3);
             nexObj.DF_postOp.df = dfAvg;
             nexObj.DF_postOp.ax.t = tCol_aligned{1};
             nexObj.DF_postOp.bins.f = binIDs_freqs;
             nexObj.DF_postOp.bins.chans = binIDs_chans;
-            nexObj.DF_postOp.std = dfStd;
+            nexObj.DF_postOp.sem = dfSem;
             avgCfg_sel = nexObj.nexon.console.BASE.controlPanel.averagingSelection.selections;
             avgCfg_keys = nexObj.nexon.console.BASE.controlPanel.averagingSelection.selKeys;
             avgCfg = nex_structfun2(@(cfgSel, cfgKey) cfgKey(cfgSel), avgCfg_sel, avgCfg_keys);

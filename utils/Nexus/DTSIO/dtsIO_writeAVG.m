@@ -1,4 +1,4 @@
-function nex_storeAverage(nexObj, DF)
+function dtsIO_writeAVG(nexObj, DF)
     % Extract current phase name
     phase = DF.avgCfg.phase;  % Assuming this is a string or char
     phase = strrep(phase,"-","_");
@@ -9,7 +9,8 @@ function nex_storeAverage(nexObj, DF)
     avgCfg = DF.avgCfg;
 
     % Create a table row
-    newRow = table({AVG}, avgCfg,'VariableNames',{'AVG','avgCfg'});
+    newRow = table(AVG, avgCfg);
+
     % Append or initialize Obj.UserData.T_avg
     if ~isfield(nexObj.UserData, 'T_avg') || isempty(nexObj.UserData.T_avg)
         nexObj.UserData.T_avg = newRow;
@@ -18,9 +19,7 @@ function nex_storeAverage(nexObj, DF)
         % make a new row)
         idx_match = arrayfun(@(row) compareArgs(row, avgCfg), nexObj.UserData.T_avg.("avgCfg"));
         if any(idx_match)
-            AVG_stored = nexObj.UserData.T_avg(idx_match,:).AVG{1,1};
-            AVG_stored.(phase) = DF;
-            nexObj.UserData.T_avg(idx_match,"AVG").AVG= {AVG_stored};
+            nexObj.UserData.T_avg(idx_match,:).AVG.(phase) = DF;
             % [nexObj.UserData.T_avg; newRow];
         else % append new row
             nexObj.UserData.T_avg = [nexObj.UserData.T_avg; newRow];

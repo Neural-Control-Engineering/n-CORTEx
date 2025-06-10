@@ -63,7 +63,8 @@ classdef nexObj_spectroGraph < handle
             end
 
             function updateScope(nexObj, nexon)
-                nexUpdate_spectroGraph(nexObj)
+                nexUpdate_spectroGraph(nexObj);
+                nexObj.visualize();
             end
         end
 end
