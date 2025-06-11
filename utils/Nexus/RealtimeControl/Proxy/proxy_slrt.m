@@ -43,7 +43,9 @@ classdef proxy_slrt < handle
             % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(proxObj));    
             % numBytes_cmd = numel(enumeration('ctrlKey'));
             configureCallback(proxObj.Server,"byte",proxObj.numBytes_cmd,@(~,~)proxObj.relayTransmission());
-            
+            % instantiate axon (cmd)
+            [ax, ax_struct] = axon_build("command");
+            proxObj.axon = ax_struct;
             proxObj.Targets = tgProxies;            
             % proxObj.ctrlKey = ctrlKey();
             proxObj.slTarget = slTarget;
@@ -63,8 +65,10 @@ classdef proxy_slrt < handle
             pyds = (arrayfun(@(cmd_sel) axon_rx.PYD(cmd_sel,:),CMD_sel, "UniformOutput",false));
             szes = (arrayfun(@(cmd_sel) axon_rx.SZE(cmd_sel,:),CMD_sel,"UniformOutput",false));
             cellfun(@(cmdID, pyd, sze) proxObj.(cmdID)(pyd, sze), cmdIDs, pyds, szes, "UniformOutput", false);
-            % invoke methods
-            ctxCtrl_invokeCommand(@(cmdID) proxObj.(cmdID)(pyd))
+            % invoke methods (store return)
+            % ctxCtrl_invokeCommand(@(cmdID) proxObj.(cmdID)(pyd));
+            % return axon with selected command vectors as logic high
+            proxObj.returnCommand(CMD_sel);
             % cmdCode = read(proxObj.Server,proxObj.numBytes_cmd,"uint8");             
             % cmdRx = uint8(zeros(25,1));
             % cmdBuffer = find(cmdCode>=1);
@@ -92,6 +96,16 @@ classdef proxy_slrt < handle
         end
 
         function addTarget(proxObj, targetProxy)
+        end
+
+        function returnCommand(proxObj, CMD_sel)            
+            axon_tx = proxObj.axon;
+            CMD_tx = zeros(size(axon_tx.CMD));
+            CMD_tx(CMD_sel) = 1;
+            axon_tx.CMD = CMD_tx;            
+            % NOTE FUTURE SHOULD RESET PYD AND SZE AS WELL
+            ctx_tx = ctxCtrl_TX(axon_tx);
+            proxObj.Server.write(ctx_tx);
         end
 
         function startDataStream(proxObj)
@@ -127,7 +141,7 @@ classdef proxy_slrt < handle
         end
 
         function loadTSeries(proxObj, pyd, sze)
-            relayToTargetProxies(proxObj, pyd, sze);            
+            relayToTargetProxies(proxObj, "loadTSeries", pyd, sze);            
         end
 
         function startTSeries(proxObj, pyd, sze)
