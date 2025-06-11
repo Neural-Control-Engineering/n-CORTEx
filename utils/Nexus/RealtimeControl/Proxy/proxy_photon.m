@@ -28,10 +28,10 @@ classdef proxy_photon < handle
             % proxObj.nCORTEx.params
             setupRepo = fullfile(proxObj.nCORTEx.nCORTEx_repo,"Setup","photon");
             proxObj.Server.SendScriptCommands("-spc");
-            proxObj.Server.SendScriptCommands(sprintf("-lspf %s", fullfile(setupRepo,"stage_default.xy")));
+            % proxObj.Server.SendScriptCommands(sprintf("-lspf %s", fullfile(setupRepo,"stage_default.xy")));
             % load general environment file
             % open control panel
-            proxObj.controlPanel = nexObj_controlPanel_photon([],proxObj.nCORTEx);
+            % proxObj.controlPanel = nexObj_controlPanel_photon([],proxObj.nCORTEx);
         end
 
         function configureSubject(proxObj)
@@ -51,6 +51,10 @@ classdef proxy_photon < handle
             end
             
 
+        end
+
+        function openControlPanel(proxObj, pyd, sze)
+            proxObj.controlPanel = nexObj_controlPanel_photon([],proxObj.nCORTEx);
         end
 
         % FETCH DATA

@@ -56,7 +56,7 @@ function photonCtrl_resetStagePosition(nexObj, operation)
         ref_x = stagePosition_x;
         ref_y = stagePosition_y;
         ref_z = stagePosition_z;
-        overOffset = 8000;
+        overOffset = 5000;
         hoverOffset = 2000;
         zCell_over = pv_updateZCell(zCell,ref_z-overOffset);
         zCell_hover = pv_updateZCell(zCell,ref_z-hoverOffset);

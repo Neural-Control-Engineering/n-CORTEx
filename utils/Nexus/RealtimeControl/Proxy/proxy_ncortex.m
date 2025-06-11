@@ -36,6 +36,10 @@ classdef proxy_ncortex < handle
             end
         end
 
+        function openControlPanel(proxObj)
+            relayToTargetProxies(proxObj,"openControlPanel",[],[]);
+        end
+
         function writeTransmission(proxObj, methodID, txArgs)
             % method ID
             writeline(proxObj.Client,methodID);
