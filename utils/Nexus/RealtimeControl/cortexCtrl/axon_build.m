@@ -1,58 +1,77 @@
-function ax = axon_build(class)
+function [ax, ax_struct] = axon_build(class)
     numCmds = numel(enumeration('ctrlKey'));
     numTgts = numel(enumeration('targetKey'));
     bufferSize = 10;
     maxDim = 3;
+
+    elems = Simulink.BusElement.empty;  % initialize empty
+
     switch class
         case "command"
             ax = Simulink.Bus;
-            %% CMD
-            elems(1) = Simulink.BusElement;
-            elems(1).Name = 'CMD';
-            elems(1).DataType = 'uint8';            
-            elems(1).Dimensions = [numCmds,1];
-            % elems(1).DimensionsMode = 'Variable';
-            % elems(1).Value = zeros(numCmds,1);
-            %% SZE
-            elems(2) = Simulink.BusElement;
-            elems(2).Name = 'SZE';
-            elems(2).DataType = 'uint8';
-            elems(2).Dimensions = [numCmds, maxDim];
-            % elems(2).DimensionsMode = 'Variable';
-            % elems(2).Value = zeros(numCmds,maxDim);
-            %% PYD
-            elems(3) = Simulink.BusElement;
-            elems(3).Name = "PYD";
-            elems(3).DataType = 'uint8';
-            elems(3).Dimensions = [numCmds, bufferSize];
-            % elems(3).DimensionsMode = 'Variable';
-            % elems(3).Value = zeros(numCmds,bufferSize);
-            %% assembly
-            ax.Elements = elems;           
 
-        case "stream"            
-            ax = Simulink.Bus;            
-            %% SZE
-            elems(1) = Simulink.BusElement;
-            elems(1).Name = 'SZE';
-            elems(1).DataType = 'uint8';
-            elems(1).Dimensions = [numTgts, maxDim];
-            % elems(1).Value = zeros(numCmds,maxDim);
-            % elems(1).DimensionsMode = 'Variable';
-            %% PYD
-            elems(2) = Simulink.BusElement;
-            elems(2).Name = "PYD";
-            elems(2).DataType = 'uint8';
-            elems(2).Dimensions = [numTgts, bufferSize];
-            % elems(2).Value = zeros(numCmds,bufferSize);
-            % elems(2).DimensionsMode = 'Variable';
-            %% assembly
-            ax.Elements = elems;           
+            elems(end+1) = makeElement('CMD', 'uint8', [numCmds, 1]);
+            elems(end+1) = makeElement('SZE', 'uint8', [numCmds, maxDim]);
+            elems(end+1) = makeElement('PYD', 'uint8', [numCmds, bufferSize]);
+
+            ax.Elements = elems;
+            ax_struct = buildStruct(ax);
+
+        case "stream"
+            ax = Simulink.Bus;
+
+            elems(end+1) = makeElement('SZE', 'uint8', [numTgts, maxDim]);
+            elems(end+1) = makeElement('PYD', 'uint8', [numTgts, bufferSize]);
+
+            ax.Elements = elems;
+            ax_struct = buildStruct(ax);
     end
 end
 
-% ax.CMD
-% ax.SZE
-% ax.PYD.signal_L
-% ax.PYD.signal_M
-% ax.PYD.tag
+function elem = makeElement(name, type, dims)
+    elem = Simulink.BusElement;
+    elem.Name = name;
+    elem.DataType = type;
+    elem.Dimensions = dims;
+end
+
+function s = buildStruct(busObj)
+    % Builds a struct with zeros for each element, typed correctly
+    s = struct();
+    for i = 1:numel(busObj.Elements)
+        elem = busObj.Elements(i);
+        dims = num2cell(elem.Dimensions);  % ensure dims are individual scalars
+        defaultVal = getDefaultValue(elem.DataType);
+        s.(elem.Name) = cast(zeros(dims{:}), class(defaultVal));
+    end
+end
+
+function val = getDefaultValue(dataType)
+    % Returns a scalar of the correct data type
+    switch dataType
+        case 'double'
+            val = 0;
+        case 'single'
+            val = single(0);
+        case 'uint8'
+            val = uint8(0);
+        case 'uint16'
+            val = uint16(0);
+        case 'uint32'
+            val = uint32(0);
+        case 'uint64'
+            val = uint64(0);
+        case 'int8'
+            val = int8(0);
+        case 'int16'
+            val = int16(0);
+        case 'int32'
+            val = int32(0);
+        case 'int64'
+            val = int64(0);
+        case 'boolean'
+            val = false;
+        otherwise
+            error(['Unsupported data type: ', dataType]);
+    end
+end

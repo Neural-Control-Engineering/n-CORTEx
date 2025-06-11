@@ -13,7 +13,8 @@ classdef proxy_photon < handle
         captureBuffer        
         EN_capStream
         EN_rtStream
-        controlPanel        
+        controlPanel     
+        % axon_cmd = axon_build("command");
     end
     
     methods
@@ -77,6 +78,9 @@ classdef proxy_photon < handle
             expModPath = fullfile(expModulesPath,ncortex.expmnt);
             tSeriesEnvPath = fullfile(expModPath,"photon/tseries_trigger_start_stop.env");
             proxObj.Server.SendScriptCommands(sprintf("-tsl %s",tSeriesEnvPath));
+            % return 'complete'
+            prxObj_slrt = proxObj.proxon.index_type1.slrt_2;
+
         end
 
         function startTSeries(proxObj, pyd, sze)
@@ -105,12 +109,12 @@ classdef proxy_photon < handle
 
         function setFileIteration(proxObj, pyd, sze)            
             trialGateNum = pyd(1);
-            acquisitionType = photonCtrl_decodeAcquisitionType(pyd(2));            
-            proxObj.Server.SendScriptCommands(sprintf("-fi %s %d", acquisitionType, trialGateNum));
+            acquisitionType = photonCtrl_decodeAcquisitionType(pyd(2));                        
+            proxObj.Server.SendScriptCommands(sprintf("-fi %s %d", acquisitionType, trialGateNum));            
         end        
 
         % Open shuter
-        function openShutter(proxObj)
+        function openShutter(proxObj)            
         end
 
         % close shutter
