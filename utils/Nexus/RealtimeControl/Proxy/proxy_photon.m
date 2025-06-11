@@ -13,7 +13,7 @@ classdef proxy_photon < handle
         captureBuffer        
         EN_capStream
         EN_rtStream
-        controlPanel
+        controlPanel        
     end
     
     methods
@@ -90,10 +90,15 @@ classdef proxy_photon < handle
             proxObj.Server.SendScriptCommands(sprintf("-p %s", savePath));
         end
 
+        % function setAcquisitionType(proxObj, pyd, sze)
+        % 
+        % end
+
         function setFileName(proxObj, pyd, sze)
             ncortex = proxObj.nCORTEx;
+            % proxObj.acquisitionType;
             sessionLabel = ncortex.params.sessionLabel;
-            pyd_acquisitionType = pyd(1)
+            pyd_acquisitionType = pyd(1);
             photonCtrl_decodeAcquisitionType(pyd_acquisitionType);
             proxObj.Server.SendScriptCommands(sprintf("-fn %s %s", acquisitionType, sessionLabel));
         end
