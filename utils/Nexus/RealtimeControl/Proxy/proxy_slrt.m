@@ -55,13 +55,20 @@ classdef proxy_slrt < handle
             %% read command code (simple for now)
             % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");       
             % proxObj.numBytes_cmd = numel(enumeration('ctrlKey'));
-            cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");    
+            % disp(proxObj.Server.NumBytesAvailable);
+            try
+                cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");    
+            catch e
+                disp("read failed");
+                % disp(getReport(e));
+                return
+            end
             axon_rx = ctxCtrl_RX(cmdCode);
             CMD = axon_rx.CMD;
             % get command list
             CMD_sel = find(CMD~=0);
             % cmdIDs = arrayfun(@(cmd) ctxCtrl_decodeCommand(cmdSel), CMD, "UniformOutput",false);
-            cmdIDs = arrayfun(@(cmd_sel) ctrlKey.getCmd(cmd_sel), CMD_sel, "UniformOutput",false);
+            cmdIDs = arrayfun(@(cmd_sel) ctrlKey.getCmd(cmd_sel), CMD_sel, "UniformOutput",false)
             pyds = (arrayfun(@(cmd_sel) axon_rx.PYD(cmd_sel,:),CMD_sel, "UniformOutput",false));
             szes = (arrayfun(@(cmd_sel) axon_rx.SZE(cmd_sel,:),CMD_sel,"UniformOutput",false));
             cellfun(@(cmdID, pyd, sze) proxObj.(cmdID)(pyd, sze), cmdIDs, pyds, szes, "UniformOutput", false);
@@ -145,19 +152,19 @@ classdef proxy_slrt < handle
         end
 
         function startTSeries(proxObj, pyd, sze)
-            relayToTargetProxies(proxObj, pyd, sze);
+            relayToTargetProxies(proxObj, "startTSeries", pyd, sze);
         end
 
         function setSavePath(proxObj, pyd, sze)
-            relayToTargetProxies(proxObj, pyd, sze);
+            relayToTargetProxies(proxObj, "setSavePath", pyd, sze);
         end
 
         function setFileIteration(proxObj, pyd, sze)
-            relayToTargetProxies(proxObj, pyd, sze);
+            relayToTargetProxies(proxObj, "setFileIteration", pyd, sze);
         end
 
         function setFileName(proxObj, pyd, sze)
-            relayToTargetProxies(proxObj, pyd, sze);
+            relayToTargetProxies(proxObj, "setFileName", pyd, sze);
         end        
 
 

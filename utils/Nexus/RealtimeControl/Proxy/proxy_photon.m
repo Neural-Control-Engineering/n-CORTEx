@@ -84,6 +84,7 @@ classdef proxy_photon < handle
         end
 
         function startTSeries(proxObj, pyd, sze)
+            disp("starting T-Series")
             proxObj.Server.SendScriptCommands("-ts");
         end
 
@@ -103,13 +104,14 @@ classdef proxy_photon < handle
             % proxObj.acquisitionType;
             sessionLabel = ncortex.params.sessionLabel;
             pyd_acquisitionType = pyd(1);
-            photonCtrl_decodeAcquisitionType(pyd_acquisitionType);
+            acquisitionType = photonCtrl_decodeAcquisitionType(pyd_acquisitionType);
+            % disp(acquisitionType);
             proxObj.Server.SendScriptCommands(sprintf("-fn %s %s", acquisitionType, sessionLabel));
         end
 
         function setFileIteration(proxObj, pyd, sze)            
             trialGateNum = pyd(1);
-            acquisitionType = photonCtrl_decodeAcquisitionType(pyd(2));                        
+            acquisitionType = photonCtrl_decodeAcquisitionType(pyd(2));                       
             proxObj.Server.SendScriptCommands(sprintf("-fi %s %d", acquisitionType, trialGateNum));            
         end        
 
