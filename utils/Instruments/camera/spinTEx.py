@@ -10,6 +10,7 @@ import socket
 import multiprocessing
 from multiprocessing import Process, Queue, Value
 import PySpin
+import struct
 # import queue
 
 # MINI LIBRARY BUILT FROM SPINVIEW API (SPINNAKER SDK) TO CONFIGURE AND START A SPINVIEW ACQUISITION
@@ -84,14 +85,17 @@ def main():
         # i=0
         try:
             while isTerm.value == 0:
-                frame = cam.get_array()
-                
-                if len(frameBuffer) < BUFFERSIZE:
-                    frameBuffer.append(frame)
-                    print(f"Buffered {len(frameBuffer)}")
-                else:
-                    frameBuffer.pop(0)  # discard oldest if buffer is full
-                    frameBuffer.append(frame)
+                frame = cam.get_array() 
+                frameBuffer.put(frame)
+                # print(frame)
+                # if frame is None:
+                # # if len(frameBuffer) < BUFFERSIZE:
+                #     frameBuffer.append(frame)
+                #     print(f"Buffered {len(frameBuffer)}")
+                # else:
+                #     #frameBuffer.pop(0)  # discard oldest if buffer is full
+                #     frame = frameBuffer.get()
+                #     frameBuffer.append(frame)
 
         except Exception as e:
             print("Error during acquisition:", e)
@@ -161,27 +165,22 @@ def saveFrames(frameBuffer, acqDir, isTerm):
         if isTerm.value == 1:
             print('saving isTerm: ', str(isTerm.value))
             break
-
-        if len(frameBuffer) > 0:
-            frame = frameBuffer.pop(0)
-            frame = frame.astype(np.uint8)
-
+        if not frameBuffer.empty():
+        # if len(frameBuffer) > 0:
+            frame = frameBuffer.get()
             height, width = frame.shape[0], frame.shape[1]
-            if frame.ndim == 2:
-                channels = 1
-            else:
-                channels = frame.shape[2]
-
+            channels = 1 if frame.ndim == 2 else frame.shape[2]
+    
             fname = basePath.format(i)
+    
             with open(fname, "wb") as f:
-                # Increment the frame counter to ensure each saved file has a unique sequential name
+                # First write a small header with dimensions and channels.
+                # We'll use 4-byte ints in little-endian format.
+                f.write(struct.pack("<III", height, width, channels))
+                f.write(frame.tobytes())  # Then write the raw pixel data
                 i += 1
-                print(f"frame {i} saved to {fname}")
+                print(f"frame {i} (height:{height}, width:{width}, channels:{channels}) saved to {fname}")
 
-                i += 1
-                print(f"frame {i} saved to {fname}")
-                print('BUFFERLEN: ', len(frameBuffer))
-                break
 
 def termListener(isTerm, portNum):
     serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -190,6 +189,7 @@ def termListener(isTerm, portNum):
     print("Waiting for a connection...")
     clientSocket, clientAddress = serverSocket.accept()
     # receive client data in a loop
+    print("port: ",portNum)
     while True:
         msgIn = clientSocket.recv(1024)
         msgIn = msgIn.decode()
