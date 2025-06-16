@@ -29,7 +29,7 @@ classdef proxon < handle
                     end
                 case 2
                     % append to index
-                    proxon.index_type2.(proxObjID) = proxObj;
+                    proxon.index_type2.(proxObjID) = proxObj;                    
             end
             proxObj.proxon = proxon;
         end

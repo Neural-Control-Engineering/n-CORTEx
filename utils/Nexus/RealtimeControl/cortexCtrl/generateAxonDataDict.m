@@ -34,6 +34,17 @@ function generateAxonDataDict()
         % Add the parameter to the dictionary
         addEntry(dDataSect, defaultValName, param);
         % addEntry(dDataSect,defaultValName, defaultStruct);
+        % Add size parameter to the dictionary
+        switch cls
+            case "command"
+                len_ctx_tx = size(defaultStruct.CMD,1) * (1+size(defaultStruct.SZE,2)+size(defaultStruct.PYD,2));
+                paramID = sprintf("len_ctx_tx_%s",cls_abv(i));
+            case "stream"
+                len_ctx_tx = size(defaultStruct.PYD,1) * (size(defaultStruct.SZE,2)+size(defaultStruct.PYD,2));
+                paramID = sprintf("len_ctx_tx_%s",cls_abv(i));
+        end
+        
+        addEntry(dDataSect, paramID, len_ctx_tx);
         i=i+1;
     end
 

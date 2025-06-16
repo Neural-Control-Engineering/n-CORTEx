@@ -27,6 +27,19 @@ classdef proxy_ncortex < handle
             proxObj.nCORTEx = nCORTEx;
         end
 
+        function configureSubject(proxObj)
+            tgProxies = proxObj.proxon.index_type2;
+            tgProxFields = fieldnames(tgProxies);
+            for i = 1:length(tgProxFields)
+                tgProxFN = tgProxFields{i};
+                tgProxies.(tgProxFN).configureSubject();
+            end
+        end
+
+        function openControlPanel(proxObj)
+            relayToTargetProxies(proxObj,"openControlPanel",[],[]);
+        end
+
         function writeTransmission(proxObj, methodID, txArgs)
             % method ID
             writeline(proxObj.Client,methodID);

@@ -13,7 +13,7 @@ function nexObj = nexFigure_channelGram(nexObj)
     panel2.ph = uipanel(nexObj.Figure.panel0.ph,"Position",[1, 1, 125, 200],"BackgroundColor",[0,0,0]);
     panel3.ph = uipanel(nexObj.Figure.panel0.ph,"Position",[1, 206, 125, 300], "BackgroundColor",[0,0,0]);
     panel4.ph = uipanel(nexObj.Figure.panel0.ph,"Position",[1, 511, 125,250],"BackgroundColor",[0,0,0]);
-    panel5.ph = uipanel(nexObj.Figure.panel0.ph,"Position",[1,766,125,150],"BackgroundColor",[0,0,0]);
+    panel5.ph = uipanel(nexObj.Figure.panel0.ph,"Position",[1,766,125,150],"BackgroundColor",[0,0,0],"Scrollable","off");
     % channelGram.chgFigure.panel2.entryPanel = breakoutCfgFields(nexon, channelGram, channelGram.chgFigure.panel2.ph, channelGram.opCfg.entryParams);
     %% CFG ENTRIES
     opCfgEntryChangedFcn = str2func("opCfgEntryChanged");
@@ -27,19 +27,21 @@ function nexObj = nexFigure_channelGram(nexObj)
     aniChangedFcnArgs.cfgFieldName = "aniCfg";
     nexObj.Figure.panel4 = nexObj_cfgPanel(nexon, nexObj, panel4, aniArgs, cfgEntryChangedFcn, aniChangedFcnArgs);        
     %% BINNING CFG
-    nexObj.Figure.panel5 = nexObj_binCfgPanel(nexon, nexObj, panel5, )
+    binCfgChangedFcn = str2func("binCfgEntryChanged");
+    nexObj.Figure.poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel5, nexObj.poolCfg, binCfgChangedFcn);
     % begin plot layout
     nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,1,1);
     % User Input Buttons/Fields
     nexObj.Figure.playButton = uibutton(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)nexPlayPause(nexObj),"Position",[5,770,25,25]); % next            
+    nexObj.Figure.scaleAnalysisButton = uibutton(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)nexObj.scaleAnalysis(),"Position",[240,770,25,25]);
     updateDfIDFcn = str2func("nexUpdate_dfID");
     updateOpFcnFcn = str2func("nexUpdate_opFcn");
     nexObj.Figure.dfIDEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen,"Position",[500, 770, 145, 25], "Value",nexObj.dfID,"ValueChangedFcn",@(src,event)updateDfIDFcn(src,event,nexon,nexObj));
-    nexObj.Figure.opFcnEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen,"Position",[35,770,200,25],"Value",func2str(nexObj.opCfg.opFcn),"ValueChangedFcn",@(src,event)updateOpFcnFcn(src, event, nexObj));
+    nexObj.Figure.opFcnEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen,"Position",[35,770,200,25],"Value",func2str(nexObj.opCfg.opFcn),"ValueChangedFcn",@(src,event)updateOpFcnFcn(src, event, nexObj));    
     % channel gram
     nexObj.Figure.panel1.tiles.Axes.channelGram = nexttile(nexObj.Figure.panel1.tiles.t);           
     nexObj.Figure.panel1.tiles.Axes.channelGram= surf(nexObj.Figure.panel1.tiles.Axes.channelGram,"CData",[]);
-        % view(channelGram.chgFigure.panel1.tiles.Axes.channelGram.Parent, [30 30]);  % Adjust the 3D view angle
+    % view(channelGram.chgFigure.panel1.tiles.Axes.channelGram.Parent, [30 30]);  % Adjust the 3D view angle
     nexObj.Figure.panel1.tiles.Axes.channelGram.EdgeColor="none";              
     % grab and index first dataframe
     df_in = nexObj.dataFrame;

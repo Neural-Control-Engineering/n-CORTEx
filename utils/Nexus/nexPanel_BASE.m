@@ -4,6 +4,7 @@ classdef nexPanel_BASE < handle
         router 
         controlPanel
         DTS
+        map_phase
         params
         UserData
         nexObjs
@@ -14,6 +15,8 @@ classdef nexPanel_BASE < handle
         function obj = nexPanel_BASE(nexon,DTS, params)
             obj.DTS=DTS;
             obj.UserData = struct();
+            list_phases = parseSessionLabelUnique(DTS.sessionLabel,"phase");
+            obj.map_phase =  nexGenerate_phaseMap(list_phases);
             obj.nexon = nexon;
             % obj.controlPanel = nexObj_controlPanel(nexon);
             % obj.router = setupRouter(obj, nexon, DTS);

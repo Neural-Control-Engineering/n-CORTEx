@@ -1,5 +1,132 @@
 function nexVisualization_spectroGraph(nexObj, args)
+
     % CFG HEADER
-    chanSel = args.chanSel;
-    freqSel = args.freqSel;
+    chanSel = args.chanSel; % default = 1
+    freqSel = args.freqSel; % default = 1
+
+    numIDParts_base=3;
+    alphaVal = 0.6;
+    % CASES:
+    % 1) single trial
+    % 2) avg but only for current phase
+    % 3) avg for multiple phases
+    DF = nexObj.DF;
+    % df_slice = DF.df(chanSel, freqSel,:);
+    % plot timecourse 
+    % 1: with sem shading if applicable
+    % 2: with other averaged if applicable
+    axis = nexObj.Figure.panel1.tiles.Axes.spgph;
+    if isfield(DF,"sem")
+        if isfield(DF,"avgCfg")
+            % clear all existing base graphics
+            graphics_current = struct2cell(nexObj.Figure.panel1.tiles.graphics);
+            ID_graphics_current = (fieldnames(nexObj.Figure.panel1.tiles.graphics));
+            ID_graphics_parts = cellfun(@(ID) split(string(ID),"_"),ID_graphics_current,"UniformOutput",false);
+            isBaseGraphics = cellfun(@(IDparts) size(IDparts,1)==numIDParts_base,ID_graphics_parts,"UniformOutput",true);
+            graphics_base = graphics_current(isBaseGraphics);
+            ID_graphics_base = convertCharsToStrings(ID_graphics_current(isBaseGraphics));
+            % cellfun(@(graphic, ID_graphic) nex_removeGraphic(nexObj, graphic, ID_graphic, "xLine"), graphics_current, ID_graphics_current,"UniformOutput",false);
+            % empty the visual data for the base figure
+            % ID_l_phase_base = ID_graphics_base(contains(ID_graphics_base,"l"));
+            l_phase_base = graphics_base{contains(ID_graphics_base,"_l")};
+            p_phase_base = graphics_base{contains(ID_graphics_base,"_p")};
+            t_axis = DF.ax.t;
+            nex_updateBoundedLineData(l_phase_base, p_phase_base, t_axis, nan(size(t_axis)), nan(size(t_axis)),[],[]);
+            % look for matching averages (in Origin.UserData)
+            AVG = dtsIO_readAVG(nexObj.Origin, DF.avgCfg);
+            avgFields = convertCharsToStrings(fieldnames(AVG));
+            % graphicsFields = convertCharsToStrings(fieldnames(nexObj.Figure.panel1.tiles.graphics));
+            % format plot data
+            % axis = nexObj.Figure.panel1.tiles.Axes.spgph;
+            % TITLE
+            % UPDATE PLOT
+            for i = 1:length(avgFields)
+                avgField = avgFields(i);
+                % phase color
+                phaseLUT = nexObj.nexon.console.BASE.map_phase.Map;
+                idx_phase = find(strcmp(phaseLUT.phase,strrep(avgField,"_","-")));
+                color = phaseLUT(idx_phase,:).color;
+                ID_l_phase = sprintf("%s_canvas_l_%s", nexObj.classID, strrep(avgField,"_","x"));
+                ID_p_phase = sprintf("%s_canvas_p_%s",nexObj.classID, strrep(avgField,"_","x"));
+                df_phase = AVG.(avgField).df;
+                sem_phase = AVG.(avgField).sem;
+                df_phase_slice = squeeze(df_phase(chanSel, freqSel,:))';
+                t_axis = AVG.(avgField).ax.t(1:size(df_phase_slice,2));
+                sem_phase_slice = squeeze(sem_phase(chanSel, freqSel,:))'; 
+                isSubFields = isfield( nexObj.Figure.panel1.tiles.graphics,ID_l_phase) && isfield( nexObj.Figure.panel1.tiles.graphics,ID_p_phase);
+                try
+                    isValid = isvalid( nexObj.Figure.panel1.tiles.graphics.(ID_l_phase)) && isvalid( nexObj.Figure.panel1.tiles.graphics.(ID_p_phase));
+                catch
+                    isValid = 0;
+                end
+                if isSubFields && isValid
+                    l_phase = nexObj.Figure.panel1.tiles.graphics.(ID_l_phase);
+                    p_phase = nexObj.Figure.panel1.tiles.graphics.(ID_p_phase);
+                    nex_updateBoundedLineData(l_phase, p_phase, t_axis, df_phase_slice, sem_phase_slice, color,alphaVal);
+                else % generate new                                       
+                    [l_phase, p_phase] = plotWithSEM(axis,t_axis,df_phase_slice,sem_phase_slice,hex2rgb(color),alphaVal);
+                    colorAx_green(axis);                   
+                    % add graphics handles to figure tree
+                    nexObj.Figure.panel1.tiles.graphics.(ID_l_phase) = l_phase;
+                    nexObj.Figure.panel1.tiles.graphics.(ID_p_phase) = p_phase;                    
+                end
+            end
+        else % single trial vis
+            % format plot data
+            ID_line = sprintf("%s_canvas_l",nexObj.classID);
+            ID_patch = sprintf("%s_canvas_p",nexObj.classID);
+            df = DF.df;                
+            df_slice = squeeze(df(chanSel, freqSel,:))';
+            t_axis = DF.ax.t(1:size(df_slice,2));
+            sem_slice = nan(size(df_slice));            
+            % axis = nexObj.Figure.panel1.tiles.Axes.spgph;
+            % % TITLE
+            % chanBinType = nexObj.Origin.pMap_chans.binType;
+            % [binEdges, binIDs_chans] = nexObj.Origin.pMap_chans.getBinEdges;
+            % freqBinType = nexObj.Origin.pMap_freqs.binType;            
+            % [binEdges, binIDs_freqs] = nexObj.Origin.pMap_freqs.getBinEdges;
+            % binID_chans = binIDs_chans(chanSel);
+            % binID_freqs = binIDs_freqs(freqSel);
+            % titleText = sprintf("%s: %s; %s: %s", chanBinType, binID_chans, freqBinType, binID_freqs);
+            % title(axis, titleText,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+            % UPDATE PLOT
+            if isfield( nexObj.Figure.panel1.tiles.graphics,ID_line) && isfield( nexObj.Figure.panel1.tiles.graphics,ID_patch) % graphics sub field exists
+                line = nexObj.Figure.panel1.tiles.graphics.(ID_line);
+                patch = nexObj.Figure.panel1.tiles.graphics.(ID_patch);
+                df = DF.df;                
+                df_slice = squeeze(df(chanSel, freqSel,:))';
+                t_axis = DF.ax.t(1:size(df_slice,2));
+                sem_slice = nan(size(df_slice));
+                nex_updateBoundedLineData(line, patch, t_axis, df_slice, sem_slice,[],[]);
+            else                
+                [l_phase, p_phase] = plotWithSEM(axis,t_axis,df_slice,sem_slice,[],[]);
+                colorAx_green(axis);                   
+                % add graphics handles to figure tree
+                nexObj.Figure.panel1.tiles.graphics.(ID_line) = l_phase;
+                nexObj.Figure.panel1.tiles.graphics.(ID_phase) = p_phase;                    
+            end
+        end
+    else
+        % format plot data
+        % update plot data if exists (generate new plot (add graphic) if not)
+    end    
+
+    % TITLE
+    chanBinType = nexObj.Origin.pMap_chans.binType;
+    [binEdges, binIDs_chans] = nexObj.Origin.pMap_chans.getBinEdges;
+    freqBinType = nexObj.Origin.pMap_freqs.binType;            
+    [binEdges, binIDs_freqs] = nexObj.Origin.pMap_freqs.getBinEdges;
+    binID_chans = binIDs_chans(chanSel);
+    binID_freqs = binIDs_freqs(freqSel);
+    titleText = sprintf("%s: %s; %s: %s", chanBinType, binID_chans, freqBinType, binID_freqs);
+    title(axis, titleText,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+
+    % chanIdx = nexObj.poolMap_chans.getIndex(chanSel);
+    % regionName = nexObj.Origin.pMap_chans.getBinID(chanSel);
+    % bandName = nexObj.Origin.pMap_freqs.getBinID(freqSel);
+    % title(sprintf("%s--%s",regionName,bandName));
+    % 
+    % nexObj.Figure.panel1.tiles.Axes.spgph.YData = dfSlice;
+    % nexUpdate_moveSpgXLine(nexon, spectroGram, tIdx);
+
 end

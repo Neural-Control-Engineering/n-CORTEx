@@ -1,4 +1,3 @@
-
 function isMatch = compareArgs(args1, args2)
     try
         args1_T = struct2table(args1);

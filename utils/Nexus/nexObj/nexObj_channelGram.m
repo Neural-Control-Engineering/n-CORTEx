@@ -23,6 +23,9 @@ classdef nexObj_channelGram < handle
         opCfg
         visCfg
         aniCfg
+        poolCfg
+        pMap_freqs
+        pMap_chans
         UserData
         bPool        
         rtSpec
@@ -38,6 +41,7 @@ classdef nexObj_channelGram < handle
         function nexObj = nexObj_channelGram(nexon, shank, dataFrame, dfID, opFcn, visFcn, aniFcn)
             nexObj.classID = "chg";
             nexObj.nexon = nexon;
+            nexObj.nexon.console.BASE.nexObjs.chg_1=nexObj;
             nexObj.Parent = shank;
             nexObj.Partners = struct;
             nexObj.Children = struct;            
@@ -72,6 +76,15 @@ classdef nexObj_channelGram < handle
             nexObj.aniCfg.aniFcn = aniFcn;
             nexObj.aniCfg.entryParams = extractMethodCfg(rmExtension(func2str(aniFcn)));      
             nexObj.frameBuffer.aniArgs = nexObj.aniCfg.entryParams;
+            % segmentation/binning Cfg (configure binning of axes, for pooling ops))
+            % nexObj.poolCfg.poolMaps.bands = nexon.console.BASE.params.bands;
+            % nexObj.poolCfg.poolMaps.regions = nexObj.Parent.regMap;
+            nexObj.pMap_freqs = poolMap_freqs(nexObj.nexon.console.BASE.params.bands,[]);
+            nexObj.pMap_chans = poolMap_chans(nexObj.Parent.regMap,[]);
+            % nexObj.poolCfg.ax.f.poolMaps.bands = nexFormat_poolMap(nexon.console.BASE.params.bands);
+            nexObj.poolCfg.ax.f.segOpts=["bins","bands"];
+            nexObj.poolCfg.ax.f.poolMaps = "regions";
+            nexObj.poolCfg.ax.chans.segOpts=["bins","regions"];
             % state cfgs
             nexObj.isOnline = 1;
             nexObj.isStatic = 0;
@@ -104,7 +117,7 @@ classdef nexObj_channelGram < handle
                 if isempty(nexObj.frameBuffer) || ~isfield(nexObj.frameBuffer,"ax") || ~isfield(nexObj.frameBuffer,"opArgs") || ~isfield(nexObj.frameBuffer,"aniArgs")
                     disp("save buffer could not be recovered");
                     nexObj.frameBuffer=struct;
-                    nexObj.frameBuffer.frameIds=channelGram.frameNum;                    
+                    nexObj.frameBuffer.frameIds=nexObj.frameNum;                    
                     nexObj.frameBuffer.opArgs=struct;
                     nexObj.frameBuffer.aniArgs=struct;
                     % OPERATE (online/offline dependent)
@@ -170,22 +183,61 @@ classdef nexObj_channelGram < handle
                 maskIdx = selIdx;
             end
             %% ALIGNMENT
-            S_slrt = nex_returnSelectionMask(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
-            alignColTags = split(S_slrt.events,"_");
-            tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
-            tCol_slrt = nexObj.nexon.console.BASE.DTS.(tColID)(maskIdx);
-            fs_slrt = nexObj.nexon.console.SLRT.signals.UserData.Fs;
-            t_preBuff = nexObj.preBufferLen;
-            [dfCol_aligned, tCol_aligned] = nexAlign_signals(dfCol_sel, tCol_sel, tCol_slrt, fs_slrt, t_preBuff,3);            
-            %% SPATIAL AVERAGING
+            try
+                S_slrt = nex_returnSelectionMask(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
+                alignColTags = split(S_slrt.events,"_");
+                tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
+                tCol_slrt = nexObj.nexon.console.BASE.DTS.(tColID)(maskIdx);
+                fs_slrt = nexObj.nexon.console.SLRT.signals.UserData.Fs;
+                t_preBuff = nexObj.preBufferLen;
+                [dfCol_aligned, tCol_aligned] = nexAlign_signals(dfCol_sel, tCol_sel, tCol_slrt, fs_slrt, t_preBuff,3);            
+            catch e
+                disp(getReport(e));
+                dfCol_aligned = dfCol_sel;
+                tCol_aligned = tCol_sel;
+            end
+            %% AXIS POOLING ***
+            % segment axes by poolCfg
+            % poolMap = extractPoolMap(nexObj);
+            try
+                [dfCol_pooled_freqs, binIDs_freqs]  = cellfun(@(DF) nexAnalysis_averagePool(DF, nexObj.pMap_freqs, 2), dfCol_aligned, "UniformOutput",false);
+                [dfCol_pooled, binIDs_chans] = cellfun(@(DF) nexAnalysis_averagePool(DF, nexObj.pMap_chans, 1), dfCol_pooled_freqs,"UniformOutput",false);
+            catch e
+                disp(getReport(e));
+                dfCol_pooled = dfCol_aligned;
+                % ax_pooled_freqs
+                % tCol_pooled =
+            end
             %% AVERAGE RESULT
-            dfAvg = nex_colAvg(dfCol_aligned, 3);                        
-            %% VISUALIZE RESULT
+            [dfAvg, dfSem] = nex_colAvg(dfCol_pooled, 3);                        
+            % dfStd = nex_colStd(dfCol_aligned, 3);
             nexObj.DF_postOp.df = dfAvg;
             nexObj.DF_postOp.ax.t = tCol_aligned{1};
+            nexObj.DF_postOp.bins.f = binIDs_freqs;
+            nexObj.DF_postOp.bins.chans = binIDs_chans;
+            nexObj.DF_postOp.sem = dfSem;
+            avgCfg_sel = nexObj.nexon.console.BASE.controlPanel.averagingSelection.selections;
+            avgCfg_keys = nexObj.nexon.console.BASE.controlPanel.averagingSelection.selKeys;
+            avgCfg = nex_structfun2(@(cfgSel, cfgKey) cfgKey(cfgSel), avgCfg_sel, avgCfg_keys);
+            nexObj.DF_postOp.avgCfg = avgCfg;
             % swap frameBuffer
             nexObj.frameBuffer.frames = dfAvg;
+            %% STORE RESULT AND CFG ***
+            nex_storeAverage(nexObj, nexObj.DF_postOp); % selection wise storing
+            %% VISUALIZE RESULT            
             nexObj.visualize();
+            % update children objs
+            nex_updateChildren(nexObj.nexon, nexObj);
+        end
+
+        function  storeAverage(nexObj, DF_avg)
+            % store average at matching cfg site
+            AVG.(phase) 
+            avgCfg = controlPanelSelection;
+            % create a table if none exists
+            if isempty(nexObj.UserData.DTS_avg)
+                nexObj.UserData.DTS_avg = table(struct,struct,'VariableNames',{'DF_avg','DF_cfg'});
+            end            
         end
 
         function scaleAnalysis(nexObj)

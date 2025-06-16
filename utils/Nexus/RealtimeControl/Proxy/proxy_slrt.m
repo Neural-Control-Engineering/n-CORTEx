@@ -43,7 +43,9 @@ classdef proxy_slrt < handle
             % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(proxObj));    
             % numBytes_cmd = numel(enumeration('ctrlKey'));
             configureCallback(proxObj.Server,"byte",proxObj.numBytes_cmd,@(~,~)proxObj.relayTransmission());
-            
+            % instantiate axon (cmd)
+            [ax, ax_struct] = axon_build("command");
+            proxObj.axon = ax_struct;
             proxObj.Targets = tgProxies;            
             % proxObj.ctrlKey = ctrlKey();
             proxObj.slTarget = slTarget;
@@ -53,17 +55,37 @@ classdef proxy_slrt < handle
             %% read command code (simple for now)
             % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");       
             % proxObj.numBytes_cmd = numel(enumeration('ctrlKey'));
-            % cmdCode = read(proxObj.Server,25,"uint8");             
-            cmdCode = read(proxObj.Server,proxObj.numBytes_cmd,"uint8");             
-            cmdRx = uint8(zeros(25,1));
-            cmdBuffer = find(cmdCode>=1);
-            for i = 1:length(cmdBuffer)
-                idx_cmd = cmdBuffer(i);
-                switch idx_cmd
-                    case 7 % z-stack
-                        proxObj.proxon.index_type2.photon_2.zStack();                        
-                end
+            % disp(proxObj.Server.NumBytesAvailable);
+            try
+                cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");    
+            catch e
+                disp("read failed");
+                % disp(getReport(e));
+                return
             end
+            axon_rx = ctxCtrl_RX(cmdCode);
+            CMD = axon_rx.CMD;
+            % get command list
+            CMD_sel = find(CMD~=0);
+            % cmdIDs = arrayfun(@(cmd) ctxCtrl_decodeCommand(cmdSel), CMD, "UniformOutput",false);
+            cmdIDs = arrayfun(@(cmd_sel) ctrlKey.getCmd(cmd_sel), CMD_sel, "UniformOutput",false)
+            pyds = (arrayfun(@(cmd_sel) axon_rx.PYD(cmd_sel,:),CMD_sel, "UniformOutput",false));
+            szes = (arrayfun(@(cmd_sel) axon_rx.SZE(cmd_sel,:),CMD_sel,"UniformOutput",false));
+            cellfun(@(cmdID, pyd, sze) proxObj.(cmdID)(pyd, sze), cmdIDs, pyds, szes, "UniformOutput", false);
+            % invoke methods (store return)
+            % ctxCtrl_invokeCommand(@(cmdID) proxObj.(cmdID)(pyd));
+            % return axon with selected command vectors as logic high
+            proxObj.returnCommand(CMD_sel);
+            % cmdCode = read(proxObj.Server,proxObj.numBytes_cmd,"uint8");             
+            % cmdRx = uint8(zeros(25,1));
+            % cmdBuffer = find(cmdCode>=1);
+            % for i = 1:length(cmdBuffer)
+            %     idx_cmd = cmdBuffer(i);
+            %     switch idx_cmd
+            %         case 7 % z-stack
+            %             proxObj.proxon.index_type2.photon_2.zStack();                        
+            %     end
+            % end
             %% command lookup
             % command = proxObj.ctrlKey.getCmd(cmdCode);                                 
             % execute designated command (using corresponding target (e.g.
@@ -83,6 +105,16 @@ classdef proxy_slrt < handle
         function addTarget(proxObj, targetProxy)
         end
 
+        function returnCommand(proxObj, CMD_sel)            
+            axon_tx = proxObj.axon;
+            CMD_tx = zeros(size(axon_tx.CMD));
+            CMD_tx(CMD_sel) = 1;
+            axon_tx.CMD = CMD_tx;            
+            % NOTE FUTURE SHOULD RESET PYD AND SZE AS WELL
+            ctx_tx = ctxCtrl_TX(axon_tx);
+            proxObj.Server.write(ctx_tx);
+        end
+
         function startDataStream(proxObj)
         end
 
@@ -98,7 +130,7 @@ classdef proxy_slrt < handle
             targetCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");
             targetID = targetKey.getTargetID(targetCode);
             % end target capStream
-        end
+        end        
 
         function writeToDTS(proxObj) % recieve a datagram and assign to associated DTS
         end
@@ -114,6 +146,26 @@ classdef proxy_slrt < handle
 
         function endOfTrial(proxObj)
         end
+
+        function loadTSeries(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, "loadTSeries", pyd, sze);            
+        end
+
+        function startTSeries(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, "startTSeries", pyd, sze);
+        end
+
+        function setSavePath(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, "setSavePath", pyd, sze);
+        end
+
+        function setFileIteration(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, "setFileIteration", pyd, sze);
+        end
+
+        function setFileName(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj, "setFileName", pyd, sze);
+        end        
 
 
     end

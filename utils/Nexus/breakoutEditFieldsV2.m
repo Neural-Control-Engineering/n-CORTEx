@@ -1,7 +1,8 @@
-function entryPanel = breakoutCfgFields(nexon, obj, cfgPanel, cfgParams, entryChangedFcn)
+function entryPanel = breakoutEditFieldsV2(nexon, obj, cfgPanel, cfgParams, entryChangedFcn)
     % VERSION 2 : draw entry panel but ensure entryChangedFcn modifies the 
     entryFields = fieldnames(cfgParams);
-    panelSize = entryPanel.Panel.ph.Position;
+    % panelSize = entryPanel.Panel.ph.Position;
+    panelSize = cfgPanel.Panel.ph.Position;
     panelW = panelSize(3);
     panelH = panelSize(4);
     m=1;
