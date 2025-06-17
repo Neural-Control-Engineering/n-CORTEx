@@ -8,7 +8,9 @@ import signal
 import numpy as np
 import socket
 import multiprocessing
-from multiprocessing import Process, Queue, Value
+from multiprocessing import Process, Queue, Value, Event
+from multiprocessing.shared_memory import SharedMemory
+from multiprocessing.sharedctypes import RawArray, RawValue, Array
 import PySpin
 import struct
 # import queue
@@ -74,7 +76,22 @@ def main():
         # Start concurrent frame saving process
         print('starting acquisition')        
         print('starting saving thread')
-        saveProc = Process(target=saveFrames,args=(frameBuffer,acqDir,isTerm))
+        # saveProc = Process(target=saveFrames,args=(frameBuffer,acqDir,isTerm))
+        shared_buffer = [RawArray('H', cam.get_array().size) for _ in range(BUFFERSIZE)]  # Create a shared memory buffer        
+        idxs_frame = Queue()
+        idxs_empty = Queue()
+        for i in range(BUFFERSIZE):
+            idxs_empty.put(i)  # Fill the empty index queue with indices
+
+        idx = idxs_empty.get()  # Get an index for the first frame
+        frame = cam.get_array()  # Get the first frame to determine its shape
+        shape = frame.shape  # Get the shape of the frame
+        np.copyto(np.frombuffer(shared_buffer[idx], dtype=np.uint16).reshape(shape), frame)  # Initialize the shared buffer with the first frame        
+        idxs_frame.put(idx)  # Mark the index as used
+        
+        frame_ready = Event()  # Event to signal when a new frame is ready
+        # start consumer process
+        saveProc = Process(target=consumeSharedFrame,args=(shared_buffer, frame_ready, idxs_frame, idxs_empty, shape, acqDir,isTerm))
         print('starting listening thread')        
         listenForTermProc = Process(target=termListener,args=(isTerm,listenerPort))
         saveProc.start()
@@ -86,16 +103,8 @@ def main():
         try:
             while isTerm.value == 0:
                 frame = cam.get_array() 
-                frameBuffer.put(frame)
-                # print(frame)
-                # if frame is None:
-                # # if len(frameBuffer) < BUFFERSIZE:
-                #     frameBuffer.append(frame)
-                #     print(f"Buffered {len(frameBuffer)}")
-                # else:
-                #     #frameBuffer.pop(0)  # discard oldest if buffer is full
-                #     frame = frameBuffer.get()
-                #     frameBuffer.append(frame)
+                # frameBuffer.put(frame)
+                storeSharedFrame(shared_buffer, frame, frame_ready, shape)  # Store the frame in shared memory                
 
         except Exception as e:
             print("Error during acquisition:", e)
@@ -146,6 +155,57 @@ def setSpinParams(camera, stgsDict):
         print('set '+str(key)+' to '+str(value))
 
     return camera
+
+def storeSharedFrame(shared_buffer, frame, frame_ready, idxs_frame, idxs_empty, shape):
+    # Store a frame in shared memory for inter-process communication.
+    idx = idxs_frame.get()  # Get an index for the current frame    
+    arr = np.frombuffer(shared_buffer[idx], dtype=np.uint16).reshape(shape)
+    np.copyto(arr, frame)  # Copy the frame data into the shared memory array
+    frame_ready.set()  # Signal that a new frame is ready    
+    idxs_empty.put(idx)  # Mark the index as empty for future use    
+
+def consumeSharedFrame(shared_buffer, frame_ready, idxs_frame, idxs_empty, shape, acqDir, isTerm):
+    # Consume a frame from shared memory.
+    arr = np.frombuffer(shared_buffer, dtype=np.uint16).reshape(shape)
+    i=0
+    while True:
+        if isTerm.value == 1:
+            print('saving isTerm: ', str(isTerm.value))
+            break        
+
+        frame_ready.wait()  # Wait for a new frame to be ready
+        frame_ready.clear()  # Clear the event for the next frame
+
+        if arr.size == 0:
+            print("No data in shared memory.")
+            continue
+        
+        # Copy the shared memory data to a local variable
+        # This is necessary because the shared memory array may be modified by other processes.
+        # frame = arr.copy()  # Copy the shared memory data to a local variable        
+        
+        idx = idxs_frame.get()  # Get the index of the frame to process      
+        frame = np.frombuffer(shared_buffer[idx], dtype=np.uint16).reshape(shape)  # Reshape the shared memory data to the original frame shape
+        idxs_empty.put(idx)  # Mark the index as used          
+
+        # Save the frame to a file
+        # size control
+        if frame.ndim == 2:
+            height, width = frame.shape
+            channels = 1
+        elif frame.ndim == 3:
+            height, width, channels = frame.shape
+        else:
+            raise ValueError("Unsupported frame dimensions.")
+        
+        fname = f"{acqDir}/frame_{i:06d}.bin"
+
+        with open(fname, "wb") as f:
+            f.write(struct.pack("<III", height, width, channels))
+            f.write(frame.tobytes())  # raw pixel data
+
+        i += 1
+        print(f"frame {i} (height:{height}, width:{width}, channels:{channels}) saved to {fname}")
 
 def saveFrames(frameBuffer, acqDir, isTerm):
     """

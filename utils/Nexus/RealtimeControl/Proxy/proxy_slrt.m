@@ -165,7 +165,11 @@ classdef proxy_slrt < handle
 
         function setFileName(proxObj, pyd, sze)
             relayToTargetProxies(proxObj, "setFileName", pyd, sze);
-        end        
+        end   
+
+        % function closeAllRealtimeThreads(proxObj, pyd, sze)
+        %     % abort concurrent prairielink processes
+        % end
 
 
     end

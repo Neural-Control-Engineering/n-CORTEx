@@ -5,7 +5,7 @@ source activate nCORTEx
 
 # Define the Python script
 # python_script="spinTEx.py"
-python_script="/home/genoma/Code_Repo/n-CORTEx/utils/Instruments/camera/spinTEx.py"
+python_script="/home/$(hostname)/Code_Repo/n-CORTEx/utils/Instruments/camera/spinTEx.py"
 
 # Get the value of 'spinParams' from the command-line arguments
 spinParams="$1"

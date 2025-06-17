@@ -126,6 +126,10 @@ classdef proxy_photon < handle
         function sessionLabelChanged(proxObj)
         end
 
+        function closeAllRealtimeThreads(proxObj, pyd, sze)
+            proxObj.Server.SendScriptCommands(sprintf("-stop"));
+        end
+
     end
 
 end
