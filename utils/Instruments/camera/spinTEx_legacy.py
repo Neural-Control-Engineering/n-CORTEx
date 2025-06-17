@@ -8,10 +8,7 @@ import signal
 import numpy as np
 import socket
 import multiprocessing
-from multiprocessing import Process, Queue, Value
-import PySpin
-import struct
-# import queue
+from multiprocessing import Process
 
 # MINI LIBRARY BUILT FROM SPINVIEW API (SPINNAKER SDK) TO CONFIGURE AND START A SPINVIEW ACQUISITION
 
@@ -45,27 +42,55 @@ def main():
     print('listenerPort: ',listenerPort)
 
     if execStatus=="start":                
-        # frameBuffer=multiprocessing.Manager().list()
-        frameBuffer = Queue(maxsize=BUFFERSIZE)                
-        isTerm = Value('i', 0)  # Shared variable to signal termination
+        frameBuffer=multiprocessing.Manager().list()
+        isTerm=multiprocessing.Manager().Value('i',0)
         print('frameBuffer initiated')
         print('Rx Value initiated')
 
         cameras = list_cameras()
         numCameras = cameras.GetSize()
-        if numCameras < 1:
-            print("Error: no cameras connected.")
-            return
-        
         print(str(numCameras) + ' camera(s) found')
-        print((SN,': selected'))            
 
+        print((SN,': selected'))            
         cam = Camera(SN)
         cam.init()
         cam = setSpinParams(cam, spinParams['spinParams'])
         # listenerPort = int(SN(-6:-1)) # last 5 digits of SN 
         acqDir = spinParams['saveDir']
-        print(acqDir)                        
+        print(acqDir)
+       
+        # if camSelect==pupilSN:
+        #     cam = Camera(pupilSN)
+        #     # temporary: reset camera on startup
+        #     # setattr(cam,'DeviceReset',1)
+        #     print('Pupil Cam Selected')
+        #     cam.init()
+        #     cam = setSpinParams(cam, spinParams['pupilCam']) # find and store pupil camera
+        #     rawPupilFldr = os.path.join(saveDir,"Raw Pupil Data")
+        #     if not os.path.exists(rawPupilFldr):
+        #         os.mkdir(rawPupilFldr)
+        #     acqDir = os.path.join(rawPupilFldr, sessionLabel)
+        #     listenerPort=12345
+        #     # isKillVar='ISPUPKILL'            
+           
+        # elif camSelect==whiskSN:
+        #     cam = Camera(whiskSN)
+        #     # temporary: reset camera on startup
+        #     # setattr(cam,'DeviceReset',1)
+        #     print('Whisker Cam Selected')
+        #     cam.init()
+        #     cam = setSpinParams(cam, spinParams['whiskCam'])
+        #     rawWhiskFldr = os.path.join(saveDir,"Raw Whisker Data")
+        #     if not os.path.exists(rawWhiskFldr):
+        #         os.mkdir(rawWhiskFldr)
+        #     acqDir = os.path.join(rawWhiskFldr, sessionLabel)
+        #     listenerPort=23456
+        #     # isKillVar='ISWSKKILL'
+        
+        # else      
+            
+           
+        # os.environ[isKillVar]='0' # init to 0 and check if set to 1
         
         # Init directory to store frames
         if not os.path.exists(acqDir):
@@ -83,31 +108,24 @@ def main():
         cam.start() 
         print('FPS: ',cam.AcquisitionResultingFrameRate)      
         # i=0
-        try:
-            while isTerm.value == 0:
-                frame = cam.get_array() 
-                frameBuffer.put(frame)
-                # print(frame)
-                # if frame is None:
-                # # if len(frameBuffer) < BUFFERSIZE:
-                #     frameBuffer.append(frame)
-                #     print(f"Buffered {len(frameBuffer)}")
-                # else:
-                #     #frameBuffer.pop(0)  # discard oldest if buffer is full
-                #     frame = frameBuffer.get()
-                #     frameBuffer.append(frame)
+        while True: # continue triggered acquisition until 'stop' is called        
+            # print('camStarted')
+            frame = cam.get_array()
+            print('frame acquired')
+            frameBuffer.append(frame)
+            print('BUFFERLEN: ', len(frameBuffer))
 
-        except Exception as e:
-            print("Error during acquisition:", e)
+            if len(frameBuffer)>BUFFERSIZE:
+                while len(frameBuffer)>BUFFERSIZE:
+                    frameBuffer.pop(0)
 
-        finally:
-            cam.stop()
-            cam.close()
-            # isTerm.value = 1  # signals the saving process to exit
-            # saveProc.join()
-            # termProc.terminate()
-            # termProc.join()
-            print("Acquisition finished.")
+            
+            if isTerm.value==1:
+                print('acquisition isTerm: ',str(isTerm.value))
+                print("Acquisition Complete, releasing resources")
+                cam.stop()
+                cam.close()                                
+                break           
 
     elif execStatus=="stop":
         # Send termination signals to whisker and pupil acquisition ports
@@ -147,40 +165,37 @@ def setSpinParams(camera, stgsDict):
 
     return camera
 
-def saveFrames(frameBuffer, acqDir, isTerm):
-    """
-    Saves raw frames in .bin format with a small header.
-
-    Header (in first 12 bytes) consists of:
-    - width (uint32, 4 bytes),
-    - height (uint32, 4 bytes),
-    - channels (uint32, 4 bytes).
-
-    The rest is raw pixel data in row-major format.
-
-    """
-    i = 0
-    basePath = os.path.join(acqDir, "{:06d}.bin")
+def saveFrames(frameBuffer, acqDir, isTerm):        
+    i=0
     while True:
-        if isTerm.value == 1:
-            print('saving isTerm: ', str(isTerm.value))
+        if len(frameBuffer)>0:
+            frame = frameBuffer.pop(0)
+            frame = frame.astype(np.uint8)
+            # print("Type:", type(frame))
+            # print("Dtype:", frame.dtype)
+            # print("Shape:", frame.shape)
+            # print("Any NaNs?", np.isnan(frame).any())
+            # print("Any Infs?", np.isinf(frame).any())
+            # print("Max/Min:", np.max(frame), np.min(frame))            
+            # frame = np.asarray(frame)
+            # print((frame))
+            # cv2.imwrite(os.path.join(acqDir, "frame_"+str(i)+".png"), frame, [cv2.IMWRITE_PNG_COMPRESSION, COMPRESSIONLEVEL])
+            frmNum = str(i)
+            frmNum = frmNum.rjust(10,'0')
+            # print(os.path.join(acqDir, frmNum + ".png"))
+            # print("Saving to:", os.path.join(acqDir, "frame_"+str(i)+".png"))
+            # print("Dir exists:", os.path.exists(acqDir))
+            # print("Dir writable:", os.access(acqDir, os.W_OK))
+            cv2.imwrite(os.path.join(acqDir, frmNum + ".png"), frame, [cv2.IMWRITE_PNG_COMPRESSION, COMPRESSIONLEVEL])
+            # cv2.imwrite(os.path.join(acqDir, "frame_"+str(i)+".png"), frame)
+            i+=1 
+            print('frame_',i,' saved')
+            print('BUFFERLEN: ', len(frameBuffer))            
+        
+        if isTerm.value==1:
+            print('saving isTerm: ',str(isTerm.value))
             break
-        if not frameBuffer.empty():
-        # if len(frameBuffer) > 0:
-            frame = frameBuffer.get()
-            height, width = frame.shape[0], frame.shape[1]
-            channels = 1 if frame.ndim == 2 else frame.shape[2]
     
-            fname = basePath.format(i)
-    
-            with open(fname, "wb") as f:
-                # First write a small header with dimensions and channels.
-                # We'll use 4-byte ints in little-endian format.
-                f.write(struct.pack("<III", height, width, channels))
-                f.write(frame.tobytes())  # Then write the raw pixel data
-                i += 1
-                print(f"frame {i} (height:{height}, width:{width}, channels:{channels}) saved to {fname}")
-
 
 def termListener(isTerm, portNum):
     serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -189,7 +204,6 @@ def termListener(isTerm, portNum):
     print("Waiting for a connection...")
     clientSocket, clientAddress = serverSocket.accept()
     # receive client data in a loop
-    print("port: ",portNum)
     while True:
         msgIn = clientSocket.recv(1024)
         msgIn = msgIn.decode()
