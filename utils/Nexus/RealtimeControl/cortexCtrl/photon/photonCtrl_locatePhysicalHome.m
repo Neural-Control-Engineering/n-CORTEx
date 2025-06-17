@@ -10,4 +10,5 @@ function photonCtrl_locatePhysicalHome(proxObj)
     controlPanel = proxObj.controlPanel;    
     controlPanel.Figure.updatePositionButton.Enable="on";   
     controlPanel.Figure.resetPositionButton.Enable="on";    
+    controlPanel.Figure.initializeMicroscope.Enable="off";    
 end

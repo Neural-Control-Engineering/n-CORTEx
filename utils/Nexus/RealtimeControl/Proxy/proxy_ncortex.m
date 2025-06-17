@@ -191,6 +191,10 @@ classdef proxy_ncortex < handle
             %     disp(getReport(e));
             % end
         end
+
+        function closeAllRealtimeThreads(proxObj, rxArgs)
+            relayToTargetProxies(proxObj, "closeAllRealtimeThreads", rxArgs, []);
+        end
     end
 
 end
