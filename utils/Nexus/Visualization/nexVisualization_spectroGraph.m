@@ -16,6 +16,8 @@ function nexVisualization_spectroGraph(nexObj, args)
     % 1: with sem shading if applicable
     % 2: with other averaged if applicable
     axis = nexObj.Figure.panel1.tiles.Axes.spgph;
+    list_legend = [];
+    h_legend = [];
     if isfield(DF,"sem")
         if isfield(DF,"avgCfg")
             % clear all existing base graphics
@@ -39,14 +41,15 @@ function nexVisualization_spectroGraph(nexObj, args)
             % format plot data
             % axis = nexObj.Figure.panel1.tiles.Axes.spgph;
             % TITLE
-            % UPDATE PLOT
+            % UPDATE PLOT            
             for i = 1:length(avgFields)
                 avgField = avgFields(i);
+                list_legend = [list_legend, strrep(avgField,"_","-")];
                 % phase color
                 phaseLUT = nexObj.nexon.console.BASE.map_phase.Map;
                 idx_phase = find(strcmp(phaseLUT.phase,strrep(avgField,"_","-")));
                 color = phaseLUT(idx_phase,:).color;
-                ID_l_phase = sprintf("%s_canvas_l_%s", nexObj.classID, strrep(avgField,"_","x"));
+                ID_l_phase = sprintf("%s_canvas_l_%s", nexObj.classID, strrep(avgField,"_","x"));                
                 ID_p_phase = sprintf("%s_canvas_p_%s",nexObj.classID, strrep(avgField,"_","x"));
                 df_phase = AVG.(avgField).df;
                 sem_phase = AVG.(avgField).sem;
@@ -70,6 +73,7 @@ function nexVisualization_spectroGraph(nexObj, args)
                     nexObj.Figure.panel1.tiles.graphics.(ID_l_phase) = l_phase;
                     nexObj.Figure.panel1.tiles.graphics.(ID_p_phase) = p_phase;                    
                 end
+                h_legend = [h_legend, l_phase];
             end
         else % single trial vis
             % format plot data
@@ -120,6 +124,13 @@ function nexVisualization_spectroGraph(nexObj, args)
     binID_freqs = binIDs_freqs(freqSel);
     titleText = sprintf("%s: %s; %s: %s", chanBinType, binID_chans, freqBinType, binID_freqs);
     title(axis, titleText,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+    % legend
+    if ~isempty(list_legend)
+        lgd = legend(axis, h_legend, list_legend);
+        lgd.TextColor = nexObj.nexon.settings.Colors.cyberGreen;
+        lgd.EdgeColor = 'none';        % No border
+        % lgd.Color = [0 0 0];           % black background
+    end
 
     % chanIdx = nexObj.poolMap_chans.getIndex(chanSel);
     % regionName = nexObj.Origin.pMap_chans.getBinID(chanSel);
