@@ -38,6 +38,7 @@ function uploadRAW(params, dataDir, sessionLabel, isDelete)
                             cloudPath = fullfile(dataDir.(dataField).cloud);
                             buildPath(cloudPath);
                             if strcmp(dataField,"CAMERA")
+                                uploadRAW_CAMERA(params, sessionLabel, [])
                                 % % zip each camera-associated (DEPRECATED)
                                 % localZip = fullfile(dfLocal,relPath,localItem);
                                 % zip(sprintf("%s.zip",localZip),localZip);

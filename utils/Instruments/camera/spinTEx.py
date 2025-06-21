@@ -208,9 +208,9 @@ def consumeSharedFrame(shared_buffer, frame_ready, idxs_frame, idxs_empty, shape
         elif frame.ndim == 3:
             height, width, channels = frame.shape
         else:
-            raise ValueError("Unsupported frame dimensions.")
+            raise ValueError("Unsupported frame dimensions.")        
         
-        fname = f"{acqDir}/frame_{i:06d}.bin"
+        fname = f"{acqDir}/{i:010d}.bin"
 
         with open(fname, "wb") as f:
             f.write(struct.pack("<III", height, width, channels))
