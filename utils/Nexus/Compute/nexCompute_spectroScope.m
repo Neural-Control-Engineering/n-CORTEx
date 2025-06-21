@@ -9,7 +9,7 @@ function DF_postComp = nexCompute_spectroScope(nexObj, args)
     peakHeight_min = args.peakHeight_min; % default = 0.2    
     peakThreshold = args.peakThreshold; % default = 2
 
-    DF = nexObj.DF;     
-    DF_postComp = nexObj.opCfg.opFcn(nexObj.DF, args);           
+    DF = nexObj.DF;         
+    DF_postComp = nexObj.compCfg.opFcn(nexObj.DF, args);           
     DF_postComp.args = args;
 end
