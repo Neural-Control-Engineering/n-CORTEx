@@ -1,4 +1,4 @@
-function cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, fps)
+function cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, fps, pixelFormat)
     % Default arguments
     if nargin < 2
         outputFile = 'output_video.mp4';
@@ -6,6 +6,9 @@ function cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, fps)
     if nargin < 3
         fps = 50;
     end
+
+    maxScaler = 2^6;
+    intensityScaler=1;
 
     % Create a temporary directory to store images
     % tempImgDir = fullfile(frameDir, 'temp_frames');
@@ -19,6 +22,9 @@ function cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, fps)
     [~, idx] = sort({frames.name});
     frames = frames(idx);
 
+    % brightness scaling
+    % maxIntensity = cameraCtrl_scanMaxBrightness(frameDir)
+
     fprintf('Converting %d frames to images...\n', numel(frames));
 
     % Loop and save as PNGs
@@ -31,7 +37,7 @@ function cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, fps)
         width = fread(fid, 1, 'uint32');
         height = fread(fid, 1, 'uint32');
         channels = fread(fid, 1, 'uint32');
-        raw = fread(fid, 'uint16');
+        raw = fread(fid, 'uint8');
         fclose(fid);
         
 
@@ -45,13 +51,24 @@ function cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, fps)
             img = permute(img, [2 1 3]);
         end
 
+        % pixel format control
+        switch pixelFormat
+            case "BayerRG8"
+                % img_gpu=gpuArray(img);
+                img_format = demosaic(uint8(img),"rggb");
+            case "Mono"
+                img_format = img;
+        end
+
         % imagesc(img)
         % ax_img.CData = img;
         % drawnow()
 
         % Write image to disk (zero-padded numbering for ffmpeg)
-        img_scaled = uint16(double(img) / double(max(img(:))) * 65535);
-        imwrite(img_scaled, fullfile(outputFolder, sprintf('%010d.png', i)), 'png', 'BitDepth', 16);
+        % img_scaled = uint16(double(img) / double(max(img(:))) * 65535);
+        img_scaled = uint8(((img_format*intensityScaler)));
+        % img_scaled = img_format;
+        imwrite(img_scaled, fullfile(outputFolder, sprintf('%010d.png', i)), 'png', 'BitDepth', 8);
 
         % imwrite(uint16(img), fullfile(outputFolder, sprintf('%010d.png', i)),"png","BitDepth",16);
 
@@ -76,10 +93,12 @@ function cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, fps)
     setenv('LD_PRELOAD', '/usr/lib/x86_64-linux-gnu/libstdc++.so.6');
     system(ffmCmd);   
     % if conversion successful, remove pngs
-    if isfile(sprintf("%s.mp4",localPath))
-        rmdir(localPath,"s") % cleanup
-    else
-        error("png to mp4 conversion for session: %s failed",sessionLabel)
+    % if isfile(sprintf("%s.mp4",localPath))
+    if isfile(outputFile)
+        % rmdir(localPath,"s") % cleanup
+        rmdir(outputFolder,"s"); % remove pngs
+        delete(fullfile(frameDir, '*.bin')); % remove binaries   
+        % error("png to mp4 conversion for session: %s failed",sessionLabel)
     end
 
     % Optional: Clean up temp images

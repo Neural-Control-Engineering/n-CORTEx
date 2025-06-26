@@ -83,7 +83,7 @@ def main():
         height_frame = camParams['Height']
         frameSize = width_frame * height_frame
         # shared_buffer = [RawArray('H', cam.get_array().size) for _ in range(BUFFERSIZE)]  # Create a shared memory buffer        
-        shared_buffer = [RawArray('H', frameSize) for _ in range(BUFFERSIZE)]  # Create a shared memory buffer        
+        shared_buffer = [RawArray('B', frameSize) for _ in range(BUFFERSIZE)]  # Create a shared memory buffer        
         idxs_frame = Queue()
         idxs_empty = Queue()
         for i in range(BUFFERSIZE):
@@ -98,7 +98,7 @@ def main():
         # Begin Acquisition
         cam.start() 
         frame = cam.get_array()  # Get the first frame to determine its shape
-        shape = frame.shape  # Get the shape of the frame
+        shape = frame.shape  # Get the shape of the frame        
         
         frame_ready = Event()  # Event to signal when a new frame is ready
         # start consumer process
@@ -113,6 +113,7 @@ def main():
         try:
             while isTerm.value == 0:
                 frame = cam.get_array() 
+                # print("shape1: ",frame.shape)
                 # frameBuffer.put(frame)
                 # storeSharedFrame(shared_buffer, frame, frame_ready, shape)  # Store the frame in shared memory                
                 storeSharedFrame(shared_buffer, frame, frame_ready, idxs_frame, idxs_empty, shape)
@@ -170,7 +171,7 @@ def setSpinParams(camera, stgsDict):
 def storeSharedFrame(shared_buffer, frame, frame_ready, idxs_frame, idxs_empty, shape):
     # Store a frame in shared memory for inter-process communication.
     idx = idxs_empty.get()  # Get an index for the current frame    
-    arr = np.frombuffer(shared_buffer[idx], dtype=np.uint16).reshape(shape)
+    arr = np.frombuffer(shared_buffer[idx], dtype=np.uint8).reshape(shape)
     np.copyto(arr, frame)  # Copy the frame data into the shared memory array
     print("frame stored")
     frame_ready.set()  # Signal that a new frame is ready    
@@ -197,7 +198,8 @@ def consumeSharedFrame(shared_buffer, frame_ready, idxs_frame, idxs_empty, shape
         # frame = arr.copy()  # Copy the shared memory data to a local variable        
         
         idx = idxs_frame.get()  # Get the index of the frame to process      
-        frame = np.frombuffer(shared_buffer[idx], dtype=np.uint16).reshape(shape)  # Reshape the shared memory data to the original frame shape
+        frame = np.frombuffer(shared_buffer[idx], dtype=np.uint8).reshape(shape)  # Reshape the shared memory data to the original frame shape
+        # print("shape: ",shape)
         idxs_empty.put(idx)  # Mark the index as used          
 
         # Save the frame to a file
