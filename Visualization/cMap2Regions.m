@@ -1,8 +1,8 @@
 function cdata = cMap2Regions(data, regMap)
     regMapFlip = flip(regMap,1);
     cdata = zeros(size(data,1),size(data,2),3);
-    for i = 1:size(cdata,1)
-        for j = 1:size(cdata,2)
+    for i = 1:size(cdata,1) % region
+        for j = 1:size(cdata,2) % specs
             val = data(i,j);
             color = strcat('#',regMapFlip.color{i});
             color = hex2rgb(color);

@@ -12,6 +12,7 @@ classdef nexObj_channelGram < handle
         frameNum
         entryPanel
         dfID_source
+        dfID_target
         dfID % DTS df identifier (trial-wise)
         f % frequency axis
         t % time axis        
@@ -50,6 +51,7 @@ classdef nexObj_channelGram < handle
             nexObj.dataFrame=dataFrame;    
             nexObj.DF.df = dataFrame;
             nexObj.dfID = dfID; % dataframe column identifier
+            nexObj.dfID_source = dfID;            
             nexObj.f = []; % frequency axis
             nexObj.t = []; % time axis            
             nexObj.preBufferLen = 3.5;
@@ -69,6 +71,7 @@ classdef nexObj_channelGram < handle
             nexObj.opCfg.opFcn = opFcn;
             nexObj.opCfg.entryParams = extractMethodCfg(rmExtension(func2str(opFcn)));              
             nexObj.frameBuffer.opArgs = nexObj.opCfg.entryParams;
+            nexObj.dfID_target = func2str(opFcn);
             % visualization function
             nexObj.visCfg.visFcn = visFcn;
             nexObj.visCfg.entryParams = extractMethodCfg(rmExtension(func2str(visFcn)));

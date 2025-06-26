@@ -1,6 +1,6 @@
 function DF_postComp = nexCompute_spectroScope(nexObj, args)
 
-    % CFG HEADER      
+    % CFG HEADER 
     chanRange_start = args.chanRange_start; % default = 1
     chanRange_end = args.chanRange_end; % default = 384    
     peakWidth_min = args.peakWidth_min; % default = 2
@@ -10,6 +10,6 @@ function DF_postComp = nexCompute_spectroScope(nexObj, args)
     peakThreshold = args.peakThreshold; % default = 2
 
     DF = nexObj.DF;         
-    DF_postComp = nexObj.compCfg.opFcn(nexObj.DF, args);           
+    DF_postComp = nexObj.opCfg.opFcn(nexObj.DF, args);           
     DF_postComp.args = args;
 end

@@ -1,4 +1,4 @@
-function poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel, poolCfg, poolCfgEntryChangedFcn)
+function poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel, poolCfgEntryChangedFcn)
     nexon = nexObj.nexon;
     % dropdown/spinner combo
     W_panel = panel.ph.Position(3);
@@ -16,11 +16,20 @@ function poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel, poolCfg, poolCfgEntry
     w_spinner  = W_panel * 0.5 - padding * 1.5;
     
     % Collect fieldnames
-    axFields = fieldnames(poolCfg.ax);
+    % axFields = fieldnames(poolCfg.ax);    
+    nexObjFields = convertCharsToStrings(properties(nexObj));        
+    if isempty(nexObjFields)
+        nexObjFields = convertCharsToStrings(fields(nexObj));        
+    end
+    
+    axFields = nexObjFields(contains(nexObjFields,"pMap_"));
     
     for i = 1:length(axFields)
-        axField = string(axFields{i});
-        segOpts = poolCfg.ax.(axField).segOpts;
+        % axField = string(axFields{i});
+        axField = axFields(i);
+        poolMap = nexObj.(axField);
+        % segOpts = poolCfg.ax.(axField).segOpts;
+        segOpts = poolMap.binTypes;
         
         % Label
         uiTextID = sprintf("%s_label", axField);
@@ -36,10 +45,11 @@ function poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel, poolCfg, poolCfgEntry
         uiID = sprintf("%s_dropDown", axField);
         panel.(uiID) = uidropdown(panel.ph, ...
             "Items", segOpts, ...
-            "Value", "bins", ...
+            "Value", segOpts(1), ...
             "Position", [padding, yPtr, w_dropdown, h_uiField], ...
             "BackgroundColor", nexon.settings.Colors.cyberGreen, ...
-            "FontColor", [0, 0, 0]);
+            "FontColor", [0, 0, 0],...
+            "ValueChangedFcn", @(src, event)poolCfgEntryChangedFcn(src, event, poolMap, "binType"));
     
         % Spinner (right half)
         uiID = sprintf("%s_spinner", axField);
@@ -49,7 +59,8 @@ function poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel, poolCfg, poolCfgEntry
             "BackgroundColor", [0, 0, 0], ...
             "FontColor", nexon.settings.Colors.cyberGreen, ...
             "Limits", [1, Inf], ...
-            "Step", 1);
+            "Step", 1,...
+            "ValueChangedFcn", @(src, event)poolCfgEntryChangedFcn(src, event, poolMap, "divsPerBin"));
     
         yPtr = yPtr - yStep;
     end
@@ -62,7 +73,7 @@ function poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel, poolCfg, poolCfgEntry
         "BackgroundColor", nexon.settings.Colors.cyberGreen, ...
         "ForegroundColor", [0, 0, 0], ...
         "FontWeight", "bold", ...
-        "Callback", @(src, event)poolCfgEntryChangedFcn(nexObj));
+        "Callback", @(src, event)nexObj.updateScope());
 
     % return handle
     poolCfgPanel = panel;
