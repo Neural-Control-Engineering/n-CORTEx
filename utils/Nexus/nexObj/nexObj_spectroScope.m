@@ -19,6 +19,7 @@ classdef nexObj_spectroScope < handle
             aniCfg
             pMap_freqs
             pMap_chans
+            map_specs
             UserData
             isOnline
             isStatic
@@ -30,7 +31,7 @@ classdef nexObj_spectroScope < handle
 
         methods
             % Constructor
-            function  nexObj = nexObj_spectroScope(nexon, Partner, Parent, opFcn)
+            function  nexObj = nexObj_spectroScope(nexon, Partner, opFcn)
                 nexObj.classID = "spscp";
                 nexObj.nexon = nexon;
                 nexObj.Parent = Partner.Parent;                
@@ -41,6 +42,7 @@ classdef nexObj_spectroScope < handle
                 nexObj.Children = struct;
                 nexObj.DF = Partner.DF_postOp;
                 nexObj.DF_postOp = [];
+                nexObj.dfID_source = Partner.dfID_target;
                 nexObj.preBufferLen = 3.5;
                 nexObj.Fs = 500;
                 % computation function
@@ -49,6 +51,7 @@ classdef nexObj_spectroScope < handle
                 % operation function
                 nexObj.opCfg.opFcn = opFcn;
                 nexObj.opCfg.entryParams = extractMethodCfg(func2str(opFcn));
+                nexObj.dfID_target = func2str(opFcn);
                 % visualization function
                 nexObj.visCfg.visFcn =  str2func('nexVisualization_spectroScope');
                 nexObj.visCfg.entryParams = extractMethodCfg(func2str(nexObj.visCfg.visFcn));
@@ -61,10 +64,11 @@ classdef nexObj_spectroScope < handle
                 % Pooling config
                 nexObj.pMap_freqs = poolMap_freqs(nexObj.nexon.console.BASE.params.bands,[]);
                 nexObj.pMap_chans = poolMap_chans(nexObj.Parent.regMap,[]);
+                nexObj.map_specs = map_specs([]);
                 % obj.pltTimer = timer("ExecutionMode","fixedRate","BusyMode","drop","Period",0.1,"TimerFcn",@(~,~)animate(obj, nexon));
                 nexObj.isPlay=0;
-                nexObj = nexFigure_spectroScope(nexon, nexObj);
-                nexObj.dfID = sprintf("%s",func2str(opFcn));
+                nexObj = nexFigure_spectroScope(nexObj);
+                nexObj.dfID_target= sprintf("%s",func2str(opFcn));
             end
 
             function updateScope(nexObj)
@@ -80,8 +84,25 @@ classdef nexObj_spectroScope < handle
             function storeAverage(nexObj, DF_avg)
             end
 
-            function scaleAnalysis(nexObj)
+            % function formatSpecs(nexObj, format)
+            %     switch format
+            %         case "time-frequency"
+            %         case "parametric"
+            %     end
+            % end
 
+            function compute(nexObj)
+                compArgs = nexObj.compCfg.entryParams;
+                nexObj.DF_postOp = nexObj.compCfg.fcn(nexObj, compArgs);
+            end
+
+            function scaleAnalysis(nexObj)
+                dfIDsource = sprintf("%s--%s",nexObj.Partners.chg.classID,nexObj.dfID_source);
+                nexAnalysis_scaleAnalysis(nexObj.nexon, nexObj.classID, nexObj.opCfg.opFcn, nexObj.opCfg.entryParams, dfIDsource, nexObj.dfID_target,[]);
+            end
+
+            function exportTrainingDataset(nexObj)
+                
             end
 
             function visualize(nexObj)

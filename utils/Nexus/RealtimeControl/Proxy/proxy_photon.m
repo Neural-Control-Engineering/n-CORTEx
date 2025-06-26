@@ -49,9 +49,7 @@ classdef proxy_photon < handle
                 proxObj.Server.SendScriptCommands(sprintf("-le %s",path_envFile));
             else % save new (overwrite)
                 proxObj.Server.SendScriptCommands(sprintf("-se %s",path_envFile));
-            end
-            
-
+            end            
         end
 
         function openControlPanel(proxObj, pyd, sze)

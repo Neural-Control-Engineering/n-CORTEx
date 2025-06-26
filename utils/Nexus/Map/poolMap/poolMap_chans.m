@@ -34,9 +34,13 @@ classdef poolMap_chans < handle
                     % append channel ranges
                 case "linear"
                     % binEdges = round(linspace(axis(1), axis(end), poolMap.divsPerBin*(axis(end)-axis(1))))';
-                    binEdges = [axis(1):poolMap.divsPerBin:axis(end)]';
+                    % binEdges = [axis(1):poolMap.divsPerBin:axis(end)]';
+                    nSteps = ceil((axis(end) - axis(1)) / poolMap.divsPerBin);
+                    % binEdges = round(linspace(axis(1), axis(1) + nSteps * poolMap.divsPerBin, nSteps + 1))';
+                    binEdges = round(linspace(axis(1), nSteps * poolMap.divsPerBin, nSteps))';
                     % channel ranges
-                    binIDs_nums = num2cell([binEdges(1:end-1),binEdges(2:end)-1],2);
+                    binIDs_nums = num2cell([binEdges(1:end-1),binEdges(2:end)],2);
+                    % binIDs_nums = num2cell([binEdges(1:end-1),binEdges(2:end)],2);
                     binIDs = cellfun(@(idRange) sprintf("%d--%d",idRange(1),idRange(2)),binIDs_nums,"UniformOutput",false);
                     % binIDs = sprintf("%d--%d");
             end

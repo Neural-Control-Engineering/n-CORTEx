@@ -1,5 +1,5 @@
-function [binAvgs, binIDs] = nexAnalysis_averagePool(df, poolMap, dim)
-    [binEdges, binIDs] = poolMap.getBinEdges();
+function [binAvgs, binIDs, binTicks] = nexAnalysis_averagePool(df, poolMap, dim, axis)
+    [binEdges, binIDs] = poolMap.getBinEdges(axis);
     % Create a colon index for all dimensions
     % idx = repmat({':'}, 1, ndims(df));
     df_ax = [1:size(df,dim)];
@@ -27,7 +27,9 @@ function [binAvgs, binIDs] = nexAnalysis_averagePool(df, poolMap, dim)
 
     % Compute binned mean (along dim)
     % binMeans = accumarray(bins, reshapedData, [], @(x) mean(x(:), 1));
-    binMeans_pooled = splitapply(@mean, reshapedData, bins);
+    % binMeans_pooled = splitapply(@mean, reshapedData, bins);
+    binMeans_pooled = splitapply(@(x) mean(x,1, 'omitnan'), reshapedData, bins);
+
 
     % Reshape output to match original size (except dim gets replaced by #bins)
     sz(dim) = size(binMeans_pooled, 1);    
@@ -37,5 +39,7 @@ function [binAvgs, binIDs] = nexAnalysis_averagePool(df, poolMap, dim)
     binMeans_reshaped = reshape(binMeans_pooled, sz);
     % permute back to original format            
     binAvgs = permute(binMeans_reshaped, permuteOrder);
+    % bins = unique(bins);
+    binTicks = binEdges(1:end-1);
     % binMeans = ipermute(reshape(binMeans, sz), permuteOrder);
 end

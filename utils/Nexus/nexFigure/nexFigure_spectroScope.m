@@ -1,4 +1,4 @@
-function nexFigure_spectroScope(nexObj)
+function nexObj = nexFigure_spectroScope(nexObj)
     nexon = nexObj.nexon;
     shank = nexObj.Parent;
      %% DRAW PLOT
@@ -28,8 +28,8 @@ function nexFigure_spectroScope(nexObj)
     aniChangedFcnArgs.cfgFieldName = "aniCfg";
     nexObj.Figure.panel4 = nexObj_cfgPanel(nexon, nexObj, panel4, aniArgs, cfgEntryChangedFcn, aniChangedFcnArgs);        
     %% POOLING CFG
-    binCfgChangedFcn = str2func("binCfgEntryChanged");
-    nexObj.Figure.poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel5, nexObj.poolCfg, binCfgChangedFcn);
+    poolCfgChangedFcn = str2func("poolCfgEntryChanged");
+    nexObj.Figure.poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel5, poolCfgChangedFcn);
     % begin plot layout
     nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,1,1);
     % User Input Buttons/Fields
@@ -37,33 +37,34 @@ function nexFigure_spectroScope(nexObj)
     nexObj.Figure.scaleAnalysisButton = uibutton(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)nexObj.scaleAnalysis(),"Position",[240,770,25,25]);
     updateDfIDFcn = str2func("nexUpdate_dfID");
     updateOpFcnFcn = str2func("nexUpdate_opFcn");
-    nexObj.Figure.dfIDEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen,"Position",[500, 770, 145, 25], "Value",nexObj.dfID,"ValueChangedFcn",@(src,event)updateDfIDFcn(src,event,nexon,nexObj));
+    nexObj.Figure.dfIDEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen,"Position",[500, 770, 145, 25], "Value",nexObj.dfID_source,"ValueChangedFcn",@(src,event)updateDfIDFcn(src,event,nexon,nexObj));
     nexObj.Figure.opFcnEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen,"Position",[35,770,200,25],"Value",func2str(nexObj.opCfg.opFcn),"ValueChangedFcn",@(src,event)updateOpFcnFcn(src, event, nexObj));    
-    % channel gram
-    nexObj.Figure.panel1.tiles.Axes.channelGram = nexttile(nexObj.Figure.panel1.tiles.t);           
-    nexObj.Figure.panel1.tiles.Axes.channelGram= surf(nexObj.Figure.panel1.tiles.Axes.channelGram,"CData",[]);
+    % spectroscope
+    nexObj.Figure.panel1.tiles.Axes.canvas= nexttile(nexObj.Figure.panel1.tiles.t);           
+    % nexObj.Figure.panel1.tiles.Axes.spectroScope= surf(nexObj.Figure.panel1.tiles.Axes.spectroScope,"CData",[]);
     % view(channelGram.chgFigure.panel1.tiles.Axes.channelGram.Parent, [30 30]);  % Adjust the 3D view angle
-    nexObj.Figure.panel1.tiles.Axes.channelGram.EdgeColor="none";              
+    % nexObj.Figure.panel1.tiles.Axes.canvas.EdgeColor="none";              
+    colorAx_green(nexObj.Figure.panel1.tiles.Axes.canvas)
     % grab and index first dataframe
-    df_in = nexObj.dataFrame;
-    frameNum = nexObj.frameNum;                                      
-    df_in = df_in(:,frameNum:frameNum+nexObj.aniCfg.entryParams.windowLen);            
-    %% OPERATE
-    % operate on dataframe with configured fcn    
-    compArgs.frameNum = nexObj.frameNum;
-    opFcn_out = nexObj.opCfg.opFcn(df_in, compArgs);   
-    %% VISUALIZE
-    % figure color mapping            
-    load(fullfile(nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
-    colormap(nexObj.Figure.fh,CT);
-    % recover operation outputs
-    df_out = opFcn_out.df;
-    ax = opFcn_out.ax;    
-    try
-        nexObj.visCfg.visFcn(nexon, nexObj, visArgs);
-    catch e
-        disp(getReport(e))
-    end
+    % df_in = nexObj.dataFrame;
+    % frameNum = nexObj.frameNum;                                      
+    % df_in = df_in(:,frameNum:frameNum+nexObj.aniCfg.entryParams.windowLen);            
+    % %% OPERATE
+    % % operate on dataframe with configured fcn    
+    % compArgs.frameNum = nexObj.frameNum;
+    % opFcn_out = nexObj.opCfg.opFcn(df_in, compArgs);   
+    % %% VISUALIZE
+    % % figure color mapping            
+    % load(fullfile(nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
+    % colormap(nexObj.Figure.fh,CT);
+    % % recover operation outputs
+    % df_out = opFcn_out.df;
+    % ax = opFcn_out.ax;    
+    % try
+    %     nexObj.visCfg.visFcn(nexObj, visArgs);
+    % catch e
+    %     disp(getReport(e))
+    % end
     % channelGram.chgFigure = visFcn_out.fhObj;              
 
 end

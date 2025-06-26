@@ -32,7 +32,7 @@ function generateAxonDataDict()
         param.Description = "Default value for " + busName;
 
         % Add the parameter to the dictionary
-        addEntry(dDataSect, defaultValName, param);
+        addEntry(dDataSect, defaultValName, param);        
         % addEntry(dDataSect,defaultValName, defaultStruct);
         % Add size parameter to the dictionary
         switch cls
@@ -47,6 +47,26 @@ function generateAxonDataDict()
         addEntry(dDataSect, paramID, len_ctx_tx);
         i=i+1;
     end
+    
+    % add ctrlKey and targetKey to dictionary        
+    if exist('ctrlKey.m', 'file') && exist('targetKey.m', 'file')
+        ctrlParam = Simulink.Parameter;
+        ctrlParam.Value = ctrlKey.startDataStream;  % Use any valid enum member
+        ctrlParam.DataType = 'ctrlKey';
+        ctrlParam.CoderInfo.StorageClass = 'Custom';  % Use as needed
+        ctrlParam.Description = 'Enum registration for ctrlKey';
+        addEntry(dDataSect, 'CTRL_KEY_ENUM', ctrlParam);
+
+        targetParam = Simulink.Parameter;
+        targetParam.Value = targetKey.photon;  % Use any valid enum member
+        targetParam.DataType = 'targetKey';
+        targetParam.CoderInfo.StorageClass = 'Custom';
+        targetParam.Description = 'Enum registration for targetKey';
+        addEntry(dDataSect, 'TARGET_KEY_ENUM', targetParam);
+    else
+        warning("Enum class files 'ctrlKey.m' or 'targetKey.m' not found on path.");
+    end
+
 
     saveChanges(dictObj);    
     Simulink.data.dictionary.closeAll('-save')

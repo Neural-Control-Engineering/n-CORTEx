@@ -1,4 +1,5 @@
 function DF = dtsIO_composeDF(DTS, DFID, dtsIdx)
+    axisKeyWords=["f";"t";"chans"];
     tableVars = convertCharsToStrings(DTS.Properties.VariableNames);
     idx_matchingVars = contains(tableVars,DFID);
     vars = tableVars(idx_matchingVars);
@@ -9,7 +10,9 @@ function DF = dtsIO_composeDF(DTS, DFID, dtsIdx)
         subField = strrep(subField,"_","");
         % type sensitive here...
         df_var = DTS.(var){dtsIdx};
-        if ~strcmp(subField,"")
+        if any(contains(axisKeyWords, subField))
+            DF.ax.(subField) = df_var;
+        elseif ~strcmp(subField,"")
             DF.(subField) = df_var;
         else
             DF.df = df_var;
