@@ -18,6 +18,8 @@ classdef proxy_slrt < handle
         Server % transport layer server that receives and sends transmissions from the main slrt process (happening on realtime computer, typiclly remote)        
         Client % transport layer client 
         streamBuffer
+        rxBuffer
+        DF_rx
         compCfg
         nexFigures
         ctrlKey
@@ -166,6 +168,32 @@ classdef proxy_slrt < handle
         function setFileName(proxObj, pyd, sze)
             relayToTargetProxies(proxObj, "setFileName", pyd, sze);
         end   
+
+        function captureDataStream_npxls(proxObj, pyd, sze)
+            relayToTargetProxies(proxObj,"captureDataStream_npxls",pyd,sze);
+            % relayToType1Proxies()
+        end
+
+        function transmitCapture_slrt(proxObj, pyd, sze)
+            data_rx = pyd(2:end);
+            txMode = pyd(1);
+            switch txMode
+                case 1 % buffer data
+                    if diff([txMode, txMode_prev]) > 0
+                        DF_rx.df = [];
+                    else
+                        proxObj.rxBuffer = [proxObj.rxBuffer,data_rx];
+                    end
+                case 2 % buffer label
+                case 3 % write to nexon
+                    proxObj.proxon.proxObjs.nexus_1.writeCapture(DF);
+            end
+            
+        end
+
+        % function startCapture_ap(proxObj, pyd, sze)
+        %     relayToTargetProxies(proxObj,"startCapture_ap",pyd,sze);
+        % end
 
         % function closeAllRealtimeThreads(proxObj, pyd, sze)
         %     % abort concurrent prairielink processes
