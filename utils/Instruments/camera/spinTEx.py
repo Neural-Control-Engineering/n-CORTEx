@@ -102,7 +102,7 @@ def main():
         
         frame_ready = Event()  # Event to signal when a new frame is ready
         # start consumer process
-        saveProc = Process(target=consumeSharedFrame,args=(shared_buffer, frame_ready, idxs_frame, idxs_empty, shape, acqDir,isTerm))
+        saveProc = Process(target=consumeSharedFrame_contig,args=(shared_buffer, frame_ready, idxs_frame, idxs_empty, shape, acqDir,isTerm))
         print('starting listening thread')        
         listenForTermProc = Process(target=termListener,args=(isTerm,listenerPort))
         saveProc.start()
@@ -220,6 +220,46 @@ def consumeSharedFrame(shared_buffer, frame_ready, idxs_frame, idxs_empty, shape
 
         i += 1
         print(f"frame {i} (height:{height}, width:{width}, channels:{channels}) saved to {fname}")
+
+def consumeSharedFrame_contig(shared_buffer, frame_ready, idxs_frame, idxs_empty, shape, acqDir, isTerm):
+    # Prepare output binary file
+    os.makedirs(acqDir, exist_ok=True)
+    bin_path = os.path.join(acqDir, "frames.bin")
+    meta_path = os.path.join(acqDir, "metadata_frames.txt")  # Stores shape info for MATLAB or Python
+
+    with open(bin_path, "ab") as f_out:
+        i = 0
+        while True:
+            if isTerm.value == 1:
+                print('saving isTerm: ', str(isTerm.value))
+                break        
+
+            frame_ready.wait()
+            frame_ready.clear()
+
+            idx = idxs_frame.get()
+            frame = np.frombuffer(shared_buffer[idx], dtype=np.uint8).reshape(shape)
+            idxs_empty.put(idx)
+
+            if frame.ndim == 2:
+                height, width = frame.shape
+                channels = 1
+            elif frame.ndim == 3:
+                height, width, channels = frame.shape
+            else:
+                raise ValueError("Unsupported frame dimensions.")        
+
+            # Write frame header + data (little endian)
+            # f_out.write(struct.pack("<III", height, width, channels))  # 3x uint32 header
+            f_out.write(frame.tobytes())
+
+            i += 1
+            print(f"Appended frame {i} (H:{height}, W:{width}, C:{channels}) to {bin_path}")
+
+    # Save metadata
+    with open(meta_path, "w") as meta:
+        meta.write(f"{i} {height} {width} {channels} uint8\n")  # Total frames and format info
+        
 
 def saveFrames(frameBuffer, acqDir, isTerm):
     """

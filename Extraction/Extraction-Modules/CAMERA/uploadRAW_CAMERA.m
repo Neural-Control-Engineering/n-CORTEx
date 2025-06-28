@@ -7,13 +7,27 @@ function uploadRAW_CAMERA(params, dfCloud, sessPath, localItem, relPath)
     localPath = fullfile(sessPath,localItem); 
     camTable=params.camTable;
     camParams = camTable(contains(camTable.target,strrep(relPath,"/","")),:);
-    camFS = camParams.FS;      
-    % convert binary to avi
+    camFS = camParams.FS;
+    frameDim.width = camParams.spinParams.Width;
+    frameDim.height = camParams.spinParams.Height;
     pixelFormat = camParams.spinParams.PixelFormat;
+    switch pixelFormat
+        case "BayerRG8"
+            frameDim.channels=1;            
+        case "Mono8"
+            frameDim.channels=1;
+        otherwise
+            frameDim.channels=1;
+    end
+    frameDim.byteDepth = 1; % currently defaulting to unit8
+    % numFrames = cameraCtrl_countFrames(frames,frameDim);
+    % convert binary to avi
+    
     outputFile = sprintf("%s.mp4",localItem);
     outputFile = fullfile(localPath,outputFile);
     frameDir = fullfile(sessPath, localItem);
-    cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, camFS, "BayerRG8");
+    % cameraCtrl_convertBinaryFrames2mp4(frameDir, outputFile, camFS, "BayerRG8");
+    cameraCtrl_convertBinaryFrames2mp4(frameDir, frameDim, outputFile, camFS, pixelFormat);
     
     % STOP HERE
     % png2mp4Path = fullfile(params.paths.nCORTEx_repo,"postProc","png2mp4.sh");                                
