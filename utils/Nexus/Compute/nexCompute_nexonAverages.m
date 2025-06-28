@@ -4,7 +4,11 @@ function nexCompute_nexonAverages(nexon, selIdx)
         nexObjField = nexObjFields{i};
         nexObj = nexon.console.BASE.nexObjs.(nexObjField);
         if ismethod(nexObj,"reportAverage")
-            nexObj.reportAverage(selIdx);
+            try
+                nexObj.reportAverage(selIdx);
+            catch e
+                disp(getReport(e))
+            end
         end
     end
 

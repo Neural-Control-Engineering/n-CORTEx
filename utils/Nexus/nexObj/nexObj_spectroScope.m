@@ -35,6 +35,7 @@ classdef nexObj_spectroScope < handle
                 nexObj.classID = "spscp";
                 nexObj.nexon = nexon;
                 nexObj.Parent = Partner.Parent;                
+                nexObj.nexon.console.BASE.nexObjs.spscp_1=nexObj;
                 % obj.Partner = Partner;
                 % Parent.Children.(("spectroScope1")) = obj;
                 nexObj.Partners = struct;
@@ -78,7 +79,43 @@ classdef nexObj_spectroScope < handle
             end
 
             function reportAverage(nexObj, selIdx)
-                % summarize with O-scores, spec params stats, etc.
+                % summarize with O-scores, spec params stats, etc.                
+                % using mean and weldord's method
+                % iterator over each selIdx                
+                %% RETRIEVAL
+                DFID = sprintf("%s--%s",nexObj.classID,func2str(nexObj.opCfg.opFcn));                
+                % dfCol = nexObj.nexon.console.BASE.DTS.(dfTag);
+                % tCol = nexObj.nexon.console.BASE.DTS.(tTag);            
+                %% MASK SELECTION
+                if isempty(selIdx)
+                    S = nex_returnSelectionMask(nexObj.nexon.console.BASE.controlPanel.averagingSelection);
+                    maskIdx = nex_applySelectionMask(nexObj.nexon.console.BASE.DTS,S);                   
+                else                    
+                    maskIdx = selIdx;
+                end
+                %% RETRIEVAL
+                maskIdx_nums = find(maskIdx==1);
+                DF_sel = dtsIO_readDF(nexObj.nexon,DFID,maskIdx_nums);
+                for i = 1:size(DF_sel,1)
+                    DF_i = DF_sel{i};
+                    %% FORMATTING                
+                    DF_form = formatSpecs(DF_i,"timeFrequency",nexObj.map_specs.Map);
+                    %% ALIGNMENT (skip for now)
+                    % nexAlign_signals()
+                    DF_aligned = DF_form;
+                    %% AVERAGING/STD
+                end
+                %% POOLING
+                [DF_avg_pooled.df, binIDs_chans, binTicks_chans] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_chans,1, DF_avg.ax.chans), DF_avg.df,"UniformOutput",false);
+                [DF_avg_pooled.df, binIDs_freqs, binTicks_freqs] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_freqs,2, DF_avg_pooled.ax.f), DF_avg_pooled.df,"UniformOutput",false);
+                [DF_std_pooled.df, binIDs_chans, binTicks_chans] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_chans,1, DF_std.ax.chans), DF_std.df,"UniformOutput",false);
+                [DF_std_pooled.df, binIDs_freqs, binTicks_freqs] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_freqs,2, DF_std_pooled.ax.f), DF_std_pooled.df,"UniformOutput",false);
+
+                %% STORE RESULT 
+                nex_storeAverage(nexObj, nexObj.DF_postOp);
+                %% VISUALIZATION
+                nexObj.visualize();
+
             end
 
             function storeAverage(nexObj, DF_avg)
@@ -98,7 +135,9 @@ classdef nexObj_spectroScope < handle
 
             function scaleAnalysis(nexObj)
                 dfIDsource = sprintf("%s--%s",nexObj.Partners.chg.classID,nexObj.dfID_source);
-                nexAnalysis_scaleAnalysis(nexObj.nexon, nexObj.classID, nexObj.opCfg.opFcn, nexObj.opCfg.entryParams, dfIDsource, nexObj.dfID_target,[]);
+                % dfIDtarget = sprintf("%s--%s",nexObj.classID,func2str())
+                % nexAnalysis_scaleAnalysis(nexObj.nexon, nexObj.classID, nexObj.opCfg.opFcn, nexObj.opCfg.entryParams, dfIDsource, nexObj.dfID_target,[]);
+                nexAnalysis_scaleAnalysis(nexObj.nexon, nexObj.classID, nexObj.opCfg.opFcn, nexObj.opCfg.entryParams, dfIDsource, [] ,[]);
             end
 
             function exportTrainingDataset(nexObj)
