@@ -41,6 +41,29 @@ classdef proxy_npxls < handle
             ungatedSL = string(join(ungatedSL,'_'));
             if ~IsRunning(proxObj.Server); SetRunName(proxObj.Server,char(ungatedSL)); end  
         end
+
+        function captureDataStream_npxls(proxObj, pyd, sze)
+            % buffer lfp data (with time-stamp)
+            % for pyd-designated seconds
+            duration_capture = pyd(1);
+            t_start_slrt = pyd(2);
+            subModSel = pyd(3); % ap or lfp or both
+            for i = 1:duration_capture
+                if i ==1 % keep 3.5 seconds prior
+                else
+                end
+            end
+            % write back
+            DF.df=captureData;
+            DF.ax=[];
+            DF.label=[];
+            proxObj.proxon.proxObjs.nexus_1.writeCapture(DF);
+            % RelayToParentProxies(proxObj,"writeCapture",DF,[]);
+        end
+
+        function startCapture_ap(proxObj, pyd, sze)
+
+        end
     end
 
 end
