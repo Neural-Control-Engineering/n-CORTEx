@@ -9,7 +9,7 @@ function DF = dtsIO_readDF(nexon, DFID, dtsIdx)
         DF = {};        
         for i = 1:length(dtsIdx)
             dtsIdx_i = dtsIdx(i);
-            DF_i = dtsIO_composeDF(nexon.console.BASE.DTS, DFID, dtsIdx);
+            DF_i = dtsIO_composeDF(nexon.console.BASE.DTS, DFID, dtsIdx_i);
             DF = [DF; DF_i];
         end
     end
