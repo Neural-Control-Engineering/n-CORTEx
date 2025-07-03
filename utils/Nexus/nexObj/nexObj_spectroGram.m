@@ -1,6 +1,6 @@
 classdef nexObj_spectroGram < handle
     properties
-        classID
+        classID="spg"
         nexon
         Origin
         Parent % hold parent nexObjs (e.g. channelgram)
@@ -26,8 +26,7 @@ classdef nexObj_spectroGram < handle
     
     methods
         % Constructor
-        function obj = nexObj_spectroGram(nexon, channelGram, dataFrame, dfID, f, t, opFcn, visFcn)
-            obj.classID = "spg";
+        function obj = nexObj_spectroGram(nexon, channelGram, dataFrame, dfID, f, t, opFcn, visFcn)            
             obj.nexon = nexon;
             obj.Origin = channelGram;
             obj.Parent = channelGram;

@@ -27,6 +27,7 @@ classdef nexObj_spectroScope < handle
             isPlay
             isWriteSelected
             frameBuffer
+            frameNum
         end
 
         methods
@@ -96,30 +97,78 @@ classdef nexObj_spectroScope < handle
                 %% RETRIEVAL
                 maskIdx_nums = find(maskIdx==1);
                 DF_sel = dtsIO_readDF(nexObj.nexon,DFID,maskIdx_nums);
-                for i = 1:size(DF_sel,1)
+                t_min = min(cellfun(@(DF) size(DF.df,3), DF_sel, "UniformOutput", true));
+                % t_max =
+                % DF_mean = DF_sel{1};
+                n_avg = size(DF_sel,1);
+                n_inc = 1; % incremented n
+                for i = 1:n_avg
+                    disp(i)
                     DF_i = DF_sel{i};
+                    DF_i.df = DF_i.df(:,:,1:t_min);
                     %% FORMATTING                
                     DF_form = formatSpecs(DF_i,"timeFrequency",nexObj.map_specs.Map);
-                    %% ALIGNMENT (skip for now)
+                   %% ALIGNMENT (skip for now)
                     % nexAlign_signals()
                     DF_aligned = DF_form;
-                    %% AVERAGING/STD
-                end
-                %% POOLING
-                [DF_avg_pooled.df, binIDs_chans, binTicks_chans] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_chans,1, DF_avg.ax.chans), DF_avg.df,"UniformOutput",false);
-                [DF_avg_pooled.df, binIDs_freqs, binTicks_freqs] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_freqs,2, DF_avg_pooled.ax.f), DF_avg_pooled.df,"UniformOutput",false);
-                [DF_std_pooled.df, binIDs_chans, binTicks_chans] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_chans,1, DF_std.ax.chans), DF_std.df,"UniformOutput",false);
-                [DF_std_pooled.df, binIDs_freqs, binTicks_freqs] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_freqs,2, DF_std_pooled.ax.f), DF_std_pooled.df,"UniformOutput",false);
+                    % trim t-axis
 
-                %% STORE RESULT 
+                    % POOL
+                    DF_apForm = DF_aligned;
+                    [DF_apForm.df, binIDs_chans, binTicks_chans] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_chans, 1, DF_aligned.ax.chans), DF_aligned.df, "UniformOutput", false);
+                    [DF_apForm.df, binIDs_freqs, binTicks_freqs] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_freqs, 2, DF_apForm.ax.f), DF_apForm.df, "UniformOutput", false);
+                    if i ==1 % copy as an accumulator
+                        DF_avg = DF_apForm;                        
+                        DF_avg.df = structfun(@(x) zeros(size(x)), DF_avg.df,"UniformOutput",false);
+                        DF_std_pre = DF_avg;
+                        % [DF_avg, DF_std] = cellfun(@(df_acc_avg, df_acc_std, n_avg), nexAccumulate_average(), "UniformOutput", false);                        
+                    end                   
+                    %% AVERAGING/STD
+                    [DF_avg, DF_std_pre] = nexAccumulate_average(DF_avg, DF_std_pre, DF_apForm, n_inc);                    
+                    n_inc = n_inc + 1;
+                end                
+                % post welford's std-derivation
+                DF_var=DF_std_pre; 
+                DF_std=DF_std_pre;
+                % variance                     
+                DF_var.df = structfun(@(df) df ./ (n_avg-1), DF_std_pre.df, "UniformOutput", false);
+                % standard-deviation
+                DF_std.df = structfun(@(df) sqrt(df), DF_var.df, "UniformOutput", false);                   
+                % POOLING
+                % pool-masking
+                % nanMask = (DF_avg.df.CF==0 & DF_avg.df.PW == 0 & DF_avg.df.BW ==0);
+                % DF_avg_mask = DF_avg;
+                % DF_std_mask = DF_std;
+                % DF_avg_mask.df = structfun(@(df) nex_maskReplace(df, nan, nanMask), DF_avg_mask.df, "UniformOutput", false);
+                % DF_std_mask.df = structfun(@(df) nex_maskReplace(df, nan, nanMask), DF_std_mask.df, "UniformOutput", false);
+                % pool operation
+                % DF_avg_pooled = DF_avg_mask;
+                % DF_std_pooled = DF_std_mask;
+                % [DF_avg_pooled.df, binIDs_chans, binTicks_chans] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_chans,1, DF_avg_mask.ax.chans), DF_avg_mask.df,"UniformOutput",false);
+                % [DF_avg_pooled.df, binIDs_freqs, binTicks_freqs] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_freqs,2, DF_avg_mask.ax.f), DF_avg_pooled.df,"UniformOutput",false);
+                % [DF_std_pooled.df, binIDs_chans, binTicks_chans] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_chans,1, DF_std_mask.ax.chans), DF_std_mask.df,"UniformOutput",false);
+                % [DF_std_pooled.df, binIDs_freqs, binTicks_freqs] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_freqs,2, DF_std_mask.ax.f), DF_std_pooled.df,"UniformOutput",false);
+                DF_sem= DF_std;
+                DF_sem.df = structfun(@(df) df ./ sqrt(n_avg), DF_sem.df, "UniformOutput", false);
+                DF_avg.ax.chans= binTicks_chans;
+                DF_avg.ax.f = binTicks_freqs;
+                DF_sem.ax.chans = binTicks_chans;
+                DF_sem.ax.f = binTicks_freqs;
+                %% STORE RESULT                
+                nexObj.DF_postOp = DF_avg;
+                nexObj.DF_postOp.sem = DF_sem.df;
+                avgCfg_sel = nexObj.nexon.console.BASE.controlPanel.averagingSelection.selections;
+                avgCfg_keys = nexObj.nexon.console.BASE.controlPanel.averagingSelection.selKeys;
+                avgCfg = nex_structfun2(@(cfgSel, cfgKey) cfgKey(cfgSel), avgCfg_sel, avgCfg_keys);
+                nexObj.DF_postOp.avgCfg = avgCfg;                
                 nex_storeAverage(nexObj, nexObj.DF_postOp);
                 %% VISUALIZATION
                 nexObj.visualize();
 
             end
 
-            function storeAverage(nexObj, DF_avg)
-            end
+            % function storeAverage(nexObj, DF_avg)
+            % end
 
             % function formatSpecs(nexObj, format)
             %     switch format

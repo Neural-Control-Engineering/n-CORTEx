@@ -43,12 +43,14 @@ function nexVisualization_spectroGraph(nexObj, args)
             % TITLE
             % UPDATE PLOT            
             for i = 1:length(avgFields)
-                avgField = avgFields(i);
-                list_legend = [list_legend, strrep(avgField,"_","-")];
+                avgField = avgFields(i);                
                 % phase color
-                phaseLUT = nexObj.nexon.console.BASE.map_phase.Map;
+                % phaseLUT = nexObj.nexon.console.BASE.map_phase.Map;
+                phaseLUT = nexObj.nexon.console.BASE.map_phase;
                 idx_phase = find(strcmp(phaseLUT.phase,strrep(avgField,"_","-")));
                 color = phaseLUT(idx_phase,:).color;
+                list_legend = [list_legend, strrep(avgField,"_","-")];
+                list_color = [list_color, color];
                 ID_l_phase = sprintf("%s_canvas_l_%s", nexObj.classID, strrep(avgField,"_","x"));                
                 ID_p_phase = sprintf("%s_canvas_p_%s",nexObj.classID, strrep(avgField,"_","x"));
                 df_phase = AVG.(avgField).df;
