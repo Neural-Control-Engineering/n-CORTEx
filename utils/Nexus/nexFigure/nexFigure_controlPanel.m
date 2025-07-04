@@ -5,10 +5,14 @@ function nexFigure_controlPanel(nexObj)
     nexObj.Figure.panel3.ph = uipanel(nexObj.Figure.panel2.ph,"Position",[5,5,380,185],"BackgroundColor",[0,0,0]);
     panel4.ph = uipanel(nexObj.Figure.panel3.ph,"Position",[120,5,255,175],"BackgroundColor",[0,0,0],"Scrollable","on");    
     % ROUTER SETUP
+    % if ~isempty(nexObj.nexon.console.BASE.DTS)
     routerCfgParams = initializeRouterCfg(nexObj.nexon.console.BASE.DTS);
     valueChangedFcn = str2func("routerEntryChanged");
     % nexObj.Figure.panel1 = nexObj_cfgPanel(nexObj.nexon, nexObj, panel1, routerCfgParams, valueChangedFcn,[]);
     nexObj.Figure.panel1= nexObj_entryPanel(nexObj.nexon, panel1, routerCfgParams,valueChangedFcn, 20,10);
+    % else
+    %     routerCfgParams=struct;        
+    % end    
     nexObj.nexon.console.BASE.router = nexObj.Figure.panel1; % assign handle to router slot
     nexObj.nexon.console.BASE.UserData.prevRouter.entryParams=nexObj.nexon.console.BASE.router.entryParams; % save previous router
     % CONTROL METHODS SETUP

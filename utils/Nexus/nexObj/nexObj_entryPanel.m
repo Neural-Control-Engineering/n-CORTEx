@@ -14,7 +14,7 @@ classdef nexObj_entryPanel < handle
             else
                 obj.Panel=Parent;
             end
-            obj.entryParams = breakoutEditFields(nexon, obj, entryParams_form, valueChangedFcn, yScaler,hScaler);
+                obj.entryParams = breakoutEditFields(nexon, obj, entryParams_form, valueChangedFcn, yScaler,hScaler);
             % obj.entryParams = breakoutEditFieldsV2(nexon, obj, entryParams_form, valueChangedFcn, yScaler,hScaler);
             obj.UserData = struct;
         end
