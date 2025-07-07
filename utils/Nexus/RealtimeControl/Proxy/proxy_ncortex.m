@@ -36,7 +36,7 @@ classdef proxy_ncortex < handle
             end
         end
 
-        function openControlPanel(proxObj)
+        function openControlPanel(proxObj)            
             relayToTargetProxies(proxObj,"openControlPanel",[],[]);
         end
 

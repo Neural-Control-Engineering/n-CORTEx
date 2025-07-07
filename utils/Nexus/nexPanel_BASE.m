@@ -34,5 +34,14 @@ classdef nexPanel_BASE < handle
         function data = getUserData(obj)
             data = obj.UserData;
         end
+
+        function updateControlPanel(obj)
+            % update nexus control panel to reflect current DTS
+            if isempty(controlPanel)
+                % initiate if doesnt exist
+            end
+            % update controlPanel selections
+            
+        end
     end
 end

@@ -35,6 +35,8 @@ classdef proxy_nexus < handle
             DFID = DF.dfID;
             dtsIdx = DF.dtsIdx;
             dtsIO_writeDF(proxObj.nexon, DF, DFID, dtsIdx);
+            % update nexDTS controlPanel
+            proxObj.nexon.console.BASE.updateControlPanel();
         end
 
         function loadCapture(proxObj, dfType)
@@ -46,7 +48,8 @@ classdef proxy_nexus < handle
             end
         end
 
-        function openControlPanel(proxObj, pyd, sze)            
+        function openControlPanel(proxObj)                        
+            nexusCtrl_startNexus(proxObj);
             proxObj.controlPanel = nexObj_controlPanel_nexus(proxObj);
         end
 
