@@ -70,7 +70,11 @@ function extractDTS(params)
     end
 
     % trialNumber conversion to double
-    DTS.trialNumber = cell2mat(DTS.trialNumber);
+    try
+        DTS.trialNumber = cell2mat(DTS.trialNumber);
+    catch e
+        disp(getReport(e));
+    end
     DTS_tall = tall((DTS));
 
     %  if size(dir(dtsPath),1) > 3
