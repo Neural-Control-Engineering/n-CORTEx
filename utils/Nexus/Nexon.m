@@ -22,5 +22,20 @@ classdef Nexon < handle
         function data = getUserData(obj)
             data = obj.UserData;
         end
+
+        function appendToDTS(nexon, DTS)
+            DTS_base = nexon.console.BASE.DTS;
+            if isempty(DTS_base)
+                DTS_full=DTS;
+                nexon.console.BASE.DTS=DTS_full;
+                % initialize control panel and subpanels
+                nex_panelStartup(nexon);
+            else
+                DTS_full = mergeT_vertical(DTS_base, DTS);
+                % update router selection
+            end
+
+
+        end
     end
 end

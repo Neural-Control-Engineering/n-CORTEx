@@ -8,9 +8,11 @@ function loadTrialDF(nexObj, MOD)
     trialNames = convertCharsToStrings(struct2table(trialDataSel).name);
     selIdx = listdlg('ListString',trialNames);
     trialSel = trialNames(selIdx);
-    trialNum = decodeTrigger(trialSel);
-    sessionLabel = split(trialSel,'.');
-    sessionLabel = sessionLabel{1}; % remove file-type suffix    
+    trialSel = rmExtension(trialSel);
+    [trialNum,~,sessionLabel] = decodeTrigger(trialSel);
+    % sessionLabel = split(trialSel,'.');
+    % sessionLabel = sessionLabel{1}; % remove file-type suffix        
+    % [~,~,sessionLabel] = decodeTrigger(sessionLabel);    
 
     % dataDir = dir(dataDir_local);    
     % shortPath=files;
@@ -21,11 +23,14 @@ function loadTrialDF(nexObj, MOD)
             % get data type
             chan_imec = 1:385;
             data = ReadSGLXData(trialSel, folder, chan_imec);
-            % for now assuming lfp            
-            DF = nexExtract_LFP(data);
+            % for now assuming lfp
+            DFID = "lfp";
+            DF = nexExtract_LFP(data);            
         case
     end
     % write to nexon (if accessible)
-    dtsIO_appendTrialDF()
+    rowAddress.sessionLabel=sessionLabel;
+    rowAddress.trialNumber=trialNum;
+    dtsIO_writeDF(nexObj.nexon,DF,DFID,rowAddress);
 
 end

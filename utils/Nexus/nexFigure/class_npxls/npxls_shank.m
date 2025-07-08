@@ -20,10 +20,18 @@ classdef npxls_shank < handle
             % configure Shank Mapping
             params = nexon.console.BASE.params;            
             regMapDir = fullfile(nexon.console.BASE.router.UserData.subjectDir,"npxls/trajectory/imec0","map_channel-region.mat");            
-            load(regMapDir);
+            regMapDir_cloud = fullfile(nexon.console.BASE.router.UserData.subjectDir_cloud,"npxls/trajectory/imec0","map_channel-region.mat");            
+            try
+                load(regMapDir);
+            catch
+                load(regMapDir_cloud);
+            end
             obj.regMap = regMap;    
             % start user with one timeCourse
             dataFrame = grabDataFrame(nexon,"lfp",[]);
+            if isempty(dataFrame)
+                dataFrame = grabDataFrame(nexon,"lfp_df",[]);
+            end
             obj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, obj, dataFrame, "lfp");
             % add STFT (PMTM method spectrogram)
             try

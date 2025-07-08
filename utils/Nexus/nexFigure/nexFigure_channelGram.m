@@ -2,7 +2,8 @@ function nexObj = nexFigure_channelGram(nexObj)
     nexon = nexObj.nexon;
     shank = nexObj.Parent;
     %% DRAW PLOT
-    nexObj.Figure.fh = uifigure("Position",[100,1260,650,800],"Color",[0,0,0]);   
+    % nexObj.Figure.fh = uifigure("Position",[100,1260,650,800],"Color",[0,0,0]);   
+    nexObj.Figure.fh = uifigure("Position",[100,1060,650,800],"Color",[0,0,0]);   
     % plot panel
     nexObj.Figure.panel1.ph=uipanel(nexObj.Figure.fh,"Position",[5,5,490,760],"BackgroundColor",[0,0,0]);
     nexObj.Figure.panel0.ph=uipanel(nexObj.Figure.fh,"Position",[500,5,145,760],"BackgroundColor",[0,0,0],"scrollable","on");
