@@ -13,6 +13,7 @@ classdef proxy_npxls < handle
         captureBuffer
         EN_capStream
         EN_rtStream
+        controlPanel
     end
     
     methods
@@ -63,6 +64,10 @@ classdef proxy_npxls < handle
 
         function startCapture_ap(proxObj, pyd, sze)
 
+        end
+
+        function openControlPanel(proxObj, pyd, sze)
+            proxObj.controlPanel = nexObj_controlPanel_npxls([],proxObj.nCORTEx);
         end
     end
 

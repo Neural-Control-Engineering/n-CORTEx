@@ -13,8 +13,10 @@ function params = setExtractionParams(opts)
         if ~isfield(opts,'hostName'), opts.hostName=hostName; end
         if ~isfield(opts,'paths'), opts.paths=struct; end
         if ~isfield(opts.paths,'stem'), opts.paths.stem=fullfile("C:"); end
-        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("I:\"); end       
-        if ~isfield(opts.paths,'nCORTEx_cloud'), opts.paths.nCORTEx_cloud =fullfile("I:\"); end                       
+        % if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("I:\"); end       
+        % if ~isfield(opts.paths,'nCORTEx_cloud'), opts.paths.nCORTEx_cloud =fullfile("I:\"); end                       
+        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("X:\"); end       
+        if ~isfield(opts.paths,'nCORTEx_cloud'), opts.paths.nCORTEx_cloud =fullfile("X:\"); end          
         if ~isfield(opts.paths,'nCORTEx_local'), opts.paths.nCORTEx_local = fullfile(opts.paths.stem,"nCORTEx_local"); end                       
     end      
 
@@ -127,7 +129,8 @@ function params = setExtractionParams(opts)
             opts.ethernetIP = "128.59.46.57";
             opts.netConfig.MAC_slrt = "169.254.126.16";
             opts.netConfig.MAC_net = "128.59.46.57";            
-            opts.paths.NECdrive_cloud = fullfile("I:\");    
+            % opts.paths.NECdrive_cloud = fullfile("I:\");    
+            opts.paths.NECdrive_cloud = fullfile("X:\");    
         case 'USERBRU-2FNENOI'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "128.59.87.38";

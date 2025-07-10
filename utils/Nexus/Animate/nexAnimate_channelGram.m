@@ -106,9 +106,17 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
     % writeDf(nexon,frameBufferID, channelGram.frameBuffer,[]);            
     
     % step to next frame    
-    channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.dataFrame,2)-windowLen/2);
-    % if channelGram.frameNum == 0
-    if (channelGram.frameNum+stride) > (size(channelGram.dataFrame,2)-windowLen) % restart if breaching windowLen boundary
-        channelGram.frameNum=1;
+    if isempty(channelGram.dataFrame)
+        % channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.DF_postOp.df,3)-windowLen/2);
+        % channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.DF_postOp.df,3));
+        channelGram.frameNum = mod(channelGram.frameNum+stride,max(channelGram.frameBuffer.frameIds));
+        disp(channelGram.frameNum)
+    else       
+        channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.dataFrame,2)-windowLen/2);
+        % if channelGram.frameNum == 0
+        if (channelGram.frameNum+stride) > (size(channelGram.dataFrame,2)-windowLen) % restart if breaching windowLen boundary
+            channelGram.frameNum=1;
+        end
     end
+    
 end

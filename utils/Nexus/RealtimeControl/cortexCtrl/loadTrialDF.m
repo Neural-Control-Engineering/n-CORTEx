@@ -7,8 +7,8 @@ function loadTrialDF(nexObj, MOD)
     trialDataSel = dir(folder);
     trialNames = convertCharsToStrings(struct2table(trialDataSel).name);
     selIdx = listdlg('ListString',trialNames);
-    trialSel = trialNames(selIdx);
-    trialSel = rmExtension(trialSel);
+    trialSel_file = trialNames(selIdx);
+    trialSel = rmExtension(trialSel_file);
     [trialNum,~,sessionLabel] = decodeTrigger(trialSel);
     % sessionLabel = split(trialSel,'.');
     % sessionLabel = sessionLabel{1}; % remove file-type suffix        
@@ -22,11 +22,11 @@ function loadTrialDF(nexObj, MOD)
         case "NPXLS"
             % get data type
             chan_imec = 1:385;
-            data = ReadSGLXData(trialSel, folder, chan_imec);
+            data = ReadSGLXData(trialSel_file, folder, chan_imec);
             % for now assuming lfp
             DFID = "lfp";
             DF = nexExtract_LFP(data);            
-        case
+        case "PHOTON"
     end
     % write to nexon (if accessible)
     rowAddress.sessionLabel=sessionLabel;

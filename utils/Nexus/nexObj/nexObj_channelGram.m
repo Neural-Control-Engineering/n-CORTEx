@@ -110,6 +110,13 @@ classdef nexObj_channelGram < handle
             % frameBufferID = sprintf("frameBuffer_chg--%s",obj.dfID);
             nexObj.dataFrame = grabDataFrame(nexon, nexObj.dfID,[]);            
             nexObj.DF.df = grabDataFrame(nexon, nexObj.dfID,[]);
+            if isempty(nexObj.DF.df)
+                try
+                    nexObj.DF = dtsIO_readDF(nexon, nexObj.dfID,[]);
+                catch e
+                    disp(getReport(e))
+                end
+            end
             aniArgs = nexObj.aniCfg.entryParams;
             opArgs = nexObj.opCfg.entryParams;
             opArgs.frameNum = nexObj.frameNum; % custom arg for operation sequence
@@ -262,6 +269,7 @@ classdef nexObj_channelGram < handle
         end
 
         function animate(nexObj, nexon, shank)
+            disp(nexObj.frameNum);
             args = nexObj.aniCfg.entryParams;
             nexAnimate_channelGram(nexon, shank, nexObj, args);
         end               
