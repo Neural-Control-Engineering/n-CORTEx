@@ -110,7 +110,7 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
         % channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.DF_postOp.df,3)-windowLen/2);
         % channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.DF_postOp.df,3));
         channelGram.frameNum = mod(channelGram.frameNum+stride,max(channelGram.frameBuffer.frameIds));
-        disp(channelGram.frameNum)
+        % disp(channelGram.frameNum)
     else       
         channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.dataFrame,2)-windowLen/2);
         % if channelGram.frameNum == 0

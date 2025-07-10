@@ -13,7 +13,12 @@ function nexAnalysis_scaleAnalysis(nexon, nexObjID, analysisFcn, analysisArgs, d
     for i = 1:dtsRows
         disp(i)        
         % read source data
-        DF_in = dtsIO_readDF(nexon,dfID_source,i);        
+        DF_in = dtsIO_readDF(nexon,dfID_source,i);      
+        DF_out_pre = dtsIO_readDF(nexon,dfID_target,i);
+        argsMatch = compareArgs(analysisArgs,DF_out_pre.args);
+        if argsMatch % already complete; don't redo
+            continue
+        end
         % process source data
         if ~isempty(DF_in)            
             DF_out = analysisFcn(DF_in,analysisArgs);      

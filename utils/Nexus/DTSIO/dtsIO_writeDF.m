@@ -25,9 +25,9 @@ function dtsIO_writeDF(nexon, DF, DFID, dtsIdx)
             % alternate storage method
             switch dfType
                 case 'DF'
-                    writeDF(nexon, DFID, DF, dtsIdx);
+                    writeDF(nexon, DFID, DF, rowIdx);
                 case 'df'
-                    writeDataframe(nexon, dfColName, DF, dtsIdx);
+                    writeDataframe(nexon, dfColName, DF, rowIdx);
             end
         end
         

@@ -44,6 +44,7 @@ classdef nexObj_channelGram < handle
             nexObj.nexon = nexon;
             nexObj.nexon.console.BASE.nexObjs.chg_1=nexObj;
             nexObj.Parent = shank;
+            nexObj.Parent.scope.(nexObj.classID)=nexObj;
             nexObj.Partners = struct;
             nexObj.Children = struct;            
             nexObj.DF = struct;
@@ -269,7 +270,7 @@ classdef nexObj_channelGram < handle
         end
 
         function animate(nexObj, nexon, shank)
-            disp(nexObj.frameNum);
+            % disp(nexObj.frameNum);
             args = nexObj.aniCfg.entryParams;
             nexAnimate_channelGram(nexon, shank, nexObj, args);
         end               

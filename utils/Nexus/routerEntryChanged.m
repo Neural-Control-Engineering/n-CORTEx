@@ -37,11 +37,10 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
             dataFrame = grabDataFrame(nexon, dfID,[]);
             if isempty(dataFrame)
                 try
-
+                    nexon.console.NPXLS.shanks.(shank).scope.(scope).DF=dtsIO_readDF(nexon,dfID,[]);
                 catch e
                     disp(getReport(e));
                 end
-                nexon.console.NPXLS.shanks.(shank).scope.(scope).DF=dtsIO_readDF(nexon,dfID,[]);
             else
                 nexon.console.NPXLS.shanks.(shank).scope.(scope).dataFrame = dataFrame;
                 nexon.console.NPXLS.shanks.(shank).scope.(scope).DF.df = dataFrame;
