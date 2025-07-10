@@ -7,26 +7,34 @@ classdef nexObj_entryPanel < handle
     
     methods
         % Constructor
-        function obj = nexObj_entryPanel(nexon, Parent, entryParams_form, valueChangedFcn, yScaler, hScaler)            
-            if isempty(Parent)
-                obj.Panel.fh = uifigure("Position",[5,5,300,400],"Color",[0,0,0]);
-                obj.Panel.ph = uipanel(obj.Panel.fh,"Position",[5,5,290,390],"BackgroundColor",[0,0,0]);    
-            else
-                obj.Panel=Parent;
+        function panelObj = nexObj_entryPanel(nexon, Parent, entryParams_form, valueChangedFcn, yScaler, hScaler, forceDropDown)            
+            if nargin < 7
+                forceDropDown = 0;
             end
-                obj.entryParams = breakoutEditFields(nexon, obj, entryParams_form, valueChangedFcn, yScaler,hScaler);
+            if isempty(Parent)
+                panelObj.Panel.fh = uifigure("Position",[5,5,300,400],"Color",[0,0,0]);
+                panelObj.Panel.ph = uipanel(panelObj.Panel.fh,"Position",[5,5,290,390],"BackgroundColor",[0,0,0]);    
+            else
+                panelObj.Panel=Parent;
+            end
+                panelObj.entryParams = breakoutEditFields(nexon, panelObj, entryParams_form, valueChangedFcn, yScaler,hScaler, forceDropDown);
             % obj.entryParams = breakoutEditFieldsV2(nexon, obj, entryParams_form, valueChangedFcn, yScaler,hScaler);
-            obj.UserData = struct;
+            panelObj.UserData = struct;
         end
-        
-        % Example method to set UserData
-        function setUserData(obj, data)
-            obj.UserData = data;
-        end
-        
-        % Example method to retrieve UserData
-        function data = getUserData(obj)
-            data = obj.UserData;
-        end
+
+        function updateEntryDropDownFields(panelObj, newEntryParams)
+            newEntryFields = fieldnames(newEntryParams);            
+            for i = 1:length(newEntryFields)
+                entryField = newEntryFields{i};
+                uiField = panelObj.Panel.(entryField).uiField;
+                if strcmp(class(uiField),'matlab.ui.control.DropDown')                
+                    entryVals = newEntryParams.(entryField);
+                    entryVals_cell = arrayfun(@(x) {char(x)}, entryVals, "UniformOutput",true);
+                    uiField.Items = entryVals_cell;
+                end
+            end
+            panelObj.entryParams=newEntryParams;
+        end        
+      
     end
 end

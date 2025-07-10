@@ -9,7 +9,7 @@ function nexFigure_controlPanel(nexObj)
     routerCfgParams = initializeRouterCfg(nexObj.nexon.console.BASE.DTS);
     valueChangedFcn = str2func("routerEntryChanged");
     % nexObj.Figure.panel1 = nexObj_cfgPanel(nexObj.nexon, nexObj, panel1, routerCfgParams, valueChangedFcn,[]);
-    nexObj.Figure.panel1= nexObj_entryPanel(nexObj.nexon, panel1, routerCfgParams,valueChangedFcn, 20,10);
+    nexObj.Figure.panel1= nexObj_entryPanel(nexObj.nexon, panel1, routerCfgParams,valueChangedFcn, 20,10,1);
     % else
     %     routerCfgParams=struct;        
     % end    

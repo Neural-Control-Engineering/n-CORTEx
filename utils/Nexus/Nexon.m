@@ -32,7 +32,12 @@ classdef Nexon < handle
                 nex_panelStartup(nexon);
             else
                 DTS_full = mergeT_vertical(DTS_base, DTS);
+                nexon.console.BASE.DTS=DTS_full;
                 % update router selection
+                routerCfgParams = initializeRouterCfg(nexon.console.BASE.DTS);
+                panelObj = nexon.console.BASE.controlPanel.Figure.panel1;
+                updateEntryDropDownFields(panelObj, routerCfgParams);
+
             end
 
 
