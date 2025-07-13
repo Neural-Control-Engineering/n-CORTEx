@@ -15,7 +15,11 @@ function nexAnalysis_scaleAnalysis(nexon, nexObjID, analysisFcn, analysisArgs, d
         % read source data
         DF_in = dtsIO_readDF(nexon,dfID_source,i);      
         DF_out_pre = dtsIO_readDF(nexon,dfID_target,i);
-        argsMatch = compareArgs(analysisArgs,DF_out_pre.args);
+        if isfield(DF_out_pre,"args")
+            argsMatch = compareArgs(analysisArgs,DF_out_pre.args);
+        else
+            argsMatch=0;
+        end
         if argsMatch % already complete; don't redo
             continue
         end
@@ -29,4 +33,5 @@ function nexAnalysis_scaleAnalysis(nexon, nexObjID, analysisFcn, analysisArgs, d
         dtsIO_writeDF(nexon, DF_out, dfID_target, i);        
     end
     % assign to new column with custom dfID
+    fprintf("Analysis Complete: %s", func2str(analysisFcn));
 end
