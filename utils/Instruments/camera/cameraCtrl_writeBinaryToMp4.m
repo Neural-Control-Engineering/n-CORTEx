@@ -92,7 +92,7 @@ function cameraCtrl_writeBinaryToMp4(framesFile, frameDim, outputFile, fps, pixe
                     idxStart = (j-1) * height + 1;
                     idxEnd = j * height;
                     grayFrame = rawData(:, idxStart:idxEnd);     % WxH
-                    grayFrame = permute(grayFrame, [2,1]);       % → HxW
+                    % grayFrame = permute(grayFrame, [2,1]);       % → HxW
                     flatGray = reshape(grayFrame, 1, []);        % 1D
                     stdin.write(typecast(uint8(flatGray), 'int8'));
                 end

@@ -112,8 +112,9 @@ def main():
         # i=0
         try:
             while isTerm.value == 0:
-                frame = cam.get_array() 
-                # print("shape1: ",frame.shape)
+                frame = cam.get_array()                 
+                print("shape1: ",frame.shape)
+                # print(frame)
                 # frameBuffer.put(frame)
                 # storeSharedFrame(shared_buffer, frame, frame_ready, shape)  # Store the frame in shared memory                
                 storeSharedFrame(shared_buffer, frame, frame_ready, idxs_frame, idxs_empty, shape)
@@ -251,6 +252,7 @@ def consumeSharedFrame_contig(shared_buffer, frame_ready, idxs_frame, idxs_empty
 
             # Write frame header + data (little endian)
             # f_out.write(struct.pack("<III", height, width, channels))  # 3x uint32 header
+            print(frame)
             f_out.write(frame.tobytes())
 
             i += 1

@@ -1,13 +1,15 @@
 function relPath = locateSessionFile(filePath, sessionLabel)
     fileDir = dir(filePath);
     fileDir = struct2table(fileDir);
+    fileDir = fileDir(3:end,:);
     % check for sessionlabel
     relPath = [];
     if any(contains(fileDir.name,sessionLabel))
         relPath = string(filePath);
     else
         % check subdirs
-        subFldrs = fileDir(3:end,fileDir.isdir==1);
+        
+        subFldrs = fileDir(fileDir.isdir==1,:);
         if isempty(subFldrs)
             relPath = [];
         else
