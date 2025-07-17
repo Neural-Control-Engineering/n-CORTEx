@@ -5,7 +5,7 @@ classdef nexObj_channelGram < handle
         Parent
         Partners 
         Children % hold sub-Objs (e.g. spectrogram)
-        Origins
+        Origin
         DF % df pre operation function (behavior depends on online or offline status); struct containing df and ax 
         DF_postOp % df post operation function (behavior depends on online or offline status); struct containint df and ax (and opCfg!?)
         dataFrame % This will hold any type of data, such as a struct     
@@ -44,7 +44,7 @@ classdef nexObj_channelGram < handle
             nexObj.nexon = nexon;
             nexObj.nexon.console.BASE.nexObjs.chg_1=nexObj;
             nexObj.Parent = shank;
-            nexObj.Parent.scope.(nexObj.classID)=nexObj;
+            nexObj.Origin = shank;
             nexObj.Partners = struct;
             nexObj.Children = struct;            
             nexObj.DF = struct;
@@ -111,13 +111,6 @@ classdef nexObj_channelGram < handle
             % frameBufferID = sprintf("frameBuffer_chg--%s",obj.dfID);
             nexObj.dataFrame = grabDataFrame(nexon, nexObj.dfID,[]);            
             nexObj.DF.df = grabDataFrame(nexon, nexObj.dfID,[]);
-            if isempty(nexObj.DF.df)
-                try
-                    nexObj.DF = dtsIO_readDF(nexon, nexObj.dfID,[]);
-                catch e
-                    disp(getReport(e))
-                end
-            end
             aniArgs = nexObj.aniCfg.entryParams;
             opArgs = nexObj.opCfg.entryParams;
             opArgs.frameNum = nexObj.frameNum; % custom arg for operation sequence
@@ -270,7 +263,6 @@ classdef nexObj_channelGram < handle
         end
 
         function animate(nexObj, nexon, shank)
-            % disp(nexObj.frameNum);
             args = nexObj.aniCfg.entryParams;
             nexAnimate_channelGram(nexon, shank, nexObj, args);
         end               

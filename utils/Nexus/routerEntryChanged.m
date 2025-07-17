@@ -32,8 +32,8 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
         shank = shankList{i};
         scopeList = fieldnames(nexon.console.NPXLS.shanks.(shank).scope);
         for j = 1:length(scopeList)
-            scope = scopeList{j};
-            dfID = nexon.console.NPXLS.shanks.(shank).scope.(scope).dfID; % grab trial-wise corresponding dfID
+            scope = scopeList{j};            
+            dfID = nexon.console.NPXLS.shanks.(shank).scope.(scope).dfID_source; % grab trial-wise corresponding dfID        
             dataFrame = grabDataFrame(nexon, dfID,[]);
             if isempty(dataFrame)
                 try
@@ -46,11 +46,15 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
                 nexon.console.NPXLS.shanks.(shank).scope.(scope).DF.df = dataFrame;
             end
             
-            nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope(nexon);
+            try
+                nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope(nexon);
+            catch
+                nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope();
+            end
         end
     end
     % SLRT UPDATE (apply new dataFrame (set))
-    dfID = nexon.console.SLRT.signals.dfID; % grab current dfID
+    dfID = nexon.console.SLRT.signals.dfIDs; % grab current dfID
     nexon.console.SLRT.signals.dataFrame = compileDataFrames(nexon, dfID);
     nexon.console.SLRT.signals.updateScope(nexon,  []);
     % BASE UPDATE

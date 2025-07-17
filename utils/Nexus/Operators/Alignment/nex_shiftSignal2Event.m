@@ -11,7 +11,8 @@ function [x_shift, t_shift] = nex_shiftSignal2Event(x, t, t_event, dim)
     else
         [tDiff, idx_event] = (min(abs(t-t_event))); % relative to signal time
         [onsetDiff, idx_onset] = min(abs(t));
-        idxShift = idx_event - idx_onset;
+        % idxShift = idx_event - idx_onset;
+        idxShift = idx_onset - idx_event;
         x_shift = circshift(x,idxShift,dim);
         t_shift = t - t(idx_event);
     end

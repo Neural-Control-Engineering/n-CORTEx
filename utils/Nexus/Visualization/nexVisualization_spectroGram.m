@@ -26,6 +26,7 @@ function nexVisualization_spectroGram(nexon, spectroGram, args)
     % xline at parent channelgram timeframe
     tIdx = spectroGram.Parent.frameNum / spectroGram.Parent.opCfg.entryParams.Fs - spectroGram.Parent.preBufferLen;
     nexUpdate_moveSpgXLine(nexon, spectroGram, tIdx);
+    % xline event check
     % xline(spectroGram.spgFigure.panel1.tiles.Axes.spectroGram.Parent,tIdx,"Color",nexon.settings.Colors.cyberGreen);
 
     

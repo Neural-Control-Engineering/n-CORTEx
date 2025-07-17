@@ -43,14 +43,23 @@ function [lineHandle, fillHandle] = plotWithSEM(ax, x, y, sem_y, color, alphaVal
     end
 
     % Handle NaNs gracefully
-    validIdx = isfinite(x) & isfinite(y) & isfinite(sem_y);
+    y(isnan(y))=0;
+    if ~isempty(sem_y)
+        validIdx = isfinite(x) & isfinite(y) & isfinite(sem_y);
+        sem_y = sem_y(validIdx);
+        yFill = [y + sem_y, fliplr(y - sem_y)];
+    else
+        validIdx = isfinite(x) & isfinite(y);        
+        yFill = [y, fliplr(y)];
+    end
     x = x(validIdx);
     y = y(validIdx);
-    sem_y = sem_y(validIdx);
-
     % Construct fill patch
     xFill = [x, fliplr(x)];
-    yFill = [y + sem_y, fliplr(y - sem_y)];
+    
+
+    
+    
 
     hold(ax,"on");
 

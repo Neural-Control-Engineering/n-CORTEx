@@ -1,6 +1,7 @@
 classdef npxls_shank < handle
     properties
         regMap % This will hold any type of data, such as a struct        
+        nexon
         classID
         Parents
         Partners
@@ -15,6 +16,7 @@ classdef npxls_shank < handle
     methods
         % Constructor
         function obj = npxls_shank(nexon)
+            obj.nexon=nexon;
             obj.UserData = struct(); % Initialize as an empty struct
             obj.scope = struct();
             % configure Shank Mapping

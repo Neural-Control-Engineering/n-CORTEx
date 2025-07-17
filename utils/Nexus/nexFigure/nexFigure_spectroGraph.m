@@ -19,11 +19,24 @@ function nexFigure_spectroGraph(nexObj)
     df_phase_slice = squeeze(DF.df(1, 1,:))';
     t_axis = DF.ax.t(1:size(df_phase_slice,2));
     sem_phase_slice = zeros(1,size(df_phase_slice,2));
+    % CANVAS
     [l, p] = plotWithSEM(nexObj.Figure.panel1.tiles.Axes.(nexObj.classID), t_axis, df_phase_slice, sem_phase_slice, [], []);
-    nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_canvas_l",nexObj.classID)) = l;
-    nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_canvas_p",nexObj.classID)) = p;
+    % nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_canvas_l",nexObj.classID)) = l;
+    % nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_canvas_p",nexObj.classID)) = p;
+    nexObj.Figure.panel1.tiles.graphics.("canvas_l") = l;
+    nexObj.Figure.panel1.tiles.graphics.("canvas_p") = p;
+    % tIdx = nexObj.Origin.frameNum / nexObj.Origin.Fs - nexObj.Origin.preBufferLen;
     tIdx = nexObj.Origin.frameNum / nexObj.Origin.Fs - nexObj.Origin.preBufferLen;
-    nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_xLine",nexObj.classID)) = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+    % nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_xLine_time",nexObj.classID)) = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+    % XLINE
+    % frame tracker
+    nexObj.Figure.panel1.tiles.graphics.(("xLine_frame")) = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+    % event marker(s)
+    graphics_eventMarkers = nex_generateEventMarkers(nexObj);
+    % apply time-idx values
+    graphics_eventMarkers = nex_setMarkerValue()
+    % merge graphics
+
     % color mapping
     load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
     colormap(nexObj.Figure.fh,CT);

@@ -6,6 +6,8 @@ classdef nexObj_npxlsTimeCourse < handle
         Children
         dataFrame % This will hold any type of data, such as a struct  
         dfID
+        dfID_source
+        dfID_target
         DF
         UserData
         entryPanel
@@ -22,6 +24,7 @@ classdef nexObj_npxlsTimeCourse < handle
             obj.dataFrame=dataFrame;       
             obj.DF.df = dataFrame;
             obj.dfID = dfID;
+            obj.dfID_source=dfID;
             obj.UserData=struct();
             obj.UserData.Fs = 500;
             obj.UserData.preBufferLen=3.5; % initial lab standard

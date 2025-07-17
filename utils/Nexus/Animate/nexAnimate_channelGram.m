@@ -106,7 +106,7 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
     % writeDf(nexon,frameBufferID, channelGram.frameBuffer,[]);            
     
     % step to next frame    
-    if isempty(channelGram.dataFrame)
+    if isempty(channelGram.dataFrame) % if  not using old 'df'
         % channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.DF_postOp.df,3)-windowLen/2);
         % channelGram.frameNum = mod(channelGram.frameNum+stride,size(channelGram.DF_postOp.df,3));
         channelGram.frameNum = mod(channelGram.frameNum+stride,max(channelGram.frameBuffer.frameIds));

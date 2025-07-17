@@ -8,7 +8,11 @@ function nex_updateChildren(nexon, nexObj)
             try
                 nexObjChild.updateScope(nexon);
             catch e
-                disp(getReport(e));
+                try
+                    nexObjChild.updateScope;
+                catch                    
+                    disp(getReport(e));
+                end
             end
         end
     end

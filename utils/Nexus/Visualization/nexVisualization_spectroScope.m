@@ -8,7 +8,7 @@ function nexVisualization_spectroScope(nexObj, args)
     zLim_low = args.zLim_low; % default = -13
     zLim_high = args.zLim_high; % default = -7
 
-    % format spec params
+    % draw regMap colored specParams
     DF_specParam = nexObj.DF_postOp;
     
 end

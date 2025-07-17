@@ -6,8 +6,10 @@ function DF = dtsIO_composeDF(DTS, DFID, dtsIdx)
     DF = struct;
     for i = 1:length(vars)
         var = vars(i);
-        subField = strrep(var,strcat(DFID),"");
-        subField = strrep(subField,"_","");
+        % subField = strrep(var,strcat(DFID),"");
+        subField = split(var,"_");
+        subField = subField(end);
+        % subField = strrep(subField,"_","");
         % type sensitive here...
         df_var = DTS.(var){dtsIdx};
         if any(contains(axisKeyWords, subField))

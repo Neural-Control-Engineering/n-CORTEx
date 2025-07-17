@@ -35,7 +35,10 @@ classdef nexObj_spectroScope < handle
             function  nexObj = nexObj_spectroScope(nexon, Partner, opFcn)
                 nexObj.classID = "spscp";
                 nexObj.nexon = nexon;
-                nexObj.Parent = Partner.Parent;                
+                nexObj.Parent = Partner.Parent;
+                % turn into add Parent fcn for shank later
+                nexObj.Parent.scope.(sprintf("%s_1",nexObj.classID))=nexObj;
+                nexObj.Origin = Partner.Origin;
                 nexObj.nexon.console.BASE.nexObjs.spscp_1=nexObj;
                 % obj.Partner = Partner;
                 % Parent.Children.(("spectroScope1")) = obj;
@@ -98,6 +101,11 @@ classdef nexObj_spectroScope < handle
                 maskIdx_nums = find(maskIdx==1);
                 DF_sel = dtsIO_readDF(nexObj.nexon,DFID,maskIdx_nums);
                 t_min = min(cellfun(@(DF) size(DF.df,3), DF_sel, "UniformOutput", true));
+                % slrt alignment selection
+                S_slrt = nex_returnSelectionMask(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
+                alignColTags = split(S_slrt.events,"_");                
+                tColID = sprintf("%s_aligned_%s_time",alignColTags(1),alignColTags(2));
+                tCol_slrt = dtsIO_readDF(nexObj.nexon,tColID,maskIdx_nums);                
                 % t_max =
                 % DF_mean = DF_sel{1};
                 n_avg = size(DF_sel,1);
@@ -108,11 +116,16 @@ classdef nexObj_spectroScope < handle
                     DF_i.df = DF_i.df(:,:,1:t_min);
                     %% FORMATTING                
                     DF_form = formatSpecs(DF_i,"timeFrequency",nexObj.map_specs.Map);
-                   %% ALIGNMENT (skip for now)
-                    % nexAlign_signals()
-                    DF_aligned = DF_form;
+                   %% ALIGNMENT (skip for now)                    
+                    t_slrt = tCol_slrt{i}.time;
+                    fs_slrt = nexObj.nexon.console.SLRT.signals.UserData.Fs;
+                    t_preBuff = nexObj.preBufferLen;
+                    DF_aligned = DF_form;                    
+                    % [dfCol_aligned, tCol_aligned] = nexAlign_signals(DF_form.df, DF_form.ax.t, t_slrt, fs_slrt, t_preBuff,3);            
+                    [df_aligned, t_aligned] = structfun(@(df) nexAlign_signals(df, DF_form.ax.t, {t_slrt}, fs_slrt, t_preBuff, 3), DF_aligned.df, "UniformOutput", false);
+                    DF_aligned.df = structfun(@(df) df{1,1}, df_aligned, "UniformOutput", false);
+                    DF_aligned.ax.t = t_aligned.OFF{1,1};
                     % trim t-axis
-
                     % POOL
                     DF_apForm = DF_aligned;
                     [DF_apForm.df, binIDs_chans, binTicks_chans] = structfun(@(df) nexAnalysis_averagePool(df, nexObj.pMap_chans, 1, DF_aligned.ax.chans), DF_aligned.df, "UniformOutput", false);
@@ -164,6 +177,7 @@ classdef nexObj_spectroScope < handle
                 nex_storeAverage(nexObj, nexObj.DF_postOp);
                 %% VISUALIZATION
                 nexObj.visualize();
+                nex_updateChildren(nexObj.nexon, nexObj);
 
             end
 
@@ -187,6 +201,11 @@ classdef nexObj_spectroScope < handle
                 % dfIDtarget = sprintf("%s--%s",nexObj.classID,func2str())
                 % nexAnalysis_scaleAnalysis(nexObj.nexon, nexObj.classID, nexObj.opCfg.opFcn, nexObj.opCfg.entryParams, dfIDsource, nexObj.dfID_target,[]);
                 nexAnalysis_scaleAnalysis(nexObj.nexon, nexObj.classID, nexObj.opCfg.opFcn, nexObj.opCfg.entryParams, dfIDsource, [] ,[]);
+            end
+
+            function addChild(nexObj)
+                nexObj_spgphSP = nexObj_spectroGraph_specs([],nexObj,[],[],[]);
+                nexObj.Children.(sprintf("%s_1",nexObj_spgphSP.classID))=nexObj_spgphSP;
             end
 
             function exportTrainingDataset(nexObj)

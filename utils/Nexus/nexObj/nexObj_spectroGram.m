@@ -26,52 +26,52 @@ classdef nexObj_spectroGram < handle
     
     methods
         % Constructor
-        function obj = nexObj_spectroGram(nexon, channelGram, dataFrame, dfID, f, t, opFcn, visFcn)            
-            obj.nexon = nexon;
-            obj.Origin = channelGram;
-            obj.Parent = channelGram;
-            obj.DF = obj.Parent.DF_postOp;
-            obj.DF_postOp.df=[]; obj.DF_postOp.ax.t=[]; obj.DF_postOp.ax.f=[];
-            obj.dataFrame=dataFrame;            
-            obj.dfID = dfID;
-            obj.f = f;
-            obj.t = t;            
+        function nexObj = nexObj_spectroGram(nexon, channelGram, dataFrame, dfID, f, t, opFcn, visFcn)            
+            nexObj.nexon = nexon;
+            nexObj.Origin = channelGram;
+            nexObj.Parent = channelGram;
+            nexObj.DF = nexObj.Parent.DF_postOp;
+            nexObj.DF_postOp.df=[]; nexObj.DF_postOp.ax.t=[]; nexObj.DF_postOp.ax.f=[];
+            nexObj.dataFrame=dataFrame;            
+            nexObj.dfID = dfID;
+            nexObj.f = f;
+            nexObj.t = t;            
             % operation function
             if ~isempty(opFcn)
-                obj.opCfg.opFcn = opFcn;
+                nexObj.opCfg.opFcn = opFcn;
             else
-                obj.opCfg = struct;
+                nexObj.opCfg = struct;
             end
             try
-                obj.opCfg.entryParams = extractMethodCfg(rmExtension(func2str(opFcn)));
+                nexObj.opCfg.entryParams = extractMethodCfg(rmExtension(func2str(opFcn)));
             catch e
                 disp(getReport(e));
-                obj.opCfg.entryParams = struct;
-                obj.opCfg.opFcn=[];
+                nexObj.opCfg.entryParams = struct;
+                nexObj.opCfg.opFcn=[];
             end
             % visualization function
-            obj.visCfg.visFcn = visFcn;
+            nexObj.visCfg.visFcn = visFcn;
             try
-                obj.visCfg.entryParams = extractMethodCfg(rmExtension(func2str(visFcn)));
+                nexObj.visCfg.entryParams = extractMethodCfg(rmExtension(func2str(visFcn)));
             catch e
                 disp(getReport(e));
-                obj.visCfg.entryParams = struct;
+                nexObj.visCfg.entryParams = struct;
             end
-            obj.UserData = struct;
-            obj.UserData.chanSel = 1;
+            nexObj.UserData = struct;
+            nexObj.UserData.chanSel = 1;
             % state Cfgs
-            obj.isOnline=1;
-            obj.isStatic=1;
+            nexObj.isOnline=1;
+            nexObj.isStatic=1;
             % DRAW SPECTROGRAM
-            nexPlot_spectroGram(nexon, obj);            
+            nexPlot_spectroGram(nexon, nexObj);
             % dfToPool = dataFrame(obj.UserData.chanSel,:,:);
             % [poolDf, b] = poolBands(nexon.console.BASE.params.bands, obj.f, dfToPool);            
             % obj.bPool = nexObj_bandPool(nexon, obj, b, t, [], poolDf, []);
         end
 
-        function updateScope(obj, nexon)
-            nexUpdate_spectroGram(nexon, obj);  
-            nex_updateChildren(nexon, obj);
-        end          
+        function updateScope(nexObj, nexon)
+            nexUpdate_spectroGram(nexon, nexObj);  
+            nex_updateChildren(nexon, nexObj);
+        end        
     end
 end

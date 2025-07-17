@@ -35,6 +35,7 @@ function nexObj = nexFigure_channelGram(nexObj)
     % User Input Buttons/Fields
     nexObj.Figure.playButton = uibutton(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)nexPlayPause(nexObj),"Position",[5,770,25,25]); % next            
     nexObj.Figure.scaleAnalysisButton = uibutton(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"ButtonPushedFcn",@(~,~)nexObj.scaleAnalysis(),"Position",[240,770,25,25]);
+    nexObj.Figure.addChildButton = uibutton(nexObj.Figure.fh,"BackgroundColor",[0,0,0], "ButtonPushedFcn",@(~,~)nexObj.addChild(),"Position",[270,770,25,25]);
     updateDfIDFcn = str2func("nexUpdate_dfID");
     updateOpFcnFcn = str2func("nexUpdate_opFcn");
     nexObj.Figure.dfIDEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexon.settings.Colors.cyberGreen,"Position",[500, 770, 145, 25], "Value",nexObj.dfID,"ValueChangedFcn",@(src,event)updateDfIDFcn(src,event,nexon,nexObj));

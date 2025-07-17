@@ -12,37 +12,39 @@ function nexFigure_spectroGraph_specs(nexObj)
     entryFormArgs.entryHeightScaler=50;
     nexObj.Figure.panel2 = nexObj_cfgPanel_spinner(nexObj.nexon,nexObj,nexObj.Figure.panel2,nexObj.visCfg.entryParams,visCfgEntryChangedFcn,entryFormArgs);
     % plot axes (one for each spec)
-    DF = nexObj.DF;
-    specFields = fieldnames(DF.df);
-    nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,length(specFields),1);    
-    tIdx = nexObj.Origin.frameNum / nexObj.Origin.Fs - nexObj.Origin.preBufferLen;
-    for i = 1:length(specFields)
-        specField = specFields{i};
-        % make an axis
-        axID = sprintf("%s_%s", nexObj.classID, specField);
-        nexObj.Figure.panel1.tiles.Axes.(axID) = nexttile(nexObj.Figure.panel1.tiles.t);
-        ax_canvas = nexObj.Figure.panel1.tiles.Axes.(axID);
-        % data slicing/formatting
-        df_specPhase_slice = squeeze(DF.df.(specField)(1,1,:))';
-        if isfield(DF,"sem")
-            sem_specPhase_slice = squeeze(DF.sem.(specField)(1,1,:))';
-        else
-            sem_specPhase_slice = zeros(size(df_specPhase_slice));
-        end        
-        t_axis=DF.ax.t;
-        [l_phase, p_phase] = plotWithSEM(ax_canvas, t_axis, df_specPhase_slice, sem_specPhase_slice,[],[]);
-        if isfield(DF,"avgCfg")
-            ID_phase=DF.avgCfg.phase;
-        else
-            ID_phase="single";
-        end
-        ID_l_specPhase=sprintf("%s_canvas_l_%s_%s", nexObj.classID,specField,strrep(ID_phase,"-","x"));
-        ID_p_specPhase=sprintf("%s_canvas_p_%s_%s", nexObj.classID,specField,strrep(ID_phase,"-","x"));
-        ID_xLine_specPhase=sprintf("%s_canvas_xLine_%s_%s",nexObj.classID,specField,strrep(ID_phase,"-","x"));
-        nexObj.Figure.panel1.tiles.graphics.(ID_l_specPhase) = l_phase;
-        nexObj.Figure.panel1.tiles.graphics.(ID_p_specPhase) = p_phase;
-        nexObj.Figure.panel1.tiles.graphics.(ID_xLine_specPhase) = xline(ax_canvas, tIdx, "Color", nexObj.nexon.settings.Colors.cyberGreen);
-        colorAx_green(nexObj.Figure.panel1.tiles.Axes.(axID));
+    DF = nexObj.DF_postOp;
+    if ~isempty(DF.df)
+        specFields = fieldnames(DF.df);
+        nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,length(specFields),1);    
+        tIdx = nexObj.Origin.frameNum / nexObj.Origin.Fs - nexObj.Origin.preBufferLen;
+        for i = 1:length(specFields)
+            specField = specFields{i};
+            % make an axis
+            axID = sprintf("%s_%s", nexObj.classID, specField);
+            nexObj.Figure.panel1.tiles.Axes.(axID) = nexttile(nexObj.Figure.panel1.tiles.t);
+            ax_canvas = nexObj.Figure.panel1.tiles.Axes.(axID);
+            % data slicing/formatting
+            df_specPhase_slice = squeeze(DF.df.(specField)(1,1,:))';
+            if isfield(DF,"sem")
+                sem_specPhase_slice = squeeze(DF.sem.(specField)(1,1,:))';
+            else
+                sem_specPhase_slice = zeros(size(df_specPhase_slice));
+            end        
+            t_axis=DF.ax.t;
+            [l_phase, p_phase] = plotWithSEM(ax_canvas, t_axis, df_specPhase_slice, sem_specPhase_slice,[],[]);
+            if isfield(DF,"avgCfg")
+                ID_phase=DF.avgCfg.phase;
+            else
+                ID_phase="single";
+            end
+            ID_l_specPhase=sprintf("%s_canvas_l_%s_%s", nexObj.classID,specField,strrep(ID_phase,"-","x"));
+            ID_p_specPhase=sprintf("%s_canvas_p_%s_%s", nexObj.classID,specField,strrep(ID_phase,"-","x"));
+            ID_xLine_specPhase=sprintf("%s_canvas_xLine_%s_%s",nexObj.classID,specField,strrep(ID_phase,"-","x"));
+            nexObj.Figure.panel1.tiles.graphics.(ID_l_specPhase) = l_phase;
+            nexObj.Figure.panel1.tiles.graphics.(ID_p_specPhase) = p_phase;
+            nexObj.Figure.panel1.tiles.graphics.(ID_xLine_specPhase) = xline(ax_canvas, tIdx, "Color", nexObj.nexon.settings.Colors.cyberGreen);
+            colorAx_green(nexObj.Figure.panel1.tiles.Axes.(axID));
+        end    
     end
    
     % nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,1,1);
