@@ -69,7 +69,7 @@ function nexVisualization_spectroGraph_specs(nexObj, args)
                     nex_updateBoundedLineData(l_phase, p_phase, t_axis, df_specPhase_slice, sem_specPhase_slice, (color), alphaVal);                    
                 else % generate new
                     [l_phase, p_phase] = plotWithSEM(ax_canvas,t_axis,df_specPhase_slice,sem_specPhase_slice,hex2rgb(color),alphaVal);
-                    colorAx_green(ax_canvas);
+                    colorAx_green(ax_canvas);                    
                     % add graphics handles to figure tree
                     nexObj.Figure.panel1.tiles.graphics.(ID_l_specPhase) = l_phase;
                     nexObj.Figure.panel1.tiles.graphics.(ID_p_specPhase) = p_phase;
@@ -112,6 +112,8 @@ function nexVisualization_spectroGraph_specs(nexObj, args)
             else % generate new
                 l_spec = plotWithSEM(ax_canvas, t_axis, df_spec_slice, [], color_single, alphaVal);
                 colorAx_green(ax_canvas);
+                % add event Markers
+                nexObj.Figure.panel1.tiles.graphics.(sprintf("eventMarkers_%s",specField)) = nex_generateEventMarkers(nexObj, ax_canvas);
                 % add graphcis handles to figure tree
                 nexObj.Figure.panel1.tiles.graphics.(ID_l_spec) = l_spec;
             end

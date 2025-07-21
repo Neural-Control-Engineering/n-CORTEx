@@ -60,6 +60,8 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
     % BASE UPDATE
     nexon.console.BASE.UserData.prevRouter.entryParams=nexon.console.BASE.router.entryParams; % keep track of most recent entryParams
     % grabDataFrame(nexon,"lfp");
+    % broadcase 'trialChanged' trigger
+    nexon.console.BASE.controlPanel.trig_trialChanged=~(nexon.console.BASE.controlPanel.trig_trialChanged);
 end
 
 % rw=6;

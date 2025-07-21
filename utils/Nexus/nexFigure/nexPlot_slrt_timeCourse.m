@@ -19,6 +19,7 @@ function nexObj = nexPlot_slrt_timeCourse(nexon, nexObj)
     % nexObj.Figure.panel1.tiles.s = tiledlayout(nexObj.Figure.panel1.ph,numTiles,1,"TileSpacing","tight"); 
     numTiles = size(dfIDs,1);    
     nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,"flow","TileSpacing","tight"); 
+    nexObj.Figure.panel1.tiles.graphics=struct;
     dfFields = fieldnames(DF.df);
     for i = 1:numTiles
         % dfID = dfIDs(i);
@@ -29,14 +30,20 @@ function nexObj = nexPlot_slrt_timeCourse(nexon, nexObj)
         % t_df = DF.ax.t.(sprintf("%s_time",dfField));
         t_df = DF.ax.t.(dfField);
         % dfID_i = dfID(i); % string array
-        tileID = sprintf("tile%s",dfField);
-        nexObj.Figure.panel1.tiles.Axes.(tileID) = nexttile(nexObj.Figure.panel1.tiles.t);        
+        tileID = sprintf("tile_%s",dfField);
+        ax_canvas = nexttile(nexObj.Figure.panel1.tiles.t);        
+        nexObj.Figure.panel1.tiles.Axes.(tileID) = ax_canvas;                
+        axID = sprintf("xMarkers_%s",dfIDs(i));        
         % traceColor = sprintf("#%s",regMap(regMap.channel==i,:).color{1});
         traceColor = [1,1,1]; % temporary default
         % regName = regMap(regMap.channel==i,:).region{1};
         plot(nexObj.Figure.panel1.tiles.Axes.(tileID),t_df,df_i,"Color",traceColor);
+        hold(ax_canvas,"on");
         % nexObj.Figure.panel1.tiles.Axes.(tileID).YLabel.String = sprintf("%s", dfID_i);                       
         nexObj.Figure.panel1.tiles.Axes.(tileID).YLabel.String = sprintf("%s", dfField);                       
         colorAx_green(nexObj.Figure.panel1.tiles.Axes.(tileID));        
+        graphics = nex_generateEventMarkers(nexObj,ax_canvas);
+        nexObj.Figure.panel1.tiles.graphics.(axID) = graphics;
+        hold(ax_canvas,"off");
     end
 end
