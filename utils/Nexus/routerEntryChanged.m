@@ -54,9 +54,13 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
         end
     end
     % SLRT UPDATE (apply new dataFrame (set))
-    dfID = nexon.console.SLRT.signals.dfIDs; % grab current dfID
-    nexon.console.SLRT.signals.dataFrame = compileDataFrames(nexon, dfID);
-    nexon.console.SLRT.signals.updateScope(nexon,  []);
+    try
+        dfID = nexon.console.SLRT.signals.dfIDs; % grab current dfID
+        nexon.console.SLRT.signals.dataFrame = compileDataFrames(nexon, dfID);
+        nexon.console.SLRT.signals.updateScope(nexon,  []);
+    catch e
+        disp(getReport(e))
+    end
     % BASE UPDATE
     nexon.console.BASE.UserData.prevRouter.entryParams=nexon.console.BASE.router.entryParams; % keep track of most recent entryParams
     % grabDataFrame(nexon,"lfp");

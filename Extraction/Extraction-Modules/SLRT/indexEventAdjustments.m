@@ -7,7 +7,7 @@ function SLRT = indexEventAdjustments(SLRT, Fs)
     event_inds = find(strcmp(signal_types(:,2), 'event'));
     for e = 1:length(event_inds)
         event_name = signal_types{event_inds(e),1};
-        % find event-coupled advances of delays (keywords)
+        % find event-coupled advances or delays (keywords)
         % eventAdvances = find(SLRT.Properties.VariableNames);
         inds_eventAdj = find(strcmp(slrtCols,sprintf("%s_advance",event_name))|strcmp(slrtCols,sprintf("%s_delay",event_name)));
         for i = 1:length(inds_eventAdj) % for now, should only be 1 or 0
