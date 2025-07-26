@@ -5,20 +5,19 @@ classdef poolMap_time < handle
         binType="linear"
         binTypes=["linear","event"]
         Map
-        source_Map
+        source_Map=[]
         bins
         spans
         colors
     end
     methods
-        function poolMap = poolMap_time(events, source)
-            poolMap.Map=events;
-            poolMap.source_Map=source;
+        function poolMap = poolMap_time(IDs_events, source)            
+            poolMap.Map = nexGenerate_eventMap(IDs_events);
         end
         function [binEdges, binIDs] = getBinEdges(poolMap, axis)
             switch poolMap.binType
                 case "event"
-                    
+                    % bin by before/after selected event
                 case "linear"
                     binEdges = [axis(1):poolMap.divsPerBin:axis(end)]';
                     % channel ranges

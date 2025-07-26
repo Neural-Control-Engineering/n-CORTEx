@@ -4,6 +4,7 @@ classdef nexObj_spectroGraph_specs < handle
         nexon
         Origin
         Parent
+        preBuffLen=3.5
         DF
         DF_postOp
         dfID_source

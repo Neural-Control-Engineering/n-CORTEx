@@ -6,7 +6,9 @@ classdef nexObj_controlPanel < handle
         Partners
         Figure
         averagingSelection
-
+    end
+    properties (SetObservable)
+        trig_trialChanged=0
     end
     methods
         % CONSTRUCTOR

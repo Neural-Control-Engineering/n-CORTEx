@@ -5,9 +5,12 @@ classdef nexObj_slrtTimeCourse < handle
         DF
         nexon
         dfIDs
+        Fs=1000
+        preBuffLen=3.5
         UserData
         entryPanel
         Figure
+        pMap_time
         eventAlignmentSelection
     end
     
@@ -20,10 +23,12 @@ classdef nexObj_slrtTimeCourse < handle
             nexObj.dfIDs = dfIDs;
             nexObj.UserData=struct();
             nexObj.UserData.colorMap = [];
+            nexObj.Fs=1000;
             nexObj.UserData.Fs = 1000;
             [nexObj.eventAlignmentSelection, IDs_signals] = nexSelect_eventAlignment(nexObj, dfIDs);
             nexObj.dfIDs = IDs_signals;
             IDs_events = nexObj.eventAlignmentSelection.selKeys.events;
+            nexObj.pMap_time = poolMap_time(IDs_events);
             nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, IDs_events);
             nexObj = nexPlot_slrt_timeCourse(nexon, nexObj);
         end
