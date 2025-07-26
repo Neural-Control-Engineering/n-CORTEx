@@ -16,7 +16,11 @@ classdef nexObj_xMarker_event < handle
         function updateXValue(nexObj)
             % self-deduce (using parentObj) new xValue and reassign
             newXVal = nex_getEventTime(nexObj);
-            nexObj.xLine.Value = newXVal;
+            if ~isnan(newXVal) & ~isempty(newXVal)
+                nexObj.xLine.Value = newXVal;
+            else
+                nexObj.xLine.Value = 0;
+            end
         end
     end
 end

@@ -203,6 +203,15 @@ classdef nexObj_spectroScope < handle
                 nexAnalysis_scaleAnalysis(nexObj.nexon, nexObj.classID, nexObj.opCfg.opFcn, nexObj.opCfg.entryParams, dfIDsource, [] ,[]);
             end
 
+            function nexport(nexObj)
+                labelIDs = [];
+                nexportArgs = extractMethodCfg('nexport_ML');
+                exportFcn = str2func("expIO_rtSpec");
+                DFID_target = sprintf("%s--%s",nexObj.classID, nexObj.dfID_target);
+                DFID_source = sprintf("%s--%s",nexObj.Partners.chg.classID, nexObj.dfID_source);
+                nexport_ML(nexObj.nexon, DFID_target, DFID_source, labelIDs, exportFcn, nexportArgs)
+            end
+
             function addChild(nexObj)
                 nexObj_spgphSP = nexObj_spectroGraph_specs([],nexObj,[],[],[]);
                 nexObj.Children.(sprintf("%s_1",nexObj_spgphSP.classID))=nexObj_spgphSP;

@@ -16,9 +16,10 @@ classdef nexObj_slrtTimeCourse < handle
     
     methods
         % Constructor
-        function nexObj = nexObj_slrtTimeCourse(nexon, dfIDs)
+        function nexObj = nexObj_slrtTimeCourse(nexObj_parent, dfIDs)    
+            nexObj_parent.signals=nexObj;
             nexObj.classID = "tc_slrt";
-            nexObj.nexon = nexon;
+            nexObj.nexon = nexObj_parent.nexon;
             % nexObj.dataFrame=dataFrame;            
             nexObj.dfIDs = dfIDs;
             nexObj.UserData=struct();
@@ -30,7 +31,7 @@ classdef nexObj_slrtTimeCourse < handle
             IDs_events = nexObj.eventAlignmentSelection.selKeys.events;
             nexObj.pMap_time = poolMap_time(IDs_events);
             nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, IDs_events);
-            nexObj = nexPlot_slrt_timeCourse(nexon, nexObj);
+            nexObj = nexPlot_slrt_timeCourse(nexObj.nexon, nexObj);
         end
 
         function updateScope(nexObj,  nexon, parent)  

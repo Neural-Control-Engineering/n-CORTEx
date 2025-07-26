@@ -11,9 +11,19 @@ function DF_specs = spectralParameterization(DF_chg, args)
     peakThreshold = args.peakThreshold; % default = 2
     chanRange_start  = args.chanRange_start; % default = 1
     chanRange_end = args.chanRange_end; % default = 384
+    fRange_start = args.fRange_start; % default = 1
+    fRange_end = args.fRange_end; % default = 50
 
     df_chg = DF_chg.df;
     f = DF_chg.ax.f;
+    fCond = (f>=fRange_start)&(f<=fRange_end);
+    f = f(fCond);
+    df_chg = df_chg(:,fCond,:);
+    t = DF_chg.ax.t;
+    tRange_start=1;
+    tRange_end=1.5;
+    tCond = (t>=tRange_start)&(t<=tRange_end);
+    df_chg=df_chg(:,:,tCond);
     % specparam inputs
     % peak_width_limits = py.tuple([peakWidth_min, peakWidth_max]);
     % max_n_peaks = py.int(numPeaks_max);
@@ -43,7 +53,11 @@ function DF_specs = spectralParameterization(DF_chg, args)
         % data inputs
         freqs = py.numpy.array(double(f), pyargs('dtype', 'int64'));
         spectra = squeeze(dfBuffer(i,:,:));
-        spectra = py.numpy.array(double(10.^(squeeze(spectra)))/10,pyargs('dtype','float64'));
+        spectra_deLog = double(10.^(squeeze(spectra)/10));
+        % figure; plot(spectra_deLog(10,:));
+        % figure; plot(10*log10(spectra_deLog(10,:)));
+        % spectra = py.numpy.array(double(10.^(squeeze(spectra)))/10,pyargs('dtype','float64'));
+        spectra = py.numpy.array(spectra_deLog,pyargs('dtype','float64'));
         % spectraGPU = py.cupy.asarray(spectra);
         % instantiate spectralFittingModel
         specParam = py.importlib.import_module('specparam');        
@@ -55,6 +69,7 @@ function DF_specs = spectralParameterization(DF_chg, args)
         [specs, scores] = cellfun(@(x) formatSpecParamOutputs(x, args), specs, "UniformOutput", false);
         specs = cell2mat(specs);
         scores = cell2mat(scores);
+        % figure; plot()
         S{i} = specs;
         R{i} = scores;
     end     
@@ -65,5 +80,5 @@ function DF_specs = spectralParameterization(DF_chg, args)
     DF_specs.ax.t = DF_chg.ax.t;
     DF_specs.ax.chans = chanRange;
     DF_specs.scores = permute(cat(3,R{:}),[3,2,1]);
-  
+    DF_tgt=DF_specs;
 end

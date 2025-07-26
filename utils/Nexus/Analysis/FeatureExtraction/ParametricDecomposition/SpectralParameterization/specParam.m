@@ -1,54 +1,28 @@
-function DF_specs = specParam(DF_chg, args)
-    % INPUTS: df_chg --> 'channelgram' derived dataframe containing PSD
-    % group
-    % OUTPUTS: df_specs --> spectral parameterization time series
-
-    % CFG HEADER
-    peakWidth_min = args.peakWidth_min; % default = 2
-    peakWidth_max = args.peakWidth_max; % default = 8    
-    numPeaks_max = args.numPeaks_max; % default = 8
-    peakHeight_min = args.peakHeight_min; % default = 0.2    
-    peakThreshold = args.peakThreshold; % default = 2
-    chanRange_start  = args.chanRange_start; % default = 1
-    chanRange_end = args.chanRange_end; % default = 384
-
-    df_chg = DF_chg.df;
-    f = DF_chg.ax.f;
-    % specparam inputs
-    peak_width_limits = py.tuple([peakWidth_min, peakWidth_max]);
-    max_n_peaks = py.int(numPeaks_max);
-    min_peak_height = py.int(peakHeight_min);
-    peak_threshold = py.int(peakThreshold);
-    aperiodic_mode = py.str(aperiodicMode);
-    % data inputs
+function [specs, scores] = specParam(f, spectra, args, version)
+    % specparam inputs    
+    peak_width_limits = py.tuple([args.peakWidth_min, args.peakWidth_max]);
+    max_n_peaks = py.int(args.numPeaks_max);
+    min_peak_height = py.int(args.peakHeight_min);
+    peak_threshold = py.int(args.peakThreshold);
+    % dataframing
     freqs = py.numpy.array(double(f), pyargs('dtype', 'int64'));
-    spectra = py.numpy.array(double(10.^(squeeze(df_chg(16,:,:))'/10)), pyargs('dtype', 'float64')); % de-log
-
-    % instantiate spectralFittingModel
-    specParam = py.importlib.import_module('specparam');    
-    fg = specParam.SpectralGroupModel(peak_width_limits, max_n_peaks, min_peak_height, peak_threshold);
-    fg.fit(freqs, spectra);
-
-    % cast results
-    specs = fg.group_results;
-    specs = cell((specs))';
-    specs = cellfun(@(x) extractSpecParamOutputs(x), specs, "UniformOutput", true);
-    specsTable = struct2table(specs(:));
-
-    % load to cuda
-    chanRange = [chanRange_start : chanRange_end];
-    gpuBuffer = gpuArray(single(df_chg(chanRange,:)'));
-    % gpuBuffer = downsample(gpuBuffer,1);        
-    gpuBuffer = gpuBuffer';    
-    S = {};
-    F = {};    
-    % for each channel
-    parfor i = 1:size(gpuBuffer,1)
-        x = gpuBuffer(i,:)';
-        [S{i}, F{i}] = (PMTM_magnitude(x, Fs, 1));
+    spectra_deLog = double(10.^(squeeze(spectra)/10));
+    spectra = py.numpy.array(spectra_deLog,pyargs('dtype','float64'));
+    % module import
+    switch version
+        case "fooof"
+            specparam = py.importlib.import_module('fooof')
+            % Initialize a FOOOFGroup object, specifying some parameters
+            fg = specparam.FOOOFGroup(peak_width_limits=peak_width_limits, max_n_peaks=max_n_peaks,min_peak_height=min_peak_height,peak_threshold=peak_threshold);                        
+        case "specparam"
+            specParam = py.importlib.import_module('specparam');               
+            % Initialize a FOOOFGroup object, specifying some parameters
+            fg = specParam.SpectralGroupModel(peak_width_limits, max_n_peaks, min_peak_height, peak_threshold);                      
     end
-
-    % fit to DF
-
-
+    % Fit specparam model across the matrix of power spectra
+    fg.fit(freqs, spectra)
+    specs = fg.group_results;
+    % MATLAB Formatting
+    specs = cell((specs))';
+    [specs, scores] = cellfun(@(x) formatSpecParamOutputs(x, args), specs, "UniformOutput", false);
 end
