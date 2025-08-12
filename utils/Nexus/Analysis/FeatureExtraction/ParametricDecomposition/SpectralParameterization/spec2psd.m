@@ -60,3 +60,5 @@ function psd = spec2psd(f_spec, spec, aperiodic_mode, periodic_mode)
             % psd = psd+10*log10(OFF);
     end
 end
+
+% delete(findall(nexon.console.NPXLS.shanks.shank1.scope.channelGram1.Figure.panel1.ph.Parent,'Type','datatip'));
