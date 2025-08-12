@@ -47,7 +47,9 @@ elseif ispc
         paths.all_data_path = strcat('G:\My Drive\Projects\',source);
         % paths.projDir_cloud = strcat('G:\My Drive\Projects\',source);
         % paths.projDir_local = fullfile('C:','SGL_Data',source);
-        paths.projDir_cloud = fullfile("I:\",source);
+        % paths.projDir_cloud = fullfile("I:\",source);
+        % paths.projDir_local = fullfile("C:\nCORTEx_local",source);
+        paths.projDir_cloud = fullfile("X:\",source);
         paths.projDir_local = fullfile("C:\nCORTEx_local",source);
 
         % Path for raw npxls data
@@ -68,9 +70,9 @@ elseif ispc
         paths.repo_path = 'C:\Code_Repo';
         
         % Drive letter for analyzed data in customary file structure        
-        paths.all_data_path = strcat('I:',source);
-        paths.projDir_cloud = strcat('I:',source);
-        paths.projDir_local = fullfile('C:','nCORTEx_local',source);   
+        paths.all_data_path = strcat('I:\',source);
+        paths.projDir_cloud = strcat('I:\',source);
+        paths.projDir_local = fullfile('C:\','nCORTEx_local',source);   
     % Perceptron
     elseif strcmp(getenv("COMPUTERNAME"),'DESKTOP-PHRH7S9')
         paths.projDir_cloud = fullfile("I:\",source);
@@ -103,6 +105,7 @@ elseif ispc
     end
 elseif isunix
     hostname = getenv("USER");    
+    paths.repo_path = 'C:\Code_Repo';
     % paths.repo_path = 'C:\STATIC';
 
     % Kilosort repository

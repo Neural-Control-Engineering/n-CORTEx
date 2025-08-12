@@ -7,8 +7,12 @@ function sessionPaths = recoverSessionPaths(hostName)
        load("Setup/nCORTExCache.mat",'cache');
        hostFields = fieldnames(cache);
        if any(contains(hostFields,hostName))
-           sessionPaths.modulePath = cache.(hostName).modulePath;
-           sessionPaths.projectPath = cache.(hostName).projectPath;
+            if isfield(cache.(hostName),"modulePath") && isfield(cache.(hostName),"projectPath")
+               sessionPaths.modulePath = cache.(hostName).modulePath;
+               sessionPaths.projectPath = cache.(hostName).projectPath;
+            else
+               sessionPaths = [];
+            end
        else
            % first time seeing this host, return empty
            cache.(hostName) = struct;

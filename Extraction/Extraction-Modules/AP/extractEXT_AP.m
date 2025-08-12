@@ -1,4 +1,4 @@
-function AP = extractEXT_AP(SLRT, dataDir)
+function AP = extractEXT_AP(SLRT, dataDir, session)
     % DONE - add session labels 
     % DONE - align spike times to all events 
     % DONE - merge spiking data and cluster info
@@ -9,12 +9,15 @@ function AP = extractEXT_AP(SLRT, dataDir)
     sortedTrigs = sortedTrigs.name;
     sortedTrigs = sortedTrigs(contains(sortedTrigs,"sorted"));
     numTrigs = size(sortedTrigs,1);
-    for j = 1:numTrigs              
-        sortedFldr = sortedTrigs{i};
-        kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
-        lfpPath = fullfile(imecPath,sortedFldr);
-        AP = extAP(SLRT, kSortPath);
-        % LFP = extLFP(SLRT, lfpPath);
+    AP = [];
+    for j = 1:numTrigs % visit each trial-gate                            
+        sortedFldr = sortedTrigs{j};
+        % kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
+        npxlsPath = fullfile(strcat("\\?\",imecPath),sortedFldr);
+        expmntLabel = strrep(string(sortedTrigs{j}),"_sorted","");
+        [trigNum, gateNum] = decodeTrigger(expmntLabel);
+        AP = [AP; extAP(SLRT, npxlsPath, trigNum+1)];
+        % LFP = extLFP(SLRT, lfpPath);      
     end
     
 end

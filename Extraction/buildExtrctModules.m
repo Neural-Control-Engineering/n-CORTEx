@@ -11,6 +11,7 @@ function extrctModules = buildExtrctModules(params, extrctModFcnPath, extrctModF
             % extrctFuncs = string(categorize(fullfile(params.paths.stem,"Code_Repo","n-CORTEx","Extraction","Extraction-Modules",extMod),"extract"));
             extrctFuncs = string(categorize(fullfile(extrctModFcnPath,extMod),"extract"));
             extrctFuncs = strrep(extrctFuncs,".m","");
+            extrctFuncs = strrep(extrctFuncs,".asv","");
             for j = 1:length(extrctFuncs)
                 extrctFunc = extrctFuncs(j);
                 mod = split(extrctFunc,'_');

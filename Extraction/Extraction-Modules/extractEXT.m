@@ -26,12 +26,12 @@ function extractEXT(params)
             for i = 1:numSessions
                 session = sessions{i};
                 slrtFile = fullfile(params.paths.Data.RAW.SLRT.cloud,session);
-                SLRT = extractEXT_SLRT(slrtFile);
+                [SLRT, slrtFile] = extractEXT_SLRT(slrtFile);
                 % BOOST FCN
                 if isfield(extractCfg.EXT,"SLRT")
                     try % signle boostFcn case
                         args = extractCfg.EXT.SLRT.args;
-                        SLRT = extractCfg.EXT.SLRT.boostFcn(params, SLRT , args);
+                        SLRT = extractCfg.EXT.SLRT.boostFcn(params, SLRT , slrtFile, args);
                     catch e
                         % disp("WARNING: boostFcn for SLRT failed \n")
                         % disp(e);
@@ -39,10 +39,17 @@ function extractEXT(params)
                             for j = 1:size(extractCfg.EXT.SLRT.boostFcn,1)
                                 boostFcn = extractCfg.EXT.SLRT.boostFcn{j};
                                 args = extractCfg.EXT.SLRT.args{j};
-                                SLRT = boostFcn(params, SLRT, args);
+                                try
+                                    SLRT = boostFcn(params, SLRT, slrtFile, args);
+                                catch e
+                                    msg = getReport(e);
+                                    disp(msg);
+                                end
                             end
                         catch e
                             disp(e);
+                            msg = getReport(e);
+                            disp(msg);
                         end
                     end
                 end
@@ -53,12 +60,14 @@ function extractEXT(params)
                 extrctModules = params.extrctItms.EXT.extrctModules;
                 extModNames = fieldnames(extrctModules);
                 extData = struct;
+                % sync validation
+                % SYNC = extractEXT_SYNC(SLRT, params.paths.Data, session);
                 for j = 1:length(extModNames)
                     extMod = extModNames{j};
                     % extrctHndl = str2func(sprintf("extractEXT_%s", extrctModule));                        
                     extrctHndl = str2func(sprintf("extractEXT_%s", extMod));                        
                     try
-                        extData.(extMod) = extrctHndl(SLRT, params.paths.Data);
+                        extData.(extMod) = extrctHndl(SLRT, params.paths.Data, session);
                         % BOOST FCN
                         if isfield(extractCfg.EXT,(extMod))
                             try
@@ -66,15 +75,18 @@ function extractEXT(params)
                                 extData.(extMod) = extractCfg.EXT.(extMod).boostFcn(params, extData.(extMod) , args);
                             catch e
                                 fprintf("WARNING: boostFcn for %s failed \n",extMod)
-                                disp(e);
+                                disp(getReport(e));
                             end
                         end
                         extModPath = fullfile(params.paths.Data.EXT.(extMod).cloud,sprintf("%s.mat",session));
-                        save(extModPath,extData.(extMod));
+                        % save ext data to designated layer/subfolder
+                        extSave.(extMod) = extData.(extMod);
+                        save(extModPath,'-struct','extSave');   
+                        clear('extSave');
                     catch e
-                        disp(e);
+                        disp(getReport(e));
                     end         
-                end
+                end                
             end
     end
    

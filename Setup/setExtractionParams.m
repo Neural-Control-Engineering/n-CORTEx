@@ -6,12 +6,18 @@ function params = setExtractionParams(opts)
         if ~isfield(opts,'paths'), opts.paths=struct; end
         if ~isfield(opts.paths,'stem'), opts.paths.stem=fullfile("/home",hostName); end    
         if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile(opts.paths.stem,"nCORTEx_cloud"); end                       
+        if ~isfield(opts.paths,'nCORTEx_cloud'), opts.paths.nCORTEx_cloud = fullfile(opts.paths.stem,"nCORTEx_cloud"); end                       
+        if ~isfield(opts.paths,'nCORTEx_local'), opts.paths.nCORTEx_local = fullfile(opts.paths.stem,"nCORTEx_local"); end                       
     elseif ispc
         hostName = getenv("COMPUTERNAME");
         if ~isfield(opts,'hostName'), opts.hostName=hostName; end
         if ~isfield(opts,'paths'), opts.paths=struct; end
         if ~isfield(opts.paths,'stem'), opts.paths.stem=fullfile("C:"); end
-        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("I:\"); end       
+        % if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("I:\"); end       
+        % if ~isfield(opts.paths,'nCORTEx_cloud'), opts.paths.nCORTEx_cloud =fullfile("I:\"); end                       
+        if ~isfield(opts.paths,'NECdrive_cloud'), opts.paths.NECdrive_cloud = fullfile("X:\"); end       
+        if ~isfield(opts.paths,'nCORTEx_cloud'), opts.paths.nCORTEx_cloud =fullfile("X:\"); end          
+        if ~isfield(opts.paths,'nCORTEx_local'), opts.paths.nCORTEx_local = fullfile(opts.paths.stem,"nCORTEx_local"); end                       
     end      
 
     % if ~isfield(opts.paths,"Code_Repo"); end
@@ -44,9 +50,9 @@ function params = setExtractionParams(opts)
     %% Spectral Band Ranges
     if ~isfield(opts,'bands'); opts.bands = struct; end % specify frequency band ranges in format [low, high]
     if ~isfield(opts.bands,'delta'); opts.bands.delta = [1, 4]; end  % 1 - 4 Hz
-    if ~isfield(opts.bands,'theta'); opts.bands.theta = [4, 10]; end % 4 - 10 Hz
-    if ~isfield(opts.bands,'alpha'); opts.bands.alpha = [10, 15]; end % 10 - 15 Hz
-    if ~isfield(opts.bands,'beta'); opts.bands.beta = [15, 30]; end % 15 - 30 Hz
+    if ~isfield(opts.bands,'theta'); opts.bands.theta = [4, 8]; end % 4 - 10 Hz
+    if ~isfield(opts.bands,'alpha'); opts.bands.alpha = [8, 12]; end % 10 - 15 Hz
+    if ~isfield(opts.bands,'beta'); opts.bands.beta = [12, 30]; end % 15 - 30 Hz
     if ~isfield(opts.bands,'gamma'); opts.bands.gamma = [30, 50]; end % 30 - 100 Hz
 
     %% Fieldtrip config (preprocessing)
@@ -106,6 +112,14 @@ function params = setExtractionParams(opts)
     % if ~isfield(opts.acquisition,'ycoords'); opts.acquisition.ycoords= load("neuropixPhase3A_kilosortChanMap.mat",'ycoords').ycoords; end
     if ~isfield(opts.acquisition,'npxWidth'); opts.acquisition.npxWidth = 4; end % npxlMtrx width is 4 channels to a row
     if ~isfield(opts.acquisition,'npxLength'); opts.acquisition.npxLength = 384; end
+
+    %% Spectral Density Cfg
+    if ~isfield(opts,"psdCfg"); opts.psdCfg = struct; end
+    if ~isfield(opts.psdCfg,"method"); opts.psdCfg.method = "pmtm"; end
+    if ~isfield(opts.psdCfg,"stride"); opts.psdCfg.stride = 1; end
+    if ~isfield(opts.psdCfg, "f_range"); opts.psdCfg.fRange = [0,50]; end
+    if ~isfield(opts.psdCfg,"windowLen"); opts.psdCfg.windowLen = 200; end
+    if ~isfield(opts.psdCfg,"nfft"); opts.psdCfg.nfft = 2048; end    
     
     % COMPUTER PARAMS
     switch opts.hostName
@@ -113,10 +127,15 @@ function params = setExtractionParams(opts)
             opts.staticColor = [0.31,0.94,0.46];
             % opts.ethernetIP = "128.59.150.93";
             opts.ethernetIP = "128.59.46.57";
-            opts.paths.NECdrive_cloud = fullfile("I:\");    
+            opts.netConfig.MAC_slrt = "169.254.126.16";
+            opts.netConfig.MAC_net = "128.59.46.57";            
+            % opts.paths.NECdrive_cloud = fullfile("I:\");    
+            opts.paths.NECdrive_cloud = fullfile("X:\");    
         case 'USERBRU-2FNENOI'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "128.59.87.38";
+            opts.netConfig.MAC_slrt = "164.254.103.9";
+            opts.netConfig.MAC_net = "128.59.87.220"; 
             opts.paths.NECdrive_cloud = fullfile("I:\");  
         case 'DESKTOP-PHRH7S9'
             opts.staticColor = [0.31,0.94,0.46];
@@ -128,6 +147,8 @@ function params = setExtractionParams(opts)
         case 'user'
             opts.staticColor = [0.31,0.94,0.46];
             opts.ethernetIP = "128.59.149.107";
+            opts.netConfig.MAC_slrt = [];
+            opts.netConfig.MAC_net = "128.59.149.107"; 
         otherwise
             opts.staticColor = [0.31,0.94,0.46];
 

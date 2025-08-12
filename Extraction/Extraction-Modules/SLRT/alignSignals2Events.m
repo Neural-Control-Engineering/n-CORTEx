@@ -1,4 +1,6 @@
-function out = alignSignals2Events(slrt_data)
+function out = alignSignals2Events(slrt_data, t_offset_preBuff)
+    preBuffLen = 3.5;
+    postBuffLen = 5;
     signal_types = slrt_data(1,:).signal_types{1};
     signal_inds = find(strcmp(signal_types(:,2), 'signal'));
     event_inds = find(strcmp(signal_types(:,2), 'event'));
@@ -13,9 +15,11 @@ function out = alignSignals2Events(slrt_data)
             aligned_times = cell(size(slrt_data,1), 1);
             for t = 1:size(slrt_data,1)
                 % disp(t);
-                event_ind = slrt_data(t,:).(event_name);
+                event_ind = slrt_data(t,:).(event_name){1};
                 if ~isnan(event_ind)
-                    event_time = slrt_data(t,:).clock_time{1}(event_ind);
+                    % apply offset that might occur from additional
+                    % post-proc (that used prebuffered data)
+                    event_time = slrt_data(t,:).clock_time{1}(event_ind) - t_offset_preBuff;
                     if t < size(slrt_data,1) && t > 1
                         peri_time = [slrt_data(t-1,:).clock_time{1}; slrt_data(t,:).clock_time{1}; slrt_data(t+1,:).clock_time{1}] - event_time;
                         peri_signal = [slrt_data(t-1,:).(signal_name){1}; slrt_data(t,:).(signal_name){1}; slrt_data(t+1,:).(signal_name){1}];
@@ -26,8 +30,8 @@ function out = alignSignals2Events(slrt_data)
                         peri_time = [slrt_data(t-1,:).clock_time{1}; slrt_data(t,:).clock_time{1}] - event_time;
                         peri_signal = [slrt_data(t-1,:).(signal_name){1}; slrt_data(t,:).(signal_name){1}];
                     end
-                    aligned_signal = peri_signal(peri_time >= -3.5 & peri_time <= 5.0);
-                    aligned_time = peri_time(peri_time >= -3.5 & peri_time <= 5.0);
+                    aligned_signal = peri_signal(peri_time >= -preBuffLen & peri_time <= postBuffLen);
+                    aligned_time = peri_time(peri_time >= -preBuffLen & peri_time <= postBuffLen);
                     aligned_signals{t} = aligned_signal;
                     aligned_times{t} = aligned_time;
                 end
@@ -38,3 +42,4 @@ function out = alignSignals2Events(slrt_data)
             out = [out, table(aligned_times, 'VariableNames', {tCol_title})];
         end
     end
+end

@@ -104,17 +104,58 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                             chan_nidq = 1:9;
                             chan_imec = 1:385;
                             % Locate Dirs
+                            apMetaFileName = strrep(bin,'bin','meta');
                             lfpFileName = strrep(bin,'.ap.bin','.lf.bin');
-                            nidqFileName = strrep(bin,'.imec0.ap.bin','.nidq.bin');
+                            nidqFileName = strrep(bin,'.imec0.ap.bin','.nidq.bin');                            
                             nidqFolder = nidqBinDir(k).folder;
                             lfp = ReadSGLXData(lfpFileName, binFldr, chan_imec);
-                            lfp = downsample(lfp.dataArray',5)';
-                            nidq = ReadSGLXData(nidqFileName,nidqFolder, chan_nidq);                                                                                                            
+                            ap = ReadSGLXData(apMetaFileName, binFldr, chan_imec);
+                            nidq = ReadSGLXData(nidqFileName,nidqFolder, chan_nidq);                                                                                                                                        
+                            % keyboard                            
+                            % synch-validation
+                            synch1 = nidq.dataArray(9,:); % 1Hz pulser
+                            insert1 = nidq.dataArray(2,:); % slrt insert data
+                            synch2 = lfp.dataArray(385,:); % 1Hz pulser                            
+                            Fs1 = str2double(nidq.meta.niSampRate);
+                            Fs2 = str2double(lfp.meta.imSampRate);                            
+                            F_synch1 = 1;
+                            F_synch2 = 1;
+                            args.groupSize = 10;
+                            sync.lines.sync_1Hz_nidq=extractSyncLine(synch1,insert1,Fs1,1,"RE-end","world",args.groupSize);
+                            sync.lines.sync_1Hz_imec=extractSyncLine(synch2,[],Fs2,1,"RE-end","world",args.groupSize);
+                            % [IPD_A, IPD_B, PC_B] = validate_temporalPrecision(synch1, synch2, Fs1, Fs2, F_synch1, F_synch2, args);
+                            plot_temporalPrecision(sync.lines.sync_1Hz_imec.IPD, sync.lines.sync_1Hz_nidq.IPD, []);
+                            % sync.lines.sync_1Hz.IPD = IPD_A;
+                            % sync.lines.sync_1Hz.PC = [];
+                            % sync.lines.sync_1Hz.t_RE = IPD_A.t_RE;
+                            % sync.lines.sync_250Hz.IPD = IPD_B;
+                            % sync.lines.sync_250Hz.PC = PC_B;
+                            % sync.lines.sync_250Hz.t_RE = IPD_B.t_RE;
+                            %% ANTIALIASING & DOWNSAMPLING
+                            % Design the notch filter
+                            Fs = str2double(lfp.meta.imSampRate);
+                            d = designfilt('bandpassiir', ...
+                                        'FilterOrder', 4, ...
+                                        'HalfPowerFrequency1', 0.1, ...
+                                        'HalfPowerFrequency2', 100, ...
+                                        'DesignMethod', 'butter', ...
+                                        'SampleRate', Fs);                                                       
+                            args_antiAlias.Fs = Fs;
+                            args_antiAlias.contextWin = 50;
+                            lfp_filt = antiAlias(lfp.dataArray, d, args_antiAlias );
+                            downSampleRate=5;
+                            lfp_downSample = downsample(lfp_filt',downSampleRate)';   
+                            lfp.dataArray = lfp_downSample;
+                            lfp.meta.Fs=Fs/downSampleRate;
+                            lfp.meta.preBuffLen = 3.5;                            
+                            %% SAVE RESULTS                            
                             save(fullfile(strcat("\\?\",kSortOutPath),"lfp.mat"),"lfp");
                             save(fullfile(strcat("\\?\",kSortOutPath),"nidq.mat"),"nidq");                              
+                            save(fullfile(strcat("\\?\",kSortOutPath),"sync.mat"),"sync");
+                            save(fullfile(strcat("\\?\",kSortOutPath),"ap.mat"),"ap");
+                            %% UPDATE UI
                             progress = cell(2,1);
-                            progress{1} = modality;
-                            % progress{2} = i/length(sessions);
+                            progress{1} = modality;                     
                             progress{2} = (i-1)/length(sessions) + k/numBins;
                             send(Q.q, 1);
                             send(Q.pq, progress);     
@@ -151,6 +192,7 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                 zip(fullfile(imecFolder{1},"IMEC"),imecItems);
                 cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
                 % migrate to cloud
+                % DEBUGGING, DECOMMENT HERE
                 if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
                     copyfile(fullfile(params.paths.Data.RAW.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.Data.RAW.(modality).cloud,exp_template)));                
                     rmdir(fullfile(params.paths.Data.RAW.(modality).local,exp_template),'s');
@@ -162,3 +204,9 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
     end
     cd(fullfile(params.paths.repo_path));
 end
+% binFldr=pwd;
+% lfp = ReadSGLXData(fileNAme, binFldr, chan_imec);
+% nidq = ReadSGLXData(fileNAme, binFldr, chan_nidq);
+% slrt250_1K=realtimeLog.data.getElement("sync_250Hz_int").Values.Data;
+% figure; plot(slrt250_1K(1:10000)); hold on; plot(npx250_1K(1:10000));
+% read ap.bin

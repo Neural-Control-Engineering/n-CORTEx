@@ -6,14 +6,15 @@ function extractDTS(params)
    
     DTS = [];
     for i = 1:length(sessions)
-        session = sessions{i}
+        session = sessions{i};
         extFields = fieldnames(extData);    
         % ignore local and cloud fields
         dirMask = cell2mat(cellfun(@(x) ~strcmp(x,"local") & ~strcmp(x,"cloud"), extFields, "UniformOutput", false));
         extFields = extFields(dirMask);
         dts = [];
+        % horizontal concatenation
         for j = 1:length(extFields)
-            extField = extFields{j};  
+            extField = extFields{j};
             disp(extField);
             if sessionExists(params, session, extField, "EXT")
                 sessionFile = sprintf("%s.mat",session);
@@ -27,6 +28,9 @@ function extractDTS(params)
                 if any(ismember(DT.Properties.VariableNames,"trial_number"))
                     DT = renamevars(DT,["trial_number"],["trialNumber"]);
                 end
+                if any(ismember(DT.Properties.VariableNames,"trial_num"))
+                    DT = renamevars(DT,["trial_num"],["trialNumber"]);
+                end
                 if any(ismember(DT.Properties.VariableNames,"session_label"))
                     DT = renamevars(DT,["session_label"],["sessionLabel"]);
                 end
@@ -35,11 +39,15 @@ function extractDTS(params)
                 end
                 
                 % DT.trialNum = cell2mat(DT.trialNum(~cellfun('isempty',DT.trialNum)));   
-                DT.trialNumber = (DT.trialNumber(~cellfun('isempty',num2cell(DT.trialNumber))));   
-                % ensure trialNumber is a cell array
-                if ~(strcmp(class(DT.trialNumber),"cell"))
-                    DT.trialNumber = num2cell(DT.trialNumber);
+                % DT.trialNumber = (DT.trialNumber(~cellfun('isempty',num2cell(DT.trialNumber))));   
+                if iscell(DT.trialNumber)
+                    DT.trialNumber = cell2mat(DT.trialNumber);
+                    % DT.trialNumber = (DT.trialNumber(~cellfun('isempty',cell2mat(DT.trialNumber))));   
                 end
+                % ensure trialNumber is a cell array
+                % if ~(strcmp(class(DT.trialNumber),"cell"))
+                %     DT.trialNumber = num2cell(DT.trialNumber);
+                % end
                 if isempty(dts)
                     dts = DT;
                 else
@@ -62,7 +70,11 @@ function extractDTS(params)
     end
 
     % trialNumber conversion to double
-    DTS.trialNumber = cell2mat(DTS.trialNumber);
+    try
+        DTS.trialNumber = cell2mat(DTS.trialNumber);
+    catch e
+        disp(getReport(e));
+    end
     DTS_tall = tall((DTS));
 
     %  if size(dir(dtsPath),1) > 3
@@ -83,7 +95,7 @@ function extractDTS(params)
             parpool("SpmdEnabled",false)
         catch
         end
-        DTS_prev = loadTall(strcat(fullfile(dtsPath,"D008")));        
+        DTS_prev = loadTall(strcat(fullfile(dtsPath,"D009")));        
         writePath = strcat(fullfile(params.paths.Data.DTS.cloud));
     end
     if any(ismember(DTS_prev.Properties.VariableNames,"trialNum"))

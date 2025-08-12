@@ -1,9 +1,40 @@
-function out = extLFP(SLRT, lfpPath)
-    
+function LFP = extLFP(SLRT, lfpPath, trigNum)
+
+    % DEFINE
+    preBuffLen = 3.5; % pre-trial buffered sample length (seconds)
+    postBuffLen = 5.0; % trial segmentation duration (seconds)
+
+    % load sync data (from RAW layer); this should match SLRT and/or externally generated
+    % sync data
+    load(fullfile(lfpPath,"sync.mat")); % rising edge time vectors and QC meta analysis for cross-device sync pulses
+    % load lfp  (from RAW layer)
     load(fullfile(lfpPath,"lfp.mat"));
-    lfpFs = 500;
-    max_time = SLRT(end,:).clock_time{1}(end);
-    lfpTime = linspace(-3.5, max(max_time)+3.5, size(lfp,2));
+    try % update: storing metadata from initial RAW extraction
+        lfpMeta = lfp.meta; % store metadata
+        Fs = lfp.meta.Fs;
+        preBuffLen = lfp.meta.preBuffLen;
+        % lfp = lfp.dataArray;
+        firstSample = str2double(lfpMeta.firstSample);
+        Fs_original = str2double(lfpMeta.imSampRate);
+        t_start = firstSample / Fs_original; % seconds passed until trial-gate started - aligned with trigNum
+    catch e
+        disp(getReport(e));
+        Fs = 500;
+        preBuffLen = 3.5;
+    end    
+    % max_time = SLRT(trigNum,:).("trial-gate_clock_time"){1}(end); % total duration of the session    
+    % lfpTime = linspace(-preBuffLen, max(max_time)+preBuffLen, size(lfp,2));
+    %% SYNC ALIGNMENT
+    % syncOffset = extractSyncOffset(row_SLRT, sync);
+    % lfp time vector
+    % t_lfp = [0:size(lfp,2)-1]./Fs - preBuffLen;
+    sync_ref = constructSync_slrt(SLRT, trigNum);
+    sync = extractSyncOffset(sync_ref.lines.sync_1Hz_slrt, sync, t_start);
+    % visualize offsets
+    % plotSyncOffsets_postProc(sync.lines.sync_1Hz_nidq, sync_ref.lines.sync_1Hz_slrt, sessionDetails);
+    % t_lfp = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
+    t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
+    % t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, offset0_imec);
 
     events_logical = strcmp(SLRT(1,:).signal_types{1}(:,2), 'event');
     event_signals = SLRT(1,:).signal_types{1}(events_logical,1);
@@ -11,56 +42,76 @@ function out = extLFP(SLRT, lfpPath)
     % out = table('Size', [size(SLRT,1),3],  'VariableTypes', {'double', 'cell', 'cell'}, ...
         % 'VariableNames', {'trial_num', 'session_label','lfp'});
     out = [];
+    prevSyncOffset = []; % initialize empty syncOffset for recursive offset finding (extractSyncOffset)
     for trial = 1:size(SLRT,1)
-        
-        % define output table
-        session_label = SLRT(trial,:).session_label{1};
-        row = table(trial,{session_label},'VariableNames',{'trial_num','session_label'});
-        
-
-        % beginning, end, and stimulus time for trial         
-        start_time = SLRT(trial,:).clock_time{1}(1);
-        fin_time = SLRT(trial,:).clock_time{1}(end);
-        
-        trial_lfp_inds = find(lfpTime >= (start_time-3.5) & lfpTime <= (fin_time+5.0));
-        try
-            lfpSeg = lfp(:,trial_lfp_inds);
-            trial_lfpTimes = lfpTime(trial_lfp_inds);
-        catch
-            lfpSeg = [];
+        % only apply to SLRT trials matching trigNum
+        trialGate = SLRT(trial,:).("trial-gate"){1}; % find which acquisition gate
+        if trialGate == trigNum
+            % define output table
+            session_label = SLRT(trial,:).session_label{1};
+            % row_SLRT = SLRT(trial,:);            
+            % trial-wise temporal offset tracking 
+            % sync = extractSyncOffset(row_SLRT, sync, [], t_start);            
+            % offset0_nidq = sync.lines.sync_1Hz_nidq.offset0;
+            % offset0_imec = sync.lines.sync_1Hz_imec.offset0;
+            % prevSyncOffset = syncOffset; % update prevSyncOffset for next itr            
+            % t_lfp = mapSyncTimeline(sync_adj.lines.sync_250Hz,Fs);
+            % t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, offset0_imec);
+                  
+            % beginning, end, and stimulus time for trial         
+            % start_time = SLRT(trial,:).clock_time{1}(1);
+            % fin_time = SLRT(trial,:).clock_time{1}(end);
+            t_start = SLRT(trial,:).("trial-gate_clock_time"){1}(1);
+            t_stop = SLRT(trial,:).("trial-gate_clock_time"){1}(end);
+            
+            trial_lfp_inds = find(t_lfp >= (t_start-preBuffLen) & t_lfp <= (t_stop+postBuffLen));                   
+            % slice lfp signal by trial windows
+            try
+                lfpSeg = lfp.dataArray(:,trial_lfp_inds);
+                trial_lfpTimes = t_lfp(trial_lfp_inds);
+            catch
+                lfpSeg = [];
+            end                    
+            % row = table(trial,{session_label},'VariableNames',{'trial_num','session_label'});        
+            row = table(trialGate,{session_label},'VariableNames',{'trial_num','session_label'});        
+            % trial_sync_inds = find(syncTime >= (start_time-preBuffLen) & syncTime <= (fin_time+postBuffLen));           
+            row = [row, table({lfpSeg}, {trial_lfpTimes},'VariableNames',{'lfp', 't_lfp'})];
+            % store offset
+            row = [row, table({sync},'VariableNames',{'sync_SGL'})];
+    
+            % align lfpTime to events (including sync pulse)
+            if ~isempty(lfpSeg)
+                for es = 1:length(event_signals)
+                        signal = event_signals{es};
+                        eventData = SLRT(trial,:).(signal);
+                        switch class(eventData)
+                            case 'cell'
+                                eventData=eventData{1};                            
+                        end
+                        if ~isnan(eventData)
+                            % event_time = SLRT(trial,:).clock_time{1}(SLRT(trial,:).(signal));
+                            event_time = SLRT(trial,:).("trial-gate_clock_time"){1}(eventData);
+                            aligned_lfpTime = trial_lfpTimes - event_time;
+                        else
+                            aligned_lfpTime = [];
+                        end                    
+                        row = [row, table({aligned_lfpTime}, 'VariableNames', {strcat(signal,'_aligned_lfp_time')})];
+                end                                  
+            else        
+                for es = 1:length(event_signals)
+                        signal = event_signals{es};                    
+                        aligned_lfpTime = [];                
+                        row = [row, table({aligned_lfpTime}, 'VariableNames', {strcat(signal,'_aligned_lfp_time')})];
+                end  
+            end
+            
+            if trial == 1
+                out = row;
+            else
+                out = [out; row];
+            end              
         end
-        row = [row, table({lfpSeg}, {trial_lfpTimes},'VariableNames',{'lfp', 'lfpTime'})];
-
-        % row = table(cluster_id, {cluster_spike_times}, cluster_quality, {cluster_spike_amplitudes}, ...
-        %         cluster_info(c,:).amplitude, {cluster_info(c,:).position}, cluster_info(c,:).contam_pct, ...
-        %         {cluster_info(c,:).waveform_class}, {cluster_info(c,:).template}, ...
-        %         'VariableNames', {'cluster_id', 'spike_times', 'quality', 'spike_amplitudes', ...
-        %         'template_amplitude', 'position', 'contam_pct', 'waveform_class', 'template'});
-
-        % align lfpTime to events
-        if ~isempty(lfpSeg)
-            for es = 1:length(event_signals)
-                    signal = event_signals{es};
-                    if ~isnan(SLRT(trial,:).(signal))
-                        event_time = SLRT(trial,:).clock_time{1}(SLRT(trial,:).(signal));
-                        aligned_lfpTime = trial_lfpTimes - event_time;
-                    else
-                        aligned_lfpTime = [];
-                    end                    
-                    row = [row, table({aligned_lfpTime}, 'VariableNames', {strcat(signal,'_aligned_lfp_time')})];
-            end                                  
-        else        
-            for es = 1:length(event_signals)
-                    signal = event_signals{es};                    
-                    aligned_lfpTime = [];                
-                    row = [row, table({aligned_lfpTime}, 'VariableNames', {strcat(signal,'_aligned_lfp_time')})];
-            end  
-        end
-        
-        if trial == 1
-            out = row;
-        else
-            out = [out; row];
-        end              
     end
+
+    LFP = out;
 end

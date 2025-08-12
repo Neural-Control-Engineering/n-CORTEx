@@ -3,7 +3,7 @@ function extractRAW(params)
     % sessions
     extrctModules = params.extrctItms.RAW.extrctModules;
     extrctFields = fieldnames(extrctModules);
-    extractionLog = params.extrctItms.RAW.extractionLog;    
+    extractionLog = params.extrctItms.RAW.extractionLog; 
     % process RAW datastreams
     for i = 1:length(extrctFields)
         extrctModule = extrctFields{i};        
@@ -13,7 +13,7 @@ function extractRAW(params)
         try
             extrctHndl(params, sessionsLeftToExtract, params.extrctItms.RAW.extrctModules.(extrctModule).Q);              
         catch e
-            disp(e);
+            disp(getReport(e));
         end
     end
     % Final mark of completed extraction for raw layer

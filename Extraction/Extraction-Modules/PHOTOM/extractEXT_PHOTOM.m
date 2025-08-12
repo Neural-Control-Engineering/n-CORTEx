@@ -1,2 +1,2 @@
-function PHTM = extractEXT_PHOTOM(SLRT, photomPath)
+function PHTM = extractEXT_PHOTOM(SLRT, dataDir, session)
 end

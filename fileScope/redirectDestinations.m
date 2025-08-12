@@ -3,16 +3,22 @@ function cacheSel = redirectDestinations(cacheSel, newDest)
         dDirType = class(cacheSel(i,:).DataDir);
         switch dDirType
             case "cell"
-                dataDir = cacheSel(i,:).DataDir{1};
+                dataDir = cacheSel(i,:).DataDir{1};                
             otherwise
                 dataDir = cacheSel(i,:).DataDir;
         end
+        dataDir = dataDir.directory;
         
-        modFields = fieldnames(dataDir);
+        modFields = convertCharsToStrings(fieldnames(dataDir));
+        modFields = modFields((~ismember(modFields,"local") & ~ismember(modFields,"cloud")));
+
         for j=1:length(modFields)
-            mod = modFields{j};
+            mod = modFields(j);
             modDirs = dataDir.(mod); 
             oldDest = modDirs.cloud;            
+            if isempty(oldDest)
+                oldDest=modDirs.local;
+            end
             [folder, name, ext] = fileparts(oldDest);
             folderParts = split(folder,filesep);
             projIdx = arrayfun(@(x) contains(x,"Project_"),folderParts);            
@@ -26,9 +32,9 @@ function cacheSel = redirectDestinations(cacheSel, newDest)
         % cacheSel(i,:).DataDir = dataDir;
         switch dDirType
             case "cell"
-                cacheSel(i,:).DataDir = {dataDir};
+                cacheSel(i,:).DataDir.directory = {dataDir};
             otherwise
-                cacheSel(i,:).DataDir = dataDir;
+                cacheSel(i,:).DataDir.directory = dataDir;
         end
     end    
 end
