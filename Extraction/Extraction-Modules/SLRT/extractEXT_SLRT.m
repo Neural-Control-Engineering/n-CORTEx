@@ -25,13 +25,25 @@ function [out, slrt] = extractEXT_SLRT(filename)
             trial_starts = find(trialNum == 1);
         catch
             try
+                % SEGMENTATION SCHEME A
                 trialNum = logsout.getElement("seg_trialCounter").Values.Data;
-                trial_starts = find(trialNum == 1);
-                gateNum = logsout.getElement("seg_trialGate").Values.Data;
-                gate_starts = find(gateNum==1);
+                trial_starts = find(trialNum == 1);  
+                try
+                    gateNum = logsout.getElement("seg_trialGate").Values.Data;
+                    % prepend with 0 (for non-0 starting signals)
+                    gateNum = [0; gateNum];                    
+                    gate_starts = find(diff(gateNum)>=1) - 1; % subtract index by 1 (for prepended 0)
+                catch
+                    gateNum = logsout.getElement("cont_npxlsAcq").Values.Data; % legacy version of 'trialGate'
+                    % prepend with 0 (for non-0 starting signals)
+                    gateNum = [0; gateNum];                    
+                    gate_starts = find(diff(gateNum)>=1);
+                end
+                
                 firstTrials = findFirstTrials(trial_starts, gate_starts);
             catch
                 try
+                    % SEGMENTATION SCHEME B
                     % trialNum: target acquisition and trial segmentations are coupled
                     trialNum = logsout.getElement("seg_trialGate").Values.Data;
                     trial_starts = find(diff(trialNum)>=1);                    
