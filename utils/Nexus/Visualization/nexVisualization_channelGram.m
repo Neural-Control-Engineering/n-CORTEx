@@ -22,6 +22,12 @@ function nexVisualization_channelGram(nexon, channelGram, args)
     df = df(:,fCond); % index select frequencies 
     % tic
     f = f(fCond);
+    % apply log to f-axis
+    % f = log10(f);
+    f=log(f);
+    % Generate logarithmically spaced tick positions
+    numTicks = 30;
+    f_ticks = (logspace(log(f(1)), log(f(end)), numTicks));
     chans = [1:size(df,1)];
     channelGram.Figure.panel1.tiles.Axes.channelGram.YData = gather([1:size(df,1)]);
     channelGram.Figure.panel1.tiles.Axes.channelGram.XData = gather(f);
@@ -35,6 +41,8 @@ function nexVisualization_channelGram(nexon, channelGram, args)
     channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.CLim=[cLim_low, cLim_high];
     channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.ZLim = [zLim_low, zLim_high];
     channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.XLim = [f(1),f(end)];
+    channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.XTick = f_ticks;
+    channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.XTickLabel = exp(f_ticks);
     channelGram.Figure.panel1.tiles.Axes.channelGram.Parent.YLim = [chans(1),chans(end)];
     %% plot Fooof reconstruction
     % channelGram.chgFigure.panel1.tiles.Axes.fooof = nexttile(channelGram.chgFigure.panel1.tiles.t);

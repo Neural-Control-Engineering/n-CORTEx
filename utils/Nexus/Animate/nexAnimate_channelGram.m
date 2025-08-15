@@ -1,5 +1,5 @@
 function nexAnimate_channelGram(nexon, shank, channelGram, args)
-
+    % tic
     % CFG HEADER
     windowLen = args.windowLen; % default = 100
     stride = args.stride; % default = 20
@@ -80,7 +80,7 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
 
     % update children objs
     try
-        nex_updateChildren(nexon, channelGram);
+        % nex_updateChildren(nexon, channelGram);
     catch e
         disp(getReport(e));
     end
@@ -118,5 +118,5 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
             channelGram.frameNum=1;
         end
     end
-    
+    % toc
 end

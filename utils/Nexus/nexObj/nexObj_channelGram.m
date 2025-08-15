@@ -24,6 +24,7 @@ classdef nexObj_channelGram < handle
         opCfg
         visCfg
         aniCfg
+        mlCfg
         poolCfg
         pMap_freqs
         pMap_chans
@@ -80,6 +81,9 @@ classdef nexObj_channelGram < handle
             nexObj.aniCfg.aniFcn = aniFcn;
             nexObj.aniCfg.entryParams = extractMethodCfg(rmExtension(func2str(aniFcn)));      
             nexObj.frameBuffer.aniArgs = nexObj.aniCfg.entryParams;
+            % ML export function
+            nexObj.mlCfg.writeDSFcn = str2func("mlWrite_rtSpec");
+            nexObj.mlCfg.writeDSArgs = struct;
             % segmentation/binning Cfg (configure binning of axes, for pooling ops))
             % nexObj.poolCfg.poolMaps.bands = nexon.console.BASE.params.bands;
             % nexObj.poolCfg.poolMaps.regions = nexObj.Parent.regMap;
@@ -255,6 +259,23 @@ classdef nexObj_channelGram < handle
             % upgrade opFcn to DF-sized method
             analysisFcn = str2func(sprintf("%s_roll",opFcnName));
             nexAnalysis_scaleAnalysis(nexObj.nexon, nexObj.classID, analysisFcn, analysisArgs,  nexObj.dfID_source, dfID_target, []);
+        end
+
+        function mlio_writeDS(nexObj)
+            DTS = nexObj.nexon.console.BASE.DTS;
+            opFcnName = func2str(nexObj.opCfg.opFcn);
+            DFID = sprintf("%s--%s",nexObj.classID,opFcnName);
+            % write a machine learning dataset
+            writeArgs = nexObj.mlCfg.writeDSArgs;
+            writeArgs.labelMode = "manual";
+            switch writeArgs.labelMode
+                case "manual"
+                    Figure_fitScope.UserData = [];
+                    % start a labelScope figure
+                    writeArgs.Figure_fitScope = nexFigure_fitScope(Figure_fitScope);
+                case "auto"
+            end
+            MLIO_writeDS(DTS, DFID, writeFcn, writeArgs)
         end
 
         function visualize(nexObj)

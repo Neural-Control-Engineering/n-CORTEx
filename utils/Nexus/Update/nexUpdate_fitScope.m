@@ -1,0 +1,2 @@
+function nexUpdate_fitScope(nexObj)
+end

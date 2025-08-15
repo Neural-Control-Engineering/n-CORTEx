@@ -3,10 +3,11 @@ function cacheSel = redirectDestinations(cacheSel, newDest)
         dDirType = class(cacheSel(i,:).DataDir);
         switch dDirType
             case "cell"
-                dataDir = cacheSel(i,:).DataDir{1};
+                dataDir = cacheSel(i,:).DataDir{1};                
             otherwise
                 dataDir = cacheSel(i,:).DataDir;
         end
+        dataDir = dataDir.directory;
         
         modFields = convertCharsToStrings(fieldnames(dataDir));
         modFields = modFields((~ismember(modFields,"local") & ~ismember(modFields,"cloud")));
@@ -31,9 +32,9 @@ function cacheSel = redirectDestinations(cacheSel, newDest)
         % cacheSel(i,:).DataDir = dataDir;
         switch dDirType
             case "cell"
-                cacheSel(i,:).DataDir = {dataDir};
+                cacheSel(i,:).DataDir.directory = {dataDir};
             otherwise
-                cacheSel(i,:).DataDir = dataDir;
+                cacheSel(i,:).DataDir.directory = dataDir;
         end
     end    
 end

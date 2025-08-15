@@ -8,10 +8,16 @@ function expIO_rtSpec(nexon, DF_tgt, DF_src, Y, fid_index, foldDir)
             % gather
             spec = DF_tgt.df(i,:,j);
             f_spec = DF_tgt.ax.f;
-            psd_specs = 10*spec2psd(f_spec, spec);
-            plot(psd_specs)
-            figure; plot(psd_specs)
-            hold on
+            psd_specs = 10*spec2psd(f_spec, spec,mode_AP,mode_PE);
+            psd = DF_src.df(i,:,j);
+            f_psd = DF_src.ax.f;
+            fCond = (f_psd>=min(f_spec))&(f_psd<=max(f_spec));
+            psd = psd(:,fCond,:);
+            % figure; plot(psd_specs)            
+            % hold on; plot(psd)            
+            figure; loglog(psd_specs)            
+            hold on; loglog(psd)            
+            figure; loglog(psd)            
             
             f_psd = DF_src.ax.f;
             fCond = (f_psd>=f_spec)&(f_psd<=f_spec);
@@ -28,3 +34,28 @@ function expIO_rtSpec(nexon, DF_tgt, DF_src, Y, fid_index, foldDir)
         end
     end
 end
+
+% figure;
+% T = tiledlayout(2,10, 'TileSpacing', 'compact');
+% xlabel(T, 'Frequency');
+% ylabel(T, 'Power');
+% 
+% tileCount = 1;
+% 
+% for i = 1:20:380
+%     for j = 9  % Only j=9 is used here, but this loop is redundant
+%         if tileCount > T.GridSize(1) * T.GridSize(2)
+%             break;  % Stop if we exceed number of tiles
+%         end
+% 
+%         psd = DF_src.df(i,:,j);
+%         f = DF_src.ax.f;
+%         t = nexttile(T, tileCount);  % specify tile index explicitly
+% 
+%         loglog(t, f, psd);
+%         ylim(t, [-200, -80]);
+%         title(t, sprintf("i = %d, j = %d", i, j));
+% 
+%         tileCount = tileCount + 1;
+%     end
+% end

@@ -19,6 +19,5 @@ function AP = extractEXT_AP(SLRT, dataDir, session)
         AP = [AP; extAP(SLRT, npxlsPath, trigNum+1)];
         % LFP = extLFP(SLRT, lfpPath);      
     end
-
     
 end
