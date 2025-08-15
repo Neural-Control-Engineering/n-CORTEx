@@ -32,9 +32,9 @@ function nexFigure_spectroGraph(nexObj)
     % frame tracker
     nexObj.Figure.panel1.tiles.graphics.(("xLine_frame")) = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
     % event marker(s)
-    graphics_eventMarkers = nex_generateEventMarkers(nexObj);
+    graphics_eventMarkers = nex_generateEventMarkers(nexObj, ax_canvas);
     % apply time-idx values
-    graphics_eventMarkers = nex_setMarkerValue()
+    % graphics_eventMarkers = nex_setMarkerValue()
     % merge graphics
 
     % color mapping

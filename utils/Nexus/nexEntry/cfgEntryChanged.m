@@ -5,5 +5,5 @@ function cfgEntryChanged(nexon, nexObj, nexPanel, entryfield, args)
     value = nexPanel.editFields.(entryfield).uiField.Value;
     % nexPanel.editFields.(entryfield) = value;
     nexObj.(cfgFieldName).entryParams.(entryfield) = value;      
-    nexObj.updateScope(nexon);
+    nexObj.updateScope();
 end

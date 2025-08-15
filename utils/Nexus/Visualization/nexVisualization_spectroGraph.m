@@ -4,7 +4,7 @@ function nexVisualization_spectroGraph(nexObj, args)
     chanSel = args.chanSel; % default = 1
     freqSel = args.freqSel; % default = 1
 
-    numIDParts_base=3;
+    numIDParts_base=2;
     alphaVal = 0.6;
     % CASES:
     % 1) single trial
@@ -41,7 +41,9 @@ function nexVisualization_spectroGraph(nexObj, args)
             % format plot data
             % axis = nexObj.Figure.panel1.tiles.Axes.spgph;
             % TITLE
-            % UPDATE PLOT            
+            % UPDATE PLOT  
+            list_legend=[];
+            list_color = [];
             for i = 1:length(avgFields)
                 avgField = avgFields(i);                
                 % phase color
@@ -119,9 +121,9 @@ function nexVisualization_spectroGraph(nexObj, args)
 
     % TITLE
     chanBinType = nexObj.Origin.pMap_chans.binType;
-    [binEdges, binIDs_chans] = nexObj.Origin.pMap_chans.getBinEdges;
+    [binEdges, binIDs_chans] = nexObj.Origin.pMap_chans.getBinEdges(nexObj.Origin.DF_postOp.ax.chans);
     freqBinType = nexObj.Origin.pMap_freqs.binType;            
-    [binEdges, binIDs_freqs] = nexObj.Origin.pMap_freqs.getBinEdges;
+    [binEdges, binIDs_freqs] = nexObj.Origin.pMap_freqs.getBinEdges(nexObj.Origin.DF_postOp.ax.f);
     binID_chans = binIDs_chans(chanSel);
     binID_freqs = binIDs_freqs(freqSel);
     titleText = sprintf("%s: %s; %s: %s", chanBinType, binID_chans, freqBinType, binID_freqs);

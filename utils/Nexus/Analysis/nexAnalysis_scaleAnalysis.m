@@ -1,6 +1,7 @@
 function nexAnalysis_scaleAnalysis(nexon, nexObjID, analysisFcn, analysisArgs, dfID_source, dfID_target, mask)
     % apply analysis fcn to all rows of a DTS column indicated by dfID
     dtsRows = height(nexon.console.BASE.DTS); % visit each row
+    rowStart=1;
     % minLength to truncate long recordings if necessary
     % minLength = arrayfun(@(x) size(x{1},2), nexon.console.BASE.DTS.(dfID),"UniformOutput",true);
     % minLength(minLength==0) = [];
@@ -10,7 +11,7 @@ function nexAnalysis_scaleAnalysis(nexon, nexObjID, analysisFcn, analysisArgs, d
         dfID_target = sprintf("%s--%s", nexObjID, func2str(analysisFcn));        
     end
     % for each row in the DTS
-    for i = 1:dtsRows
+    for i = rowStart:dtsRows
         disp(i)        
         % read source data
         DF_in = dtsIO_readDF(nexon,dfID_source,i);      
@@ -24,8 +25,13 @@ function nexAnalysis_scaleAnalysis(nexon, nexObjID, analysisFcn, analysisArgs, d
             continue
         end
         % process source data
-        if ~isempty(DF_in)            
-            DF_out = analysisFcn(DF_in,analysisArgs);      
+        if ~isempty(DF_in)      
+            try
+                DF_out = analysisFcn(DF_in,analysisArgs);      
+            catch e
+                disp(getReport(e));
+                continue
+            end
         else
             DF_out = [];
         end        

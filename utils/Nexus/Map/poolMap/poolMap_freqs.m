@@ -3,7 +3,7 @@ classdef poolMap_freqs < handle
         axID = "f"
         divsPerBin=1
         binType="band"
-        binTypes=["linear","band"];    
+        binTypes=["freq","band"];    
         Map        
         source_Map
         bins
@@ -34,11 +34,11 @@ classdef poolMap_freqs < handle
                     % edgeSubDivs = cellfun(@(row) flip((linspace(row(2), row(1),poolMap.divsPerBin+1)'),1), edgeCmp, "UniformOutput", false);
                     binEdges = (unique(cat(1,edgeSubDivs{:})));     
                     binIDs = bandLUT(binEdges(1:end-1)+1);
-                case "linear"
+                case "freq"
                     binEdges = [axis(1):poolMap.divsPerBin:axis(end)]';
                     % channel ranges
                     binIDs_nums = num2cell([binEdges(1:end-1),binEdges(2:end)-1],2);
-                    binIDs = cellfun(@(idRange) sprintf("%d--%d",idRange(1),idRange(2)),binIDs_nums,"UniformOutput",false);
+                    binIDs = cellfun(@(idRange) sprintf("%d--%d",idRange(1),idRange(2)),binIDs_nums,"UniformOutput",true);
             end
         end
 

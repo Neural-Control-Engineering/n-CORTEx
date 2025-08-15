@@ -1,6 +1,7 @@
 classdef nexObj_spectroGraph < handle
         properties
             classID = "spgph"
+            preBuffLen
             nexon
             Origin
             Parent
@@ -19,6 +20,7 @@ classdef nexObj_spectroGraph < handle
         methods 
             function nexObj = nexObj_spectroGraph(nexon, spectroGram, DF, opFcn, visFcn)                                
                 nexObj.Origin = spectroGram.Origin;
+                nexObj.preBuffLen = spectroGram.preBuffLen;
                 if isempty(nexon)
                     nexObj.nexon = nexObj.Origin.nexon;
                 else

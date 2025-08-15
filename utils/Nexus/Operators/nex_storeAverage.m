@@ -3,6 +3,7 @@ function nex_storeAverage(nexObj, DF)
     phase = DF.avgCfg.phase;  % Assuming this is a string or char
     phase = strrep(phase,"-","_");
     DF.avgCfg = rmfield(DF.avgCfg,"phase");
+    DF.avgCfg = rmfield(DF.avgCfg,"date");
     % Build new row
     AVG = struct();
     AVG.(phase) = DF;     % DF.AVG must exist and be a struct or numeric/etc

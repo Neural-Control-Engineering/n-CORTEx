@@ -1,6 +1,7 @@
 classdef nexObj_spectroGram < handle
     properties
         classID="spg"
+        preBuffLen
         nexon
         Origin
         Parent % hold parent nexObjs (e.g. channelgram)
@@ -20,6 +21,7 @@ classdef nexObj_spectroGram < handle
         isStatic
         freqResponse
         spgFigure % figure handle
+        Figure
         UserData
         bPool
     end
@@ -28,6 +30,7 @@ classdef nexObj_spectroGram < handle
         % Constructor
         function nexObj = nexObj_spectroGram(nexon, channelGram, dataFrame, dfID, f, t, opFcn, visFcn)            
             nexObj.nexon = nexon;
+            nexObj.preBuffLen = channelGram.preBufferLen;
             nexObj.Origin = channelGram;
             nexObj.Parent = channelGram;
             nexObj.DF = nexObj.Parent.DF_postOp;
@@ -48,6 +51,7 @@ classdef nexObj_spectroGram < handle
                 disp(getReport(e));
                 nexObj.opCfg.entryParams = struct;
                 nexObj.opCfg.opFcn=[];
+                nexObj.DF_postOp=nexObj.DF;
             end
             % visualization function
             nexObj.visCfg.visFcn = visFcn;
@@ -71,7 +75,12 @@ classdef nexObj_spectroGram < handle
 
         function updateScope(nexObj, nexon)
             nexUpdate_spectroGram(nexon, nexObj);  
-            nex_updateChildren(nexon, nexObj);
+            % nex_updateChildren(nexon, nexObj);
         end        
+
+        function addChild(nexObj)
+            nexObj.Children.spgph1 = nexObj_spectroGraph(nexObj.nexon, nexObj, [], [], []);
+        end
+
     end
 end

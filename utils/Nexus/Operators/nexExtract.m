@@ -14,17 +14,26 @@ function nexExtract(nexon, fcn, dfID, mask)
         disp(i)
         df = nexon.console.BASE.DTS.(dfID){i};    
         if ~isempty(df)
-            if size(df,2) > minLength * 1.01
-                df = df(:,1:minLength);
+            try
+                if size(df,2) > minLength * 1.01
+                    df = df(:,1:minLength);
+                end
+                args = extractMethodCfg(fcnName);
+                df_out = fcn(df,args);      
+                DF_out.df=df_out;
+            catch e
+                disp(getReport(e));
+                continue
             end
-            args = extractMethodCfg(fcnName);
-            df_out = fcn(df,args);      
         else
-            df_out = [];
+            % df_out = [];
+            % DF_out=[];
+            continue
         end
         % writeDf(nexon, dfColName, df_out,i);
-        writeDataframe(nexon, dfColName, df_out,i);
-        DFOUT = [DFOUT; df_out];
+        % writeDataframe(nexon, dfColName, df_out,i);
+        dtsIO_writeDF(nexon,DF_out,dfColName,i);
+        % DFOUT = [DFOUT; df_out];
     end
     % assign to new column with custom dfID
     

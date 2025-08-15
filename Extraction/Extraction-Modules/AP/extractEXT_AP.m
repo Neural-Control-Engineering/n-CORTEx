@@ -13,7 +13,11 @@ function AP = extractEXT_AP(SLRT, dataDir, session)
     for j = 1:numTrigs % visit each trial-gate                            
         sortedFldr = sortedTrigs{j};
         % kSortPath = fullfile(imecPath,sortedFldr,"kilosort4");
-        npxlsPath = fullfile(strcat("\\?\",imecPath),sortedFldr);
+        if ispc
+            npxlsPath = fullfile(strcat("\\?\",imecPath),sortedFldr);
+        elseif isunix
+            npxlsPath = fullfile(strcat(imecPath),sortedFldr);
+        end
         expmntLabel = strrep(string(sortedTrigs{j}),"_sorted","");
         [trigNum, gateNum] = decodeTrigger(expmntLabel);
         AP = [AP; extAP(SLRT, npxlsPath, trigNum+1)];

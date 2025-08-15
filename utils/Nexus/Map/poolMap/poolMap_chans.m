@@ -3,7 +3,7 @@ classdef poolMap_chans < handle
         axID = "chans"
         divsPerBin=1 % number of bins per pool
         binType = "region"
-        binTypes = ["linear", "region"]
+        binTypes = ["chan", "region"]
         Map        
         source_Map
         bins
@@ -28,11 +28,13 @@ classdef poolMap_chans < handle
                     edgeSubDivs = cellfun(@(row) flip(round(linspace(row(2), row(1),poolMap.divsPerBin+1)',"TieBreaker","fromzero"),1), edgeCmp, "UniformOutput", false);
                     % edgeSubDivs = cellfun(@(row) flip((linspace(row(2), row(1),poolMap.divsPerBin+1)'),1), edgeCmp, "UniformOutput", false);
                     binEdges = flip(unique(cat(1,edgeSubDivs{:})),1);
-                    regions_flipMatch = flip(regions,2)';
+                    % regions_flipMatch = flip(regions,2)';                    
                     % get binIDs
-                    binIDs = regions_flipMatch(binEdges(binEdges~=0));                
+                    % binIDs = regions_flipMatch(binEdges(binEdges~=0));                
+                    binIDs = regions(binEdges(binEdges~=0))';                
+                    binEdges = flip(binEdges,1);
                     % append channel ranges
-                case "linear"
+                case "chan"
                     % binEdges = round(linspace(axis(1), axis(end), poolMap.divsPerBin*(axis(end)-axis(1))))';
                     % binEdges = [axis(1):poolMap.divsPerBin:axis(end)]';
                     nSteps = ceil((axis(end) - axis(1)) / poolMap.divsPerBin);
@@ -41,7 +43,8 @@ classdef poolMap_chans < handle
                     % channel ranges
                     binIDs_nums = num2cell([binEdges(1:end-1),binEdges(2:end)],2);
                     % binIDs_nums = num2cell([binEdges(1:end-1),binEdges(2:end)],2);
-                    binIDs = cellfun(@(idRange) sprintf("%d--%d",idRange(1),idRange(2)),binIDs_nums,"UniformOutput",false);
+                    binIDs = cellfun(@(idRange) sprintf("%d--%d",idRange(1),idRange(2)),binIDs_nums,"UniformOutput",true);
+                    % binIDs = flip(binIDs,1);
                     % binIDs = sprintf("%d--%d");
             end
         end

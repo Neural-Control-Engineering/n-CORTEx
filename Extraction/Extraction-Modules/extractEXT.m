@@ -25,37 +25,43 @@ function extractEXT(params)
             numSessions = size(sessions,1);
             for i = 1:numSessions
                 session = sessions{i};
-                slrtFile = fullfile(params.paths.Data.RAW.SLRT.cloud,session);
-                [SLRT, slrtFile] = extractEXT_SLRT(slrtFile);
-                % BOOST FCN
-                if isfield(extractCfg.EXT,"SLRT")
-                    try % signle boostFcn case
-                        args = extractCfg.EXT.SLRT.args;
-                        SLRT = extractCfg.EXT.SLRT.boostFcn(params, SLRT , slrtFile, args);
-                    catch e
-                        % disp("WARNING: boostFcn for SLRT failed \n")
-                        % disp(e);
-                        try  % accomodate multiple Fcns in cell array format                            
-                            for j = 1:size(extractCfg.EXT.SLRT.boostFcn,1)
-                                boostFcn = extractCfg.EXT.SLRT.boostFcn{j};
-                                args = extractCfg.EXT.SLRT.args{j};
-                                try
-                                    SLRT = boostFcn(params, SLRT, slrtFile, args);
-                                catch e
-                                    msg = getReport(e);
-                                    disp(msg);
-                                end
-                            end
+                % CHECK IF SLRT ALREADY COMPLETE
+                slrt_ext_path = fullfile(params.paths.Data.EXT.SLRT.cloud,sprintf("%s.mat",session));
+                if isfile(slrt_ext_path)
+                    load(slrt_ext_path); % load previously extracted SLRT
+                else
+                    slrtFile = fullfile(params.paths.Data.RAW.SLRT.cloud,session);
+                    [SLRT, slrtFile] = extractEXT_SLRT(slrtFile);
+                    % BOOST FCN
+                    if isfield(extractCfg.EXT,"SLRT")
+                        try % signle boostFcn case
+                            args = extractCfg.EXT.SLRT.args;
+                            SLRT = extractCfg.EXT.SLRT.boostFcn(params, SLRT , slrtFile, args);
                         catch e
-                            disp(e);
-                            msg = getReport(e);
-                            disp(msg);
+                            % disp("WARNING: boostFcn for SLRT failed \n")
+                            % disp(e);
+                            try  % accomodate multiple Fcns in cell array format                            
+                                for j = 1:size(extractCfg.EXT.SLRT.boostFcn,1)
+                                    boostFcn = extractCfg.EXT.SLRT.boostFcn{j};
+                                    args = extractCfg.EXT.SLRT.args{j};
+                                    try
+                                        SLRT = boostFcn(params, SLRT, slrtFile, args);
+                                    catch e
+                                        msg = getReport(e);
+                                        disp(msg);
+                                    end
+                                end
+                            catch e
+                                disp(e);
+                                msg = getReport(e);
+                                disp(msg);
+                            end
                         end
                     end
+                    % SAVE SLRT
+                    extModPath = fullfile(params.paths.Data.EXT.SLRT.cloud,sprintf("%s.mat",session));
+                    save(extModPath, "SLRT");
                 end
-                % SAVE SLRT
-                extModPath = fullfile(params.paths.Data.EXT.SLRT.cloud,sprintf("%s.mat",session));
-                save(extModPath, "SLRT");
                 % EXTRACT ADDITIONAL MODALITIES
                 extrctModules = params.extrctItms.EXT.extrctModules;
                 extModNames = fieldnames(extrctModules);

@@ -194,7 +194,8 @@ classdef nexObj_channelGram < handle
             try
                 S_slrt = nex_returnSelectionMask(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
                 alignColTags = split(S_slrt.events,"_");
-                tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
+                % tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
+                tColID = sprintf("%s_aligned_%s_time",alignColTags(1),alignColTags(2));
                 tCol_slrt = nexObj.nexon.console.BASE.DTS.(tColID)(maskIdx);
                 fs_slrt = nexObj.nexon.console.SLRT.signals.UserData.Fs;
                 t_preBuff = nexObj.preBufferLen;
@@ -208,11 +209,15 @@ classdef nexObj_channelGram < handle
             % segment axes by poolCfg
             % poolMap = extractPoolMap(nexObj);
             try
-                [dfCol_pooled_freqs, binIDs_freqs]  = cellfun(@(DF) nexAnalysis_averagePool(DF, nexObj.pMap_freqs, 2), dfCol_aligned, "UniformOutput",false);
-                [dfCol_pooled, binIDs_chans] = cellfun(@(DF) nexAnalysis_averagePool(DF, nexObj.pMap_chans, 1), dfCol_pooled_freqs,"UniformOutput",false);
+                freqs = nexObj.DF_postOp.ax.f;
+                chans = nexObj.DF_postOp.ax.chans;
+                [dfCol_pooled_freqs, binIDs_freqs]  = cellfun(@(DF) nexAnalysis_averagePool(DF, nexObj.pMap_freqs, 2, freqs), dfCol_aligned, "UniformOutput",false);
+                [dfCol_pooled, binIDs_chans] = cellfun(@(DF) nexAnalysis_averagePool(DF, nexObj.pMap_chans, 1, chans), dfCol_pooled_freqs,"UniformOutput",false);
             catch e
                 disp(getReport(e));
                 dfCol_pooled = dfCol_aligned;
+                binIDs_freqs = nexObj.DF_postOp.ax.f;
+                binIDs_chans = nexObj.DF_postOp.ax.chans;
                 % ax_pooled_freqs
                 % tCol_pooled =
             end
@@ -233,7 +238,11 @@ classdef nexObj_channelGram < handle
             %% STORE RESULT AND CFG ***
             nex_storeAverage(nexObj, nexObj.DF_postOp); % selection wise storing
             %% VISUALIZE RESULT            
-            nexObj.visualize();
+            try
+                nexObj.visualize();
+            catch e
+                disp(getReport(e));
+            end
             % update children objs
             nex_updateChildren(nexObj.nexon, nexObj);
         end
@@ -270,12 +279,24 @@ classdef nexObj_channelGram < handle
             writeArgs.labelMode = "manual";
             switch writeArgs.labelMode
                 case "manual"
-                    Figure_fitScope.UserData = [];
+                    % Figure_fitScope.UserData = [];
                     % start a labelScope figure
-                    writeArgs.Figure_fitScope = nexFigure_fitScope(Figure_fitScope);
+                    fitFcn = ('kernel_specparam_skewed_multiexp');
+                    writeArgs.fitScope = nexObj_fitScope(fitFcn);
                 case "auto"
             end
             MLIO_writeDS(DTS, DFID, writeFcn, writeArgs)
+        end
+
+        function addChild(nexObj)
+            spg1.dataFrame=[];
+            spg1.dfID = [];
+            spg1.f = [];
+            spg1.t = [];
+            spg1.opFcn = [];
+            spg1.visFcn = str2func("nexVisualization_spectroGram");
+            spg1.isOnline = 1;
+            nexObj.Children.spg1 = nexObj_spectroGram(nexObj.nexon, nexObj, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, spg1.opFcn, spg1.visFcn);             
         end
 
         function visualize(nexObj)
