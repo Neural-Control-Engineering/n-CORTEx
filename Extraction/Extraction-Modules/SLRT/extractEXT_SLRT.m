@@ -19,6 +19,21 @@ function [out, slrt] = extractEXT_SLRT(filename)
             logsout = slrt.data;
         end
     end
+
+    try
+        % Find index of element with old name
+        [el, idx] = logsout.find('cont_PulseGen1Hz');    
+        if ~isempty(idx)                          
+            % Change its name
+            el.Name = 'sync_1Hz_ext';
+    
+            % Put it back into the dataset at the same index
+            logsout{idx} = el;
+        end
+    catch e
+        % disp(getReport(e))
+    end
+
     signals = logsout.getElementNames();
     try        
         trialNum = logsout.getElement("seg_trialNum").Values.Data;
@@ -29,7 +44,7 @@ function [out, slrt] = extractEXT_SLRT(filename)
             trial_starts = find(trialNum == 1);
         catch
             try
-                % SEGMENTATION SCHEME A
+                % SEGMENTATION SCHEME A - SYNCHRONOUS (HARD)
                 trialNum = logsout.getElement("seg_trialCounter").Values.Data;
                 trial_starts = find(trialNum == 1);  
                 try
@@ -43,23 +58,24 @@ function [out, slrt] = extractEXT_SLRT(filename)
                     gateNum = [0; gateNum];                    
                     gate_starts = find(diff(gateNum)>=1);
                 end
-                
+                segScheme = "A";
                 firstTrials = findFirstTrials(trial_starts, gate_starts);
             catch
                 try
-                    % SEGMENTATION SCHEME B
+                    % SEGMENTATION SCHEME B - ASYNCHRONOUS (SOFT)
                     % trialNum: target acquisition and trial segmentations are coupled
                     trialNum = logsout.getElement("seg_trialGate").Values.Data;
                     trial_starts = find(diff(trialNum)>=1);                    
                     % trial_starts = find(diff(trialNum)>=1) - 1;                    
                     gate_starts = trial_starts;    
+                    segScheme = "B";
                     firstTrials = trial_starts(1);
                 catch
                     error("Simulink model does not contain logged signal named 'cont_trialCounter' or 'seg_trialCounter")
                 end
             end
         end
-    end    
+    end      
 
     % meta params
     try
@@ -167,7 +183,14 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 end
             % trial time alignment
             elseif strcmp(signal_split{1}, 'sync') || strcmp(signal_split{1}, 'insert') % always prebuffer                
-                data = data_raw(trial_starts(i)-preBuffLen*Fs: trial_ends(i));
+                switch segScheme
+                    case "B"
+                        data = data_raw(trial_starts(i)-preBuffLen*Fs: trial_ends(i));
+                    case "A"
+                        % Segment without prebuffer / advance t by 3.5 to
+                        % align with prebuffered streams
+                        data = data_raw(trial_starts(i):trial_ends(i));
+                end                
             else
                 % data = data_raw(trial_starts(i):trial_ends(i));
                 if size(data_raw,2) > 1
@@ -175,7 +198,8 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 else
                     data = data_raw(trial_starts(i):trial_ends(i));
                 end
-            end            
+            end  
+
             %% CONDITIONING
             % determine if event, continuous (cont), or tag 
             if length(signal_split) == 2
@@ -233,7 +257,15 @@ function [out, slrt] = extractEXT_SLRT(filename)
                     disp(getReport(e)); % no insert data found
                     insertData = [];
                 end
-                syncLine = extractSyncLine(data, insertData, Fs,[],"RE-end","slrt",10);
+                switch segScheme
+                    case "A"
+                        t_seg = trialPtr / Fs;
+                        t_advance = preBuffLen; % preBuffer for alignment with external streams                        
+                    case "B"
+                        t_seg = 0;
+                        t_advance = 0; % no advance needed, signal is prebuffered to align with external streams                        
+                end
+                syncLine = extractSyncLine(data, insertData, Fs,[],"RE-end","slrt",10, t_seg, t_advance);
                 % t_edges = syncLine.t_edges;
                 % t_RE_startAligned = t_RE; % align rising edges to trial starts (with 3.5 second prior context)
                 row = [row, table({syncLine},'VariableNames',{sprintf('syncLine_%s',data_name)})];           

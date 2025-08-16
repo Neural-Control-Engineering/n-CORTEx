@@ -1,4 +1,4 @@
-function syncLine = extractSyncLine(syncData, insertData, Fs, syncFrequency, type, ref, groupSize)
+function syncLine = extractSyncLine(syncData, insertData, Fs, syncFrequency, type, ref, groupSize, t_seg, t_advance)
     typeIds = split(type,"-");
     edgeType = typeIds(1);
     edgeMarker = typeIds(2);
@@ -34,7 +34,8 @@ function syncLine = extractSyncLine(syncData, insertData, Fs, syncFrequency, typ
     end
     % figure;plot(t,syncData);xline(t_edges);
     syncLine.IPD = measureInterPulseDelay(t_edges,groupSize);
-    syncLine.t_edges = t_edges;
+    % syncLine.t_edges = t_edges;
+    syncLine.t_edges = t_edges + t_seg + t_advance;
     syncLine.t_insert = t_insert;
     syncLine.type=type;
     syncLine.ref = ref;

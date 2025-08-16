@@ -26,6 +26,14 @@ function sync = extractSyncOffset(syncLine_ref, sync, t_start)
         t_edge_ref = syncLine_ref.t_edges;
         t_inserts = syncLine.t_insert; % temporal insert at acquisition to ensure rising edge alignment
         t_inserts_ref = syncLine_ref.t_insert;
+
+        % cutoff to point within 1 sec deviation (for scheme A)
+        eof = min([length(t_edge),length(t_edge_ref)]);
+        % t_edge_deviation = t_edge(1) - t_edge_ref(1:eof);
+        t_edge_deviation = t_edge_ref(1) - t_edge(1:eof);
+        idx_min_deviation = find(t_edge_deviation==min(abs((t_edge_deviation))));
+        t_edge = t_edge(idx_min_deviation:end);
+
         % to achieve full sync-precision:
         % cascade offset correction from previous, slower pulses (update each t_RE to reflect
         % offset from slower sync line - this is a recurrent process as we

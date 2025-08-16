@@ -198,4 +198,3 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     AP = out;
 end
 
-end

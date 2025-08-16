@@ -27,7 +27,7 @@ function extractEXT(params)
                 session = sessions{i};
                 % CHECK IF SLRT ALREADY COMPLETE
                 slrt_ext_path = fullfile(params.paths.Data.EXT.SLRT.cloud,sprintf("%s.mat",session));
-                if isfile(slrt_ext_path)
+                if 0 % isfile(slrt_ext_path)
                     load(slrt_ext_path); % load previously extracted SLRT
                 else
                     slrtFile = fullfile(params.paths.Data.RAW.SLRT.cloud,session);
