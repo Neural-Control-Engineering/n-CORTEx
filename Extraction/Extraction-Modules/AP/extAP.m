@@ -81,7 +81,12 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     ap.dataArray = ones([1,nSamples]);
     ap.meta.Fs = str2double(ap.meta.imSampRate);
     [sync_ref, sessionDetails] = constructSync_slrt(SLRT, trigNum);
+    % TURNED OFF
+    % sync = extractSyncOffset(sync_ref.lines.sync_1Hz_slrt, sync, t_start);
+    %% TEMPORARY PLOT HERE
+    sync.lines.sync_1Hz_imec.t_edges = filterSyncEdges(sync.lines.sync_1Hz_imec.t_edges,1/sync.lines.sync_1Hz_imec.Freq);
     sync = extractSyncOffset(sync_ref.lines.sync_1Hz_slrt, sync, t_start);
+    figure; plot(sync.lines.sync_1Hz_imec.syncOffsets);
     % visualize offsets
     plotSyncOffsets_postProc(sync.lines.sync_1Hz_nidq, sync_ref.lines.sync_1Hz_slrt, sessionDetails);
     t_ap = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);

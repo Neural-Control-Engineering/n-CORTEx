@@ -33,6 +33,7 @@ function syncLine = extractSyncLine(syncData, insertData, Fs, syncFrequency, typ
         t_insert = [];
     end
     % figure;plot(t,syncData);xline(t_edges);
+    t_edges = filterSyncEdges(t_edges,1/syncFrequency);
     syncLine.IPD = measureInterPulseDelay(t_edges,groupSize);
     % syncLine.t_edges = t_edges;
     syncLine.t_edges = t_edges + t_seg + t_advance;
