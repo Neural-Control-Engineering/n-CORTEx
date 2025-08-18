@@ -269,7 +269,7 @@ function [out, slrt] = extractEXT_SLRT(filename)
                 if strcmp(signalID,"cont_PulseGen1Hz")
                     syncFrequency=1;
                 else
-                    syncFrequency=extractSyncFrequency(sig);
+                    syncFrequency=extractSyncFrequency(signalID);
                 end
                 syncLine = extractSyncLine(data, insertData, Fs,syncFrequency,"RE-end","slrt",10, t_seg, t_advance);
                 % t_edges = syncLine.t_edges;
