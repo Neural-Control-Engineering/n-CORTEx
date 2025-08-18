@@ -42,3 +42,5 @@ function syncLine = extractSyncLine(syncData, insertData, Fs, syncFrequency, typ
     syncLine.ref = ref;
     syncLine.Freq=syncFrequency;
 end
+% sync_1Hz_ext
+% cont_pulseGen1Hz

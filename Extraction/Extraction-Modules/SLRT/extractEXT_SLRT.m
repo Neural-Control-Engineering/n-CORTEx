@@ -149,6 +149,7 @@ function [out, slrt] = extractEXT_SLRT(filename)
         % loop through logged signals 
         for s = 1:length(signals)
             signal_split = strsplit(signals{s}, '_');
+            signalID = signals{s};
             % disp(signals{s});
             % Check for signal duplicates (user may have logged multiple
             % signals under the same name
@@ -265,7 +266,12 @@ function [out, slrt] = extractEXT_SLRT(filename)
                         t_seg = 0;
                         t_advance = 0; % no advance needed, signal is prebuffered to align with external streams                        
                 end
-                syncLine = extractSyncLine(data, insertData, Fs,[],"RE-end","slrt",10, t_seg, t_advance);
+                if strcmp(signalID,"cont_PulseGen1Hz")
+                    syncFrequency=1;
+                else
+                    syncFrequency=extractSyncFrequency(sig);
+                end
+                syncLine = extractSyncLine(data, insertData, Fs,syncFrequency,"RE-end","slrt",10, t_seg, t_advance);
                 % t_edges = syncLine.t_edges;
                 % t_RE_startAligned = t_RE; % align rising edges to trial starts (with 3.5 second prior context)
                 row = [row, table({syncLine},'VariableNames',{sprintf('syncLine_%s',data_name)})];           
