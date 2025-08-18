@@ -265,12 +265,8 @@ function [out, slrt] = extractEXT_SLRT(filename)
                     case "B"
                         t_seg = 0;
                         t_advance = 0; % no advance needed, signal is prebuffered to align with external streams                        
-                end
-                if strcmp(signalID,"cont_PulseGen1Hz")
-                    syncFrequency=1;
-                else
-                    syncFrequency=extractSyncFrequency(signalID);
-                end
+                end               
+                syncFrequency=extractSyncFrequency(signalID);                
                 syncLine = extractSyncLine(data, insertData, Fs,syncFrequency,"RE-end","slrt",10, t_seg, t_advance);
                 % t_edges = syncLine.t_edges;
                 % t_RE_startAligned = t_RE; % align rising edges to trial starts (with 3.5 second prior context)
