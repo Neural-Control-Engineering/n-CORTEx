@@ -3,6 +3,7 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
     % DEFINE
     preBuffLen = 3.5; % pre-trial buffered sample length (seconds)
     postBuffLen = 5.0; % trial segmentation duration (seconds)
+    kilosort_path = fullfile(lfpPath,"kilosort4");
 
     % load sync data (from RAW layer); this should match SLRT and/or externally generated
     % sync data
@@ -32,7 +33,8 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
     %% TEMPORARY PLOT HERE
     sync.lines.sync_1Hz_imec.t_edges = filterSyncEdges(sync.lines.sync_1Hz_imec.t_edges,1/sync.lines.sync_1Hz_imec.Freq);
     sync = extractSyncOffset(sync_ref.lines.sync_1Hz_slrt, sync, t_start);
-    figure; plot(sync.lines.sync_1Hz_imec.syncOffsets);
+    fig = figure; plot(sync.lines.sync_1Hz_imec.syncOffsets);
+    saveas(fig, strcat(kilosort_path, '/lfp_temp_drift.fig'))
     % visualize offsets
     % plotSyncOffsets_postProc(sync.lines.sync_1Hz_nidq, sync_ref.lines.sync_1Hz_slrt, sessionDetails);
     % t_lfp = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
