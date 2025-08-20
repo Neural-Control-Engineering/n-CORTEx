@@ -31,7 +31,10 @@ function sync = extractSyncOffset(syncLine_ref, sync, t_start)
         eof = min([length(t_edge),length(t_edge_ref)]);
         % t_edge_deviation = t_edge(1) - t_edge_ref(1:eof);
         t_edge_deviation = t_edge_ref(1) - t_edge(1:eof);
-        idx_min_deviation = find(t_edge_deviation==min(abs((t_edge_deviation))));
+        t_edge_deviation_mag = abs(t_edge_deviation);
+        % idx_min_deviation = find(round(t_edge_deviation,4)==round(min(abs((t_edge_deviation))),4));
+        % idx_min_deviation = find((min(((t_edge_deviation)))));
+        idx_min_deviation = find(t_edge_deviation_mag==min(t_edge_deviation_mag));
         t_edge = t_edge(idx_min_deviation:end);
 
         % to achieve full sync-precision:
