@@ -9,8 +9,8 @@ function uploadRAW_CAMERA(params, dfCloud, sessPath, localItem, relPath)
     camParams = camTable(contains(camTable.target,strrep(relPath,"/","")),:);
     camFS = camParams.FS;
     frameDim.width = camParams.spinParams.Width;
-    frameDim.height = camParams.spinParams.Height;
-    pixelFormat = camParams.spinParams.PixelFormat;
+    frameDim.height = camParams.spinParams.Height;    
+    pixelFormat = camParams.spinParams.PixelFormat;    
     switch pixelFormat
         case "BayerRG8"
             frameDim.channels=1;            
