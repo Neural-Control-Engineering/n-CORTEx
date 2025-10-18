@@ -1,4 +1,4 @@
-function nexVisualization_spectroGram(nexon, spectroGram, args)
+function nexVisualization_spectroGram(nexObj, args)
 
     % CFG HEADER
     chanSel = args.chanSel; % default = 1
@@ -7,24 +7,43 @@ function nexVisualization_spectroGram(nexon, spectroGram, args)
     cLim_low = args.cLim_low; % default = -11.5
     cLim_high = args.cLim_high; % default = -9.5    
 
-    f = spectroGram.DF_postOp.ax.f;    
+    f = nexObj.DF_postOp.ax.f;    
     if ~isempty(f); fCond = (f>fRange_start & f<fRange_end); end % select frequencies   
-    t = spectroGram.DF_postOp.ax.t;            
+    t = nexObj.DF_postOp.ax.t;            
     
     % df = spectroGram.Parent.dataFrame;
-    df = spectroGram.DF_postOp.df;
+    df = nexObj.DF_postOp.df;
+    % df = df(chanSel, fCond);    
     % disp(size(df));
     if max(size(size(df))) == 3
         % disp(df)
-        if ~isempty(df); spectroGram.spgFigure.panel1.tiles.Axes.spectroGram.CData = squeeze(df(chanSel,fCond,:)); end
+        df = df(chanSel,fCond,:);
+        if ~isreal(df)
+            switch nexObj.Origin.freqResponseType
+                case "magnitude"
+                    df = 10*log10(abs(df));
+                case "phase"
+                    df = angle(df);
+            end
+        end
+        if ~isempty(df); nexObj.Figure.panel1.tiles.Axes.spectroGram.CData = squeeze(df); end
     else
-        if ~isempty(df); spectroGram.spgFigure.panel1.tiles.Axes.spectroGram.CData = (df(chanSel,fCond)); end
+        df = df(chanSel, fCond);  
+        if ~isreal(df)
+            switch nexObj.Origin.freqResponseType
+                case "magnitude"
+                    df = 10*log10(abs(df));
+                case "phase"
+                    df = angle(df);
+            end
+        end
+        if ~isempty(df); nexObj.Figure.panel1.tiles.Axes.spectroGram.CData = (df(chanSel,fCond)); end
     end
-    spectroGram.spgFigure.panel1.tiles.Axes.spectroGram.Parent.CLim = [cLim_low, cLim_high];
-    if ~isempty(f); spectroGram.spgFigure.panel1.tiles.Axes.spectroGram.YData=f(fCond); end
-    if ~isempty(t); spectroGram.spgFigure.panel1.tiles.Axes.spectroGram.XData=t; end
+    nexObj.Figure.panel1.tiles.Axes.spectroGram.Parent.CLim = [cLim_low, cLim_high];
+    if ~isempty(f); nexObj.Figure.panel1.tiles.Axes.spectroGram.YData=f(fCond); end
+    if ~isempty(t); nexObj.Figure.panel1.tiles.Axes.spectroGram.XData=t; end
     % xline at parent channelgram timeframe
-    tIdx = spectroGram.Parent.frameNum / spectroGram.Parent.opCfg.entryParams.Fs - spectroGram.Parent.preBufferLen;
+    tIdx = nexObj.Parent.frameNum / nexObj.Parent.opCfg.entryParams.Fs - nexObj.Parent.preBufferLen;
     % nexUpdate_moveSpgXLine(nexon, spectroGram, tIdx);
     % xline event check
     % xline(spectroGram.spgFigure.panel1.tiles.Axes.spectroGram.Parent,tIdx,"Color",nexon.settings.Colors.cyberGreen);

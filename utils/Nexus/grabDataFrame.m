@@ -16,7 +16,7 @@ function dataFrame = grabDataFrame(nexon, dfID, dtsIdx)
             dataFrame = dataFrame{1};
         end
     catch e
-        disp(getReport(e))
+        % disp(getReport(e))
         dataFrame = [];
     end
 end

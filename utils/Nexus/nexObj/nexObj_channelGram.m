@@ -36,6 +36,7 @@ classdef nexObj_channelGram < handle
         pltTimer
         isPlay
         frameBuffer
+        freqResponseType
     end
     
     methods
@@ -96,6 +97,7 @@ classdef nexObj_channelGram < handle
             % state cfgs
             nexObj.isOnline = 1;
             nexObj.isStatic = 0;
+            nexObj.freqResponseType="magnitude";
             % modelPath = "/home/user/Code_Repo/n-CORTEx/utils/RTSpec/Models/biLSTM50.pth";
             % try
             %     % obj.rtSpec = initRTSpec(nexon.console.BASE.params, []);
@@ -110,11 +112,13 @@ classdef nexObj_channelGram < handle
             nexObj = nexFigure_channelGram(nexObj);                                
         end
 
-        function updateScope(nexObj, nexon)            
+        function updateScope(nexObj)            
             % grab next dataframe
             % frameBufferID = sprintf("frameBuffer_chg--%s",obj.dfID);
-            nexObj.dataFrame = grabDataFrame(nexon, nexObj.dfID,[]);            
-            nexObj.DF.df = grabDataFrame(nexon, nexObj.dfID,[]);
+            % nexObj.dataFrame = grabDataFrame(nexon, nexObj.dfID,[]);                 
+            nexObj.dataFrame = grabDataFrame(nexObj.nexon, nexObj.dfID,[]);                 
+            % nexObj.DF.df = grabDataFrame(nexon, nexObj.dfID,[]);
+            nexObj.DF = dtsIO_readDF(nexObj.nexon, nexObj.dfID,[]);
             aniArgs = nexObj.aniCfg.entryParams;
             opArgs = nexObj.opCfg.entryParams;
             opArgs.frameNum = nexObj.frameNum; % custom arg for operation sequence
@@ -166,10 +170,10 @@ classdef nexObj_channelGram < handle
             % VISUALIZE
             % shank = obj.Parent;
             visArgs = nexObj.visCfg.entryParams;
-            nexObj.visCfg.visFcn(nexon, nexObj, visArgs);
+            nexObj.visCfg.visFcn(nexObj.nexon, nexObj, visArgs);
             % obj.visCfg.visFcn(nexon, shank, obj, df_out, ax, visArgs);
             % update children objs
-            nex_updateChildren(nexon, nexObj);
+            nex_updateChildren(nexObj.nexon, nexObj);
         end
 
         function reportAverage(nexObj, selIdx)
@@ -232,6 +236,9 @@ classdef nexObj_channelGram < handle
             avgCfg_sel = nexObj.nexon.console.BASE.controlPanel.averagingSelection.selections;
             avgCfg_keys = nexObj.nexon.console.BASE.controlPanel.averagingSelection.selKeys;
             avgCfg = nex_structfun2(@(cfgSel, cfgKey) cfgKey(cfgSel), avgCfg_sel, avgCfg_keys);
+            % apply additional averaging configurations
+            avgCfg.poolType_freqs=nexObj.pMap_freqs.binType;
+            avgCfg.poolType_chans=nexObj.pMap_chans.binType;
             nexObj.DF_postOp.avgCfg = avgCfg;
             % swap frameBuffer
             nexObj.frameBuffer.frames = dfAvg;
@@ -282,7 +289,8 @@ classdef nexObj_channelGram < handle
                     % Figure_fitScope.UserData = [];
                     % start a labelScope figure
                     fitFcn = ('kernel_specparam_skewed_multiexp');
-                    writeArgs.fitScope = nexObj_fitScope(fitFcn);
+                    % writeArgs.fitScope = nexObj_fitScope(fitFcn);
+                    nexObj.Children.fitScp = nexObj_fitScope(nexObj, nexObj.DF_postOp, fitFcn);
                 case "auto"
             end
             MLIO_writeDS(DTS, DFID, writeFcn, writeArgs)
@@ -308,5 +316,22 @@ classdef nexObj_channelGram < handle
             args = nexObj.aniCfg.entryParams;
             nexAnimate_channelGram(nexon, shank, nexObj, args);
         end               
+
+        function compute(nexObj)
+            % use assigned function handle to compute a single new
+            % dataframe
+            args = nexObj.opCfg.entryParams;
+            visArgs = nexObj.visCfg.entryParams;
+            args = mergeStructs(args, visArgs);
+            % additional args
+            args.preBuffLen = nexObj.preBufferLen;
+            DF_in = nexObj.DF;
+            nexObj.DF_postOp = nexObj.opCfg.opFcn(DF_in, args);
+            % buffer computation
+            buildFrameBuffer(nexObj);
+            storeFrameBuffer(nexObj,args)            
+            nexObj.updateScope();
+            disp("End of computation")
+        end
     end
 end

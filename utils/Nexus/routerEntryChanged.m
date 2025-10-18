@@ -26,6 +26,7 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
     elseif strcmp(entryfield,"subj")
         nexon.console.BASE.router.UserData.subjectDir =  fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subj);
     end
+
     % NPXLS UPDATE (apply new dataFrame for each shank --> existing timeCourse, spectrogram, etc)
     shankList = fieldnames(nexon.console.NPXLS.shanks);
     for i = 1:length(shankList)
@@ -34,7 +35,12 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
         for j = 1:length(scopeList)
             scope = scopeList{j};            
             dfID = nexon.console.NPXLS.shanks.(shank).scope.(scope).dfID_source; % grab trial-wise corresponding dfID        
-            dataFrame = grabDataFrame(nexon, dfID,[]);
+            try
+                dataFrame = grabDataFrame(nexon, dfID,[]);
+            catch e
+                disp(getReport(e))
+                dataFrame=[];
+            end
             if isempty(dataFrame)
                 try
                     nexon.console.NPXLS.shanks.(shank).scope.(scope).DF=dtsIO_readDF(nexon,dfID,[]);
@@ -49,10 +55,16 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
             try
                 nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope(nexon);
             catch
-                nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope();
+                try
+                    nexon.console.NPXLS.shanks.(shank).scope.(scope).updateScope();
+                catch e
+                    disp(getReport(e));
+
+                end
             end
         end
     end
+    
     % SLRT UPDATE (apply new dataFrame (set))
     try
         dfID = nexon.console.SLRT.signals.dfIDs; % grab current dfID

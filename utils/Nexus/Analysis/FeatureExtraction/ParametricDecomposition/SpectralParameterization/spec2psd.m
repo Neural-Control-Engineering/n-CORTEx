@@ -12,18 +12,18 @@ function psd = spec2psd(f_spec, spec, aperiodic_mode, periodic_mode)
     switch aperiodic_mode
         case 'fixed'
             EXP = spec(2);
-            psd_AP = -log10(f_spec.^EXP);
+            psd_AP = log10(f_spec.^EXP);
             PE_start = 3;
         case 'knee'
             EXP = spec(2);
             KNE = spec(3);           
-            psd_AP = -log10(KNE + f_spec.^EXP);
+            psd_AP = log10(KNE + f_spec.^EXP);
             PE_start = 4;
         case 'doublexp'
             EXP0 = spec(2);
             KNE = spec(3);
             EXP1 = spec(4);
-            psd_AP = -log10(KNE + f_spec.^EXP0) - log10(f_spec.^EXP1);
+            psd_AP = log10(KNE + f_spec.^EXP0) + log10(f_spec.^EXP1);
             % psd_AP = -log10(f_spec.^EXP0) - log10(KNE+f_spec.^EXP1);
             PE_start = 5;
     end

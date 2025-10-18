@@ -5,57 +5,31 @@ function MLIO_writeDS_rtspec(params, DF_smp, FID, args)
     % sampleNum = args.sampleNum;
     sampleAddress = args.sampleAddress;
     DSCfg = args.DSCfg; % 
-    numFolds = DSCfg.numFolds;
-    sessionLabel = sampleAddress.sessionLabel;
-    trialNum = sampleAddress.trialNum;
-    fid_index = FID.fid_index;
+    % numFolds = DSCfg.numFolds;
+    % sessionLabel = sampleAddress.sessionLabel;
+    % trialNum = sampleAddress.trialNum;
+    conn_index = FID.conn_index;
     fld_DS = FID.fld_DS;
     file_index = FID.file_index;
     
-    % DFID = args.DFID_smp;
+    DFID = args.DFID_smp;
     % nexObj = args.nexObj_fitScope;
     % labelMode = args.labelMode;    
     
-    % locate dataset
-    ID_DS = sprintf("DS--rtspec_%s",DFID);
-    path_FTR = params.paths.Data.FTR.local;
-    path_DS = fullfile(path_FTR, ID_DS);
-    % build directory if doesnt exist AND save config
-    if ~isdir(path_DS)
-        [fid_index, file_index, fld_DS]=MLIO_buildDSDirectory(path_DS, DSCfg);
-    else
-        if
-        else
-        end
-    end
-    % write sample to dataset and index
-    writeTable(fid_index);
+    % % locate dataset
+    % ID_DS = sprintf("DS--rtspec_%s",DFID);
+    % path_FTR = params.paths.Data.FTR.local;
+    % path_DS = fullfile(path_FTR, ID_DS);
+    % % build directory if doesnt exist AND save config
+    % if ~isfolder(path_DS)
+    %     [conn_index, file_index, fld_DS]=MLIO_buildDSDirectory(path_DS, DSCfg);    
+    % end
+    % write sample to dataset     
+    sampleAddress.sampleFile = MLIO_writeSample(FID, DF_smp, sampleAddress, "hdf5");
+    % write sample to index    
+    % MLIO_appendSample2Index(fid_index, sampleAddress, DF_smp);
+    MLIO_insertSample(conn_index, sampleAddress, DF_smp);
+    % Only if the file is new/empty      
+    % CASE - AUTO - loop through each sample individually
 
-    
-    % loop through each sample-'slice' (use source if necessary)
-    % % for i = 1:size(df,1) % chans 
-    % %     ptr_chans = i;        
-    % %     for j = 1:size(df,3) % times
-    % %         ptr_t = j;
-    % %         % df_chan = df(ptr_chans,:,ptr_t);
-    % %         % nexObj.DF.df_sig = df_chan;
-    % %         % switch labelMode
-    % %         %     case "manual"
-    % %         %         nexObj.fitCfg.fitPtr.chans=ptr_chans;
-    % %         %         nexObj.fitCfg.fitPtr.t=ptr_t;
-    % %         %         nexObj.updateScope();            
-    % %         %         % Wait for user entry
-    % %         %         uiwait(nexObj.fh);                           
-    % %         %         isSave = nexObj.UserData.isSave;
-    % %         %     case "auto"
-    % %         %         isSave = 1;
-    % %         % end
-    % % 
-    % %         if isSave
-    % %             % write to dataset
-    % %             fid_index;
-    % %             samplePath;
-    % %         end
-    % %     end
-    % % end
 end
