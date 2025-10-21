@@ -28,8 +28,10 @@ function nexObj = nexFigure_channelGram(nexObj)
     aniChangedFcnArgs.cfgFieldName = "aniCfg";
     nexObj.Figure.panel4 = nexObj_cfgPanel(nexon, nexObj, panel4, aniArgs, cfgEntryChangedFcn, aniChangedFcnArgs);        
     %% BINNING CFG
-    binCfgChangedFcn = str2func("binCfgEntryChanged");
-    nexObj.Figure.poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel5, binCfgChangedFcn);
+    % binCfgChangedFcn = str2func("binCfgEntryChanged");
+    poolCfgChangedFcn = str2func("poolCfgEntryChanged");
+    % nexObj.Figure.poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel5, binCfgChangedFcn);
+    nexObj.Figure.poolCfgPanel = nexObj_poolCfgPanel(nexObj, panel5, poolCfgChangedFcn);
     % begin plot layout
     nexObj.Figure.panel1.tiles.t = tiledlayout(nexObj.Figure.panel1.ph,1,1);
     % User Input Buttons/Fields

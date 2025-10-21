@@ -75,42 +75,46 @@ function extractDTS(params)
     catch e
         disp(getReport(e));
     end
-    DTS_tall = tall((DTS));
 
-    %  if size(dir(dtsPath),1) > 3
-    %     DTS_prev = loadTall(dtsPath);
-    % else
-    %     DTS_prev = [];
+    assignin("base","DTS",DTS);
+
+    %% AUTO SAVE CODE (OPTIONAL)
+    % DTS_tall = tall((DTS));
+    % 
+    % %  if size(dir(dtsPath),1) > 3
+    % %     DTS_prev = loadTall(dtsPath);
+    % % else
+    % %     DTS_prev = [];
+    % % end
+    % % DTS_full = [DTS_prev; DTS_tall];    
+    % % DTS = DTS_full;
+    % % Load pre-existing datastore
+    % % dsPrev = datastore(strcat("\\?\",fullfile(dtsPath,"D001")));    
+    % % DTS_prev = tall(dsPrev);
+    % if ispc
+    %     DTS_prev = loadTall(strcat("\\?\",fullfile(dtsPath,"D008")));
+    %     writePath = strcat("\\?\",fullfile(params.paths.Data.DTS.cloud));
+    % elseif isunix
+    %     try 
+    %         parpool("SpmdEnabled",false)
+    %     catch
+    %     end
+    %     DTS_prev = loadTall(strcat(fullfile(dtsPath,"D009")));        
+    %     writePath = strcat(fullfile(params.paths.Data.DTS.cloud));
     % end
-    % DTS_full = [DTS_prev; DTS_tall];    
-    % DTS = DTS_full;
-    % Load pre-existing datastore
-    % dsPrev = datastore(strcat("\\?\",fullfile(dtsPath,"D001")));    
-    % DTS_prev = tall(dsPrev);
-    if ispc
-        DTS_prev = loadTall(strcat("\\?\",fullfile(dtsPath,"D008")));
-        writePath = strcat("\\?\",fullfile(params.paths.Data.DTS.cloud));
-    elseif isunix
-        try 
-            parpool("SpmdEnabled",false)
-        catch
-        end
-        DTS_prev = loadTall(strcat(fullfile(dtsPath,"D009")));        
-        writePath = strcat(fullfile(params.paths.Data.DTS.cloud));
-    end
-    if any(ismember(DTS_prev.Properties.VariableNames,"trialNum"))
-        DTS_prev = renamevars(DTS_prev,["trialNum"],["trialNumber"]);
-    end
-    DTS_full = mergeTall_vertical(DTS_prev, DTS_tall);
-    % write(pwd,DTS);
-    % dts = datastore(fullfile(params.paths.Data.DTS.cloud,"dts.mat"),DTS_full);
-    DTS = DTS_full;    
-    write(strcat(fullfile(writePath,"D009")),DTS);
-    % write(strcat("\\?\",fullfile(params.paths.Data.DTS.cloud,"D008\")),tall(DTS));
-    % UPDATE EXTRACTION LOG
-    extrctLog = params.extrctItms.DTS.extractionLog;
-    sessionsExtrct = convertCharsToStrings(sessions);
-    isExtrctIdx = find(ismember(extrctLog.SessionName,sessionsExtrct)==1);
-    extrctLog(isExtrctIdx,:).Extracted=ones(size(isExtrctIdx,1),1);
-    writetable(extrctLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","DTS")));
+    % if any(ismember(DTS_prev.Properties.VariableNames,"trialNum"))
+    %     DTS_prev = renamevars(DTS_prev,["trialNum"],["trialNumber"]);
+    % end
+    % DTS_full = mergeTall_vertical(DTS_prev, DTS_tall);
+    % % write(pwd,DTS);
+    % % dts = datastore(fullfile(params.paths.Data.DTS.cloud,"dts.mat"),DTS_full);
+    % DTS = DTS_full;    
+    % write(strcat(fullfile(writePath,"D009")),DTS);
+    % % write(strcat("\\?\",fullfile(params.paths.Data.DTS.cloud,"D008\")),tall(DTS));
+    % % UPDATE EXTRACTION LOG
+    % extrctLog = params.extrctItms.DTS.extractionLog;
+    % sessionsExtrct = convertCharsToStrings(sessions);
+    % isExtrctIdx = find(ismember(extrctLog.SessionName,sessionsExtrct)==1);
+    % extrctLog(isExtrctIdx,:).Extracted=ones(size(isExtrctIdx,1),1);
+    % writetable(extrctLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","DTS")));
 end

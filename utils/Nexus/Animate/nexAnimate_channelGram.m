@@ -75,6 +75,7 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
 
     % Store DF_postOp
     % ss = size(channelGram.frameBuffer.frames)
+
     channelGram.DF_postOp.df = channelGram.frameBuffer.frames;    
     channelGram.DF_postOp.ax = channelGram.frameBuffer.ax;
 
@@ -100,7 +101,7 @@ function nexAnimate_channelGram(nexon, shank, channelGram, args)
     matchArgs = mergeStructs(channelGram.opCfg.entryParams, channelGram.aniCfg.entryParams);
     dtsIdx = [];
     % [colIdx] = nex_isDtsMember(dtsMemberID, matchArgs, dtsIdx);
-    if ~nex_isDtsMember(channelGram.nexon, dtsMemberID, matchArgs, dtsIdx);        
+    if ~nex_isDtsMember(channelGram.nexon, dtsMemberID, matchArgs, dtsIdx)       
         storeFrameBuffer(channelGram, []);
     end
     % writeDf(nexon,frameBufferID, channelGram.frameBuffer,[]);            

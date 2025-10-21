@@ -26,6 +26,6 @@ function  nexPlot_spectroGram(nexon, nexObj)
     colormap(nexObj.Figure.fh,CT);
     colorAx_green(nexObj.Figure.panel1.tiles.Axes.spectroGram.Parent);
     % visualize
-    nexObj.visCfg.visFcn(nexon, nexObj, visArgs);  
+    nexObj.visCfg.visFcn(nexObj, visArgs);  
 
 end

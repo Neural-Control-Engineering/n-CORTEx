@@ -38,10 +38,36 @@ function [out, slrt] = extractEXT_SLRT(filename)
     try        
         trialNum = logsout.getElement("seg_trialNum").Values.Data;
         trial_starts = find(trialNum == 1);
+        try
+            gateNum = logsout.getElement("seg_trialGate").Values.Data;
+            % prepend with 0 (for non-0 starting signals)
+            gateNum = [0; gateNum];                    
+            gate_starts = find(diff(gateNum)>=1) - 1; % subtract index by 1 (for prepended 0)
+        catch
+            gateNum = logsout.getElement("cont_npxlsAcq").Values.Data; % legacy version of 'trialGate'
+            % prepend with 0 (for non-0 starting signals)
+            gateNum = [0; gateNum];                    
+            gate_starts = find(diff(gateNum)>=1);
+        end
+        segScheme = "A";
+        firstTrials = findFirstTrials(trial_starts, gate_starts);
     catch
         try
             trialNum = logsout.getElement("cont_trialNum").Values.Data;
             trial_starts = find(trialNum == 1);
+            try
+                gateNum = logsout.getElement("seg_trialGate").Values.Data;
+                % prepend with 0 (for non-0 starting signals)
+                gateNum = [0; gateNum];                    
+                gate_starts = find(diff(gateNum)>=1) - 1; % subtract index by 1 (for prepended 0)
+            catch
+                gateNum = logsout.getElement("cont_npxlsAcq").Values.Data; % legacy version of 'trialGate'
+                % prepend with 0 (for non-0 starting signals)
+                gateNum = [0; gateNum];                    
+                gate_starts = find(diff(gateNum)>=1);
+            end
+            segScheme = "A";
+            firstTrials = findFirstTrials(trial_starts, gate_starts);
         catch
             try
                 % SEGMENTATION SCHEME A - SYNCHRONOUS (HARD)

@@ -7,17 +7,17 @@ function updateTimeCourse(shank, timeCourse, altRegMap)
         regMap = shank.regMap;
     end
     % dataFrame = timeCourse.dataFrame;
-    dataFrame = timeCourse.DF.df;
-    if ~isfield(timeCourse.DF,"ax")
-        timeCourse.DF.ax=struct;
-        if ~isfield(timeCourse.DF.ax,"t")
+    dataFrame = timeCourse.DF_postOp.df;
+    if ~isfield(timeCourse.DF_postOp,"ax")
+        timeCourse.DF_postOp.ax=struct;
+        if ~isfield(timeCourse.DF_postOp.ax,"t")
             t_df = [1:size(dataFrame,2)] ./ Fs - preBuffer;
-            timeCourse.DF.ax.t=t_df;
+            timeCourse.DF_postOp.ax.t=t_df;
         end
-    elseif (size(timeCourse.DF.ax.t,2) ~= size(dataFrame,2))
+    elseif (size(timeCourse.DF_postOp.ax.t,2) ~= size(dataFrame,2))
         t_df = [1:size(dataFrame,2)] ./ Fs - preBuffer;
     else
-        t_df = timeCourse.DF.ax.t;
+        t_df = timeCourse.DF_postOp.ax.t;
     end
     ptr = timeCourse.UserData.tilePtr;
     % update tileset

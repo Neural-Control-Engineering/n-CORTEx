@@ -1,6 +1,12 @@
 function isMember = nex_isDtsMember(nexon, dtsMemberID, matchArgs, dtsIdx)    
     argsID = sprintf("%s_args", dtsMemberID);
-    dfArgs = grabDataFrame(nexon, argsID, dtsIdx);
+    
+    % retrieve potential match config (if not empty)
+    dfArgs = grabDataFrame(nexon, argsID, dtsIdx);    
+    if isempty(dfArgs)
+        dfArgs = struct;
+    end
+
     matchLogic = ismember(fieldnames(dfArgs),fieldnames(matchArgs));
     % only compare identical fields
     % if all(matchLogic)
@@ -23,5 +29,9 @@ function isMember = nex_isDtsMember(nexon, dtsMemberID, matchArgs, dtsIdx)
             end
         end
     end
-    isMember = all(valueMatchLogic==1);
+    if isempty(valueMatchLogic) % if no matches at all
+        isMember = 0;
+    else
+        isMember = all(valueMatchLogic==1);
+    end
 end

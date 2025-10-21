@@ -1,7 +1,7 @@
 function nexAnalysis_scaleAnalysis(nexon, nexObjID, analysisFcn, analysisArgs, dfID_source, dfID_target, mask)
     % apply analysis fcn to all rows of a DTS column indicated by dfID
     dtsRows = height(nexon.console.BASE.DTS); % visit each row
-    rowStart=1;
+    rowStart=74;
     % minLength to truncate long recordings if necessary
     % minLength = arrayfun(@(x) size(x{1},2), nexon.console.BASE.DTS.(dfID),"UniformOutput",true);
     % minLength(minLength==0) = [];

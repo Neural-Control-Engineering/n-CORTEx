@@ -120,13 +120,17 @@ function nexVisualization_spectroGraph(nexObj, args)
     end    
 
     % TITLE
-    chanBinType = nexObj.Origin.pMap_chans.binType;
+    chanBinType = nexObj.Origin.pMap_chans.binType;    
     [binEdges, binIDs_chans] = nexObj.Origin.pMap_chans.getBinEdges(nexObj.Origin.DF_postOp.ax.chans);
     freqBinType = nexObj.Origin.pMap_freqs.binType;            
     [binEdges, binIDs_freqs] = nexObj.Origin.pMap_freqs.getBinEdges(nexObj.Origin.DF_postOp.ax.f);
     binID_chans = binIDs_chans(chanSel);
     binID_freqs = binIDs_freqs(freqSel);
-    titleText = sprintf("%s: %s; %s: %s", chanBinType, binID_chans, freqBinType, binID_freqs);
+    % region inference
+    binID_alpha = split(binID_chans,"--"); binID_alpha=binID_alpha(1);binID_num = str2double(binID_alpha);
+    region = convertCharsToStrings(nexObj.Origin.Parent.regMap(cell2mat(nexObj.Origin.Parent.regMap.channel==binID_num),:).region);
+    % title label
+    titleText = sprintf("%s, %s: %s; %s: %s", region, chanBinType, binID_chans, freqBinType, binID_freqs);
     title(axis, titleText,"Color",nexObj.nexon.settings.Colors.cyberGreen);
     % legend
     if ~isempty(list_legend)
@@ -135,6 +139,7 @@ function nexVisualization_spectroGraph(nexObj, args)
         lgd.EdgeColor = 'none';        % No border
         % lgd.Color = [0 0 0];           % black background
     end
+    
 
     % chanIdx = nexObj.poolMap_chans.getIndex(chanSel);
     % regionName = nexObj.Origin.pMap_chans.getBinID(chanSel);
