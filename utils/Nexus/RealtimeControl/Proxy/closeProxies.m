@@ -8,7 +8,12 @@ function closeProxies(proxon)
         proxObj = proxObjs.(proxObjName);
         if isprop(proxObj,"Server")
             try
-                delete(proxObj.Server)
+                srv = proxObj.Server;
+                % fclose(srv);
+                % delete("srv")
+                clear("srv")
+                % delete(srv);
+                % clear("srv")
                 fprintf("closing %s\n", proxObjName);
             catch e
                 disp(getReport(e));
