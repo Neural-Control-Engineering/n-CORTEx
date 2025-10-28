@@ -17,6 +17,7 @@ function [eventSelection, IDs_signals] = nexSelect_eventAlignment(nexObj, IDs_si
         eventTags = [eventTags; arrayfun(@(x) sprintf("%s_%s",x,dfID), eventLabels,"UniformOutput",true)'];        
     end
     eventAlignmentDict.events = eventTags;
+    % build selection bus
     keyFields = fieldnames(eventAlignmentDict);
     for i=1:length(keyFields)
         key = keyFields{i};

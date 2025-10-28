@@ -41,18 +41,24 @@ classdef npxls_shank < handle
             % % dataFrame = grabDataFrame(nexon,"lfp",[]);
             % % df_t = grabDataFrame(nexon,"t_lfp",[]);
             %% rename lfp columns into convention
-            nexObj.nexon.console.BASE.DTS.Properties.VariableNames{'lfp'}='lfp_df';
-            nexObj.nexon.console.BASE.DTS.Properties.VariableNames{'t_lfp'}='lfp_t';
+            try
+                nexObj.nexon.console.BASE.DTS.Properties.VariableNames{'lfp'}='lfp_df';
+                nexObj.nexon.console.BASE.DTS.Properties.VariableNames{'t_lfp'}='lfp_t';
+            catch e
+                disp(getReport(e))
+            end
             % 
             % if isempty(dataFrame)
             %     dataFrame = grabDataFrame(nexon,"lfp_df",[]);
             % end
-            % nexObj.DF = lfp2DF(dataFrame, df_t);
+            % nexObj.DF = lfp2DF(dataFrame, df_t);            
             nexObj.DF = dtsIO_readDF(nexObj.nexon, "lfp",[]);
-            nexObj.DF_postOp = DF;            
-            nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, dataFrame, "lfp");
+            nexObj.DF_postOp = nexObj.DF;            
+            % nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, dataFrame, "lfp");
+            nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, nexObj.DF, "lfp");
+            % nexObj.scope.timeCourse.DF = nexObj.DF;
             %% PIXELGRAM
-            nexObj_pixelGram(nexObj, nexObj.nexon);
+            nexObj_pixelGram(nexObj.scope.timeCourse1, nexObj.nexon);
             %% add STFT (PMTM method spectrogram)
             try
                 df_lfp = grabDataFrame(nexon,"lfp",[]);
@@ -61,7 +67,7 @@ classdef npxls_shank < handle
                 opFcn = str2func("rtPMTM_magnitude");
                 visFcn = str2func("nexVisualization_channelGram");
                 aniFcn = str2func("nexAnimate_channelGram");
-                nexObj.scope.channelGram1 = nexnexObj_channelGram(nexon, nexObj, df_lfp, "lfp", opFcn, visFcn, aniFcn);
+                nexObj.scope.channelGram1 = nexObj_channelGram(nexon, nexObj, df_lfp, "lfp", opFcn, visFcn, aniFcn);
             catch e
                 disp(getReport(e));
             end

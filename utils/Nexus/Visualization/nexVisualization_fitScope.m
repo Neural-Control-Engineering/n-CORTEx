@@ -23,13 +23,27 @@ function nexVisualization_fitScope(nexObj, args)
     fCond = (f>fRange_start & f<fRange_end); % select frequencies   
     % POST OPERATIVE UPDATE
     nexObj.DF_postOp.df = nexObj.DF.df(ptr_chans,fCond,ptr_t); % df slice update
-    nexObj.DF_postOp.ax.f=f(fCond);
+    nexObj.DF_postOp.ax.f=f(fCond);    
     % RE-VISUALIZATION
+    % Corner frequencies
+    try
+        f_corner1 = log10(nexObj.DF_postOp.cf(1));
+    catch e
+        f_corner1 = 0;
+    end
+    try
+        f_corner2 = log10(nexObj.DF_postOp.cf(2));
+    catch e
+        f_corner2 = 0;
+    end
+    % value updates
     nexObj.Figure.panel1.tiles.graphics.canvas_fit.YData = nexObj.DF_postOp.df_fit(fCond);
     nexObj.Figure.panel1.tiles.graphics.canvas_sig.YData = nexObj.DF.df(ptr_chans,fCond,ptr_t);
     nexObj.Figure.panel1.tiles.graphics.canvas_context1.YData =  nexObj.DF.df(ptr_chans,fCond,ptr_t_pre); % look behind (time)
     nexObj.Figure.panel1.tiles.graphics.canvas_context2.YData = nexObj.DF.df(ptr_chans,fCond,ptr_t_post);  % look ahead (time)
     nexObj.Figure.panel1.tiles.graphics.canvas_context3.YData = nexObj.DF.df(ptr_chans_pre,fCond,ptr_t); % look behind (space)
     nexObj.Figure.panel1.tiles.graphics.canvas_context4.YData = nexObj.DF.df(ptr_chans_post,fCond,ptr_t); % look ahead (space)
+    nexObj.Figure.panel1.tiles.graphics.canvas_cornerFreq1.Value = f_corner1;
+    nexObj.Figure.panel1.tiles.graphics.canvas_cornerFreq2.Value = f_corner2;    
     % nexObj.Figure.panel1.tiles.graphics.canvas_fit.Parent.YLim=[-170,-90];
 end

@@ -1,6 +1,6 @@
 classdef nexObj_slrtTimeCourse < handle
     properties
-        classID
+        classID = "slrtc"
         dataFrame % This will hold any type of data, such as a struct  
         DF
         nexon
@@ -18,7 +18,7 @@ classdef nexObj_slrtTimeCourse < handle
         % Constructor
         function nexObj = nexObj_slrtTimeCourse(nexObj_parent, dfIDs)    
             nexObj_parent.signals=nexObj;
-            nexObj.classID = "tc_slrt";
+            % nexObj.classID = "tc_slrt";
             nexObj.nexon = nexObj_parent.nexon;
             % nexObj.dataFrame=dataFrame;            
             nexObj.dfIDs = dfIDs;
