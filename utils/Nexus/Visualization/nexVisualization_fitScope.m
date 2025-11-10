@@ -11,7 +11,7 @@ function nexVisualization_fitScope(nexObj, args)
     ptr_chans = nexObj.DF.ptr.chans;
     ptr_t = nexObj.DF.ptr.t;    
     % df sizes
-    n_t     = size(nexObj.DF.ax.t, 2);      % number of time points
+    n_t  = size(nexObj.DF.ax.t, 2);      % number of time points
     n_chans = size(nexObj.DF.ax.chans, 2);  % number of channels    
     % safe circular indexing for time
     ptr_t_pre  = mod(ptr_t - 2, n_t) + 1;  % -1 in 1-based => subtract 2 before mod

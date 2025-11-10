@@ -35,6 +35,9 @@ classdef nexObj_slrtTimeCourse < handle
         end
 
         function updateScope(nexObj,  nexon, parent)  
+            IDs_signals = nexObj.dfIDs;
+            IDs_events = nexObj.eventAlignmentSelection.selKeys.events;
+            nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, IDs_events);
             colorMap = nexObj.UserData.colorMap;
             try
                 updateSlrtTimeCourse(nexObj, colorMap)
@@ -52,5 +55,14 @@ classdef nexObj_slrtTimeCourse < handle
         function data = getUserData(nexObj)
             data = nexObj.UserData;
         end
+        
+        function value = getVal_tMarker(nexObj, t_clock)
+            % for now, use first t ax listed
+            tFields = fieldnames(nexObj.DF.ax.t);
+            t = nexObj.DF.ax.t.(tFields{1});
+            [minVal, idx] = min(abs(t - t_clock));
+            value = t(idx);
+        end
+     
     end
 end

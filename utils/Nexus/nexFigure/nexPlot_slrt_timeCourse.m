@@ -37,7 +37,8 @@ function nexObj = nexPlot_slrt_timeCourse(nexon, nexObj)
         % traceColor = sprintf("#%s",regMap(regMap.channel==i,:).color{1});
         traceColor = [1,1,1]; % temporary default
         % regName = regMap(regMap.channel==i,:).region{1};
-        plot(nexObj.Figure.panel1.tiles.Axes.(tileID),t_df,df_i,"Color",traceColor);
+        canvas_l = plot(nexObj.Figure.panel1.tiles.Axes.(tileID),t_df,df_i,"Color",traceColor);
+        nexObj.Figure.panel1.tiles.graphics.(tileID) = canvas_l;    
         hold(ax_canvas,"on");
         % nexObj.Figure.panel1.tiles.Axes.(tileID).YLabel.String = sprintf("%s", dfID_i);                       
         nexObj.Figure.panel1.tiles.Axes.(tileID).YLabel.String = sprintf("%s", dfField);                       
@@ -45,5 +46,11 @@ function nexObj = nexPlot_slrt_timeCourse(nexon, nexObj)
         graphics = nex_generateEventMarkers(nexObj,ax_canvas);
         nexObj.Figure.panel1.tiles.graphics.(axID) = graphics;
         hold(ax_canvas,"off");
+        %% Markers
+        % t Marker
+        tIdx = nexObj.nexon.console.BASE.controlPanel.clock;
+        graphic = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+        nexObj.Figure.panel1.tiles.graphics.(("tMarker")) = nexObj_tMarker(nexObj, graphic, nexObj.nexon.console.BASE.controlPanel, 0);
     end
+
 end

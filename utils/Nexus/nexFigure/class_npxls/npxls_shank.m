@@ -113,6 +113,19 @@ classdef npxls_shank < handle
             % nexObj.config = drawShankCfgPanel(nexon, nexObj);                          
         end
 
+        function updateRegMap(nexObj)
+            disp("New subject selected, updating region mapping")
+            params = nexObj.nexon.console.BASE.params;            
+            regMapDir = fullfile(nexObj.nexon.console.BASE.router.UserData.subjectDir,"npxls/trajectory/imec0","map_channel-region.mat");            
+            regMapDir_cloud = fullfile(nexObj.nexon.console.BASE.router.UserData.subjectDir_cloud,"npxls/trajectory/imec0","map_channel-region.mat")            
+            try
+                load(regMapDir);
+            catch
+                load(regMapDir_cloud);
+            end
+            nexObj.regMap = regMap;    
+        end
+
         function reportAverage(nexObj, selIdx)            
             %% RETRIEVAL
             % dfID = sprintf("%s--%s",nexObj.classID,func2str(nexObj.opCfg.opFcn));

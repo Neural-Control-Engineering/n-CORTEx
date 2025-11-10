@@ -34,7 +34,7 @@ function nexUpdate_spectroGram(nexon, spectroGram)
     % CALL VISUALIZATION
     visArgs = spectroGram.visCfg.entryParams;
     try
-        spectroGram.visCfg.visFcn(nexon,  spectroGram, visArgs);
+        spectroGram.visCfg.visFcn(spectroGram, visArgs);
     catch e
         disp(getReport(e));
     end

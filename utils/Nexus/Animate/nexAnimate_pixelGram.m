@@ -15,5 +15,9 @@ function nexAnimate_pixelGram(nexObj, args)
         nexObj.Figure.panel5.editFields.t.uiField.Value=axVal;
         % nexObj.Figure.panel5.editFields.t.uiField.ValueChangedFcn;       
         % notify(nexObj.Figure.panel5.editFields.t.uiField,"ValueChanged");       
+        % update clock
+        time = nexObj.DF_postOp.ptr.t.value / nexObj.Partners.npxTC.UserData.Fs - nexObj.Partners.npxTC.UserData.preBufferLen;
+        % nexObj.nexon.console.BASE.controlPanel.clock = time;
+        % visualize
         nexObj.visualize();
 end

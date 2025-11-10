@@ -29,15 +29,14 @@ classdef nexObj_pixelGram < handle
             % nexObj.cfg.opCfg = nex_generateCfgObj();
             nexObj.cfg.opCfg=[];
             nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_pixelGram"));
-            nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexAnimate_pixelGram"));     
-            %% DF
+            nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexAnimate_pixelGram"));                 %% DF
             nexObj.DF = Partner.DF;
             nexObj.operate();
             nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
             %% Build Figure
             nexObj.buildFigure();
             % animation player
-            nexObj.player = timer('Period',0.1,'BusyMode','drop','TimerFcn',@(~,~) nexObj.animate(),"ExecutionMode","fixedRate");
+            nexObj.player = timer('Period',0.2,'BusyMode','drop','TimerFcn',@(~,~) nexObj.animate(),"ExecutionMode","fixedRate");
 
 
         end

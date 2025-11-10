@@ -30,9 +30,16 @@ function nexFigure_spectroGraph(nexObj)
     % nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_xLine_time",nexObj.classID)) = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
     % XLINE
     % frame tracker
-    nexObj.Figure.panel1.tiles.graphics.(("xLine_frame")) = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+    % nexObj.Figure.panel1.tiles.graphics.(("tMarker")) = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+    graphic = xline(ax_canvas,tIdx,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+    nexObj.Figure.panel1.tiles.graphics.(("tMarker")) = nexObj_tMarker(nexObj, graphic, nexObj.nexon.console.BASE.controlPanel, 0);
     % event marker(s)
-    graphics_eventMarkers = nex_generateEventMarkers(nexObj, ax_canvas);
+    try
+        % graphics_eventMarkers = nex_generateEventMarkers(nexObj, ax_canvas);
+        nexObj.Figure.panel1;
+    catch e
+        disp(getReport(e))
+    end
     % apply time-idx values
     % graphics_eventMarkers = nex_setMarkerValue()
     % merge graphics

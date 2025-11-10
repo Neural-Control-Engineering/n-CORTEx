@@ -8,6 +8,8 @@ function nexAnalysis_scaleAnalysis(nexon, nexObjID, analysisFcn, analysisArgs, d
     % minLength = min(minLength);
     % fcnName = func2str(fcn);
     if isempty(dfID_target)
+        % drop 'df' tag
+        nexObjID = strrep("_df","");
         dfID_target = sprintf("%s--%s", nexObjID, func2str(analysisFcn));        
     end
     % for each row in the DTS

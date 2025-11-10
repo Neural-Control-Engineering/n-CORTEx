@@ -22,6 +22,7 @@ classdef nexObj_channelGram < handle
         compCfg
         exportCfg
         opCfg
+        oprCfg
         visCfg
         aniCfg
         mlCfg
@@ -70,11 +71,18 @@ classdef nexObj_channelGram < handle
             % export function
             nexObj.exportCfg.exportFcn = str2func("nexExport_channelGram");
             nexObj.exportCfg.entryParams = [];
-            % operation function
+            % compute function
             nexObj.opCfg.opFcn = opFcn;
             nexObj.opCfg.entryParams = extractMethodCfg(rmExtension(func2str(opFcn)));              
             nexObj.frameBuffer.opArgs = nexObj.opCfg.entryParams;
             nexObj.dfID_target = func2str(opFcn);
+            % operation function
+            try
+                nexObj.oprCfg.fcn = oprFcn;
+                nexObj.oprCfg.entryParams = extractMethodCfg(rmExtension(func2str(oprFcn)));
+            catch
+                nexObj.oprCfg = [];
+            end
             % visualization function
             nexObj.visCfg.visFcn = visFcn;
             nexObj.visCfg.entryParams = extractMethodCfg(rmExtension(func2str(visFcn)));
@@ -205,6 +213,7 @@ classdef nexObj_channelGram < handle
                 t_preBuff = nexObj.preBufferLen;
                 [dfCol_aligned, tCol_aligned] = nexAlign_signals(dfCol_sel, tCol_sel, tCol_slrt, fs_slrt, t_preBuff,3);            
             catch e
+                disp("event alignment failed, proceeding...")
                 disp(getReport(e));
                 dfCol_aligned = dfCol_sel;
                 tCol_aligned = tCol_sel;
@@ -213,6 +222,7 @@ classdef nexObj_channelGram < handle
             % segment axes by poolCfg
             % poolMap = extractPoolMap(nexObj);
             try
+                error()
                 freqs = nexObj.DF_postOp.ax.f;
                 chans = nexObj.DF_postOp.ax.chans;
                 [dfCol_pooled_freqs, binIDs_freqs]  = cellfun(@(DF) nexAnalysis_averagePool(DF, nexObj.pMap_freqs, 2, freqs), dfCol_aligned, "UniformOutput",false);
@@ -242,6 +252,8 @@ classdef nexObj_channelGram < handle
             nexObj.DF_postOp.avgCfg = avgCfg;
             % swap frameBuffer
             nexObj.frameBuffer.frames = dfAvg;
+            % post-average operation
+            % nexObj.operate();
             %% STORE RESULT AND CFG ***
             nex_storeAverage(nexObj, nexObj.DF_postOp); % selection wise storing
             %% VISUALIZE RESULT            
@@ -316,6 +328,11 @@ classdef nexObj_channelGram < handle
             args = nexObj.aniCfg.entryParams;
             nexAnimate_channelGram(nexon, shank, nexObj, args);
         end               
+
+        function operate(nexObj)
+            oprArgs = nexObj.oprCfg.entryParams;
+            nexObj.DF_postOp = nexObj.oprCfg.fcn(nexObj.DF_postOp, oprArgs);
+        end
 
         function compute(nexObj)
             % use assigned function handle to compute a single new

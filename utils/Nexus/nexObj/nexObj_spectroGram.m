@@ -75,7 +75,7 @@ classdef nexObj_spectroGram < handle
 
         function updateScope(nexObj, nexon)
             nexUpdate_spectroGram(nexon, nexObj);  
-            % nex_updateChildren(nexon, nexObj);
+            nex_updateChildren(nexon, nexObj);
         end        
 
         function addChild(nexObj)

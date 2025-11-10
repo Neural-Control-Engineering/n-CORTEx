@@ -12,7 +12,11 @@ function df_cf = psdIO_readCornerFrequencies(f_psd, df_psd)
     % df_psd(band) = mean_rep;        
     %% lowess smoothing
     % df_smooth  = lowess(df_psd', 0.55);
-    df_smooth = lowess(df_psd',smoothFactor);
+    % df_smooth = lowess(df_psd',smoothFactor);
+    DF_psd.df=df_psd;
+    args = extractMethodCfg('smooth_ASLS');
+    DF_smooth = smooth_ASLS(DF_psd, args);
+    df_smooth =DF_smooth.df';
     %% rate of change
     numTicks = 40;    
     % f_ticks = ((logspace(log10(f_psd(1)),log10(f_psd(end)-1), numTicks)));

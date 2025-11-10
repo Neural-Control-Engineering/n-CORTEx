@@ -11,6 +11,8 @@ classdef nexObj_embedding_single < handle
         Figure
         cfg = struct
         UserData=struct()
+        frameNum=1
+        player
     end
 
     methods
@@ -18,6 +20,7 @@ classdef nexObj_embedding_single < handle
             nexObj.nexon = Partner.nexon;
             nexObj.mlObj = mlObj;
             Partner.Partners.(nexObj.classID) = nexObj;
+            nexObj.Partners.(Partner.classID) = Partner;
             %% Config structures                        
             nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_embedding_single"));
             nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexAnimate_embedding_single"));     
@@ -26,6 +29,8 @@ classdef nexObj_embedding_single < handle
             nexObj.operate();
             %% Build Figure
             nexFigure_embedding_single(nexObj);
+            % animation player
+            nexObj.player = timer('Period',0.1,'BusyMode','drop','TimerFcn',@(~,~) nexObj.animate(),"ExecutionMode","fixedRate");
         end
 
         function operate(nexObj)
@@ -49,5 +54,31 @@ classdef nexObj_embedding_single < handle
             % nexVisualization_embedding_single(nexObj, visArgs);
             nexObj.cfg.visCfg.fcn(nexObj, visArgs);
         end
+
+        function startPlayer(nexObj)
+            isPlay = nexObj.Figure.playButton.Value;
+            switch isPlay
+                case 0 % "start animation"
+                    % nexObj.Figure.playButton.Value=1; % remember state
+                    nexObj.player.start;
+                case 1 % "stop/pause animation"
+                    % nexObj.Figure.playButton.Value=0; % remember state
+                    nexObj.player.stop;
+            end            
+        end
+
+        function animate(nexObj)
+            % disp(0)
+            aniArgs = nexObj.cfg.aniCfg.entryParams;
+            % try
+            nexAnimate_embedding_single(nexObj, aniArgs);
+            % catch e
+            %     disp(getReport(e));
+            %     keyboard
+            % end
+        end
+
+        % function getVal
+        % end
     end
 end

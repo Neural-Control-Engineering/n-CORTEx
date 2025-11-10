@@ -215,7 +215,11 @@ classdef nexObj_npxlsTimeCourse < handle
             end                               
             try
                 disp("embedding complete");
-                nexObj.Partners.emb1.mlObj=mlObj;
+                if ~isfield(nexObj.Partners,"emb1")
+                    nexObj.Partners.emb1 = nexObj_embedding_single(nexObj, mlObj);
+                else
+                    nexObj.Partners.emb1.mlObj=mlObj;
+                end
             catch
                 assignin("base","mlObj",mlObj);
                 disp("no embedding obj registered, leaving output in the base workspace");
