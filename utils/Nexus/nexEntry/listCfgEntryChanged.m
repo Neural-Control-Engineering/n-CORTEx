@@ -3,6 +3,13 @@ function listCfgEntryChanged(src, event, key, selectionBus)
     selectionBus.selections.(key) = src.Value;
     % update Parent
     if ismethod(selectionBus.Parent,"updateScope")
-        selectionBus.Parent.updateScope(selectionBus.Parent.nexon);    
+        switch class(selectionBus.Parent)           
+            case "nexObj_selectionBus"
+                selectionVal = src.String{src.Value};
+                selectionID = key;
+                selectionBus.Parent.updateScope(selectionID, selectionVal);    
+            otherwise
+                % selectionBus.Parent.updateScope();    
+        end
     end
 end

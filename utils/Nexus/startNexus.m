@@ -28,6 +28,8 @@ function nexon = startNexus(params, DTS)
         nexon.console.NPXLS = nexPanel_NPXLS(nexon, 1);
         nexon.console.SLRT = nexPanel_SLRT(nexon);
     end
+    % Registry
+    nexInit_registry(nexon);
     % router Panel   
     
     % nexon.UserData.npxls.shanks.shank1 = npxls_shank(nexon);

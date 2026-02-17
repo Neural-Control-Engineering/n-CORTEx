@@ -34,9 +34,16 @@ classdef nexObj_listCfgPanel < handle
                 selectionBus.listBoxes.(key) = obj.listPanels.(listID).listBox;
                 obj.xPosPointer = obj.xPosPointer + w_ph;
             end
+            % retain handle on list cfg panel (for future updates, changes)
+            selectionBus.listCfgPanel = obj;
         end
 
         function addListCfg(obj, listDict)
+        end
+
+        function updateScope(obj)
+            % use Child listCfgPanels updated options to recover new list
+            % options
         end
     end    
 end

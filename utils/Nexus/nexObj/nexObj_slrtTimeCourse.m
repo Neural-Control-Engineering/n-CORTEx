@@ -30,6 +30,7 @@ classdef nexObj_slrtTimeCourse < handle
             nexObj.dfIDs = IDs_signals;
             IDs_events = nexObj.eventAlignmentSelection.selKeys.events;
             nexObj.pMap_time = poolMap_time(IDs_events);
+            % nexObj.pMap_time = map_events2time(IDs_events);            
             nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, IDs_events);
             nexObj = nexPlot_slrt_timeCourse(nexObj.nexon, nexObj);
         end

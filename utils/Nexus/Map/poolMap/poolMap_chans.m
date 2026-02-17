@@ -23,7 +23,7 @@ classdef poolMap_chans < handle
                 case "region"
                     regions = convertCharsToStrings(poolMap.Map.region)';
                     edges = ([size(regions,2) - ([1, find(~strcmp(regions(1:end-1), regions(2:end))) + 1]-1),0])';
-                    % impute by divions per bin
+                    % impute by divisions per bin
                     edgeCmp = num2cell([edges(1:end-1), edges(2:end)],2);
                     edgeSubDivs = cellfun(@(row) flip(round(linspace(row(2), row(1),poolMap.divsPerBin+1)',"TieBreaker","fromzero"),1), edgeCmp, "UniformOutput", false);
                     % edgeSubDivs = cellfun(@(row) flip((linspace(row(2), row(1),poolMap.divsPerBin+1)'),1), edgeCmp, "UniformOutput", false);

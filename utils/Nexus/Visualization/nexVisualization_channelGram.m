@@ -12,12 +12,13 @@ function nexVisualization_channelGram(nexon, nexObj, args)
     ax = nexObj.DF_postOp.ax;
     % frameIdx = nexObj.frameBuffer.frameIds(nexObj.frameBuffer.)
     df = nexObj.DF_postOp.df(:,:,nexObj.frameBuffer.frameIds==nexObj.frameNum);
+    % df = nexObj.DF_postOp.df(:,nexObj.frameBuffer.frameIds==nexObj.frameNum,:);
     f = ax.f;
-    fCond = (f>fRange_start & f<fRange_end); % select frequencies   
-    fCond_2 =[1:size(df,2)];
-    if length(fCond_2) < length(fCond)
-        fCond = fCond_2;    
-    end
+    fCond = (f>=fRange_start & f<=fRange_end); % select frequencies   
+    % fCond_2 =[1:size(df,2)];
+    % if length(fCond_2) < length(fCond)
+    %     fCond = fCond_2;    
+    % end
     % fCond = min([fCond,fRange]);
     df = df(:,fCond); % index select frequencies 
     % frequency-response dependent transform
@@ -30,13 +31,14 @@ function nexVisualization_channelGram(nexon, nexObj, args)
         end
     end
     % tic
+    % f = f(fCond) + 1;
     f = f(fCond);
     % apply log to f-axis
     % f = log10(f);
-    f=log(f);
+    % f=log(f+1);
     % Generate logarithmically spaced tick positions
     numTicks = 30;
-    f_ticks = (logspace(log(f(1)), log(f(end)), numTicks));
+    f_ticks = (logspace(log10(f(1)), log10(f(end)), numTicks));
     chans = [1:size(df,1)];
     nexObj.Figure.panel1.tiles.Axes.channelGram.YData = gather([1:size(df,1)]);
     nexObj.Figure.panel1.tiles.Axes.channelGram.XData = gather(f);
@@ -51,7 +53,8 @@ function nexVisualization_channelGram(nexon, nexObj, args)
     nexObj.Figure.panel1.tiles.Axes.channelGram.Parent.ZLim = [zLim_low, zLim_high];
     nexObj.Figure.panel1.tiles.Axes.channelGram.Parent.XLim = [f(1),f(end)];
     nexObj.Figure.panel1.tiles.Axes.channelGram.Parent.XTick = f_ticks;
-    nexObj.Figure.panel1.tiles.Axes.channelGram.Parent.XTickLabel = exp(f_ticks);
+    % nexObj.Figure.panel1.tiles.Axes.channelGram.Parent.XTickLabel = exp(f_ticks);
+    nexObj.Figure.panel1.tiles.Axes.channelGram.Parent.XTickLabel = (f_ticks);
     nexObj.Figure.panel1.tiles.Axes.channelGram.Parent.YLim = [chans(1),chans(end)];
     %% plot Fooof reconstruction
     % nexObj.chgFigure.panel1.tiles.Axes.fooof = nexttile(nexObj.chgFigure.panel1.tiles.t);

@@ -1,9 +1,12 @@
 function nex_updateBoundedLineData(line, patch, data_ax, data, data_sem, color, alphaVal)    
-    if ~isempty(color)
-        color_hex = hex2rgb(color);
+
+    if color==-1
+        color_hex = patch.CData;
+    elseif ~isempty(color)
+        color_hex = hex2rgb(color);    
     else
         % color_hex = [0,0,0];
-        color_hex=[1,1,1];
+        color_hex=[1,1,1];    
     end
     if isempty(alphaVal)
         alphaVal = 0.5;

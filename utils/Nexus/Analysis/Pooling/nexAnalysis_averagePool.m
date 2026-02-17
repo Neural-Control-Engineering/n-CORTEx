@@ -1,4 +1,4 @@
-function [binAvgs, binIDs, binTicks] = nexAnalysis_averagePool(df, poolMap, dim, axis)
+function [binAvgs, binIDs, binTicks, binAxis] = nexAnalysis_averagePool(df, poolMap, dim, axis)
     [binEdges, binIDs] = poolMap.getBinEdges(axis);
     % Create a colon index for all dimensions
     % idx = repmat({':'}, 1, ndims(df));
@@ -41,5 +41,7 @@ function [binAvgs, binIDs, binTicks] = nexAnalysis_averagePool(df, poolMap, dim,
     binAvgs = permute(binMeans_reshaped, permuteOrder);
     % bins = unique(bins);
     binTicks = binEdges(1:end-1);
+    binAxis = axis(binTicks);
+    % binAxes = binEdges;
     % binMeans = ipermute(reshape(binMeans, sz), permuteOrder);
 end

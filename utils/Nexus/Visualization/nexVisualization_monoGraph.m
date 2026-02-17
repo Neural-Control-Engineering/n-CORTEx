@@ -111,7 +111,7 @@ function nexVisualization_monoGraph(nexObj, args)
     end    
 
 
-    % nexObj.Figure.panel0.tiles.ax.YLim=[-4e-5, 6e-5];
+    nexObj.Figure.panel0.tiles.ax.YLim=[-2.5e-4, 2.5e-4];
     % TITLE
     % chanBinType = nexObj.Origin.pMap.pMap_chans.binType;    
     % [binEdges, binIDs_chans] = nexObj.Origin.pMap.pMap_chans.getBinEdges(nexObj.Origin.DF_postOp.ax.chans);

@@ -10,7 +10,8 @@ function time_event = nex_getEventTime(nexObj)
     switch parentType
         case "nexObj_slrtTimeCourse"
             % use ID of plotted signal to calculate event-times
-            signalID = nexObj.xLine.Parent.YLabel.String;
+            % signalID = nexObj.xLine.Parent.YLabel.String;
+            signalID = nexObj.ID_event;
             alignmentID = split(signalID,"_"); alignmentID = alignmentID{1};
             idx_alignedEvent = grabDataFrame(nexObj.Parent.nexon,alignmentID,[]);
             idx_event = preBuffLen*Fs_slrt + (idx_event - idx_alignedEvent);        
