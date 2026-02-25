@@ -4,6 +4,7 @@ classdef nexObj_monoGraph < handle
         DF
         DF_postOp
         dfID_source
+        domain
         nexon
         polyGraph
         Parent
@@ -49,7 +50,7 @@ classdef nexObj_monoGraph < handle
             % Axis pointer
             nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
             % Pool Map
-            nexObj.pMap = nexInit_pMap(nexObj, nexObj.DF_postOp);
+            nexObj.pMap = nexInit_pMap(nexObj, nexObj.DF_postOp);            
             nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_monoGraph"));                        
             % Inherit DF
             nexObj.buildFigure();
@@ -77,9 +78,14 @@ classdef nexObj_monoGraph < handle
             %% RETRIEVAL
             TF = nexOp_compileTF(nexObj, idxSel);
             %% COMPUTE RESULT
-            DF_avg = nexOp_averageTF(TF, 2);            
+            ptr = nexObj.DF_postOp.ptr;
+            dimSel = nexObj.domain.D1;
+            DF_avg = nexOp_averageTF(TF, ptr, 2);            
+            DF_avg.ptr=ptr;
+            DF_avg.avgCfg = nexTract_avgCfg(nexObj.nexon);
             %% STORE RESULT
-            nexObj.DF_postOp = DF_avg;
+            nexObj.DF_postOp = DF_avg;            
+            % retrieve averaging config (bookkeeping)
             nex_storeAverage(nexObj, nexObj.DF_postOp);
             %% VISUALIZE
             nexObj.visualize();

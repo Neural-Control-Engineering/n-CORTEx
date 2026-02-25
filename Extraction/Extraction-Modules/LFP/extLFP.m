@@ -38,7 +38,7 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
     % visualize offsets
     % plotSyncOffsets_postProc(sync.lines.sync_1Hz_nidq, sync_ref.lines.sync_1Hz_slrt, sessionDetails);
     % t_lfp = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
-    t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
+    t_lfp = mapSyncTimewhich line(lfp, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
     % t_lfp = mapSyncTimeline(lfp, sync.lines.sync_1Hz_imec, offset0_imec);
 
     events_logical = strcmp(SLRT(1,:).signal_types{1}(:,2), 'event');

@@ -11,6 +11,7 @@ classdef nexObject < handle
         dfID_source
         DF_postOp
         dfID_target
+        domain
         Figure
         UserData
         cfg=struct

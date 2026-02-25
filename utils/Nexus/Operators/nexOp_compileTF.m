@@ -7,11 +7,15 @@ function TF =  nexOp_compileTF(nexObj, idxSel)
         idxSel = nex_applySelectionMask(nexon.console.BASE.DTS, S);            
     end
     TF = dtsIO_readTF(nexon, dfID, idxSel);        
+    %% DROP EMPTY 
+    is_empty_TF = cellfun(@(DF) isempty(DF.df), TF, "UniformOutput", true);
+    TF = TF(~is_empty_TF);
     %% ALIGNMENT (testing)
     try
-        S_slrt = nex_returnSelectionMark(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
+        S_slrt = nex_returnSelectionMask(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
         alignColTags = split(S_slrt.events,"_");
         tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
+        % tColID
         tCol_slrt = nexObj.nexon.console.BASE.DTS.(tColID)(idxSel);
         fs_slrt = nexObj.nexon.console.SLRT.signals.UserData.Fs;
         t_preBuff = nexObj.UserData.preBufferLen;

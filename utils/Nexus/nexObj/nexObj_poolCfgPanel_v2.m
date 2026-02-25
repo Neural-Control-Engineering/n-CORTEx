@@ -30,6 +30,9 @@ function poolCfgPanel = nexObj_poolCfgPanel_v2(nexObj, panel, poolCfgEntryChange
     % end
     
     axFields = pMapFields(contains(pMapFields,"pMap_"));
+    if isempty(axFields) % if 'pMap' no longer part of name convention (deprecated)
+        axFields = pMapFields;
+    end
     
     for i = 1:length(axFields)
         % axField = string(axFields{i});

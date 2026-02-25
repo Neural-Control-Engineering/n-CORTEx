@@ -1,13 +1,16 @@
 function DF_out = nexSpec_bandRatio(DF_in, args)
 
     % CFG HEADER
-    freq_A = args.freq_A; % default = 36
-    freq_B = args.freq_B; % default = 8
+    freq_A = args.freq_A; % default = 38
+    freq_B = args.freq_B; % default = 20
+    bandWindow = args.bandWindow; % default = 2
 
     % take band power ratios given freq A and freq B (A/B)
     f = DF_in.ax.f;
-    fCond_A = find(f==freq_A);
-    fCond_B = find(f==freq_B);
+    % fCond_A = find(f==freq_A);
+    % fCond_B = find(f==freq_B);
+    fCond_A = find(f >= freq_A-bandWindow & f <= freq_A+bandWindow);
+    fCond_B = find(f >= freq_B-bandWindow & f <= freq_B+bandWindow);
     % slice at freq A
     df_A = DF_in.df(:,fCond_A,:);
     if isfield(DF_in,"sem")
@@ -22,6 +25,10 @@ function DF_out = nexSpec_bandRatio(DF_in, args)
     else
         sem_B = [];
     end
+
+    % average within freq window (assuming dim_f == 2)
+    df_A = mean(df_A,2);
+    df_B = mean(df_B, 2);
 
     % propagate error (no covariance yet)
     R = df_A ./ df_B;

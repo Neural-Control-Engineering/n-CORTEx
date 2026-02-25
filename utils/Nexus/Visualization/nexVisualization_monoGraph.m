@@ -2,6 +2,8 @@ function nexVisualization_monoGraph(nexObj, args)
 
     % CFG HEADER
     alphaVal = args.alphaVal; % default = 0.6
+    yLim_high = args.yLim_high; % default = 1
+    yLim_low = args.yLim_low; % default = -1
 
     numIDParts_base=2;    
     % alphaVal = 0.6;
@@ -15,6 +17,7 @@ function nexVisualization_monoGraph(nexObj, args)
     % 1: with sem shading if applicable
     % 2: with other averaged if applicable
     axis = nexObj.Figure.panel0.tiles.ax;
+    axSel = nexObj.Figure.axSelDropDown.Value;         
     list_legend = [];
     h_legend = [];
     if isfield(DF,"sem")
@@ -31,14 +34,14 @@ function nexVisualization_monoGraph(nexObj, args)
             % ID_l_phase_base = ID_graphics_base(contains(ID_graphics_base,"l"));
             l_phase_base = graphics_base{contains(ID_graphics_base,"_l")};
             p_phase_base = graphics_base{contains(ID_graphics_base,"_p")};
-            t_axis = DF.ax.t;
+            t_axis = DF.ax.(axSel);
             nex_updateBoundedLineData(l_phase_base, p_phase_base, t_axis, nan(size(t_axis)), nan(size(t_axis)),[],[]);
             % look for matching averages (in Origin.UserData)
             AVG = dtsIO_readAVG(nexObj.Origin, DF.avgCfg);
             avgFields = convertCharsToStrings(fieldnames(AVG));       
             % UPDATE PLOT  
             list_legend=[];
-            list_color = [];
+            list_color = [];            
             for i = 1:length(avgFields)
                 avgField = avgFields(i);                
                 % phase color
@@ -52,14 +55,16 @@ function nexVisualization_monoGraph(nexObj, args)
                 ID_p_phase = sprintf("%s_canvas_p_%s",nexObj.classID, strrep(avgField,"_","x"));
                 df_phase = AVG.(avgField).df;
                 sem_phase = AVG.(avgField).sem;
+                axData = AVG.(avgField).ax.(axSel);
                 % SLICE DF
                 % df_phase_slice = squeeze(df_phase(chanSel, freqSel,:))';
                 % t_axis = AVG.(avgField).ax.t(1:size(df_phase_slice,2));
-                % sem_phase_slice = squeeze(sem_phase(chanSel, freqSel,:))'; 
-                axSel = nexObj.Figure.axSelDropDown.Value;         
+                % sem_phase_slice = squeeze(sem_phase(chanSel, freqSel,:))';                 
                 ptr = DF.ptr;
                 df_phase_slice = sliceDF(df_phase, ptr, axSel, "range");
-                sem_phase_slice = sliceDF(sem_phase, ptr, axSel,"range");
+                sem_phase_slice = sliceDF(sem_phase, ptr, axSel,"range");  
+                df_phase_slice=nexOp_permuteLong2second(squeeze(df_phase_slice));
+                sem_phase_slice=nexOp_permuteLong2second(squeeze(sem_phase_slice));
                 isSubFields = isfield( nexObj.Figure.panel0.tiles.graphics,ID_l_phase) && isfield( nexObj.Figure.panel0.tiles.graphics,ID_p_phase);
                 try
                     isValid = isvalid( nexObj.Figure.panel0.tiles.graphics.(ID_l_phase)) && isvalid( nexObj.Figure.panel0.tiles.graphics.(ID_p_phase));
@@ -69,9 +74,9 @@ function nexVisualization_monoGraph(nexObj, args)
                 if isSubFields && isValid
                     l_phase = nexObj.Figure.panel0.tiles.graphics.(ID_l_phase);
                     p_phase = nexObj.Figure.panel0.tiles.graphics.(ID_p_phase);
-                    nex_updateBoundedLineData(l_phase, p_phase, t_axis, df_phase_slice, sem_phase_slice, color,alphaVal);
+                    nex_updateBoundedLineData(l_phase, p_phase, axData, df_phase_slice, sem_phase_slice, color,alphaVal);
                 else % generate new                                       
-                    [l_phase, p_phase] = plotWithSEM(axis,t_axis,df_phase_slice,sem_phase_slice,hex2rgb(color),alphaVal);
+                    [l_phase, p_phase] = plotWithSEM(axis,axData,df_phase_slice,sem_phase_slice,hex2rgb(color),alphaVal);
                     colorAx_green(axis);                   
                     % add graphics handles to figure tree
                     nexObj.Figure.panel0.tiles.graphics.(ID_l_phase) = l_phase;
@@ -89,6 +94,7 @@ function nexVisualization_monoGraph(nexObj, args)
         % slice dataframe
         axSel = nexObj.Figure.axSelDropDown.Value;                
         df_slice = sliceDF(df, ptr, axSel, "range");
+        df_slice=nexOp_permuteLong2second(squeeze(df_slice));    
         % t_axis = DF.ax.t(1:size(df_slice,2));
         t_axis = DF.ax.(axSel);
         sem_slice = nan(size(df_slice));                     
@@ -111,8 +117,8 @@ function nexVisualization_monoGraph(nexObj, args)
     end    
 
 
-    nexObj.Figure.panel0.tiles.ax.YLim=[-2.5e-4, 2.5e-4];
-    % TITLE
+    nexObj.Figure.panel0.tiles.ax.YLim=[yLim_low, yLim_high];
+    %% TITLE
     % chanBinType = nexObj.Origin.pMap.pMap_chans.binType;    
     % [binEdges, binIDs_chans] = nexObj.Origin.pMap.pMap_chans.getBinEdges(nexObj.Origin.DF_postOp.ax.chans);
     % freqBinType = nexObj.Origin.pMap.pMap_freqs.binType;            
@@ -124,13 +130,20 @@ function nexVisualization_monoGraph(nexObj, args)
     % region = convertCharsToStrings(nexObj.Origin.regMap(cell2mat(nexObj.Origin.regMap.channel==binID_num),:).region);
     % % title label
     % titleText = sprintf("%s, %s: %s; %s: %s", region, chanBinType, binID_chans, freqBinType, binID_freqs);
-    % title(axis, titleText,"Color",nexObj.nexon.settings.Colors.cyberGreen);
-    % % legend
-    % if ~isempty(list_legend)
-    %     lgd = legend(axis, h_legend, list_legend);
-    %     lgd.TextColor = nexObj.nexon.settings.Colors.cyberGreen;
-    %     lgd.EdgeColor = 'none';        % No border
-    %     % lgd.Color = [0 0 0];           % black background
-    % end   
+    %% makeshift domain
+    domain.F = nexObj.dfID_source;
+    domain.D1 = axSel;
+    d2List = fieldnames(nexObj.DF_postOp.ptr); d2List = d2List(~strcmp(axSel, d2List));
+    domain.D2 = convertCharsToStrings(d2List);
+    nexObj.domain=domain;
+    axTitle=nexTract_axisTitle(nexObj, DF);
+    title(axis, axTitle,"Color",nexObj.nexon.settings.Colors.cyberGreen);
+    %% LEGEND
+    if ~isempty(list_legend)
+        lgd = legend(axis, h_legend, list_legend);
+        lgd.TextColor = nexObj.nexon.settings.Colors.cyberGreen;
+        lgd.EdgeColor = 'none';        % No border
+        % lgd.Color = [0 0 0];           % black background
+    end   
 
 end

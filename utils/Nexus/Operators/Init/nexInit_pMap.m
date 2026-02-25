@@ -7,22 +7,24 @@ function pMap = nexInit_pMap(nexObj, DF)
         axField = axFields{i};
         % temporary conditionals 
         if strcmp(axField,'t')
-            axField = "time";
+            axField_label = "time";
             % Map = derive_pMap_time(nexon, DF);
             events = dtsIO_listEvents(nexon);
             Map = map_events2time(events);
             mapID = "event";
         elseif strcmp(axField,'f')
-            axField = "freqs";
+            axField_label = "freqs";
             bands = nexon.console.BASE.params.bands;
             Map = map_bands2freqs(bands);
             mapID = "band";
         elseif strcmp(axField, "chans")
+            axField_label = "chans";
             regMap = nexon.console.NPXLS.shanks.shank1.regMap;
             Map = map_regions2chans(regMap);
             mapID = "region";
         end
-        prototype = str2func(sprintf("nexObj_poolMap_%s",axField));
-        pMap.(axField) = prototype(nexObj, Map, [], axField, mapID);
+        prototype = str2func(sprintf("nexObj_poolMap_%s",axField_label));
+        pMap.(axField) = prototype(nexObj, Map, [], axField_label, mapID);
+        pMap.(axField).axSel=axField;
     end
 end

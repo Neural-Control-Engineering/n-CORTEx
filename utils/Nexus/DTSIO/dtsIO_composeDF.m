@@ -30,6 +30,8 @@ function DF = dtsIO_composeDF(DTS, DFID, dtsIdx)
                 %     DF.(subField) = df_var;
                 elseif strcmp(subField,"df")
                     DF.df = df_var; 
+                elseif strcmp(subField,"args")
+                    DF.args = df_var; 
                 end
             catch
                 continue

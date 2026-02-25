@@ -4,7 +4,11 @@ function df_trimmed = nex_trimDf(df, dim, idxs)
         subs = repmat({':'}, 1, ndims(df));  
         subs{dim} = idxs;  % Replace the target dimension with the specified indexes    
         % Trim using indexing
-        df_trimmed = df(subs{:});
+        try
+            df_trimmed = df(subs{:});
+        catch
+            keyboard
+        end
     else
         df_trimmed = [];
     end

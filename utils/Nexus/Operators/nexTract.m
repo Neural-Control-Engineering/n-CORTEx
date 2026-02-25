@@ -18,9 +18,11 @@ function nexTract(nexon, fcn, dfID, mask)
         df = DF_in.df;
         if ~isempty(df)
             try
-                if size(df,2) > minLength * 1.01
-                    DF_in.df = df(:,1:minLength);
-                end
+                % if size(df,2) > minLength * 1.01
+                %     DF_in.df = df(:,1:minLength);
+                %     ax2Trim = [];
+                %     DF_in.ax.(axSel)=;
+                % end
                 args = extractMethodCfg(fcnName);
                 % df_out = fcn(df,args);      
                 DF_out = fcn(DF_in, args);
