@@ -16,7 +16,10 @@ classdef nexObj_monoGraph < handle
     end
 
     methods
-        function nexObj = nexObj_monoGraph(Parent, Origin, nexon, dfID_source, opCfgFcn)
+        function nexObj = nexObj_monoGraph(Parent, Origin, nexon, dfID_source, opCfgFcn, DF)
+            if nargin >= 6
+                nexObj.DF = DF;            
+            end
             % resolve time-resolved recordings over varied dimensions
             % (channel, frequency, etc.)
             if isempty(Parent) % standalone monograph, attach to nexon
@@ -25,7 +28,9 @@ classdef nexObj_monoGraph < handle
                 % df_t = grabDataFrame(nexon,"t_lfp",[]);
                 % nexObj.DF = lfp2DF(df, df_t);                
                 nexObj.dfID_source = dfID_source;
-                nexObj.DF = dtsIO_readDF(nexon, dfID_source, []);
+                if ~isempty(dfID_source)
+                    nexObj.DF = dtsIO_readDF(nexon, dfID_source, []);
+                end
                 nexObj.Origin = nexObj; % assign self as origin
             else
                 nexObj.Parent = Parent;
@@ -47,7 +52,7 @@ classdef nexObj_monoGraph < handle
                 nexObj.cfg.opCfg=[];
                 nexObj.DF_postOp = nexObj.DF;
             end
-            % Axis pointer
+            % Axis pointer            
             nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
             % Pool Map
             nexObj.pMap = nexInit_pMap(nexObj, nexObj.DF_postOp);            

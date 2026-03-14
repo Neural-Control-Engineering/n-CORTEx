@@ -12,7 +12,11 @@ function DF = nex_initAxisPointer_v2(DF)
             for j = 1:length(dim)
                 axDim = dim(j);
                 if ~ismember(axDim,dimsTaken)
+                    % try
                     DF.ptr.(axField).dim = axDim;
+                    % catch
+                    % keyboard
+                    % end
                     dimsTaken = [dimsTaken, axDim]; 
                     break
                 end

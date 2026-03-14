@@ -1,4 +1,4 @@
-function model = model_cebra(cebra, args)
+function model = model_cebra(args)
     
     % CFG HEADER   
    batch_size = args.batch_size; % default = 512

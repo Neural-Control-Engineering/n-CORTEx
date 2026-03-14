@@ -1,4 +1,4 @@
-function OUT = nexOp_sliceSTATE(STATE, factorSel, dimSel)
+function [OUT] = nexOp_sliceSTATE(STATE, factorSel, dimSel)
     
     % MARC SORRENTINO - slicing state vector for state space visualization
     % under revision (multiple versions to follow)

@@ -1,0 +1,4 @@
+[Pytafix]
+name = "pytafix"
+version = "0.1.0"
+description = "auxiliary python wrappers to interface scientific development packages with nexus-matlab"

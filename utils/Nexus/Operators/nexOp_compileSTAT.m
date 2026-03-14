@@ -15,12 +15,17 @@ function STAT = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
             TF = dtsIO_readTF(nexon, dfID, idxSel);
     end
     % AXIS POOLING
-    ptr = nexObj.DF_postOp.ptr;
-    pm = nexObj.pMap;
-    if ~isempty(pm)
-        TF_pooled = cellfun(@(DF) nexOp_poolAxes(pm, DF, ptr), TF, "UniformOutput",false);
-    else
-        TF_pooled =TF;
+    try
+        ptr = nexObj.DF_postOp.ptr;
+        pm = nexObj.pMap;
+        if ~isempty(pm)
+            TF_pooled = cellfun(@(DF) nexOp_poolAxes(pm, DF, ptr), TF, "UniformOutput",false);
+        else
+            TF_pooled =TF;
+        end
+    catch e
+        disp(getReport(e));
+        TF_pooled = TF;
     end
     % TF_pooled = nexOp_poolAxes(nexObj.pMap, TF, nexObj.DF_postOp.ptr);
 

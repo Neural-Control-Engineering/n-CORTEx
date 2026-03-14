@@ -14,7 +14,6 @@ classdef mlObj_cebra < handle
         end
 
         function locateDataset(mlObj)
-
         end
 
         function Y = infer(mlObj, X)
@@ -24,7 +23,7 @@ classdef mlObj_cebra < handle
         end
 
         function formatSample(X, Y)
-        end
+        end       
 
         function fit(mlObj)
             % apply training assembly on stored dataset

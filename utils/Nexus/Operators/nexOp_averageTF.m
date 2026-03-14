@@ -1,14 +1,14 @@
-function DF_avg = nexOp_averageTF(TF, ptr, dimSel)
+function DF_avg = nexOp_averageTF(TF, ptr, dimSel)    
     % trim all samples to identical length along dimSel
-    minLength = cellfun(@(x) size(x.df,dimSel), TF,"UniformOutput",true);
+    % minLength = cellfun(@(x) size(x.df,dimSel), TF,"UniformOutput",true);
     % exclude empty entries
     isEmptyIdx = cellfun(@(x) isempty(x), TF);
     TF = TF(~isEmptyIdx);
     % exclude 'empty' lengths
-    minLength(minLength==0) = [];
-    minLength(minLength==1) = [];    
-    minLength = min(minLength);    
-    idxs = [1:minLength];
+    % minLength(minLength==0) = [];
+    % minLength(minLength==1) = [];    
+    % minLength = min(minLength);    
+    % idxs = [1:minLength];
     % trim df
     % dfCol_trim = cellfun(@(x) nex_trimDf(x.df,dimSel,idxs),TF,"UniformOutput",false);
     [dfCol_trim, ax_trim] = nexOp_trimTF(TF);
@@ -21,7 +21,10 @@ function DF_avg = nexOp_averageTF(TF, ptr, dimSel)
     % axTrim = cellfun(@(x) nex_trimDf(x.ax.(axDim), 2, idxs), TF, "UniformOutput", false);
     %% TEST REMOVAL
     % ax_avg = TF{1}.ax;
-    labels_avg = TF{1}.labels; %% TESTING, FIX SOON (not trimmed yet corresponding with ax_trim)
+    if isfield(TF{1},"labels")
+        labels_avg = TF{1}.labels; %% TESTING, FIX SOON (not trimmed yet corresponding with ax_trim)
+        DF_avg.labels=labels_avg;           
+    end
     % ax_avg.(axDim) = ax_tririm{1};    
     catDim = ndims(dfCol_trim{1})+1;
     dfCol_avg = cat(catDim,dfCol_trim{:});
@@ -32,5 +35,5 @@ function DF_avg = nexOp_averageTF(TF, ptr, dimSel)
     DF_avg.sem = dfCol_sem;
     % DF_avg.ax = ax_avg;
     DF_avg.ax = ax_trim;
-    DF_avg.labels=labels_avg;
+    
 end

@@ -4,7 +4,7 @@ classdef nexObj_categorical < handle
         nexon
         Parent
         Partners
-        Children
+        Children=struct();
         dfID_source
         dfID_target
         selectionBus
@@ -75,10 +75,18 @@ classdef nexObj_categorical < handle
             S_categories = nex_returnSelectionMask(nexObj.selectionBus.categories);
             S_items = nex_returnSelectionMask(nexObj.selectionBus.items);
             nexObj.STAT = nexOp_compileSTAT(nexObj, nexObj.dfID_source, S_categories, S_items, idxSel);
-            nexObj.STAT.df = cell2mat(nexObj.STAT.df);
+            try
+                nexObj.STAT.df = cell2mat(nexObj.STAT.df);
+            catch e
+                disp(getReport(e));
+            end
             % visualize result
             % nexObj.visualize();
-            nexObj.drawCanvas();
+            try
+                nexObj.drawCanvas();
+            catch e
+                disp(getReport(e));
+            end
         end
 
         function drawCanvas(nexObj)

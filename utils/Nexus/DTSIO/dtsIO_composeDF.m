@@ -1,7 +1,12 @@
 function DF = dtsIO_composeDF(DTS, DFID, dtsIdx)
-    axisKeyWords=["f";"t";"chans"];
+    axisKeyWords=["f";"t";"chans";"pc";"factor"];
     tableVars = convertCharsToStrings(DTS.Properties.VariableNames);
-    idx_matchingVars = contains(tableVars,DFID);
+    % drop suffixes (for var-matching)
+    tableVars_dfID = arrayfun(@(tVar) split(tVar,"_"), tableVars, "UniformOutput", false);
+    tableVars_dfID = cellfun(@(tVar) tVar(1:end-1), tableVars_dfID, "UniformOutput", false);
+    tableVars_dfID = cellfun(@(tVar) strjoin(tVar,"_"), tableVars_dfID, "UniformOutput", true);
+    % idx_matchingVars = contains(tableVars,DFID);
+    idx_matchingVars = ismember(tableVars_dfID,DFID);
     vars = tableVars(idx_matchingVars);
     DF = struct;
     for i = 1:length(vars)
