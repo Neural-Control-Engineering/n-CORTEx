@@ -1,6 +1,25 @@
 function cfgVars = extractMethodCfg(funcName)
-    % Reads the function file
-    txt = fileread([funcName, '.m']);
+    % Reads the function file.
+    % Supports ClassName.methodName — reads the class file and isolates
+    % the target method's block before parsing the CFG HEADER.
+    if contains(funcName, '.')
+        parts  = strsplit(funcName, '.');
+        className  = parts{1};
+        methodName = parts{end};
+        classFile  = which([className, '.m']);
+        if isempty(classFile), classFile = [className, '.m']; end
+        fullTxt = fileread(classFile);
+        % Trim to the start of the target method so the CFG HEADER search
+        % finds only this method's header, not another method's.
+        startIdx = regexp(fullTxt, sprintf('\\bfunction\\b[^\\n]*\\b%s\\b', methodName), 'start', 'once');
+        if isempty(startIdx)
+            cfgVars = struct();
+            return;
+        end
+        txt = fullTxt(startIdx:end);
+    else
+        txt = fileread([funcName, '.m']);
+    end
 
     % Extract lines after 'CFG HEADER' until the first empty line
     expr = '(?<=CFG HEADER\s*\n)((?:[^\n]+\n)+)'; % Captures non-empty lines only

@@ -15,15 +15,18 @@ function idx = nex_buildSliceIndex(df, ptr, axSel, sliceType)
                 end        
             end
         case "range"
-            % use selected axis to slice a range of values, every
-            % non-selected axis is used as a single pointer
+            % selected axes: use ptr.range if set, else full ':'
+            % non-selected axes: slice to ptr.value
             for i = 1:length(ptrFields)
                 ptrField = ptrFields{i};
-                ptrDim = ptr.(ptrField).dim;
-                ptrVal = ptr.(ptrField).value;
-                if ~(ismember(ptrField,axSel))
-                    idx{ptrDim} = ptrVal;
-                end        
+                ptrDim   = ptr.(ptrField).dim;
+                if ismember(ptrField, axSel)
+                    if isfield(ptr.(ptrField), 'range') && ~isempty(ptr.(ptrField).range)
+                        idx{ptrDim} = ptr.(ptrField).range(1):ptr.(ptrField).range(2);
+                    end
+                else
+                    idx{ptrDim} = ptr.(ptrField).value;
+                end
             end
     end
 end
