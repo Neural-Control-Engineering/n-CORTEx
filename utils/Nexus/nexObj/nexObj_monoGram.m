@@ -82,39 +82,6 @@ classdef nexObj_monoGram < nexObject
                 'TimerFcn', @(~,~) nexObj.stepAnimate(nexObj.cfg.aniCfg.entryParams));
         end
 
-        % ── Domain inference ──────────────────────────────────────────────
-        function domain = inferDomain(nexObj)
-            % Enumerate DF_postOp.ax fields and make a minimal default
-            % domain assignment. No heuristic classification by name —
-            % D1 / D2 / F roles are left for nexObj_selectionBus to curate.
-            %
-            %   domain.axes    – full list of available ax keys (source of truth)
-            %   domain.D1      – axes assigned to primary display role  (default: all)
-            %   domain.D2      – axes assigned to secondary role        (default: [])
-            %   domain.F       – axes assigned to factor role           (default: [])
-            %   domain.animate – which single ax key the player steps   (default: t or last)
-            %   domain.display.rows / .cols – surf YData / XData axes
-
-            axFields = string(fieldnames(nexObj.DF_postOp.ax))';
-
-            domain.axes = axFields;                    % full candidate menu
-            domain.F    = string(nexObj.dfID_source); % factor identity = data source
-
-            % D2: default to 't' if present, else first axis
-            tKey = axFields(axFields == "t");
-            if ~isempty(tKey)
-                domain.D2 = string(tKey(1));
-            else
-                domain.D2 = string(axFields(1));
-            end
-            domain.D1      = string(setdiff(axFields, domain.D2, "stable")); % complement of D2
-            domain.animate = string(domain.D2);
-
-            % surf orientation: rows from D1, cols from second D1 element
-            domain.display.rows = string(domain.D1(1));
-            domain.display.cols = string(domain.D1(min(2, end)));
-        end
-
         % ── Core pipeline ─────────────────────────────────────────────────
         function operate(nexObj)
             % apply opCfg function (identity if none), preserving ptr state

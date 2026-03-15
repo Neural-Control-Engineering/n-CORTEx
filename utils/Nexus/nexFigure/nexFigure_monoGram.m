@@ -79,9 +79,9 @@ function nexFigure_monoGram(nexObj)
     nexObj.Figure.panel0.tiles.t  = tiledlayout(nexObj.Figure.panel0.ph, 1, 1);
     nexObj.Figure.panel0.tiles.ax = nexttile(nexObj.Figure.panel0.tiles.t);
 
-    % Slice DF: keep display.rows + display.cols as full range, collapse everything else
-    rowKey = nexObj.domain.display.rows;
-    colKey = nexObj.domain.display.cols;
+    % Slice DF using D1 — primary display axes (complement of D2)
+    rowKey = nexObj.domain.D1(1);
+    colKey = nexObj.domain.D1(2);
     ptr    = nexObj.DF_postOp.ptr;
     Y = nexObj.DF_postOp.ax.(rowKey);
     X = nexObj.DF_postOp.ax.(colKey);

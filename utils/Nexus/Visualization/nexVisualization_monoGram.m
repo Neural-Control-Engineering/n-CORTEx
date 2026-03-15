@@ -6,9 +6,9 @@ function nexVisualization_monoGram(nexObj, args)
     cLim_low = args.cLim_low; % default = -11.5
     cLim_high = args.cLim_high; % default = -9.5
 
-    %% Slice DF using ptr + domain display axes
-    rowKey = nexObj.domain.display.rows;
-    colKey = nexObj.domain.display.cols;
+    %% Slice DF using D1 — primary display axes (complement of D2)
+    rowKey = nexObj.domain.D1(1);
+    colKey = nexObj.domain.D1(2);
     ptr    = nexObj.DF_postOp.ptr;
     Y = nexObj.DF_postOp.ax.(rowKey);
     X = nexObj.DF_postOp.ax.(colKey);

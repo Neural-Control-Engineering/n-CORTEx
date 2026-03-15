@@ -39,12 +39,20 @@ function cfgVars = extractMethodCfg(funcName)
             varName = vars{i}{1}; % Variable name
             defaultValue = vars{i}{2}; % Default value
 
-            % Convert to numeric if possible
+            % Convert to numeric if possible; detect quoted string literals
             numValue = str2num(defaultValue); %#ok<ST2NM>
-            if isempty(numValue)
-                cfgVars.(varName) = defaultValue; % Keep as string if not numeric
+            if ~isempty(numValue)
+                cfgVars.(varName) = numValue;
             else
-                cfgVars.(varName) = numValue; % Store as numeric if conversion works
+                dv = strtrim(defaultValue);
+                if (startsWith(dv, '"') && endsWith(dv, '"')) || ...
+                   (startsWith(dv, "'") && endsWith(dv, "'"))
+                    % Quoted string literal — strip quotes, return as MATLAB string
+                    % so breakoutCfgFields_v4 creates a uieditfield("text") for it
+                    cfgVars.(varName) = string(dv(2:end-1));
+                else
+                    cfgVars.(varName) = defaultValue; % raw char fallback
+                end
             end
         end
     end
