@@ -8,8 +8,9 @@ function DF_out = nexFit_pca(mdlObj, args)
     mdlObj.model.set_params(pyargs("n_components", int32(nComponents)));
     np = py.importlib.import_module("numpy");    
     % temporary indexing    
-    chanCond = [1:10];
-    DM = mdlObj.DM(:,chanCond);
+    % chanCond = [1:10];
+    % DM = mdlObj.DM(:,chanCond);
+    DM = mdlObj.DM;
     % DM_py = np.array(mdlObj.DM);
     DM_py = np.array(DM);
     mdlObj.py.stdScaler = mdlObj.py.stdScaler.fit(DM_py);

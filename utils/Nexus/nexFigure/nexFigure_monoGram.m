@@ -13,10 +13,11 @@ function nexFigure_monoGram(nexObj)
     nexObj.Figure.panel5 = nexObj_axisPanel(nexObj, nexObj.DF_postOp.ptr, panel5);
 
     %-- Animation
+    entryArgs.entryHeightScaler=4;
     panel4.ph = uipanel(nexObj.Figure.fh, ...
         "Position",[660,125,330,100],"BackgroundColor",[0,0,0],"Scrollable","on");
     nexObj.Figure.panel4 = nexObj_cfgPanel_v2(nexObj, nexObj.cfg.aniCfg, panel4, ...
-        nexObj.cfg.aniCfg.entryParams, str2func("cfgEntryChanged_v2"), []);
+        nexObj.cfg.aniCfg.entryParams, str2func("cfgEntryChanged_v2"), entryArgs);
 
     %-- Visualization
     panel3.ph = uipanel(nexObj.Figure.fh, ...

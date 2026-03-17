@@ -15,8 +15,9 @@ classdef nexObj_listCfgPanel < handle
             obj.listPanels = struct;
             obj.panelCount = 1;
             obj.xPosPointer = 5;
-            w_ph = panelObj.ph.Position(3);
+            w_ph = panelObj.ph.Position(3)/2.3;
             h_ph = panelObj.ph.Position(4);
+            d_inner_listBox = 25; % subtractor
             % for each selBus key
             % removeStrs = ["listBoxes","selIdxs"]
             keyFields = convertCharsToStrings(fieldnames(selectionBus.selKeys));
@@ -24,7 +25,7 @@ classdef nexObj_listCfgPanel < handle
                 key = keyFields{i};
                 % listID = sprintf("%s",selectionBus.selKeys.(key));
                 listID = key;
-                obj.listPanels.(listID).ph = uipanel("Parent",obj.ph,"Title",listID,"BackgroundColor",[0,0,0],"Position",[obj.xPosPointer,5,w_ph-25,h_ph-10],"ForegroundColor",nexon.settings.Colors.cyberGreen);
+                obj.listPanels.(listID).ph = uipanel("Parent",obj.ph,"Title",listID,"BackgroundColor",[0,0,0],"Position",[obj.xPosPointer,5,w_ph-d_inner_listBox,h_ph-10],"ForegroundColor",nexon.settings.Colors.cyberGreen);
                 if isempty(maxSels)
                     maxSel = length(selectionBus.selKeys.(key));            
                 else
@@ -32,7 +33,7 @@ classdef nexObj_listCfgPanel < handle
                 end
                 obj.listPanels.(listID).listBox = uicontrol(obj.listPanels.(listID).ph, "Style","listbox","Position",[2,2,w_ph-30,h_ph-30],"String",selectionBus.selKeys.(key),'Max',maxSel,'BackgroundColor','black',"ForegroundColor",nexon.settings.Colors.cyberGreen,'Callback',@(src,event)listCfgEntryChanged(src, event, key, selectionBus));
                 selectionBus.listBoxes.(key) = obj.listPanels.(listID).listBox;
-                obj.xPosPointer = obj.xPosPointer + w_ph;
+                obj.xPosPointer = obj.xPosPointer + w_ph - d_inner_listBox;
             end
             % retain handle on list cfg panel (for future updates, changes)
             selectionBus.listCfgPanel = obj;

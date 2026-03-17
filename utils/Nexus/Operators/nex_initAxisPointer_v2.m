@@ -25,8 +25,9 @@ function DF = nex_initAxisPointer_v2(DF)
             DF.ptr.(axField).dim = dim;
             dimsTaken = [dimsTaken, dim];                
         end
-        DF.ptr.(axField).value = 1;
-        DF.ptr.(axField).range = [1, length(ax)];   % start/end indices for display range
+        DF.ptr.(axField).value  = 1;
+        DF.ptr.(axField).range  = [1, axLen];   % start/end indices for display range
+        DF.ptr.(axField).window = axLen;        % view window size; initialized to full range
     end
     % upgrade to nexPtr
     DF.ptr = nexObj_ptr(DF.ptr);

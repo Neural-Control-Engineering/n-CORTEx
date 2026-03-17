@@ -81,6 +81,51 @@ This means the user can narrow the range spinners in the axis panel to animate a
 
 ---
 
+## ptr handle maintenance — critical rule
+
+`nexObj_ptr` is a **handle class** (`dynamicprops`). UI callbacks (`axisPtrChanged`,
+`axisRangeChanged`, `windowCfgEntryChanged`) capture the ptr handle by reference at
+figure-build time. If `operate()` replaces `DF_postOp.ptr` with a new `nexObj_ptr`
+object, those callbacks are orphaned — they write to a detached handle, and `visualize()`
+reads from a different one.
+
+**Rule: never replace the ptr handle after figure construction. Always mutate in-place.**
+
+```matlab
+% WRONG — creates new handle, orphans callbacks
+nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
+
+% CORRECT — update existing handle in-place, re-attach same handle
+nex_updateAxisPointer(savedPtr, nexObj.DF_postOp);
+nexObj.DF_postOp.ptr = savedPtr;
+```
+
+The canonical `operate()` pattern (in `nexObj_monoGram` and any future nexObj):
+
+```matlab
+% Save handle BEFORE DF_postOp is replaced by the operation
+if isstruct(nexObj.DF_postOp) && isfield(nexObj.DF_postOp, 'ptr') ...
+        && isa(nexObj.DF_postOp.ptr, 'nexObj_ptr')
+    savedPtr = nexObj.DF_postOp.ptr;
+else
+    savedPtr = [];
+end
+% ... apply operation (replaces DF_postOp) ...
+if ~isempty(savedPtr)
+    nex_updateAxisPointer(savedPtr, nexObj.DF_postOp);  % mutate in-place
+    nexObj.DF_postOp.ptr = savedPtr;                     % re-attach same handle
+else
+    nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);  % first init only
+end
+```
+
+`nex_updateAxisPointer(ptr, DF)` recomputes `dim` from the new DF, clamps `value` and
+`range` to the new axis length, and adds any new axes via `addprop`. It never creates
+a new handle. `nexObj_pixelGram.operate()` has the same orphaning bug and needs the
+same fix.
+
+---
+
 ## `stepAnimate` — inherited animation method
 
 Lives on `nexObject`. Never override per-subclass; all nexObj classes inherit it.

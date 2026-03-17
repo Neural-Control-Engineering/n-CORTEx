@@ -8,7 +8,11 @@ function DF_perm = nexOp_permute2First(DF, axSel, ptr)
             nDims = ndims(df);
             % catDim = nDims+1;    
             dims = [1:nDims];
-            dimSel = ptr.(axSel).dim;
+            try
+                dimSel = ptr.(axSel).dim;
+            catch
+                keyboard
+            end
             % put time dimension into first slot    
             permuteOrder = [dimSel, setdiff(dims,dimSel)];
             df_perm = permute(df, permuteOrder);        

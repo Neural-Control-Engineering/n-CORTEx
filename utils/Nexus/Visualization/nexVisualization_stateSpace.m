@@ -20,7 +20,8 @@ function nexVisualization_stateSpace(nexObj, args)
     %% PLOT DF
     % STATE = nexOp_buildSTATE(nexObj);
     %% assemble (use AVG, DF, S/STAT)
-    STATE = nexObj.buildSTATE();
+    % STATE = nexObj.buildSTATE();
+    % nexObj.buildSTATE();
     %% select dimension (use pointer)
     try
         STATE = nexObj.filterSTATE();

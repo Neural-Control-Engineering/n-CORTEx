@@ -84,27 +84,33 @@ classdef nexObj_monoGram < nexObject
 
         % ── Core pipeline ─────────────────────────────────────────────────
         function operate(nexObj)
-            % apply opCfg function (identity if none), preserving ptr state
-            if isfield(nexObj.DF_postOp, 'ptr')
-                oldPtr = nexObj.DF_postOp.ptr;
+            % Apply opCfg (or identity), preserving the ptr handle.
+            %
+            % The ptr handle must be saved BEFORE DF_postOp is replaced,
+            % then updated in-place and re-attached. Replacing it with a new
+            % nexObj_ptr object would orphan UI callbacks (axisPtrChanged etc.)
+            % that captured the original handle by reference at figure-build time.
+            if isstruct(nexObj.DF_postOp) && isfield(nexObj.DF_postOp, 'ptr') ...
+                    && isa(nexObj.DF_postOp.ptr, 'nexObj_ptr')
+                savedPtr = nexObj.DF_postOp.ptr;   % save handle reference
             else
-                oldPtr = [];
+                savedPtr = [];
             end
+
             if ~isempty(nexObj.cfg.opCfg)
                 opArgs = nexObj.cfg.opCfg.entryParams;
                 nexObj.DF_postOp = nexObj.cfg.opCfg.fcn(nexObj.DF, opArgs);
             else
                 nexObj.DF_postOp = nexObj.DF;
             end
-            % re-init pointer then restore position state from before
-            if ~isempty(oldPtr)
+
+            if ~isempty(savedPtr)
+                % Update existing handle in-place (preserves callback bindings),
+                % then re-attach to the new DF_postOp struct.
+                nex_updateAxisPointer(savedPtr, nexObj.DF_postOp);
+                nexObj.DF_postOp.ptr = savedPtr;
+            else
                 nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
-                newPtr = nexObj_ptr(nexObj.DF_postOp.ptr);
-                fields = fieldnames(newPtr);
-                for i = 1:numel(fields)
-                    oldPtr.(fields{i}) = newPtr.(fields{i});
-                end
-                nexObj.DF_postOp.ptr = oldPtr;
             end
         end
 

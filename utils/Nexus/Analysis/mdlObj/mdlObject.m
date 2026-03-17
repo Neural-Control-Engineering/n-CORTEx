@@ -79,6 +79,7 @@ classdef mdlObject < handle
             % PARAMS INIT
             mdlObj.cfg.cvCfg.entryParams.numFolds=5;
             mdlObj.cfg.cvCfg.entryParams.isShuffle=0;
+            mdlObj.cfg.dmCfg.format="stack";
         end
 
         function locateDataset(mlObj)
@@ -113,7 +114,9 @@ classdef mdlObject < handle
 
         function fit(mdlObj)          
             % inherit STAT
-            % mdlObj.compileSTAT(); 
+            if isempty(mdlObj.STAT)
+                mdlObj.compileSTAT(); 
+            end
             % prepare DM
             mdlObj.getDesignMatrix();
             % apply training assembly on stored dataset
@@ -170,11 +173,13 @@ classdef mdlObject < handle
             % apply fit transform to all samples in the dfID column
             % DF_Z = mdlObj.fit(DF_X)
             [TF_X, iLoc] = dtsIO_readTF(mdlObj.nexon, mdlObj.dfID_source, []);
-            ptr = mdlObj.Parent.STAT.ptr(1);
+            TF_X = cellfun(@(DF) nex_initAxisPointer_v2(DF), TF_X,"UniformOutput",false);
+            % ptr = mdlObj.Parent.STAT.ptr(1);
+            % ptr = mdlObj.STAT.ptr(1);
             d1Sel = mdlObj.domain.D1(1);
             % first check
             maskValid = cellfun(@(DF_X) ~isempty(DF_X), TF_X, "UniformOutput", true);
-            TF_X(maskValid) = cellfun(@(DF) nexOp_permute2First(DF, d1Sel, ptr), TF_X(maskValid), "UniformOutput", false);
+            TF_X(maskValid) = cellfun(@(DF) nexOp_permute2First(DF, d1Sel, DF.ptr), TF_X(maskValid), "UniformOutput", false);
             % second check
             % maskValid = cellfun(@(DF_X) ~isempty(DF_X.df), TF_X, "UniformOutput", true);
             TF_Z(maskValid) = cellfun(@(DF_X) mdlObj.transform(DF_X), TF_X(maskValid), "UniformOutput", false);
@@ -193,7 +198,8 @@ classdef mdlObject < handle
             if strcmp(parentClass,"nexObj_categorical") % if parent is categorical
                 S_categories = nex_returnSelectionMask(Parent.selectionBus.categories);
                 S_items = nex_returnSelectionMask(Parent.selectionBus.items);
-                STAT = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
+                % STAT = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
+                STAT = nexOp_compileSTAT(Parent, mdlObj.dfID_source, S_categories, S_items, []);
             elseif contains(parentClass,"mdlObj") % if parent is a model
                 STAT = Parent.transformSTAT(Parent.STAT);
             end  

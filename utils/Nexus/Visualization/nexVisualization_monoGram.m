@@ -8,10 +8,14 @@ function nexVisualization_monoGram(nexObj, args)
 
     %% Slice DF using D1 — primary display axes (complement of D2)
     rowKey = nexObj.domain.D1(1);
+    rowRange = nexObj.DF_postOp.ptr.(rowKey).range;
     colKey = nexObj.domain.D1(2);
+    colRange = nexObj.DF_postOp.ptr.(colKey).range;
     ptr    = nexObj.DF_postOp.ptr;
     Y = nexObj.DF_postOp.ax.(rowKey);
+    Y = Y(rowRange(1):rowRange(end));
     X = nexObj.DF_postOp.ax.(colKey);
+    X = X(colRange(1):colRange(end));
     Z = squeeze(sliceDF(nexObj.DF_postOp.df, ptr, [rowKey, colKey], "range"));
     if ptr.(rowKey).dim > ptr.(colKey).dim
         Z = Z';
@@ -22,8 +26,12 @@ function nexVisualization_monoGram(nexObj, args)
     set(canvas, "XData", X, "YData", Y, "ZData", Z, "CData", Z);
 
     %% View / limits
+    XLim = nexObj.DF_postOp.ax.(colKey);
+    YLim = nexObj.DF_postOp.ax.(rowKey);
     ax = nexObj.Figure.panel0.tiles.ax;
     ax.ZLim = [zLim_low, zLim_high];
+    ax.YLim = [YLim(rowRange(1)),YLim(rowRange(end))];
+    ax.XLim = [XLim(colRange(1)),XLim(colRange(end))];
     clim(ax, [cLim_low, cLim_high]);
 
     %% Title

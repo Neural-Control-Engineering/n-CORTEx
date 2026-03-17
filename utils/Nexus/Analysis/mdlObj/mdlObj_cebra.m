@@ -92,7 +92,7 @@ classdef mdlObj_cebra < mdlObject
                 % DF_Z.ax=struct;
                 DF_Z.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);                
                 % DF_Z.ax.t=DF_Z.ax.t(tCond); % TEMP
-                DF_Z.ax.pc=[1:size(Z,2)];
+                DF_Z.ax.factor=[1:size(Z,2)];
                 DF_Z = nex_initAxisPointer_v2(DF_Z);            
             else
                 DF_Z = [];
