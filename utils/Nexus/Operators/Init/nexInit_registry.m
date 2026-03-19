@@ -18,7 +18,32 @@ function  nexInit_registry(nexon)
         signalVals = unique(nexon.console.BASE.DTS.(signalKey_part));
         nexon.console.BASE.registry.categories.(signalKey_part) = signalVals;
     end
-    %% MAPS
+    %% LUT — color lookup tables (label → hex color), one per sessionLabel category.
+    %       Accessible as nexon.console.BASE.registry.LUT.(categoryKey), e.g.
+    %       registry.LUT.sessionLabel_phase.  Each LUT is a table with columns
+    %       {'label', 'color'} (hex string 'RRGGBB').
+    %
+    %       sessionLabel_phase reuses the colors already generated in
+    %       nexPanel_BASE.map_phase so the two sources stay in sync.
+    for i = 1:length(categories_sessionLabel)
+        sessionLabelKey       = categories_sessionLabel(i);
+        sessionLabelKey_parts = split(sessionLabelKey, "--");
+        sessionLabelKey_part  = sessionLabelKey_parts(end);
+        fieldKey              = strrep(sessionLabelKey, "--", "_");   % e.g. "sessionLabel_phase"
+
+        if strcmp(fieldKey, 'sessionLabel_phase') ...
+                && ~isempty(nexon.console.BASE.map_phase)
+            % Reuse the already-generated phase LUT to keep colors consistent
+            src = nexon.console.BASE.map_phase;
+            lut = table(src.phase, src.color, 'VariableNames', {'label', 'color'});
+        else
+            items = parseSessionLabelUnique(nexon.console.BASE.DTS.sessionLabel, sessionLabelKey_part);
+            raw   = nexGenerate_phaseMap(items);   % returns {phase, color}
+            lut   = table(raw.phase, raw.color, 'VariableNames', {'label', 'color'});
+        end
+
+        nexon.console.BASE.registry.LUT.(fieldKey) = lut;
+    end
 end
 
 % res=cellfun(@(df) (df==9.669406058356351), rThresh,"UniformOutput",false)

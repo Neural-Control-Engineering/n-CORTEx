@@ -19,9 +19,7 @@ classdef nexObj_monoGram < nexObject
     %     opCfgFcn    – function handle for op  (pass [] for identity)
     %     domain      – domain struct override  (pass [] to auto-infer)
 
-    properties
-        pMap
-        player
+    properties  
     end
 
     methods

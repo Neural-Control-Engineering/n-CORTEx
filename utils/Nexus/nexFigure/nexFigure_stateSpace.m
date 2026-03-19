@@ -35,7 +35,7 @@ function nexFigure_stateSpace(nexObj)
     % canvas: full point cloud.
     % canvas_tracker: struct of per-VW-group scatter3 handles, managed by rebuildTrackers().
     nexObj.Figure.panel0.tiles.graphics.canvas         = scatter3(ax, [], [], [], ...
-        20, C.cyberGreen, "filled");
+        100, C.cyberGreen, "filled");
     nexObj.Figure.panel0.tiles.graphics.canvas_tracker = struct();
     colorAx_green(ax);
     load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path, ...

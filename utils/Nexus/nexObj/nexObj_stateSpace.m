@@ -3,9 +3,7 @@ classdef nexObj_stateSpace < nexObject
     properties
         STAT  = [];
         STATE = [];
-        AVG   = []         % table: rows = group averages; cols = df (cell) + grouping label(s)
-        pMap
-        player
+        AVG   = []         % table: rows = group averages; cols = df (cell) + grouping label(s)        
     end
 
     methods
@@ -33,12 +31,13 @@ classdef nexObj_stateSpace < nexObject
             if ~isempty(nexObj.Parent) && strcmp(nexObj.Parent.classID, 'ctg')
                 S_categories = nex_returnSelectionMask(nexObj.Parent.selectionBus.categories);
                 S_items = nex_returnSelectionMask(nexObj.Parent.selectionBus.items);
-                nexObj.STAT = nexOp_compileSTAT(nexObj.Parent, nexObj.dfID_source, S_categories, S_items, []);
+                % nexObj.STAT = nexOp_compileSTAT(nexObj.Parent, nexObj.dfID_source, S_categories, S_items, []);
+                nexObj.STAT = nexOp_compileSTAT(nexObj, nexObj.dfID_source, S_categories, S_items, []);
             end
 
             %% Config
             nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_stateSpace"));
-            nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexAnimate_stateSpace"));
+            nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexObject.stepAnimate"));
 
             %% DF — for domain / ptr axis seeding only (not STATE source)
             if ~isempty(dfID_source)
@@ -49,7 +48,8 @@ classdef nexObj_stateSpace < nexObject
 
             if ~isempty(nexObj.DF)
                 nexObj.DF_postOp = nexObj.DF;
-                nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
+                % nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
+                nexObj.DF_postOp.ptr = nexInit_axisPointer(nexObj.DF_postOp.df, nexObj.DF_postOp.ax);
                 nexObj.DF_postOp = nexObj_DF(nexObj.DF_postOp);
             end
 
@@ -160,32 +160,32 @@ classdef nexObj_stateSpace < nexObject
         end
 
         % ── Player ────────────────────────────────────────────────────────
-        function startPlayer(nexObj)
-            isPlay = nexObj.Figure.playButton.Value;
-            switch isPlay
-                case 0, nexObj.player.start;
-                case 1, nexObj.player.stop;
-            end
-        end
+        % function startPlayer(nexObj)
+        %     isPlay = nexObj.Figure.playButton.Value;
+        %     switch isPlay
+        %         case 0, nexObj.player.start;
+        %         case 1, nexObj.player.stop;
+        %     end
+        % end
 
         % ── Animation ─────────────────────────────────────────────────────
-        function stepAnimate(nexObj, args)
-            % CFG HEADER
-            stride = args.stride; % default = 1
-            % Guard: STATE must be built before animation is meaningful
-            if isempty(nexObj.STATE) || ~isfield(nexObj.STATE, 'ptr')
-                return;
-            end
-            axSel = char(nexObj.domain.animate);
-            if ~isprop(nexObj.STATE.ptr, axSel), return; end
-            r    = nexObj.STATE.ptr.(axSel).range;
-            span = r(2) - r(1) + 1;
-            nexObj.STATE.ptr.(axSel).value = r(1) + mod(nexObj.STATE.ptr.(axSel).value - r(1) + stride, span);
-            % D1 pan vs D2 sweep: both advance value; visualization
-            % reads .window to decide how much of Z to render (pan = window
-            % subset; sweep = single slice matched against G).
-            nexObj.visualize();
-        end
+        % function stepAnimate(nexObj, args)
+        %     % CFG HEADER
+        %     stride = args.stride; % default = 1
+        %     % Guard: STATE must be built before animation is meaningful
+        %     if isempty(nexObj.STATE) || ~isfield(nexObj.STATE, 'ptr')
+        %         return;
+        %     end
+        %     axSel = char(nexObj.domain.animate);
+        %     if ~isprop(nexObj.STATE.ptr, axSel), return; end
+        %     r    = nexObj.STATE.ptr.(axSel).range;
+        %     span = r(2) - r(1) + 1;
+        %     nexObj.STATE.ptr.(axSel).value = r(1) + mod(nexObj.STATE.ptr.(axSel).value - r(1) + stride, span);
+        %     % D1 pan vs D2 sweep: both advance value; visualization
+        %     % reads .window to decide how much of Z to render (pan = window
+        %     % subset; sweep = single slice matched against G).
+        %     nexObj.visualize();
+        % end
 
         % ── Core pipeline ─────────────────────────────────────────────────
         function visualize(nexObj)
@@ -214,7 +214,8 @@ classdef nexObj_stateSpace < nexObject
 
         function refreshPointer(nexObj)
             % Three-field update of Pointer selectionBus when DF_postOp.ax changes.
-            % Mirrors nexOp_sBus_alignItems2ax from nexObj_categorical.
+            % Only resets selections when axis values actually changed — preserves
+            % user selections when pooling fires PostSet without changing content.
             if isempty(nexObj.collector.Pointer), return; end
             bus = nexObj.collector.Pointer;
             axFields = fieldnames(nexObj.DF_postOp.ax);
@@ -223,12 +224,26 @@ classdef nexObj_stateSpace < nexObject
                 ax = axFields{i};
                 if ~isfield(bus.selKeys, ax), continue; end
                 newVals = nexObj.DF_postOp.ax.(ax);
+                oldVals = bus.selKeys.(ax);
+                if isequal(newVals, oldVals), continue; end   % axis unchanged — preserve selection
+                nVals  = numel(newVals);
+                % Map selection by value range: find new indices whose values
+                % fall within [min, max] of the previously selected values.
+                curSel    = bus.selections.(ax);
+                validSel  = curSel(curSel >= 1 & curSel <= numel(oldVals));
+                if ~isempty(validSel) && isnumeric(oldVals)
+                    selRange = oldVals(validSel);
+                    newSel   = find(newVals >= min(selRange) & newVals <= max(selRange));
+                else
+                    newSel   = [];
+                end
+                if isempty(newSel), newSel = 1:nVals; end   % fallback to all
                 bus.selKeys.(ax)    = newVals;
-                bus.selections.(ax) = 1;
+                bus.selections.(ax) = newSel;
                 if isfield(bus.listBoxes, ax) && ~isempty(bus.listBoxes.(ax))
-                    bus.listBoxes.(ax).Value  = 1;
                     bus.listBoxes.(ax).String = newVals;
-                    bus.listBoxes.(ax).Max    = numel(newVals);
+                    bus.listBoxes.(ax).Max    = nVals;
+                    bus.listBoxes.(ax).Value  = newSel;
                 end
             end
         end
@@ -239,20 +254,39 @@ classdef nexObj_stateSpace < nexObject
             % Expensive — called explicitly via UI button, not on every update.
             STATE = struct();
 
-            %% AVG
+            %% AVG — pool then stack
+            ptr = [];
+            if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ptr')
+                ptr = nexObj.DF_postOp.ptr;
+            end
             try
-                [Z_AVG, G_AVG, S_AVG] = nexOp_stackSTAT(nexObj.AVG);
+                AVG_pool = nexOp_poolDF(nexObj.pMap, nexObj.AVG, ptr);
+                [Z_AVG, G_AVG, S_AVG] = nexOp_stackSTAT(AVG_pool);
             catch e
                 disp(getReport(e));
                 Z_AVG = []; G_AVG = []; S_AVG = [];
             end
 
-            %% DF (realtime / additional source)
-            if ~isempty(nexObj.DF)
+            %% DF (raw / realtime source)
+            % G_DF mirrors the nexOp_stackSTAT output shape: sampleNumber +
+            % one column per DF_postOp.ax field (excluding 'factor').
+            % No grouping columns — DF rows are a single unlabelled trajectory.
+            if ~isempty(nexObj.DF_postOp)
                 try
-                    Z_DF = nexObj.DF.df;
-                    G_DF = dtsIO_categorizeDF(nexObj.nexon, nexObj.DF);
-                    S_DF = zeros(size(Z_DF));
+                    Z_DF  = nexObj.DF_postOp.df;
+                    T_DF  = size(Z_DF, 1);
+                    S_DF  = zeros(size(Z_DF));
+                    G_DF  = table((1:T_DF)', 'VariableNames', {'sampleNumber'});
+                    if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ax')
+                        axFields = fieldnames(nexObj.DF_postOp.ax);
+                        axFields = axFields(~strcmp(axFields, 'factor'));
+                        for k = 1:numel(axFields)
+                            f    = axFields{k};
+                            vals = nexObj.DF_postOp.ax.(f)';   % transpose to Nx1
+                            idx  = min((1:T_DF)', numel(vals));
+                            G_DF.(f) = vals(idx);
+                        end
+                    end
                 catch e
                     disp(getReport(e));
                     Z_DF = []; G_DF = []; S_DF = [];
@@ -261,25 +295,54 @@ classdef nexObj_stateSpace < nexObject
                 Z_DF = []; G_DF = []; S_DF = [];
             end
 
-            %% STAT
-            try
-                [Z_STAT, G_STAT, S_STAT] = nexOp_stackSTAT(nexObj.STAT);
-            catch e
-                disp(getReport(e));
-                Z_STAT = []; G_STAT = []; S_STAT = [];
-            end
+            %% STAT — use STAT's own ptr column, independent of AVG
+            % try
+            %     ptr_stat = [];
+            %     if ~isempty(nexObj.STAT) && istable(nexObj.STAT) ...
+            %             && ismember('ptr', nexObj.STAT.Properties.VariableNames) ...
+            %             && ~isempty(nexObj.STAT.ptr(1))
+            %         ptr_stat = nexObj.STAT.ptr(1);
+            %     end
+            %     STAT_pool = nexOp_poolDF(nexObj.pMap, nexObj.STAT, ptr_stat);
+            %     [Z_STAT, G_STAT, S_STAT] = nexOp_stackSTAT(STAT_pool);
+            % catch e
+            %     disp(getReport(e));
+            %     Z_STAT = []; G_STAT = []; S_STAT = [];
+            % end
 
             STATE.Z = [Z_AVG; Z_DF];
-            STATE.G = [G_AVG; G_DF];
             STATE.S = [S_AVG; S_DF];
 
-            %% STATE ptr — row index into STATE.Z
-            N = size(STATE.Z, 1);
-            if N > 0
+            % Impute missing columns in G_DF before vertical concat.
+            % G_AVG has grouping columns (e.g. sessionLabel_phase) that G_DF lacks;
+            % fill them with NaN (numeric) or {''} (cell/string) so heights match.
+            if istable(G_AVG) && istable(G_DF) && ~isempty(G_DF)
+                missingCols = setdiff(G_AVG.Properties.VariableNames, ...
+                                      G_DF.Properties.VariableNames);
+                for c = 1:numel(missingCols)
+                    col = missingCols{c};
+                    ref = G_AVG.(col);
+                    if isnumeric(ref) || islogical(ref)
+                        G_DF.(col) = NaN(height(G_DF), 1);
+                    else
+                        G_DF.(col) = repmat({''}, height(G_DF), 1);
+                    end
+                end
+                G_DF = G_DF(:, G_AVG.Properties.VariableNames);  % match column order
+            end
+            STATE.G = [G_AVG; G_DF];
+
+            %% STATE ptr — within-group trajectory frame (1..T), not global row.
+            % sampleNumber in STATE.G is the per-group row index; the ptr
+            % range covers [1, T] so stepAnimate advances all groups in
+            % lockstep.  The full stack remains visible on the canvas; the
+            % tracker windows on this value per group independently.
+            if ~isempty(STATE.G) && height(STATE.G) > 0
+                T = max(STATE.G.sampleNumber);
                 sPtr.sampleNumber.dim    = 1;
                 sPtr.sampleNumber.value  = 1;
-                sPtr.sampleNumber.range  = [1, N];
-                sPtr.sampleNumber.window = [];
+                sPtr.sampleNumber.range  = [1, T];
+                sPtr.sampleNumber.window = T;   % default: show full trajectory
                 STATE.ptr = nexObj_ptr(sPtr);
             end
 
@@ -296,8 +359,6 @@ classdef nexObj_stateSpace < nexObject
                 end
                 nexObj.refreshDomainF(nexObj.domain.F);
             end
-
-            nexObj.visualize();
         end
 
         % ── Existing methods (preserved) ──────────────────────────────────
@@ -311,8 +372,11 @@ classdef nexObj_stateSpace < nexObject
 
         function reportAverage(nexObj)
             STAT = nexObj.STAT;
-            dfCol = nexOp_trimDfCol(STAT.df);
+            % dfCol = nexOp_trimDfCol(STAT.df);
+            TF = table2struct(STAT); TF = arrayfun(@(DF) DF, TF, "UniformOutput", false);
+            [dfCol, axCol] = nexOp_trimTF(TF);
             STAT.df = dfCol(:);
+            STAT.ax = repmat(axCol, height(STAT),1);
             viewSel  = nex_returnSelectionMask(nexObj.collector.View);
             groupCol = char(viewSel.AVG);
             [G, groupNames] = findgroups(STAT.(groupCol));
@@ -321,18 +385,36 @@ classdef nexObj_stateSpace < nexObject
             AVG.df = STAT_avg;
             AVG.(groupCol) = groupNames;
             T_AVG = struct2table(AVG);
-            % tCond: driven by DF_postOp.ptr time axis range (Pointer bus).
-            % ax on the averaged df reflects DF_postOp.ax — pooling ops may
-            % have already changed axis lengths upstream, so do not assume
-            % axis dims match the original DF.
-            % if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ptr') ...
-            %         && isprop(nexObj.DF_postOp.ptr, 't')
-            %     r = nexObj.DF_postOp.ptr.t.range;
-            %     tCond = r(1) : r(2);
-            % else
-            %     tCond = 1 : size(dfCol{1}, 1);
-            % end
-            % T_AVG.df = cellfun(@(df) df, T_AVG.df, "UniformOutput", false);
+            % preserve ax and ptr from the averaged data itself
+            if ismember('ax', STAT.Properties.VariableNames) && ~isempty(STAT.ax(1))
+                ax_ref    = STAT.ax(1);
+                T_AVG.ax  = repmat({ax_ref}, height(T_AVG), 1);
+                T_AVG.ptr = repmat({nexInit_axisPointer(STAT_avg(1), ax_ref)}, height(T_AVG), 1);
+
+                % Trim DF_postOp to match the AVG coordinate space, then
+                % assign ax to fire PostSet → refreshPointer() automatically.
+                if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'df') ...
+                        && isprop(nexObj.DF_postOp, 'ptr') && ~isempty(nexObj.DF_postOp.ptr)
+                    df_trim  = nexObj.DF_postOp.df;
+                    axFields = fieldnames(ax_ref);
+                    for fi = 1:numel(axFields)
+                        f      = axFields{fi};
+                        newLen = numel(ax_ref.(f));
+                        if isprop(nexObj.DF_postOp.ptr, f)
+                            dim    = nexObj.DF_postOp.ptr.(f).dim;
+                            curLen = size(df_trim, dim);
+                            if newLen < curLen
+                                idx      = repmat({':'}, 1, ndims(df_trim));
+                                idx{dim} = 1:newLen;
+                                df_trim  = df_trim(idx{:});
+                            end
+                        end
+                    end
+                    nexObj.DF_postOp.df = df_trim;
+                    nexObj.DF_postOp.ax = ax_ref;   % PostSet fires refreshPointer()
+                end
+            end
+
             nexObj.AVG = T_AVG;
             nexObj.refreshVW();
         end
@@ -410,7 +492,7 @@ classdef nexObj_stateSpace < nexObject
                 fld = char(activeFlds(i));
                 if ~isfield(gfx.canvas_tracker, fld) || ~isvalid(gfx.canvas_tracker.(fld))
                     gfx.canvas_tracker.(fld) = scatter3(ax, [], [], [], ...
-                        60, nexObj.nexon.settings.Colors.cyberGreen, ...
+                        150, nexObj.nexon.settings.Colors.cyberGreen, ...
                         "filled", "MarkerFaceAlpha", 0.9);
                 end
             end
@@ -439,12 +521,11 @@ classdef nexObj_stateSpace < nexObject
             % Read Domain selectionBus and apply to nexObj.domain, then re-visualize.
             % Called by the Refresh button — wires F / D1 / ANI selections into
             % domain.F, domain.D1 (+ inferred D2), and domain.animate.
+            % NOTE: F must be applied AFTER inferDomain() because the base-class
+            % inferDomain() resets domain.F = string(dfID_source), overwriting
+            % any user selection set before the call.
             if ~isfield(nexObj.collector, 'Domain'), return; end
             domSel = nex_returnSelectionMask(nexObj.collector.Domain);
-            % F — which embedding factors to display (scatter3 X/Y/Z columns)
-            if ~isequal(domSel.F, "")
-                nexObj.domain.F = domSel.F(:)';
-            end
             % D1 — primary axis; D2 inferred as complement via inferDomain
             if ~isequal(domSel.D1, "")
                 nexObj.domain.D1 = domSel.D1(:)';
@@ -453,6 +534,10 @@ classdef nexObj_stateSpace < nexObject
             % ANI — animated axis; also updates domain.D2 via setAnimateAxis
             if ~isequal(domSel.ANI, "")
                 nexObj.setAnimateAxis(char(domSel.ANI));
+            end
+            % F — applied last so inferDomain() cannot overwrite the user's selection
+            if ~isequal(domSel.F, "")
+                nexObj.domain.F = domSel.F(:)';
             end
             nexObj.updateScope();
         end

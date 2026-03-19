@@ -4,5 +4,5 @@ function uniqueVals = parseSessionLabelUnique(sessionLabels,key)
     allVals = arrayfun(@(x) parseSessionLabel(x, key), sessionLabels, "UniformOutput",true);
     uniqueVals = unique((allVals));
     % return as strings
-    uniqueVals = convertCharsToStrings(uniqueVals)
+    uniqueVals = convertCharsToStrings(uniqueVals);
 end

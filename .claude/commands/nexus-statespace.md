@@ -1,371 +1,376 @@
 # nexus-statespace — State-Space nexObj Design Skill
 
-Reference for building out `nexObj_stateSpace` and its curation/animation infrastructure.
-`nexObj_embedding_single` is the animation reference. `nexObj_stateSpace` is the upgrade target.
+Reference for `nexObj_stateSpace` and its full curation/animation infrastructure.
 
 ---
 
-## Data model: STAT → STATE
+## DF_postOp as the coordinate system prototype
+
+`DF_postOp` is the single source of truth for every downstream component:
+
+| Component | How it uses DF_postOp |
+|-----------|----------------------|
+| **Pointer** (`windowCfgPanel`) | `DF_postOp.ptr` — axis handles captured by reference in `breakoutAxisFields`; spinners update in-place with no orphaning |
+| **Domain axes** | `DF_postOp.ax` field names → D1/ANI candidates (excluding `'factor'`) |
+| **Factor labels** | `DF_postOp.ax.factor` → F bus candidate values (e.g. `['pc1','pc2','pc3']`) |
+| **Axis values in STATE.G** | `reportAverage` stamps `DF_postOp.ax` onto `AVG.ax`; `nexOp_stackSTAT` expands per-sample into `STATE.G` columns |
+| **sampleNumber range** | `STATE.ptr.sampleNumber.range = [1, T]` where T is the DF_postOp trajectory length |
+
+**Consequence for DF-as-VW**: raw DF rows and AVG rows both live in the DF_postOp coordinate
+space — same T frames, same factor columns, same axis layout. Pointer filtering applies
+identically to both.
+
+`DF_postOp` is upgraded to `nexObj_DF` at construction (after `nex_initAxisPointer_v2`) so its
+`ax` property is `SetObservable`. A `PostSet` listener on `DF_postOp.ax` fires `refreshPointer()`
+automatically when pooling changes axis lengths.
+
+---
+
+## Data model: STAT → AVG → STATE
 
 ```
-STAT  : MATLAB table — rows = trials/groups, cols = df (cell of arrays), ax, grouping labels
-          ↓  buildSTATE()
+STAT  : MATLAB table — rows = trials/groups, cols = df (cell of arrays) + grouping labels
+          ↓  reportAverage()   [stamps DF_postOp.ax onto every AVG row]
+AVG   : table — rows = group averages; cols = df (cell) + grouping label(s) + ax (cell of struct)
+          ↓  buildSTATE() → nexOp_stackSTAT(AVG)
 STATE : struct
   .Z   — [N × d] matrix of embedding coordinates (all samples stacked)
-  .G   — table [N × nProps] — grouping labels per row (from nexOp_stackSTAT)
-  .S   — [N × d] covariance/size data (optional, for ellipsoids/SEM)
-  .ptr — pointer struct indexing rows of Z (see below)
+  .G   — table [N × nProps] — grouping labels + sampleNumber + axis value columns (t, ch, ...)
+  .S   — [N × d] covariance/size data (optional)
+  .ptr — nexObj_ptr; sampleNumber axis only (range = [1, T], per-group trajectory length)
 ```
 
-`nexOp_stackSTAT(STAT)` stacks `STAT.df{:}` into Z, replicates grouping columns per row,
-adds `sampleNumber` column to G.
+### How axis values reach STATE.G
 
-### STATE.ptr — design
-
-STATE.Z rows are indexed by a ptr struct that mirrors `DF_postOp.ptr`:
-
-```
-STATE.ptr.(axKey).dim    % which logical axis this indexes in Z rows
-STATE.ptr.(axKey).value  % current row position
-STATE.ptr.(axKey).range  % [start, end] — full available extent
-STATE.ptr.(axKey).window % (optional) viewing window size — only applied when
-                         %   this axis is BOTH (1) in domain.D1 AND (2) == domain.animate
-```
-
-The `window` field limits how many rows are rendered per frame during pan mode.
-When `window` is set and active: display slice = `[value : value + window - 1]` within range.
-When `window` is not set or axis is not being animated as D1: full range is shown.
-
-`sampleNumber` from STATE.G is the natural row axis. DF.ax axes (e.g. `t`) can be included
-in STATE.G at stack time so they are available as ptr keys.
-
-STATE is built **once** (expensive), cached in `nexObj.STATE`.
-Rebuild triggered only when `dfID_source` changes (new embedding/data source loaded).
-All domain changes (F, D1, D2, collector.*) re-visualize only — F just selects which
-columns of the already-built STATE.Z to display.
-
----
-
-## Domain roles for state-space
-
-```
-domain.axes    % string array — full list of DF.ax keys (source of truth, same as monoGram)
-domain.D1      % string array — DF.ax axes for primary display (pan/trace when animated)
-domain.D2      % string array — DF.ax axes for stepwise sweep (snapshot slices when animated)
-domain.F       % string array — factor/embedding dimensions (columns of STATE.Z)
-                %   e.g. ["d1","d2","d3"] for CEBRA, ["PC1","PC2","PC3"] for PCA
-                %   analogous to domain.axes but scoped to the embedding output space
-domain.animate % string — which axis the player currently steps; member of D1 or D2
-```
-
-**D1 and D2 come exclusively from `DF.ax`** — temporal/spatial axes of the embedding input
-(e.g. `t`, `ch`). Group labels, trial IDs, and conditions live in STAT.G and are accessed
-via the View selectionBus, not through D1/D2.
-
-**F is the factor space**: columns of STATE.Z for the active embedding. The Domain selectionBus
-curates which F elements map to scatter3 X/Y/Z. Both D1 and D2 sub-buses expose all `domain.axes`
-(i.e. all DF.ax fields) for independent assignment with no assumed complement relationship.
-
----
-
-## Two animation modes — dispatch on domain.animate membership
-
-### Mode A: animate ∈ D1 — pan / trajectory trace
-
-```
-domain.animate = "t"  (a D1 axis — primary display)
-```
-
-The full scatter3 cloud stays static. A **tracker** (co-registered graphic under `.graphics`)
-trails through it as the window advances along the D1 axis.
-
-- Advance `STATE.ptr.(animate).value` by stride (wraps within range)
-- If `STATE.ptr.(animate).window` is set: display slice = `[value : value + window - 1]`
-- Only tracker XData/YData/ZData are updated each frame (canvas is not redrawn)
-- tracker renders `STATE.Z(windowSlice, F_dimIndices)` — the active viewing window
-
+`reportAverage` stamps `DF_postOp.ax` onto each AVG row:
 ```matlab
-% Pan mode update
-val  = STATE.ptr.(animate).value;
-win  = STATE.ptr.(animate).window;   % may be empty → use full range
-if ~isempty(win)
-    slice = val : val + win - 1;
-else
-    slice = STATE.ptr.(animate).range(1) : STATE.ptr.(animate).range(2);
-end
-nexObj.Figure.panel0.tiles.graphics.tracker.XData = STATE.Z(slice, f1);
-nexObj.Figure.panel0.tiles.graphics.tracker.YData = STATE.Z(slice, f2);
-nexObj.Figure.panel0.tiles.graphics.tracker.ZData = STATE.Z(slice, f3);
+T_AVG.ax = repmat({nexObj.DF_postOp.ax}, height(T_AVG), 1);
 ```
 
-### Mode B: animate ∈ D2 — stepwise sweep
+`nexOp_stackSTAT` expands ax fields per-sample alongside `sampleNumber`:
+```matlab
+% Inside nexOp_stackSTAT — runs when STAT.ax column is present:
+axCols = cellfun(@(ax_i, df_i) ...
+    ax_i.(f)(min((1:size(df_i,1))', numel(ax_i.(f))))', ...
+    STAT.ax, STAT.df, "UniformOutput", false);
+```
+This makes `STATE.G.t`, `STATE.G.f`, etc. naturally present — no post-hoc stamping needed.
+
+### G_DF shape (raw DF rows)
+
+`G_DF` mirrors the same schema: `sampleNumber` + ax field columns, no grouping columns.
+Missing grouping columns (relative to `G_AVG`) are imputed with `NaN` / `''` before vertical concat.
+
+### STATE.ptr vs DF_postOp.ptr
+
+**`DF_postOp.ptr` is the single authoritative animation pointer for all nexObjects, including
+`nexObj_stateSpace`.** `DF_postOp` is the virtual coordinate-space prototype for every
+trajectory plotted — its `ptr` defines the range, value, and window that `stepAnimate` advances.
+
+`STATE.ptr` (if present) carries metadata about the stacked STATE layout (e.g. sampleNumber
+range = [1, T]) but is **not** what `stepAnimate` reads. The base `nexObject.stepAnimate`
+always uses `DF_postOp.ptr.(domain.animate)` and calls `visualize()` — no override needed in
+`nexObj_stateSpace`.
 
 ```
-domain.animate = "trial"  (a D2 axis — secondary slicing)
+DF_postOp.ptr.sampleNumber.range  = [1, T]   % T = trajectory length
+DF_postOp.ptr.sampleNumber.value  = current frame (advanced by stepAnimate)
+DF_postOp.ptr.sampleNumber.window = display window (used by nexVisualization_stateSpace)
 ```
 
-- Advance `STATE.ptr.(animate).value` by stride (wraps within range)
-- Refilter STATE.Z rows by matching `STATE.G.(animate) == ptr.value`
-- Full canvas (scatter3) redrawn for the new snapshot
-- tracker is not updated in this mode (or hidden)
-- Analogous to monoGram's existing `stepAnimate` behavior
+All groups move in lockstep. The full stack stays visible on the canvas; tracker windows
+show only the current frame.
+
+STATE is built **once** (expensive), cached in `nexObj.STATE`. Does NOT call `visualize()` —
+call `applyDomainBus()` or `updateScope()` separately to trigger visualization.
 
 ---
 
-## stepAnimate override in nexObj_stateSpace
+## applyPool vs buildSTATE — what each updates
 
-`nexObject.stepAnimate` handles D2 sweep mode naturally (ptr value stepping + visualize).
-Override only to add D1 pan dispatch:
+```
+applyPool button → updateScope()
+    → nexOp_poolAxes → DF_postOp.df / DF_postOp.ax updated
+    → PostSet fires → refreshPointer() (axis values / Pointer bus remapped)
+    → visualize() with CACHED STATE
+        — dot sizes update (divsPerBin read live from pMap)
+        — Pointer filter updates (new axis values)
+        — STATE.Z positions are STALE until buildSTATE is re-run
 
+reportAvgButton → reportAverage() → AVG.ax stamped from current DF_postOp.ax
+buildSTATEButton → buildSTATE() → STATE.Z / STATE.G rebuilt from current AVG
+```
+
+STATE.Z (embedding positions) is only valid relative to the pool state at the time
+`buildSTATE` was last run. Pool changes require `reportAverage` + `buildSTATE` to propagate
+into embedding positions.
+
+---
+
+## Domain roles
+
+```
+domain.axes    % string array — DF_postOp.ax field names (excluding 'factor')
+domain.D1      % primary axes (pan/trace when animated)
+domain.D2      % secondary axes (sweep mode)
+domain.F       % factor labels from DF_postOp.ax.factor (columns of STATE.Z)
+domain.animate % which axis the player steps
+```
+
+`'factor'` is a reserved ax keyword for DR outputs (PCA, SSM, CEBRA). It is excluded from
+D1/ANI/Pointer and handled exclusively by the F sub-bus.
+
+### applyDomainBus ordering rule
+
+F must be applied **after** `inferDomain()` because the base-class `inferDomain()` resets
+`domain.F = string(dfID_source)`. Order in `applyDomainBus`:
+1. D1 → `inferDomain()`
+2. ANI → `setAnimateAxis()` (internally calls `inferDomain()` again)
+3. F **last** — reads from `collector.Domain` selectionBus, not `domain.F`
+
+`nexVisualization_stateSpace` reads F **directly from `collector.Domain`** via
+`nex_returnSelectionMask`, bypassing `domain.F` entirely.
+
+---
+
+## Collector buses
+
+### View bus (`collector.View`)
+| Key | Candidate values | Purpose |
+|-----|-----------------|---------|
+| AVG | non-DF STAT columns | which G column to group/average by |
+| VW  | unique values from `nexObj.AVG` group column | which groups to show; defaults to **all selected** on `refreshVW()` |
+| CLR | same as AVG pool | which G column to color by; resolved via `registry.LUT.(clrCol)` |
+
+`refreshVW()` always selects all groups (`1:nVW`). User can deselect manually after.
+
+### Domain bus (`collector.Domain`)
+| Key | Candidate values | Max selections |
+|-----|-----------------|---------------|
+| F   | `DF_postOp.ax.factor` values | 3 (scatter3 X/Y/Z cap) |
+| D1  | `domain.axes` (DF_postOp.ax fields, no 'factor') | 1 |
+| ANI | same as D1 | 1 |
+
+`refreshDomainF()` does full three-field update of F sub-bus after `buildSTATE`.
+Listbox changes update `bus.selections` via `listCfgEntryChanged`; `applyDomainBus()` reads
+them on Refresh — no direct domain callback needed.
+
+### Pointer bus (`collector.Pointer`)
+One listbox per `DF_postOp.ax` dimension (excluding 'factor'). Candidate values =
+actual axis values from `DF_postOp.ax.(f)` (human-readable). `maxSels = []` → full multi-select.
+
+Listener: `addlistener(DF_postOp, 'ax', 'PostSet', @(~,~) nexObj.refreshPointer())`
+
+**`refreshPointer()` selection preservation rules:**
+- Axis unchanged (`isequal(newVals, oldVals)`) → skip entirely, user selection preserved
+- Axis changed (pooling) → map selection by **value range**, not index:
+  ```matlab
+  selRange = oldVals(validSel);
+  newSel = find(newVals >= min(selRange) & newVals <= max(selRange));
+  if isempty(newSel), newSel = 1:nVals; end  % fallback to all
+  ```
+  This preserves the user's intended time/frequency window across pool changes.
+
+**Floating-point membership**: axis values in `STATE.G.(f)` and `sel` from the Pointer bus
+can differ by ~1e-6 due to float accumulation. Use `round(..., 6, 'significant')` on both
+sides before `ismember` — 6 significant figures eliminates noise while generalizing across
+all axis types (time in s, frequency in Hz, integer channel indices):
 ```matlab
-function stepAnimate(nexObj, args)
-    % CFG HEADER
-    stride = args.stride; % default = 1
-    axSel  = nexObj.domain.animate;
-    if ismember(axSel, nexObj.domain.D1)
-        % Pan/trace mode: advance value, apply window, update tracker only
-        r   = nexObj.STATE.ptr.(axSel).range;
-        N   = r(2) - r(1) + 1;
-        nexObj.STATE.ptr.(axSel).value = r(1) + mod(nexObj.STATE.ptr.(axSel).value - r(1) + stride, N);
-    else
-        % Sweep mode: delegate to base (D2 value stepping via DF_postOp.ptr)
-        stepAnimate@nexObject(nexObj, args);
+gVals   = round(double(STATE.G.(f)), 6, 'significant');
+selVals = round(double(sel),         6, 'significant');
+mask_ptr = mask_ptr & ismember(gVals, selVals);
+```
+
+Pointer mask in `nexVisualization_stateSpace`:
+```matlab
+ptrSel = nex_returnSelectionMask(nexObj.collector.Pointer);
+for k = 1:numel(ptrAxes)
+    f = ptrAxes{k};  sel = ptrSel.(f);
+    if ~isempty(sel) && ~isequal(sel,"") && ismember(f, gCols)
+        mask_ptr = mask_ptr & ismember(STATE.G.(f), sel);
     end
-    nexObj.visualize();
 end
+mask_canvas = mask_VW & mask_ptr;
 ```
 
 ---
 
 ## Canvas / tracker graphics convention
 
-All co-registered graphics on the same axes live as named subfields of `.graphics`:
-
 ```
-nexObj.Figure.panel0.tiles.graphics.canvas   % primary scatter3 — full point cloud
-nexObj.Figure.panel0.tiles.graphics.tracker  % trailing window — scatter3 or line3
+graphics.canvas                      — full VW+Pointer filtered point cloud (all time)
+graphics.canvas_tracker.(groupFld)   — one scatter3 per VW group, trajectory within window
 ```
 
-This generalizes to any nexObj that needs layered graphics: just add named subfields.
-Initialization in `nexFigure_stateSpace`:
+Field names in `canvas_tracker` are group labels with hyphens replaced by underscores
+(e.g. `"L-hind-paw-CCI"` → `"L_hind_paw_CCI"`). `rebuildTrackers()` uses
+`strrep(activeGrps, '-', '_')` consistently for both create and remove.
+
+**Strict two-tier separation:**
+
+```
+rebuildTrackers()   — structural tier (slow): create/delete scatter3 handles per VW change
+                      called by refreshVW() and after Refresh; NEVER from visualize()
+visualize()         — data tier (fast): set() on existing handles only; no hold/drawnow
+```
+
+**Scatter sizes** — set via `SizeData` in every `visualize()` call (not baked at creation):
+```
+canvas:  baseSize  = 100 × divsPerBin(animAx)
+tracker: baseSize  = 150 × divsPerBin(animAx)
+```
+`divsPerBin` is read live from `nexObj.pMap.(animAx).divsPerBin` so it updates on applyPool
+without rebuilding STATE.
+
+**D1 context window** — canvas is restricted to a ±half window centered on the current D1
+pointer value, where `half = DF_postOp.ptr.(d1Ax).window / 2`:
+```matlab
+d1Start = curD1 - half;   d1End = curD1 + half;   % clamped to axis range
+mask_canvas = mask_canvas & d1Vals_G >= d1Start & d1Vals_G <= d1End;
+```
+This is applied before the brightness gradient so brightness normalizes to the visible window.
+
+**Tracker after-image** — each tracker shows `len_afterImage` steps trailing behind the
+current ANI pointer value (read from `DF_postOp.ptr.(aniAx).value`):
+```matlab
+winStart_ani = curANI - len_afterImage;
+winEnd_ani   = curANI;
+mask_grp = group_mask & aniVals >= winStart_ani & aniVals <= winEnd_ani;
+```
+`len_afterImage` comes from `nexObj.cfg.aniCfg.entryParams.len_afterImage` (default 5).
+This unified approach works for any D1/ANI combination — the tracker always trails along
+the ANI axis regardless of what D1 is, giving a highlighted "trial" slice of the manifold.
+
+---
+
+## D1 brightness gradient
+
+After CLR color is resolved, brightness is modulated along the **D1 axis**:
+```matlab
+d1Vals  = double(STATE.G.(d1Ax));
+d1Min   = min(d1Vals(mask_canvas));   % normalize to VISIBLE sub-selection, not full range
+d1Max   = max(d1Vals(mask_canvas));
+brightness = 0.15 + 0.85 * (d1Vals - d1Min) / (d1Max - d1Min);
+brightness = max(0.15, min(1.0, brightness));  % clamp out-of-selection rows
+C_all = C_all .* brightness;   % N×3 .* N×1 broadcast — hue preserved, luminance scaled
+```
+Normalizing to `mask_canvas` (not full trajectory) ensures the full dark→bright range is
+always used regardless of which sub-range the Pointer selects.
+
+---
+
+## LUT registry
+
+```
+nexon.console.BASE.registry.LUT.(sessionLabel_phase)  % table: {label, color (hex RRGGBB)}
+nexon.console.BASE.registry.LUT.(sessionLabel_subj)   % same format
+```
+
+Built in `nexInit_registry` `%% LUT` block. `sessionLabel_phase` reuses colors from
+`nexPanel_BASE.map_phase` (already generated) so both stay in sync — no second random call.
+Other sessionLabel categories get new color tables via `nexGenerate_phaseMap`.
+
+Future LUT sources (e.g. `ax_f`, `ax_chans`) use the same `registry.LUT.(key)` path with
+`{label, color}` columns. Key naming convention: always include the source prefix
+(`sessionLabel_`, `ax_`, etc.) to avoid namespace collisions.
+
+CLR bus key = registry LUT key = G column name — the triple identity is the design intent.
+
+Color resolution in `nexVisualization_stateSpace`:
+```matlab
+lut = nexObj.nexon.console.BASE.registry.LUT.(clrCol);
+% lut.label → group value strings, lut.color → hex strings 'RRGGBB'
+hex = char(lut.color(k));
+rgb = [hex2dec(hex(1:2)), hex2dec(hex(3:4)), hex2dec(hex(5:6))] / 255;
+```
+Falls back to `lines()` auto-assign if LUT not found.
+
+---
+
+## nexVisualization_stateSpace pipeline
+
+1. **Guard**: return if `STATE` empty or `STATE.Z` empty
+2. **Factor columns**: read F from `collector.Domain` (not `domain.F`); map to column indices via `DF_postOp.ax.factor`; pad to 3 with zeros if only 2 selected
+3. **View selections**: `nex_returnSelectionMask(collector.View)` → groupCol, vwGroups, clrCol
+4. **VW mask**: `ismember(STATE.G.(groupCol), viewSel.VW)`
+5. **Pointer mask**: per-axis `ismember(STATE.G.(f), ptrSel.(f))` for each non-empty selection
+6. **`mask_canvas = mask_VW & mask_ptr`**
+7. **D1 context window**: refine `mask_canvas` to ±half window around `DF_postOp.ptr.(d1Ax).value`
+8. **ANI pointer**: read `curANI` from `DF_postOp.ptr.(aniAx).value`; `winStart_ani = curANI - len_afterImage`
+9. **Color**: registry LUT lookup on `STATE.G.(clrCol)`; fallback `lines()`
+10. **D1 brightness**: normalize `STATE.G.(d1Ax)` within `mask_canvas` rows → scale `C_all`
+11. **Scatter size**: `100 × divsPerBin` canvas, `150 × divsPerBin` tracker (read live from pMap)
+12. **Canvas**: `set(gfx.canvas, XData/YData/ZData/CData/SizeData)` on `mask_canvas` rows
+13. **Axis labels**: from Domain F selected names
+14. **Tracker**: if `vwGroups == ""` return early; else per-group `mask_grp = group & ANI in [winStart_ani, curANI]`; `set()` on `canvas_tracker.(fld)` including `SizeData`
+
+---
+
+## STAT construction from categorical Parent
+
+When `nexObj_stateSpace` has a categorical (`ctg`) Parent, `nexOp_compileSTAT` is called at
+construction to inherit the Parent's compiled STAT. **Pass `nexObj` (the stateSpace object
+itself) as the first argument — not `nexObj.Parent`:**
 
 ```matlab
-nexObj.Figure.panel0.tiles.graphics.canvas  = scatter3(ax, [], [], [], ...);
-nexObj.Figure.panel0.tiles.graphics.tracker = scatter3(ax, [], [], [], ...);  % or plot3
+nexObj.STAT = nexOp_compileSTAT(nexObj, nexObj.dfID_source, S_categories, S_items, []);
+```
+
+`nexObj.Parent` is the ctg object; `nexOp_compileSTAT` needs the nexObject that owns the data
+context (DTS, router, etc.), which is `nexObj` itself.
+
+---
+
+## isfield vs isprop rule
+
+`DF_postOp` is a `nexObj_DF` handle object — use `isprop`, not `isfield`:
+```matlab
+isprop(nexObj.DF_postOp, 'ptr')   % correct
+isprop(nexObj.DF_postOp, 'ax')    % correct
+isfield(nexObj.DF_postOp.ax, 'factor')  % correct — ax itself is a struct
 ```
 
 ---
 
-## SelectionBus hierarchy
+## Animation config
 
-Three bus groups in `nexFigure_stateSpace`, each a sub-panel:
+`aniCfg` is generated from the base `nexObject.stepAnimate` — no subclass animate function:
+```matlab
+nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexObject.stepAnimate"));
+```
+CFG Header params: `stride` (default 1), `len_afterImage` (default 10).
 
-### View bus — controls what is shown and how it is colored
-| Sub-bus | Writes to | Purpose |
-|---------|-----------|---------|
-| AVG | `collector.AVG` | Which G column to group/average by |
-| VW | `collector.VW` | Which group values to show (multi-select filter on STATE.G) |
-| CLR | `collector.CLR` | Which G column drives color; resolved via nexon.console.BASE.registry LUT |
+### stepAnimate — Pointer-aware sequencing
 
-### Domain bus — controls which axes fill D1, D2, F
-| Sub-bus | Writes to | Source menu | Trigger |
-|---------|-----------|-------------|---------|
-| F | `domain.F` | embedding output column names | → STATE rebuild |
-| D1 | `domain.D1` | all `domain.axes` (DF.ax fields) | → re-visualize |
-| D2 | `domain.D2` | all `domain.axes` (DF.ax fields) | → re-visualize |
-
-D1 and D2 sub-buses each expose the full `domain.axes` list. No complement rule enforced
-here — both can contain any DF.ax field. Future nexObj_selectionBus will manage this UI.
-
-### Pointer bus — trajectory isolation (collector.Pointer)
-
-One listbox per `DF.ax` dimension. Candidate values are the **actual axis values**
-(e.g. channel names, Hz values, time indices) — human-readable, not raw indices.
-`nex_returnSelectionMask(collector.Pointer)` returns `S.(axKey) = axValues(selectedIndices)`.
-
-| Axis role | Listbox behaviour | Effect |
-|-----------|-------------------|--------|
-| `domain.animate` (primary, e.g. `t`) | All values selectable (multi-select) | Animation drives which values are rendered each frame; Pointer selection sets the starting window position |
-| Secondary non-animated (e.g. `ch`, `f`) | Multi-select | **Each selected value yields a separate trajectory** overlaid in the scatter — e.g. select f=15 Hz and f=36 Hz to compare trajectories at both frequencies simultaneously |
-
-`maxSels = []` for the Pointer bus: each axis gets `Max = length(axis values)`,
-enabling full multi-select for all dimensions.
-
-#### How visualize() uses the Pointer mask
+`stepAnimate` uses `collector.Pointer.selections.(animAx)` as the animation sequence when
+present, falling back to `DF_postOp.ptr.(animAx).range` otherwise:
 
 ```matlab
-ptrSel = nex_returnSelectionMask(nexObj.collector.Pointer);
-% ptrSel.(axKey) = selected value(s) on that axis
-% For each non-animated axis: filter STATE.G rows where G.(axKey) ∈ ptrSel.(axKey)
-% For animated axis: row range is driven by STATE.ptr.(animAxis).value + window
+curPos = find(sel == curVal, 1);
+if isempty(curPos), curPos = 1 - stride; end   % snap to sel(1) on first step
+axVal  = sel(mod(curPos - 1 + stride, numel(sel)) + 1);
 ```
 
-**Prerequisite**: STATE.G must include a column for each DF.ax axis so row-level
-filtering is possible. These columns should be populated at `buildSTATE` time
-(replicate axis values per row, matching how `nexOp_stackSTAT` replicates group labels).
+Key properties:
+- Steps through `sel` as an **ordered sequence** — handles discontinuous/fragmented selections
+- If `curVal` is not in `sel` (e.g. initial `ptr.value = 1` outside the selected range),
+  `curPos = 1 - stride` ensures the first step lands on `sel(1)`
+- Wraps around at the end of `sel`
+- Falls back to `ptr.range` modular arithmetic when no Pointer bus or empty selection
 
-#### canvas vs canvas_tracker
-
-```
-graphics.canvas                      — full point cloud scatter3; all STATE.Z rows
-                                       matching the Pointer mask, across all time.
-                                       Updated when Pointer / VW selections change.
-
-graphics.canvas_tracker.(groupName)  — one scatter3 handle per VW-selected group.
-                                       Each traces that group's STATE.Z rows within
-                                       the current window of the primary (animated) axis.
-                                       Keyed by group name so per-group color (CLR) applies.
-```
-
-**Pan and tracker are complementary, not the same thing:**
-
-- The **pan** governs which slice of the primary dimension's window is currently shown —
-  it advances `STATE.ptr.(animate).value` each timer tick.
-- The **canvas_tracker** renders, *for each VW group*, the scatter points that fall
-  within that window. As the window slides, each tracker redraws its group's path
-  through the cloud.
-- The visual result looks like a moving highlight tracing through the full cloud —
-  but `canvas` (the cloud) and `canvas_tracker` (the group traces) are distinct objects.
-
-**Lifecycle — strict two-tier separation (latency guardrail):**
-
-`visualize()` is called at animation frame rate and must never perform structural
-graphics operations. All handle create/delete work belongs in `rebuildTrackers()`.
-
-```
-rebuildTrackers()          — structural tier (slow, called only on VW change)
-  • create scatter3 for new groups, delete handles for removed groups
-  • called by refreshVW() and by the Refresh button
-  • NEVER called from visualize() or stepAnimate()
-
-visualize()                — data tier (fast, called every frame)
-  • set(handle, 'XData', x, 'YData', y, 'ZData', z) only
-  • if isfield(graphics.canvas_tracker, grp) && isvalid(handle): update
-  • if handle missing or invalid: skip silently this frame — rebuildTrackers
-    will fix it on the next structural update
-  • no delete(), no scatter3(), no hold(), no drawnow()
-```
-
-Guard pattern inside `nexVisualization_stateSpace`:
-```matlab
-grp = char(groupName);
-if isfield(gfx.canvas_tracker, grp) && isvalid(gfx.canvas_tracker.(grp))
-    set(gfx.canvas_tracker.(grp), 'XData', x, 'YData', y, 'ZData', z);
-    % also update CData if CLR changed
-end
-% — no else branch: missing handle is silently skipped this frame
-```
-
-`nexFigure_stateSpace` initialises `graphics.canvas_tracker = struct()` (empty).
-`rebuildTrackers()` populates it; subsequent `visualize()` calls only write data.
-
-In sweep mode (animate ∈ D2), tracker fields are cleared by `rebuildTrackers()`
-when mode changes; `visualize()` only redraws `canvas` for each snapshot.
+`DF_postOp.ptr.(animAx).value` is updated directly (not via `nex_setAxisPointer_v2` which
+uses `isfield` and would wipe `range`/`window`/`dim` on handle objects).
 
 ---
 
-## LUT registry and CLR bus
+## Key method call chain
 
-LUTs live at `nexon.console.BASE.registry`. The CLR selectionBus key lists
-`fieldnames(nexon.console.BASE.registry)` as candidate options.
-
-The CLR selection has a dual role: the selected registry field name is both the
-**LUT identifier** (which registry entry to use for color mapping) and the **G column key**
-(which column of STATE.G to map through that LUT). This works when registry field names
-match grouping label column names — which is the design intent (e.g.,
-`'sessionLabel_phase'` is both the LUT name and the G table column).
-
-```matlab
-viewSel = nex_returnSelectionMask(nexObj.collector.View);
-LUT = nexObj.nexon.console.BASE.registry.(char(viewSel.CLR));
-C   = arrayfun(@(g) LUT.color(ismember(LUT.phase, g)), STATE.G.(char(viewSel.CLR)));
 ```
-
-The dual-role convention simplifies the bus (one key selects both), but means LUT names
-must be kept in sync with G column names. Document this constraint when registering new LUTs.
-
----
-
-## SelectionBus full update rule
-
-**Updating only `selKeys` is not enough.** Three fields must be kept in sync whenever
-bus candidate values change (pattern from `nexOp_sBus_alignItems2ax`):
-
-```matlab
-bus.selKeys.(key)         = newValues;   % candidate list
-bus.selections.(key)      = 1;           % reset index (or clamp to valid range)
-if isfield(bus.listBoxes, key) && ~isempty(bus.listBoxes.(key))
-    bus.listBoxes.(key).Value  = 1;
-    bus.listBoxes.(key).String = newValues;
-    bus.listBoxes.(key).Max    = numel(newValues);
-end
+buildSTATEButton  → buildSTATE()          [expensive; does NOT call visualize()]
+reportAvgButton   → reportAverage()        → AVG.ax stamped → refreshVW() → rebuildTrackers()
+Refresh button    → applyDomainBus()       → updateScope() → visualize()
+applyPool button  → updateScope()          → DF_postOp updated → refreshPointer() → visualize()
+                                             [STATE.Z stale; dot sizes / Pointer update live]
+Play button       → startPlayer()          → timer → stepAnimate() → visualize()
+poolCfgEntry      → poolCfgEntryChanged()  → pMap.divsPerBin updated (no auto-visualize)
 ```
-
-The listbox guard is needed because a bus may be initialized before the figure is built
-(construction order: bus init → figure build → listbox wired into bus.listBoxes).
-
-### Listener-driven cascade (nexObj_categorical reference)
-
-`nexObj_categorical` wires a `PostSet` listener on `DF_postOp.ax` to trigger
-`nexOp_sBus_alignItems2ax` automatically when pooling reshapes an axis:
-
-```matlab
-nexObj.selectionBus.items.Listeners.ax = addlistener( ...
-    nexObj.DF_postOp, 'ax', 'PostSet', ...
-    @(~,~) nexOp_sBus_alignItems2ax(nexObj.selectionBus.items));
-```
-
-Parent/child hierarchy is also set so the cascade function can walk the bus tree:
-```matlab
-nexObj.selectionBus.categories.Parent   = nexObj.selectionBus.items;
-nexObj.selectionBus.items.Children.sbus = nexObj.selectionBus.categories;
-```
-
-For `nexObj_stateSpace`, `refreshVW` is called explicitly (after `reportAverage`)
-rather than via a listener, because VW depends on `nexObj.AVG` (not an observable
-property). If `AVG` is later made observable, a listener-driven refresh is preferable.
-
----
-
-## nexVisualization_stateSpace — target CFG HEADER
-
-```matlab
-% CFG HEADER
-axLim     = args.axLim;     % default = 5
-len_trail = args.len_trail; % default = 40
-```
-
-Domain-driven pipeline (no hardcoding):
-1. Resolve F column indices into STATE.Z from `domain.F`
-2. Apply `collector.VW` → row mask on STATE.G
-3. Apply `collector.CLR` → map G column through registry LUT → RGB per row
-4. Update canvas XData/YData/ZData/CData (full point cloud)
-5. If `animate ∈ domain.D1`: update tracker from `STATE.ptr.(animate).value + window`
-6. Update axis labels from active F dims, title from `domain.F` source
-
----
-
-## Embedding paradigm reference
-
-| Paradigm | STATE.Z columns | Typical F | Typical D1 (DF.ax) | Typical D2 |
-|----------|----------------|-----------|---------------------|------------|
-| CEBRA    | latent dims | ["d1","d2","d3"] | ["t"] | [] |
-| PCA      | PC components | ["PC1","PC2","PC3"] | ["t"] | [] |
-| UMAP     | UMAP dims | ["u1","u2","u3"] | ["t"] | [] |
-| LGSSM    | latent state | ["x1","x2","x3"] | ["t"] | [] |
-| LDA      | discriminant dims | ["LD1","LD2","LD3"] | ["t","ch"] | [] |
-
----
-
-## Upgrade checklist for nexObj_stateSpace
-
-- [ ] Design STATE.ptr init (extend nex_initAxisPointer_v2 or STATE-specific variant)
-- [ ] Add `ptr.(axKey).window` field; expose in Pointer bus UI (enabled only for D1+animate)
-- [ ] Add `domain.F` inference from embedding output column names in buildSTATE
-- [ ] Replace hardcoded `d1/d2/d3 = 1/2/3` with domain.F index resolution
-- [ ] Replace hardcoded collector.* in visualize() with selectionBus reads
-- [ ] Implement nexAnimate_stateSpace stub → override stepAnimate with D1/D2 dispatch
-- [ ] Add tracker graphic to nexFigure_stateSpace alongside canvas
-- [ ] Build View / Domain / Pointer selectionBus panels in nexFigure_stateSpace
-- [ ] Wire domain.F change → STATE rebuild; D1/D2 change → re-visualize only
-- [ ] Register LUTs into nexon.console.BASE.registry; wire CLR bus to registry

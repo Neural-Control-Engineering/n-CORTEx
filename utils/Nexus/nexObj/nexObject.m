@@ -11,12 +11,13 @@ classdef nexObject < handle
         dfID_source
         DF_postOp
         dfID_target
+        pMap
         collector
-        domain
-        pointer
+        domain        
         Figure
         UserData
         cfg=struct
+        player
     end
 
     methods
@@ -70,19 +71,47 @@ classdef nexObject < handle
             nexObj.domain = nexObj.inferDomain();
         end
 
+        % ── Player ────────────────────────────────────────────────────────
+        function startPlayer(nexObj)
+            isPlay = nexObj.Figure.playButton.Value;
+            switch isPlay
+                case 0, nexObj.player.start;
+                case 1, nexObj.player.stop;
+            end
+        end
+
         function stepAnimate(nexObj, args)
             % CFG HEADER
             stride = args.stride; % default = 1
+            len_afterImage = args.len_afterImage; % default = 10
             % Advance the animation pointer by stride steps along
             % domain.animate, then call visualize(). Wraps around at
             % axis length. Inherited by all nexObject subclasses.
             % domain.animate is written by the UI axSelDropDown so that
             % the axis being stepped is dynamically selectable.
-            axSel = nexObj.domain.animate;
-            r     = nexObj.DF_postOp.ptr.(axSel).range;   % [start, end] indices
-            span  = r(2) - r(1) + 1;
-            axVal = r(1) + mod(nexObj.DF_postOp.ptr.(axSel).value - r(1) + stride, span);
-            nexObj.DF_postOp = nex_setAxisPointer_v2(nexObj.DF_postOp, axSel, axVal);
+            axSel  = nexObj.domain.animate;
+            curVal = nexObj.DF_postOp.ptr.(axSel).value;
+            % Step through Pointer bus selection as a sequence when available —
+            % handles discontinuous selections and snaps to sel(1) if curVal
+            % is not currently in sel (e.g. on first step after initialization).
+            if isfield(nexObj.collector, 'Pointer') && ~isempty(nexObj.collector.Pointer) ...
+                    && isfield(nexObj.collector.Pointer.selections, axSel)
+                sel = nexObj.collector.Pointer.selections.(axSel);
+                if ~isempty(sel)
+                    curPos = find(sel == curVal, 1);
+                    if isempty(curPos), curPos = 1 - stride; end  % snaps to sel(1) on first step
+                    axVal = sel(mod(curPos - 1 + stride, numel(sel)) + 1);
+                else
+                    r     = nexObj.DF_postOp.ptr.(axSel).range;
+                    span  = r(2) - r(1) + 1;
+                    axVal = r(1) + mod(curVal - r(1) + stride, span);
+                end
+            else
+                r     = nexObj.DF_postOp.ptr.(axSel).range;
+                span  = r(2) - r(1) + 1;
+                axVal = r(1) + mod(curVal - r(1) + stride, span);
+            end
+            nexObj.DF_postOp.ptr.(axSel).value = axVal;
             nexObj.visualize();
         end
     end
