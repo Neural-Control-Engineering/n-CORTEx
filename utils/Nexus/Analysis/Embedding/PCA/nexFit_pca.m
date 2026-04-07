@@ -13,8 +13,8 @@ function DF_out = nexFit_pca(mdlObj, args)
     DM = mdlObj.DM;
     % DM_py = np.array(mdlObj.DM);
     DM_py = np.array(DM);
-    mdlObj.py.stdScaler = mdlObj.py.stdScaler.fit(DM_py);
-    DM_scaled = mdlObj.py.stdScaler.transform(DM_py);
+    mdlObj.Scaler.model = mdlObj.Scaler.model.fit(DM_py);
+    DM_scaled = mdlObj.Scaler.model.transform(DM_py);
     mdlObj.model = mdlObj.model.fit(DM_scaled);
     % switch mode
     %     case 0 % standard PCA

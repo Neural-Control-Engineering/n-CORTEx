@@ -15,7 +15,7 @@ function nexVisualization_monoGram(nexObj, args)
     Y = nexObj.DF_postOp.ax.(rowKey);
     Y = Y(rowRange(1):rowRange(end));
     X = nexObj.DF_postOp.ax.(colKey);
-    X = X(colRange(1):colRange(end));
+    X = X(colRange(1):colRange(end));    
     Z = squeeze(sliceDF(nexObj.DF_postOp.df, ptr, [rowKey, colKey], "range"));
     if ptr.(rowKey).dim > ptr.(colKey).dim
         Z = Z';
@@ -32,6 +32,7 @@ function nexVisualization_monoGram(nexObj, args)
     ax.ZLim = [zLim_low, zLim_high];
     ax.YLim = [YLim(rowRange(1)),YLim(rowRange(end))];
     ax.XLim = [XLim(colRange(1)),XLim(colRange(end))];
+    % ax.XLim = [min(XLim), max(XLim)];
     clim(ax, [cLim_low, cLim_high]);
 
     %% Title

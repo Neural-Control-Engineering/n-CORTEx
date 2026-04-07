@@ -13,12 +13,23 @@ function DF_pooled = nexOp_poolAxes(pMap, DF, ptr)
                     ax = field_pMap;
             end
             % [binAvgs, binIDs, binTicks, binAxis] = nexAnalysis_averagePool(DF_pooled.df, pm, ptr.(ax).dim, DF_pooled.ax.(ax));
-            try
+            if isfield(ptr.(ax),'dim')
                 dim = ptr.(ax).dim;
-            catch
-                keyboard
+            else
+                continue
             end
-            DF_pooled = pm.pool(DF_pooled, dim);
+            % try
+            %     dim = ptr.(ax).dim;
+            % catch
+            %     keyboard
+            % end
+            if ~isempty(dim)
+                try
+                    DF_pooled = pm.pool(DF_pooled, dim);
+                catch
+                    keyboard
+                end
+            end
             % DF_pooled.df=binAvgs;
             % DF_pooled.ax.(ax)=binAxis;
         end    

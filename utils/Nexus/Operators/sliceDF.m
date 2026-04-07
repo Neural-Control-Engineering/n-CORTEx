@@ -6,6 +6,10 @@ function df_slice = sliceDF(df, ptr, axSel, sliceType)
     else
          % slice along entire dim (sliceDim)
         idx = nex_buildSliceIndex(df, ptr, axSel, sliceType);        
+        % try
         df_slice = df(idx{:});
+        % catch
+            % keyboard
+        % end
     end
 end

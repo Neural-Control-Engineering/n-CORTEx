@@ -156,6 +156,27 @@ Python functions are called via `py.*` from MATLAB. Path injection uses `py.sys.
 
 ---
 
+## nexObj_cfgPanel_v2 — Callback Convention
+
+`nexObj_cfgPanel_v2` wires each entry field's `ValueChangedFcn` to:
+```matlab
+entryChangedFcn(nexObj, cfgObj, nexPanel, editField, entryChangedFcnArgs)
+```
+
+**Generic handler:** `cfgEntryChanged_v2` — use this for any `nexObj_cfgPanel_v2` panel unless the object needs special post-update behavior:
+```matlab
+nexObj_cfgPanel_v2(nexObj, cfgObj, panelObj, entryParams, str2func("cfgEntryChanged_v2"), [])
+```
+It updates `cfgObj.entryParams.(field)` from the UI value, then calls `nexObj.updateScope()` only if that method exists (`ismethod(nexObj, 'updateScope')`).
+
+**Special cases** (require a custom callback):
+- `visCfg` panels — must call `nexObj.visualize()` after param update
+- Any panel where a parameter change must immediately retrigger computation/rendering
+
+Do NOT write per-figure `fitCfgEntryChanged`, `aniCfgEntryChanged`, etc. — use `cfgEntryChanged_v2` instead.
+
+---
+
 ## Adding New Analysis Modules
 
 1. Create a directory under `Analysis/<Domain>/`

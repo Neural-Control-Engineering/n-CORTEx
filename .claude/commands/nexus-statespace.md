@@ -214,6 +214,19 @@ rebuildTrackers()   — structural tier (slow): create/delete scatter3 handles p
 visualize()         — data tier (fast): set() on existing handles only; no hold/drawnow
 ```
 
+**Tracker scrubbing** — after the per-group tracker loop, clear stale data from any handles
+whose group is no longer in `vwGroups` (e.g. user deselected a group from VW):
+```matlab
+allFlds = fieldnames(gfx.canvas_tracker);
+for i = 1:numel(allFlds)
+    fld = allFlds{i};
+    if ~ismember(fld, activeFlds) && isvalid(gfx.canvas_tracker.(fld))
+        set(gfx.canvas_tracker.(fld), 'XData', [], 'YData', [], 'ZData', []);
+    end
+end
+```
+`activeFlds` is `strrep(vwGroups, '-', '_')` — the currently selected group fields.
+
 **Scatter sizes** — set via `SizeData` in every `visualize()` call (not baked at creation):
 ```
 canvas:  baseSize  = 100 × divsPerBin(animAx)
@@ -302,7 +315,38 @@ Falls back to `lines()` auto-assign if LUT not found.
 11. **Scatter size**: `100 × divsPerBin` canvas, `150 × divsPerBin` tracker (read live from pMap)
 12. **Canvas**: `set(gfx.canvas, XData/YData/ZData/CData/SizeData)` on `mask_canvas` rows
 13. **Axis labels**: from Domain F selected names
-14. **Tracker**: if `vwGroups == ""` return early; else per-group `mask_grp = group & ANI in [winStart_ani, curANI]`; `set()` on `canvas_tracker.(fld)` including `SizeData`
+14. **ANI title**: `nexTract_axisTitle(nexObj, nexObj.DF_postOp, string(animAx))` → set on `ax.Title` in cyberGreen — shows current animation frame value (tracker position), not D1 context center
+15. **Tracker**: if `vwGroups == ""` return early; else per-group `mask_grp = group & ANI in [winStart_ani, curANI]`; `set()` on `canvas_tracker.(fld)` including `SizeData`
+
+---
+
+## nexTract_axisTitle — stale domain.D1 pitfall
+
+Always pass `string(d1Ax)` (resolved from `domSel.D1` via `nex_returnSelectionMask`) as the
+`dimList` argument — **never** `nexObj.domain.D1`, which may be stale or set to `"factor"`
+by a prior `inferDomain()` reset:
+
+```matlab
+% WRONG — domain.D1 may be stale/"factor"
+axTitle = nexTract_axisTitle(nexObj, nexObj.DF_postOp, nexObj.domain.D1);
+
+% CORRECT — d1Ax comes from live selectionBus read at top of visualize()
+axTitle = nexTract_axisTitle(nexObj, nexObj.DF_postOp, string(d1Ax));
+```
+
+## nexTract_axisTitle
+
+`nexTract_axisTitle(nexObj, DF, dimList)` — builds a title string from the current ptr values
+of the specified axes. `dimList` defaults to `domain.D2` when omitted (backward-compatible).
+Pass `domain.D1` from stateSpace to show the current primary dimension slice:
+
+```matlab
+axTitle = nexTract_axisTitle(nexObj, nexObj.DF_postOp, nexObj.domain.D1);
+ax.Title.String = char(axTitle);
+ax.Title.Color  = nexObj.nexon.settings.Colors.cyberGreen;
+```
+
+`DF.ptr.(d).value` indexes into `DF.ax.(d)` (or `DF.labels.(d)`) to get the current value.
 
 ---
 

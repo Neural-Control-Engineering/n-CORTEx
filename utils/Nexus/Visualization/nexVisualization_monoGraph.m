@@ -60,9 +60,14 @@ function nexVisualization_monoGraph(nexObj, args)
                 % df_phase_slice = squeeze(df_phase(chanSel, freqSel,:))';
                 % t_axis = AVG.(avgField).ax.t(1:size(df_phase_slice,2));
                 % sem_phase_slice = squeeze(sem_phase(chanSel, freqSel,:))';                 
-                ptr = DF.ptr;
-                df_phase_slice = sliceDF(df_phase, ptr, axSel, "range");
-                sem_phase_slice = sliceDF(sem_phase, ptr, axSel,"range");  
+                ptr_DF = DF.ptr;
+                ptr = AVG.(avgField).ptr;
+                % replace canonical range with AVG_DF specific range
+                if isfield(ptr_DF.(axSel),"range")
+                    ptr_DF.(axSel).range = ptr.(axSel).range;
+                end
+                df_phase_slice = sliceDF(df_phase, ptr_DF, axSel, "range");
+                sem_phase_slice = sliceDF(sem_phase, ptr_DF, axSel,"range");  
                 df_phase_slice=nexOp_permuteLong2second(squeeze(df_phase_slice));
                 sem_phase_slice=nexOp_permuteLong2second(squeeze(sem_phase_slice));
                 isSubFields = isfield( nexObj.Figure.panel0.tiles.graphics,ID_l_phase) && isfield( nexObj.Figure.panel0.tiles.graphics,ID_p_phase);
@@ -74,7 +79,11 @@ function nexVisualization_monoGraph(nexObj, args)
                 if isSubFields && isValid
                     l_phase = nexObj.Figure.panel0.tiles.graphics.(ID_l_phase);
                     p_phase = nexObj.Figure.panel0.tiles.graphics.(ID_p_phase);
+                    % try
                     nex_updateBoundedLineData(l_phase, p_phase, axData, df_phase_slice, sem_phase_slice, color,alphaVal);
+                    % catch
+                        % keyboard
+                    % end
                 else % generate new                                       
                     [l_phase, p_phase] = plotWithSEM(axis,axData,df_phase_slice,sem_phase_slice,hex2rgb(color),alphaVal);
                     colorAx_green(axis);                   
@@ -133,6 +142,7 @@ function nexVisualization_monoGraph(nexObj, args)
     %% makeshift domain
     domain.F = nexObj.dfID_source;
     domain.D1 = axSel;
+    % domain.animate=axSel;
     d2List = fieldnames(nexObj.DF_postOp.ptr); d2List = d2List(~strcmp(axSel, d2List));
     domain.D2 = convertCharsToStrings(d2List);
     nexObj.domain=domain;

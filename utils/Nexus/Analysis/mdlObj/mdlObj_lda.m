@@ -14,7 +14,6 @@ classdef mdlObj_lda < mdlObject
             mdlObj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_lda"));
             mdlObj.cfg.dmCfg.format="supervised";
             mdlObj.cfg.statCfg.entryParams.fuseAx=1;
-            mdlObj.domain.D1="t";
             % network, etc.
         end
 

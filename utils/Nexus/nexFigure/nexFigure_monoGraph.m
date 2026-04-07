@@ -22,7 +22,12 @@ function nexFigure_monoGraph(nexObj)
         nexObj.Figure.panel4 = nexObj_cfgPanel_v2(nexObj.nexon, nexObj, panel4, opArgs, opCfgEntryChangedFcn, []);
     end
     %% UI CONTROL
-    nexObj.Figure.axSelDropDown = uidropdown(nexObj.Figure.fh,"Position",[35, 370, 80, 25], "BackgroundColor",nexObj.nexon.settings.Colors.cyberGreen,"Items",fieldnames(nexObj.DF_postOp.ptr),"FontColor",[0,0,0]);
+    ptr = nexObj.DF_postOp.ptr;
+    axSelFields = convertCharsToStrings(fieldnames(nexObj.DF_postOp.ptr));
+    hasDim=[];
+    for i = 1:length(axSelFields); hasDim=[hasDim; isfield(ptr.(axSelFields(i)),"dim")]; end    
+    axSelFields=axSelFields(hasDim==1);
+    nexObj.Figure.axSelDropDown = uidropdown(nexObj.Figure.fh,"Position",[35, 370, 80, 25], "BackgroundColor",nexObj.nexon.settings.Colors.cyberGreen,"Items",axSelFields,"FontColor",[0,0,0]);
     updateDfIDFcn = str2func("nexUpdate_dfID");
     nexObj.Figure.dfIDEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexObj.nexon.settings.Colors.cyberGreen,"Position",[850, 370, 150, 25],"Value",nexObj.dfID_source,"ValueChangedFcn",@(src, event)updateDfIDFcn(src, event, nexObj.nexon, nexObj));
     nexObj.Figure.reportAvgButton = uibutton(nexObj.Figure.fh,"Position",[120,370,25,25],"BackgroundColor",[0,0,0],"FontColor",[0,0,0],"ButtonPushedFcn",@(~,~)nexObj.reportAverage([]),"Tooltip","Report Average");

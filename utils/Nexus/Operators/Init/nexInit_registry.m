@@ -42,8 +42,30 @@ function  nexInit_registry(nexon)
             lut   = table(raw.phase, raw.color, 'VariableNames', {'label', 'color'});
         end
 
-        nexon.console.BASE.registry.LUT.(fieldKey) = lut;
+        nexon.console.BASE.registry.LUT.(fieldKey) = lut;      
     end
+        
+    %% REGION MAPPINGS (MULTI-SUBJECT)
+    subjects = nexon.console.BASE.registry.categories.subj;
+    params = nexon.console.BASE.params;        
+    for i = 1:length(subjects)
+        subject=subjects(i);
+        % regMap = [];            
+        subjectDir_local =  fullfile(params.paths.projDir_local,"Experiments",params.extractCfg.experiment,"Subjects",subject);
+        subjectDir_cloud =  fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Subjects",subject);
+        regMapDir_local = fullfile(subjectDir_local,"npxls/trajectory/imec0","map_channel-region.mat");            
+        regMapDir_cloud = fullfile(subjectDir_cloud,"npxls/trajectory/imec0","map_channel-region.mat");            
+        try
+            load(regMapDir_local);
+        catch
+            load(regMapDir_cloud);
+        end
+        subjectID = sprintf("subj_%s",subject);
+        subjectID = strrep(subjectID,"-","_");
+        nexon.console.BASE.registry.SUBJ.(subjectID).regMap=regMap;
+    end
+
+    
 end
 
 % res=cellfun(@(df) (df==9.669406058356351), rThresh,"UniformOutput",false)

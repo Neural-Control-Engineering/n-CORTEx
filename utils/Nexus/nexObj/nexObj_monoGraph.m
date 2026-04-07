@@ -1,25 +1,15 @@
-classdef nexObj_monoGraph < handle
+classdef nexObj_monoGraph < nexObject
     properties
-        classID = "mgph"
-        DF
-        DF_postOp
-        dfID_source
-        domain
-        nexon
         polyGraph
-        Parent
-        UserData
-        Origin
-        Figure
-        cfg=struct
-        pMap
     end
 
     methods
         function nexObj = nexObj_monoGraph(Parent, Origin, nexon, dfID_source, opCfgFcn, DF)
+            nexObj = nexObj@nexObject(nexon, Parent, dfID_source);
+            nexObj.classID = "mgph";
             if nargin >= 6
                 nexObj.DF = DF;            
-            end
+            end        
             % resolve time-resolved recordings over varied dimensions
             % (channel, frequency, etc.)
             if isempty(Parent) % standalone monograph, attach to nexon
@@ -86,14 +76,19 @@ classdef nexObj_monoGraph < handle
             ptr = nexObj.DF_postOp.ptr;
             dimSel = nexObj.domain.D1;
             DF_avg = nexOp_averageTF(TF, ptr, 2);            
-            DF_avg.ptr=ptr;
+            % DF_avg.ptr=ptr;
+            DF_avg.ptr = nexInit_axisPointer(DF_avg.df, DF_avg.ax);
             DF_avg.avgCfg = nexTract_avgCfg(nexObj.nexon);
             %% STORE RESULT
-            nexObj.DF_postOp = DF_avg;            
+            ptr_old = nexObj.DF_postOp.ptr; % preserve old ptr by handle
+            nexObj.DF_postOp = DF_avg;       
+            nexObj.DF_postOp.ptr=ptr_old;
             % retrieve averaging config (bookkeeping)
-            nex_storeAverage(nexObj, nexObj.DF_postOp);
+            % nex_storeAverage(nexObj, nexObj.DF_postOp);
+            nex_storeAverage(nexObj, DF_avg);
             %% VISUALIZE
             nexObj.visualize();
+            disp("Average Complete")
             %% UPDATE TREE
             % nex_updateChildren(nexObj.nexon, nexObj);
             % nex_updatePartners(nexObj);

@@ -13,10 +13,9 @@ classdef mdlObj_pca < mdlObject
             end
             mdlObj = mdlObj@mdlObject(Parent, Origin, "pca", dfID_source);
             mdlObj.py.np = py.importlib.import_module('numpy');
-            sklearnPreProc = py.importlib.import_module('sklearn.preprocessing'); 
-            mdlObj.py.stdScaler = sklearnPreProc.StandardScaler();
+            sklearnPreProc = py.importlib.import_module('sklearn.preprocessing');             
+            mdlObj.Scaler.model = sklearnPreProc.StandardScaler();
             mdlObj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_pca"));
-            mdlObj.domain.D1="t";
             % classID = "ssm";
             % mdlObj.model = model_ssm();                        
             % network, etc.
@@ -49,14 +48,24 @@ classdef mdlObj_pca < mdlObject
             % tCond = [1600:2250]; % TEMP
             if ~isempty(X)
                 % X = X(:,chanCond);
-                X_py = mdlObj.py.np.array(X); 
-                X_scaled = mdlObj.py.stdScaler.transform(X_py);
-                % Z_py = mdlObj.model.fit_transform(X_scaled);
-                Z_py = mdlObj.model.transform(X_scaled);
-                Z = double(Z_py);
+                origSize = size(X);
+                isBatch  = ndims(X) == 3;
+    
+                % Loop over 3rd dimension, transform each 2D slice independently
+                nSlices = origSize(3);
+                Z_slices = cell(1, nSlices);
+                for k = 1:nSlices
+                    X_k      = X(:, :, k);
+                    X_k_py   = mdlObj.py.np.array(X_k);
+                    X_scaled = mdlObj.Scaler.model.transform(X_k_py);
+                    Z_k      = double(mdlObj.model.transform(X_scaled));
+                    Z_slices{k} = Z_k;
+                end
+                Z = cat(3, Z_slices{:});
                 % DF_Z=DF_X;
                 DF_Z.df=Z;
                 % DF_Z.ax=struct;
+                DF_Z.ax=DF_X.ax;
                 DF_Z.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
                 % DF_Z.ax.t=DF_Z.ax.t(tCond); % TEMP
                 DF_Z.ax.factor=[1:size(Z,2)];

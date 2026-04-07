@@ -8,14 +8,24 @@ function DF_out = nex_pcaNoiseRm(DF_in, args)
     n_components = args.n_components; % default = 2
     
     df_in = DF_in.df;
+    df_in = df_in(1:384,:); % remove 385'th column (peripheral metric)
     % Perform PCA
     [coeff, score, latent] = pca(df_in', 'Centered', true);  % latent = eigenvalues (variance explained)
+    % [coeff, score, latent] = pca(df_out', 'Centered', true);  % latent = eigenvalues (variance explained)
+    varExplained = latent / sum(latent)*100;
+    fprintf("First: %d ",(varExplained(1)));
+    fprintf("Second: %d \n",(varExplained(2)));
+    varDiff = abs(diff(varExplained));
+    n_components = sum(varDiff>50); % remove any vars explaining more than 90 %
+    fprintf("Removing: %d Component(s) \n", n_components);
     
     % Reconstruct noise and subtract
     noise = score(:, 1:n_components) * coeff(:, 1:n_components)'; 
     df_out = df_in - noise'; 
-    DF_out.df = df_out;
-    DF_out.ax.t = DF_in.ax.t;
+    df_out_trim = df_out(:,5:end); % remove sharp edge
+    DF_out.df = df_out_trim;
+    t_trim = DF_in.ax.t; t_trim = t_trim(5:end); % align ax
+    DF_out.ax.t = t_trim;
     DF_out.ax.chans = [1:size(df_in,1)];
 
     % Plot explained variance (eigenvalues)

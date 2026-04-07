@@ -6,7 +6,11 @@ function nex_storeAverage(nexObj, DF)
     DF.avgCfg = rmfield(DF.avgCfg,"date");
     % Build new row
     AVG = struct();
+    % try
     AVG.(phase) = DF;     % DF.AVG must exist and be a struct or numeric/etc
+    % catch
+        % keyboard
+    % end
     avgCfg = DF.avgCfg;
 
     % Create a table row

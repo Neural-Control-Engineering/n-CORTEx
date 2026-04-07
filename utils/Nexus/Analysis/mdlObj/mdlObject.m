@@ -5,12 +5,15 @@ classdef mdlObject < handle
         modelID
         predictorID
         model
-        predictor
+        Reducer
+        Scaler
+        Predictor
         W % fit weights
         DM % design matrix
         py = struct(); % stored pymodules
         CV % cross validation group
         STAT % stat table with training samples (dereference-able file locations of samples)
+        STAT_postOp % post-operative STAT table to pass to other vis/analysis
         trainMask % mask training samples for cross validation
         targetVar
         TEST
@@ -25,6 +28,7 @@ classdef mdlObject < handle
         dfID_source
         dfID_target
         cfg
+        collector
         UserData
     end
 
@@ -71,15 +75,26 @@ classdef mdlObject < handle
                 mdlObj.predictorID=predictorID;
                 if ~isempty(predictorID)                    
                     predInitFcn=str2func(sprintf("mdlObj_%s",predictorID));
-                    mdlObj.predictor = predInitFcn(mdlObj, Origin, mdlObj.dfID_target);
+                    mdlObj.Predictor = predInitFcn(mdlObj, Origin, mdlObj.dfID_target);
                 else
-                    mdlObj.predictor=mdlObj;
+                    mdlObj.Predictor=mdlObj;
                 end
             end
             % PARAMS INIT
             mdlObj.cfg.cvCfg.entryParams.numFolds=5;
             mdlObj.cfg.cvCfg.entryParams.isShuffle=0;
+            fitFcn_str = sprintf("nexFit_%s",mdlObj.modelID);
+            mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func(fitFcn_str));
             mdlObj.cfg.dmCfg.format="stack";
+            % DOMAIN INIT
+            try
+                mdlObj.domain = nexInit_domain(mdlObj.Origin.DF_postOp);
+            catch
+                mdlObj.domain = nexInit_domain([]);
+            end
+            % Build Figure
+            figFcn = str2func(sprintf("nexFigure_%s",mdlObj.modelID));
+            figFcn(mdlObj);
         end
 
         function locateDataset(mlObj)
@@ -123,12 +138,13 @@ classdef mdlObject < handle
             fitArgs = mdlObj.cfg.fitCfg.entryParams;
             mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
             % train predictor (if predictor is disjointed)         
-            if ~isempty(mdlObj.predictor)
-                if ~isequal(mdlObj,mdlObj.predictor)
-                    mdlObj.predictor.trainMask=mdlObj.trainMask;
-                    mdlObj.predictor.fit(); % or child
+            if ~isempty(mdlObj.Predictor)
+                if ~isequal(mdlObj,mdlObj.Predictor)
+                    mdlObj.Predictor.trainMask=mdlObj.trainMask;
+                    mdlObj.Predictor.fit(); % or child
                 end
             end
+            mdlObj.DM=[];
         end
 
         function partialFit(mdlObj, X, Y)
@@ -169,25 +185,65 @@ classdef mdlObject < handle
             end  
         end
 
-        function scaleApply_transform(mdlObj)
-            % apply fit transform to all samples in the dfID column
-            % DF_Z = mdlObj.fit(DF_X)
-            [TF_X, iLoc] = dtsIO_readTF(mdlObj.nexon, mdlObj.dfID_source, []);
-            TF_X = cellfun(@(DF) nex_initAxisPointer_v2(DF), TF_X,"UniformOutput",false);
-            % ptr = mdlObj.Parent.STAT.ptr(1);
-            % ptr = mdlObj.STAT.ptr(1);
+        function scaleApply_transform(mdlObj, dfID_source, isOverwrite)
+
+            % CFG HEADER
+            scope = "local"; % scope : global/local
+
+            % apply fit transform row-by-row — avoids loading entire column into memory
+            if nargin < 2
+                dfID_source = mdlObj.dfID_source; % use original dfID_source
+                isOverwrite = 0; % don't overwrite source
+            end
+            dfID_entry = strrep(dfID_source, "_df", "");
             d1Sel = mdlObj.domain.D1(1);
-            % first check
-            maskValid = cellfun(@(DF_X) ~isempty(DF_X), TF_X, "UniformOutput", true);
-            TF_X(maskValid) = cellfun(@(DF) nexOp_permute2First(DF, d1Sel, DF.ptr), TF_X(maskValid), "UniformOutput", false);
-            % second check
-            % maskValid = cellfun(@(DF_X) ~isempty(DF_X.df), TF_X, "UniformOutput", true);
-            TF_Z(maskValid) = cellfun(@(DF_X) mdlObj.transform(DF_X), TF_X(maskValid), "UniformOutput", false);
-            TF_Z = TF_Z';
-            maskValid = cellfun(@(DF) ~isempty(DF), TF_Z, "UniformOutput", true);
-            maskValid(maskValid) = cellfun(@(DF) ~isempty(DF.df), TF_Z(maskValid), "UniformOutput", true)';
-            ILOC = num2cell(iLoc);
-            cellfun(@(DF_Z, idx) dtsIO_writeDF(mdlObj.nexon, DF_Z, mdlObj.dfID_target, idx), TF_Z(maskValid), ILOC(maskValid));
+            % dtsRows = height(mdlObj.nexon.console.BASE.DTS);
+            switch scope
+                case "global"
+                    % mask global selection
+                    S = nex_returnSelectionMask(mdlObj.nexon.console.BASE.controlPanel.averagingSelection);
+                    idxSel = nex_applySelectionMask(mdlObj.nexon.console.BASE.DTS, S);                                                    
+                case "local"
+                    % mask sub selection (only transform samples trained on)                    
+                    S_items = nex_returnSelectionMask(mdlObj.Origin.selectionBus.items);                    
+                    S_categories = nex_returnSelectionMask(mdlObj.Origin.selectionBus.categories);
+                    ctgFields = convertCharsToStrings(fieldnames(S_categories));
+                    for i = 1:length(ctgFields); S_categories.(ctgFields(i)) = split(S_categories.(ctgFields(i)),"--"); end                    
+                    ctgKeys = structfun(@(s) s(end), S_categories);
+                    for i = 1:length(ctgFields); S_categories.(ctgFields(i)) = ctgKeys(i); end                    
+                    S_merge = outerjoinStructs(S_categories, S_items);
+                    idxSel = nex_applySelectionMask(mdlObj.nexon.console.BASE.DTS, S_merge);                    
+            end
+            rowIdxs = find(idxSel==1);
+            % for i = 1:dtsRows
+            for r=1:length(rowIdxs)
+                i=rowIdxs(r);
+                fprintf("row: %d \n",i);
+                sessionLabel = mdlObj.nexon.console.BASE.DTS.sessionLabel{i};
+                disp(sessionLabel);
+                DF_X = dtsIO_readDF(mdlObj.nexon, dfID_entry, i);
+                if isempty(DF_X) || isempty(DF_X.df)
+                    continue
+                end
+                DF_X = nex_initAxisPointer_v2(DF_X);
+                DF_X = nexOp_permute2First(DF_X, d1Sel, DF_X.ptr);
+                try
+                    DF_Z = mdlObj.transform(DF_X);
+                catch e
+                    disp(getReport(e));
+                    continue
+                end
+                if isempty(DF_Z) || isempty(DF_Z.df)
+                    continue
+                end
+                switch isOverwrite
+                    case 0 
+                        dtsIO_writeDF(mdlObj.nexon, DF_Z, mdlObj.dfID_target, i);
+                    case 1
+                        dtsIO_writeDF(mdlObj.nexon, DF_Z, dfID_entry, i);
+                end
+
+            end
         end
 
         function compileSTAT(mdlObj)
@@ -198,8 +254,8 @@ classdef mdlObject < handle
             if strcmp(parentClass,"nexObj_categorical") % if parent is categorical
                 S_categories = nex_returnSelectionMask(Parent.selectionBus.categories);
                 S_items = nex_returnSelectionMask(Parent.selectionBus.items);
-                % STAT = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
-                STAT = nexOp_compileSTAT(Parent, mdlObj.dfID_source, S_categories, S_items, []);
+                STAT = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
+                % STAT = nexOp_compileSTAT(Parent, mdlObj.dfID_source, S_categories, S_items, []);
             elseif contains(parentClass,"mdlObj") % if parent is a model
                 STAT = Parent.transformSTAT(Parent.STAT);
             end  
@@ -325,7 +381,7 @@ classdef mdlObject < handle
             % propagate transformation from input layer 
             Parent=mdlObj.Parent; parentClass=class(Parent);
             if contains(parentClass,"mdlObj")
-                DF_X_tf = mdlObj.predictor.Parent.transformInput(DF_X);
+                DF_X_tf = mdlObj.Predictor.Parent.transformInput(DF_X);
             else
                 DF_X_tf=DF_X;
             end
@@ -333,10 +389,10 @@ classdef mdlObject < handle
             np = py.importlib.import_module("numpy");
             X = DF_X_tf.df;
             X_py = np.array(X);
-            Y_py = mdlObj.predictor.model.predict_proba(X_py);                   
+            Y_py = mdlObj.Predictor.model.predict_proba(X_py);                   
             % Y_py = mdlObj.predictor.model.predict(X_py);                    
             Y = double(Y_py);
-            key = mdlObj.predictor.DM.K.(mdlObj.predictor.targetVar);
+            key = mdlObj.Predictor.DM.K.(mdlObj.Predictor.targetVar);
             % logit_pt = log(Y./ (1 - Y));     % convert probabilities to log-odds
             % logit_smoothed = movmean(logit_pt, 50);
             % trial_prob = mean(1 ./ (1 + exp(-logit_smoothed)));
@@ -345,7 +401,7 @@ classdef mdlObject < handle
             % Y = find(mean(Y)==max(mean(Y)));
             DF_Y.df=Y;
             DF_Y.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
-            DF_Y.ax.(mdlObj.predictor.targetVar)=key.label';                        
+            DF_Y.ax.(mdlObj.Predictor.targetVar)=key.label';                        
         end
 
         function reportTestScores(mdlObj)
@@ -379,6 +435,10 @@ classdef mdlObject < handle
             mdlObj.Partners.mgph1.visualize();
             % structfun(@(s) nex_storeAverage(mdlObj.Partners.mgph1, s), AVG);
 
+        end
+
+        function saveFit(mdlObj)
+            % save model weights
         end
 
         function inspectGeometry(mdlObj, nexObj)

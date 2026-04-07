@@ -121,7 +121,10 @@ classdef nexObj_stateSpace < nexObject
                 axFields = fieldnames(nexObj.DF_postOp.ax);
                 axFields = axFields(~strcmp(axFields, 'factor'));
                 for i = 1:numel(axFields)
-                    ptrDict.(axFields{i}) = nexObj.DF_postOp.ax.(axFields{i});
+                    axDim = nexObj.DF_postOp.ptr.(axFields{i}).dim;
+                    if ~isempty(axDim)
+                        ptrDict.(axFields{i}) = nexObj.DF_postOp.ax.(axFields{i});
+                    end
                 end
                 nexObj.collector.Pointer = buildSelection(nexObj, ptrDict);
             else
@@ -154,7 +157,7 @@ classdef nexObj_stateSpace < nexObject
             nexFigure_stateSpace(nexObj);
 
             %% Player
-            nexObj.player = timer('Period', 0.2, 'BusyMode', 'drop', ...
+            nexObj.player = timer('Period', 0.1, 'BusyMode', 'drop', ...
                 'ExecutionMode', 'fixedRate', ...
                 'TimerFcn', @(~,~) nexObj.stepAnimate(nexObj.cfg.aniCfg.entryParams));
         end
@@ -309,9 +312,11 @@ classdef nexObj_stateSpace < nexObject
             %     disp(getReport(e));
             %     Z_STAT = []; G_STAT = []; S_STAT = [];
             % end
-
-            STATE.Z = [Z_AVG; Z_DF];
-            STATE.S = [S_AVG; S_DF];
+            % 
+            % STATE.Z = [Z_AVG; Z_DF];
+            % STATE.S = [S_AVG; S_DF];
+            STATE.Z = [Z_AVG];
+            STATE.S = [S_AVG];
 
             % Impute missing columns in G_DF before vertical concat.
             % G_AVG has grouping columns (e.g. sessionLabel_phase) that G_DF lacks;

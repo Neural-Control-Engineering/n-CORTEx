@@ -6,5 +6,7 @@ function cfgEntryChanged_v2(nexObj, cfgObj, nexPanel, entryfield, args)
     % nexPanel.editFields.(entryfield) = value;
     % nexObj.(cfgFieldName).entryParams.(entryfield) = value;      
     cfgObj.entryParams.(entryfield) = value; % update cfg field
-    nexObj.updateScope();
+    if ismethod(nexObj, 'updateScope')
+        nexObj.updateScope();
+    end
 end

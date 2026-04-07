@@ -19,7 +19,11 @@ function idx = nex_buildSliceIndex(df, ptr, axSel, sliceType)
             % non-selected axes: slice to ptr.value
             for i = 1:length(ptrFields)
                 ptrField = ptrFields{i};
-                ptrDim   = ptr.(ptrField).dim;
+                if isfield(ptr.(ptrField),'dim')
+                    ptrDim   = ptr.(ptrField).dim;
+                else
+                    continue
+                end
                 if ismember(ptrField, axSel)
                     if isfield(ptr.(ptrField), 'range') && ~isempty(ptr.(ptrField).range)
                         idx{ptrDim} = ptr.(ptrField).range(1):ptr.(ptrField).range(2);

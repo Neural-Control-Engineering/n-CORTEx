@@ -49,14 +49,14 @@ function STAT = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
     Y = array2table(Y, 'VariableNames', categoryProps);
     Y = Y(selMatch,:); % filter by intersection of all category selections
     % enumerate rows as trial numbers, relative to subject/phase combos
-    TF_trialNum = nexon.console.BASE.DTS.trialNumber(idxSel);
+    % TF_trialNum = nexon.console.BASE.DTS.trialNumber(idxSel);
     [G, groups] = findgroups(Y.sessionLabel_subj, Y.sessionLabel_phase);    
     % sort groups
     [G_sort, idx_sort] = sort(G);
     % TF_trialNum_sort = TF_trialNum(idx_sort);
     n = splitapply(@(x) {(1:numel(x))'}, G_sort, G_sort);    
     TF_trialNum = cat(1,n{:});
-    TF_trialNum = TF_trialNum(selMatch,:);
+    % TF_trialNum = TF_trialNum(selMatch,:);
     Y = Y(idx_sort,:); % sort Y by groups
     TF_pooled = TF_pooled(idx_sort,:); % sort TF by groups
     Y.trialNumber = TF_trialNum;

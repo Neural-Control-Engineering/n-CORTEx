@@ -5,7 +5,7 @@ function DF_out = rtPMTM_magnitude_roll(DF, args)
     chanRange_start = args.chanRange_start; % default = 1
     chanRange_end = args.chanRange_end; % default = 384    
     Fs = args.Fs; % default = 500
-    preBuffLen = args.preBuffLen;
+    preBuffLen = args.preBuffLen; % default = 3.5
 
     % DF = nexObj.DF;
     chanSel = [chanRange_start: chanRange_end];

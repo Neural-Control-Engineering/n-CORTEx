@@ -1,5 +1,5 @@
 function DF = dtsIO_composeDF(DTS, DFID, dtsIdx)
-    axisKeyWords=["f";"t";"chans";"pc";"factor"];
+    axisKeyWords=["f";"t";"chans";"factor";"dropout"];
     tableVars = convertCharsToStrings(DTS.Properties.VariableNames);
     % drop suffixes (for var-matching)
     tableVars_dfID = arrayfun(@(tVar) split(tVar,"_"), tableVars, "UniformOutput", false);

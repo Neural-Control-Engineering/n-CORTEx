@@ -23,7 +23,7 @@ function pMap = nexInit_pMap(nexObj, DF)
             Map = map_regions2chans(regMap);
             mapID = "region";
         else
-            return
+            continue
         end
         prototype = str2func(sprintf("nexObj_poolMap_%s",axField_label));
         pMap.(axField) = prototype(nexObj, Map, [], axField_label, mapID);

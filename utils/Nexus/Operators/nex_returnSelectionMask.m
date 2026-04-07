@@ -10,7 +10,8 @@ function S = nex_returnSelectionMask(selectionBus)
         try
             selectedVals = values(selection);
         catch e
-            keyboard
+            % keyboard
+            disp(getReport(e));
         end
         S.(key) = selectedVals;
     end

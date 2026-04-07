@@ -34,7 +34,8 @@ classdef nexObj_categorical < handle
             % compute result
             nexObj.compute();
             % axis control            
-            nexObj.DF_postOp =  nex_initAxisPointer_v2(nexObj.DF_postOp);       
+            % nexObj.DF_postOp =  nex_initAxisPointer_v2(nexObj.DF_postOp);       
+            nexObj.DF_postOp.ptr = nexInit_axisPointer(nexObj.DF_postOp.df, nexObj.DF_postOp.ax);
             % pooling control
             try
                 nexObj.pMap = nexInit_pMap(nexObj, nexObj.DF_postOp);

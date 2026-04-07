@@ -22,7 +22,7 @@ function ptr = nexInit_axisPointer(df, ax)
                 break;
             end
         end
-        if isempty(dim), dim = 1; end   % fallback
+        if isempty(dim), dim = []; end   % fallback
         dimsTaken = [dimsTaken, dim];
 
         sPtr.(f).dim    = dim;

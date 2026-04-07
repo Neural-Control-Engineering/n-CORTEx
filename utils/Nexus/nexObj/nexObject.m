@@ -25,6 +25,7 @@ classdef nexObject < handle
             nexObj.nexon = nexon;
             nexObj.Parent = Parent;
             nexObj.dfID_source = dfID_source;
+            nexObj.UserData.preBufferLen=3.5;
         end
 
         function domain = inferDomain(nexObj)
@@ -71,6 +72,11 @@ classdef nexObject < handle
             nexObj.domain = nexObj.inferDomain();
         end
 
+        % -- POOLING -------------------------------------------------------
+        function poolDF(nexObj)
+            nexObj.DF_postOp = nexOp_poolAxes(nexObj.pMap, nexObj.DF_postOp, nexObj.DF_postOp.ptr);
+        end
+
         % ── Player ────────────────────────────────────────────────────────
         function startPlayer(nexObj)
             isPlay = nexObj.Figure.playButton.Value;
@@ -114,6 +120,95 @@ classdef nexObject < handle
             nexObj.DF_postOp.ptr.(axSel).value = axVal;
             nexObj.visualize();
         end
+
+        function tile(nexObj, tilesPerRow, steps)
+            % Iterates the animate pointer across all steps, captures each
+            % visualization, and lays them out in a new tiled figure.
+            % The TL handle is stored in nexObj.UserData.TL<N>.
+            
+            axSel  = char(nexObj.domain.animate);
+            ptr    = nexObj.DF_postOp.ptr.(axSel);
+
+            if nargin <3 % steps unused
+                % Resolve step indices — respect Pointer selection if active
+                if isfield(nexObj.collector, 'Pointer') && ~isempty(nexObj.collector.Pointer) ...
+                        && isfield(nexObj.collector.Pointer.selections, axSel) ...
+                        && ~isempty(nexObj.collector.Pointer.selections.(axSel))
+                    selVals = nexObj.collector.Pointer.selections.(axSel);
+                    axVals  = nexObj.DF_postOp.ax.(axSel);
+                    steps   = find(ismember(axVals, selVals));
+                else
+                    % r     = ptr.range;
+                    % steps = r(1):r(2);
+                    steps = [1:length(nexObj.DF_postOp.ax.(axSel))];
+                end
+            end
+            nSteps = numel(steps);
+
+            % Build tiled layout
+            nRows  = ceil(nSteps / tilesPerRow);
+            fig_TL = figure('Color', 'k');
+            TL     = tiledlayout(fig_TL, nRows, tilesPerRow, ...
+                         'TileSpacing', 'compact', 'Padding', 'compact');
+
+            % Register under next available TL<N> key in UserData
+            if isempty(nexObj.UserData) || ~isstruct(nexObj.UserData)
+                nexObj.UserData = struct();
+            end
+            existingKeys = fieldnames(nexObj.UserData);
+            % tlN   = sum(startsWith(existingKeys, 'TL')) + 1;
+            % tlKey = sprintf('TL', tlN);
+            tlKey="TL";
+            nexObj.UserData.(tlKey) = TL;
+
+            % Save current ptr value to restore after tiling
+            origVal = ptr.value;
+            srcAx   = nexObj.Figure.panel0.tiles.ax;
+
+            for k = 1:nSteps
+                nexObj.DF_postOp.ptr.(axSel).value = steps(k);
+                nexObj.visualize();
+                drawnow;
+
+                destAx                 = nexttile(TL);
+                copyobj(srcAx.Children, destAx);
+                destAx.Color           = srcAx.Color;
+                destAx.XLim            = srcAx.XLim;
+                destAx.YLim            = srcAx.YLim;
+                destAx.ZLim            = srcAx.ZLim;
+                destAx.View            = srcAx.View;
+                destAx.XColor          = srcAx.XColor;
+                destAx.YColor          = srcAx.YColor;
+                destAx.ZColor          = srcAx.ZColor;
+                destAx.XGrid           = srcAx.XGrid;
+                destAx.YGrid           = srcAx.YGrid;
+                destAx.ZGrid           = srcAx.ZGrid;
+                destAx.GridColor       = srcAx.GridColor;
+                destAx.GridAlpha       = srcAx.GridAlpha;
+                destAx.MinorGridColor  = srcAx.MinorGridColor;
+                destAx.MinorGridAlpha  = srcAx.MinorGridAlpha;
+                destAx.LineWidth       = srcAx.LineWidth;
+                destAx.FontSize        = srcAx.FontSize;                
+                destAx.Box             = srcAx.Box;
+                destAx.Colormap        = srcAx.Colormap;
+                destAx.CLim            = srcAx.CLim;
+                title(destAx, srcAx.Title.String, 'Color', srcAx.Title.Color);
+                destAx.XLabel.String   = srcAx.XLabel.String;
+                destAx.XLabel.Color    = srcAx.XLabel.Color;
+                destAx.YLabel.String   = srcAx.YLabel.String;
+                destAx.YLabel.Color    = srcAx.YLabel.Color;
+                destAx.ZLabel.String   = srcAx.ZLabel.String;
+                destAx.ZLabel.Color    = srcAx.ZLabel.Color;
+            end
+
+            % Restore original state
+            nexObj.DF_postOp.ptr.(axSel).value = origVal;
+            nexObj.visualize();
+        end
+
+        function gif(nexObj)
+        end
+
     end
 
 end

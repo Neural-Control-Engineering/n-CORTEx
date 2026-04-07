@@ -18,7 +18,6 @@ classdef mdlObj_cebra < mdlObject
             obj.py.stdScaler = sklearnPreProc.StandardScaler();            
             obj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_cebra"));
             obj.cfg.dmCfg.format="cebra";
-            obj.domain.D1="t";
             % network, etc.
         end
 

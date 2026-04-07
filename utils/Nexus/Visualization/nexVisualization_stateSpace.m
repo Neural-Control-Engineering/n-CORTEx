@@ -1,6 +1,7 @@
 function nexVisualization_stateSpace(nexObj, ~)
     % Data-tier update: only set() on existing handles.  Never creates or
     % deletes scatter3 objects — that is rebuildTrackers()'s job.
+    % t_total = tic;
 
     %% Guard
     if isempty(nexObj.STATE) || ~isfield(nexObj.STATE, 'Z') || isempty(nexObj.STATE.Z)
@@ -47,35 +48,52 @@ function nexVisualization_stateSpace(nexObj, ~)
     hasGroupCol = ~isempty(groupCol) && ismember(groupCol, gCols);
     hasClrCol   = ~isempty(clrCol)   && ismember(clrCol,   gCols);
 
+    % t0 = tic;
     %% VW row mask
     if hasGroupCol && ~isequal(vwGroups, "")
-        mask_VW = ismember(string(STATE.G.(groupCol)), vwGroups);
+        groupVals = STATE.G.(groupCol);
+        mask_VW   = false(height(STATE.G), 1);
+        for k = 1:numel(vwGroups)
+            mask_VW = mask_VW | strcmp(groupVals, char(vwGroups(k)));
+        end
     else
         mask_VW = true(height(STATE.G), 1);
     end
 
+    % fprintf('[vis] VW mask:      %.1f ms\n', toc(t0)*1e3); t0 = tic;
     %% Pointer mask — restrict rows to selected axis values.
     % STATE.G has axis value columns (t, ch, f, ...) added by buildSTATE.
     % For each Pointer axis, keep only rows whose axis value is selected.
     mask_ptr = true(height(STATE.G), 1);
     if ~isempty(nexObj.collector.Pointer)
+        % t_rsel = tic;
         ptrSel  = nex_returnSelectionMask(nexObj.collector.Pointer);
+        % fprintf('[vis]   returnSelectionMask: %.1f ms  (nAxes=%d)\n', toc(t_rsel)*1e3, numel(fieldnames(ptrSel)));
         ptrAxes = fieldnames(ptrSel);
         for k = 1:numel(ptrAxes)
             f   = ptrAxes{k};
             sel = ptrSel.(f);
             if ~isempty(sel) && ~isequal(sel, "") && ismember(f, gCols)
-                gVals    = round(double(STATE.G.(f)),   6, 'significant');
-                selVals  = round(double(sel),           6, 'significant');
-                mask_ptr = mask_ptr & ismember(gVals, selVals);
+                % t_ptr = tic;
+                if isnumeric(sel)
+                    mask_f = ismembertol(double(STATE.G.(f)), double(sel(:)), 1e-6);
+                else
+                    mask_f = false(height(STATE.G), 1);
+                    for j = 1:numel(sel)
+                        mask_f = mask_f | strcmp(STATE.G.(f), char(sel(j)));
+                    end
+                end
+                mask_ptr = mask_ptr & mask_f;
+                % fprintf('[vis]   ptr.%s: %.1f ms  (numel(sel)=%d, type=%s)\n', ...
+                %     f, toc(t_ptr)*1e3, numel(sel), class(sel));
             end
         end
     end
-    mask_canvas = mask_VW & mask_ptr;
 
-    %% D1 context window — sliding window along D1 axis driven by DF_postOp.ptr.
-    % ptr.(d1Ax).window defines how many D1 slices remain in view;
-    % ptr.(d1Ax).value is the current leading edge.
+    % fprintf('[vis] Pointer mask: %.1f ms\n', toc(t0)*1e3);
+    % t0 = tic;
+    %% D1 context window
+    mask_d1 = true(height(STATE.G), 1);
     if ~isempty(d1Ax) && ismember(d1Ax, gCols) ...
             && ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ptr') ...
             && isprop(nexObj.DF_postOp.ptr, d1Ax) && isfield(nexObj.DF_postOp.ax, d1Ax)
@@ -83,17 +101,15 @@ function nexVisualization_stateSpace(nexObj, ~)
         d1Axis   = nexObj.DF_postOp.ax.(d1Ax);
         curIdx   = d1Ptr.value;
         half     = round(d1Ptr.window / 2);
-        startIdx = max(1, curIdx - half);
-        endIdx   = min(numel(d1Axis), curIdx + half);
-        d1Start  = d1Axis(startIdx);
-        d1End    = d1Axis(endIdx);
+        d1Start  = d1Axis(max(1, curIdx - half));
+        d1End    = d1Axis(min(numel(d1Axis), curIdx + half));
         d1Vals_G = double(STATE.G.(d1Ax));
-        mask_canvas = mask_canvas & d1Vals_G >= d1Start & d1Vals_G <= d1End;
+        mask_d1  = d1Vals_G >= d1Start & d1Vals_G <= d1End;
     end
 
-    %% ANI pointer + after-image length — governs tracker window.
-    % len_afterImage: how many ANI steps the tracker trails behind curANI.
-    len_afterImage = 5;   % default
+    % fprintf('[vis] D1 mask:      %.1f ms\n', toc(t0)*1e3); t0 = tic;
+    %% ANI pointer + after-image window
+    len_afterImage = 5;
     if ~isempty(nexObj.cfg) && isfield(nexObj.cfg, 'aniCfg') ...
             && ~isempty(nexObj.cfg.aniCfg) && ~isempty(nexObj.cfg.aniCfg.entryParams)
         ep = nexObj.cfg.aniCfg.entryParams;
@@ -106,55 +122,61 @@ function nexVisualization_stateSpace(nexObj, ~)
     if ~isempty(animAx) && ~isempty(nexObj.DF_postOp) ...
             && isprop(nexObj.DF_postOp, 'ptr') && isprop(nexObj.DF_postOp.ptr, animAx) ...
             && isfield(nexObj.DF_postOp.ax, animAx)
-        aPtr       = nexObj.DF_postOp.ptr.(animAx);
-        aniAxis    = nexObj.DF_postOp.ax.(animAx);
-        curIdx     = aPtr.value;
-        startIdx   = max(1, curIdx - len_afterImage);
+        aPtr         = nexObj.DF_postOp.ptr.(animAx);
+        aniAxis      = nexObj.DF_postOp.ax.(animAx);
+        curIdx       = aPtr.value;
         winEnd_ani   = aniAxis(curIdx);
-        winStart_ani = aniAxis(startIdx);
+        winStart_ani = aniAxis(max(1, curIdx - len_afterImage));
     end
 
-    %% Color map — registry LUT if available, else auto-assign via lines()
-    C_all = zeros(height(STATE.G), 3);
+    % fprintf('[vis] ANI window:   %.1f ms\n', toc(t0)*1e3); t0 = tic;
+    %% Subset to selected rows — all per-point work below is O(N_selected)
+    mask_canvas = mask_VW & mask_ptr & mask_d1;
+    G_sel  = STATE.G(mask_canvas, :);
+    Z_vis  = Z_full(mask_canvas, :);
+    nSel   = height(G_sel);
+
+    % fprintf('[vis] Subset:       %.1f ms  (N_total=%d → N_sel=%d)\n', toc(t0)*1e3, height(STATE.G), nSel); t0 = tic;
+    %% Color map — only over selected rows
+    C_sel = zeros(nSel, 3);
     if hasClrCol
-        clrVals = string(STATE.G.(clrCol));
+        clrVals = string(G_sel.(clrCol));
         try
             lut = nexObj.nexon.console.BASE.registry.LUT.(clrCol);
             for k = 1:height(lut)
                 mask_k = clrVals == string(lut.label(k));
                 hex    = char(lut.color(k));
                 rgb    = [hex2dec(hex(1:2)), hex2dec(hex(3:4)), hex2dec(hex(5:6))] / 255;
-                C_all(mask_k, :) = repmat(rgb, sum(mask_k), 1);
+                C_sel(mask_k, :) = repmat(rgb, sum(mask_k), 1);
             end
         catch
-            % Fallback: auto-assign one color per unique value via lines()
             uniqVals = unique(clrVals, 'stable');
             colorMap = lines(numel(uniqVals));
             for k = 1:numel(uniqVals)
                 mask_k = clrVals == uniqVals(k);
-                C_all(mask_k, :) = repmat(colorMap(k,:), sum(mask_k), 1);
+                C_sel(mask_k, :) = repmat(colorMap(k,:), sum(mask_k), 1);
             end
         end
     else
-        C_all = repmat(nexObj.nexon.settings.Colors.cyberGreen, height(STATE.G), 1);
+        C_sel = repmat(nexObj.nexon.settings.Colors.cyberGreen, nSel, 1);
     end
 
-    %% D1 brightness gradient — darker at low D1 values, brighter at high.
-    % Base group color (from CLR) is preserved; only luminance is modulated.
-    if ~isempty(d1Ax) && ismember(d1Ax, STATE.G.Properties.VariableNames)
-        d1Vals  = double(STATE.G.(d1Ax));
-        d1Min   = min(d1Vals(mask_canvas));   % normalize to visible sub-selection
-        d1Max   = max(d1Vals(mask_canvas));
+    % fprintf('[vis] Color LUT:    %.1f ms\n', toc(t0)*1e3); t0 = tic;
+    %% D1 brightness gradient — over selected rows only
+    if ~isempty(d1Ax) && ismember(d1Ax, G_sel.Properties.VariableNames)
+        d1Vals = double(G_sel.(d1Ax));
+        d1Min  = min(d1Vals);
+        d1Max  = max(d1Vals);
         if d1Max > d1Min
             minBright  = 0.15;
             brightness = minBright + (1 - minBright) * (d1Vals - d1Min) / (d1Max - d1Min);
-            brightness = max(minBright, min(1.0, brightness));  % clamp out-of-range rows
-            C_all      = C_all .* brightness;
+            brightness = max(minBright, min(1.0, brightness));
+            C_sel      = C_sel .* brightness;
         end
     end
 
-    %% Scatter size — scale linearly with divsPerBin of the animated axis.
-    % More samples pooled per bin → each point represents more data → larger dot.
+    % fprintf('[vis] Brightness:   %.1f ms\n', toc(t0)*1e3); t0 = tic;
+    %% Scatter size
     canvasSize  = 100;
     trackerSize = 150;
     if ~isempty(animAx) && ~isempty(nexObj.pMap) && isfield(nexObj.pMap, animAx)
@@ -165,27 +187,33 @@ function nexVisualization_stateSpace(nexObj, ~)
         end
     end
 
-    %% Canvas — VW + Pointer filtered point cloud
-    Z_vis = Z_full(mask_canvas, :);
-    C_vis = C_all(mask_canvas, :);
+    % fprintf('[vis] Scatter size: %.1f ms\n', toc(t0)*1e3); t0 = tic;
+    %% Canvas
     set(gfx.canvas, ...
         'XData',    Z_vis(:,1), ...
         'YData',    Z_vis(:,2), ...
         'ZData',    Z_vis(:,3), ...
-        'CData',    C_vis, ...
+        'CData',    C_sel, ...
         'SizeData', canvasSize);
 
-    % Axis labels
+    % fprintf('[vis] Canvas set:   %.1f ms\n', toc(t0)*1e3); t0 = tic;
     ax.XLabel.String = char(fSel(1));
     ax.YLabel.String = char(fSel(2));
     if numel(fIdx) >= 3, ax.ZLabel.String = char(fSel(3)); end
 
-    %% Tracker — per-VW-group after-image along ANI axis
-    % Color: boost HSV saturation and value to max so tracker sits vivid
-    % on top of the dimmed canvas, regardless of which CLR hue is in use.
+    if ~isempty(animAx)
+        axTitle = nexTract_axisTitle(nexObj, nexObj.DF_postOp, string(animAx));
+        ax.Title.String = char(axTitle);
+        ax.Title.Color  = nexObj.nexon.settings.Colors.cyberGreen;
+    end
+
+    % fprintf('[vis] Labels/title: %.1f ms\n', toc(t0)*1e3); t0 = tic;
+    %% Tracker — per-VW-group x Per-D2 group after-image, operating on already-selected subset
     if isequal(vwGroups, ""), return; end
-    activeFlds = strrep(vwGroups, '-', '_');
-    aniVals_G  = double(STATE.G.(animAx));
+    activeFlds  = strrep(vwGroups, '-', '_');
+    aniVals_sel = double(G_sel.(animAx));
+    mask_ani    = aniVals_sel >= winStart_ani & aniVals_sel <= winEnd_ani;
+
     for i = 1:numel(vwGroups)
         grp = char(vwGroups(i));
         fld = char(activeFlds(i));
@@ -193,23 +221,19 @@ function nexVisualization_stateSpace(nexObj, ~)
         if ~isvalid(gfx.canvas_tracker.(fld)), continue; end
 
         if hasGroupCol
-            mask_grp = ismember(string(STATE.G.(groupCol)), grp) ...
-                     & aniVals_G >= winStart_ani & aniVals_G <= winEnd_ani;
+            mask_grp = strcmp(G_sel.(groupCol), grp) & mask_ani;
         else
-            mask_grp = aniVals_G >= winStart_ani & aniVals_G <= winEnd_ani;
+            mask_grp = mask_ani;
         end
 
-        Z_grp = Z_full(mask_grp, :);
+        Z_grp = Z_vis(mask_grp, :);
 
-        % Vivify: convert to HSV, push S→1 and V→1, back to RGB
-        hsv_grp       = rgb2hsv(C_all(mask_grp, :));
-        hsv_grp(:, 2) = 1.0;   % full saturation
-        hsv_grp(:, 3) = 1.0;   % full brightness
-        try
-            C_grp_vivid   = hsv2rgb(hsv_grp);
-        catch
-            return
-        end
+        hsv_grp = rgb2hsv(C_sel(mask_grp, :));
+        recency = (aniVals_sel(mask_grp) - winStart_ani) / max(eps, winEnd_ani - winStart_ani);
+        recency = max(0, min(1, recency));
+        hsv_grp(:, 3) = min(1, 2 * recency);
+        hsv_grp(:, 2) = max(0.5, (1 - recency) .^ 2);
+        C_grp_vivid = hsv2rgb(hsv_grp);
 
         set(gfx.canvas_tracker.(fld), ...
             'XData',    Z_grp(:,1), ...
@@ -218,4 +242,16 @@ function nexVisualization_stateSpace(nexObj, ~)
             'CData',    C_grp_vivid, ...
             'SizeData', trackerSize);
     end
+
+    % fprintf('[vis] Tracker loop: %.1f ms\n', toc(t0)*1e3); t0 = tic;
+    % Scrub trackers for deselected groups
+    allFlds = fieldnames(gfx.canvas_tracker);
+    for i = 1:numel(allFlds)
+        fld = allFlds{i};
+        if ~ismember(fld, activeFlds) && isvalid(gfx.canvas_tracker.(fld))
+            set(gfx.canvas_tracker.(fld), 'XData', [], 'YData', [], 'ZData', []);
+        end
+    end
+    % fprintf('[vis] Tracker scrub:%.1f ms\n', toc(t0)*1e3);
+    % fprintf('[vis] TOTAL:        %.1f ms\n', toc(t_total)*1e3);
 end

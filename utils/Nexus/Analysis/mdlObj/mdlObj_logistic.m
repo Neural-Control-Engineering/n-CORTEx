@@ -13,7 +13,6 @@ classdef mdlObj_logistic < mdlObject
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing'); 
             mdlObj.py.stdScaler = sklearnPreProc.StandardScaler();
             mdlObj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_logistic"));
-            mdlObj.domain.D1="t";
             mdlObj.cfg.dmCfg.format="supervised";
             % classID = "ssm";
             % mdlObj.model = model_ssm();                        
