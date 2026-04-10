@@ -51,7 +51,7 @@ function nexFigure_stateSpace(nexObj)
     %% aniCfg — animation parameters (stride, etc.)
     entryArgs.entryHeightScaler=4;
     pan_ani.ph = uipanel(ctrl.ph, ...
-        "Position", [xInner, yAni, wInner, hAni], "BackgroundColor", [0,0,0]);
+        "Position", [xInner, yAni, wInner, hAni], "BackgroundColor", [0,0,0], "Scrollable","on");
     nexObj.Figure.panel_ani = nexObj_cfgPanel_v2(nexObj, nexObj.cfg.aniCfg, pan_ani, ...
         nexObj.cfg.aniCfg.entryParams, str2func("cfgEntryChanged_v2"), entryArgs);
 

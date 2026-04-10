@@ -85,23 +85,23 @@ classdef nexObj_stateSpace < nexObject
             nexObj.collector.View = buildSelection(nexObj, viewDict);
 
             %% Collector — Domain selection bus (F / D1 / ANI)
-            % F: values inside DF.ax.factor — the actual factor labels (pc1, pc2,
-            %    x1, x2, ...) produced by PCA, SSM, CEBRA, etc.  'factor' is the
+            % F: values inside DF.ax.latent — the actual latent labels (pc1, pc2,
+            %    x1, x2, ...) produced by PCA, SSM, CEBRA, etc.  'latent' is the
             %    reserved ax keyword for dimensionality-reduction outputs.
-            %    Empty if DF has no ax.factor field.
+            %    Empty if DF has no ax.latent field.
             % D1 / ANI: DF.ax field names — the axis dimensions available for
-            %    primary and animated axis selection.  'factor' is excluded as
+            %    primary and animated axis selection.  'latent' is excluded as
             %    it is reserved for the F sub-bus.
             if ~isempty(nexObj.domain.axes)
                 axisKeys = nexObj.domain.axes;
-                axisKeys = axisKeys(~strcmp(axisKeys, "factor"));
+                axisKeys = axisKeys(~strcmp(axisKeys, "latent"));
                 if isempty(axisKeys), axisKeys = ""; end
             else
                 axisKeys = "";
             end
             if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ax') ...
-                    && isfield(nexObj.DF_postOp.ax, 'factor')
-                fKeys = nexObj.DF_postOp.ax.factor;
+                    && isfield(nexObj.DF_postOp.ax, 'latent')
+                fKeys = nexObj.DF_postOp.ax.latent;
             else
                 fKeys = "";
             end
@@ -119,7 +119,7 @@ classdef nexObj_stateSpace < nexObject
             if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ax') ...
                     && ~isempty(nexObj.DF_postOp.ax)
                 axFields = fieldnames(nexObj.DF_postOp.ax);
-                axFields = axFields(~strcmp(axFields, 'factor'));
+                axFields = axFields(~strcmp(axFields, 'latent'));
                 for i = 1:numel(axFields)
                     axDim = nexObj.DF_postOp.ptr.(axFields{i}).dim;
                     if ~isempty(axDim)
@@ -222,7 +222,7 @@ classdef nexObj_stateSpace < nexObject
             if isempty(nexObj.collector.Pointer), return; end
             bus = nexObj.collector.Pointer;
             axFields = fieldnames(nexObj.DF_postOp.ax);
-            axFields = axFields(~strcmp(axFields, 'factor'));
+            axFields = axFields(~strcmp(axFields, 'latent'));
             for i = 1:numel(axFields)
                 ax = axFields{i};
                 if ~isfield(bus.selKeys, ax), continue; end
@@ -272,7 +272,7 @@ classdef nexObj_stateSpace < nexObject
 
             %% DF (raw / realtime source)
             % G_DF mirrors the nexOp_stackSTAT output shape: sampleNumber +
-            % one column per DF_postOp.ax field (excluding 'factor').
+            % one column per DF_postOp.ax field (excluding 'latent').
             % No grouping columns — DF rows are a single unlabelled trajectory.
             if ~isempty(nexObj.DF_postOp)
                 try
@@ -282,7 +282,7 @@ classdef nexObj_stateSpace < nexObject
                     G_DF  = table((1:T_DF)', 'VariableNames', {'sampleNumber'});
                     if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ax')
                         axFields = fieldnames(nexObj.DF_postOp.ax);
-                        axFields = axFields(~strcmp(axFields, 'factor'));
+                        axFields = axFields(~strcmp(axFields, 'latent'));
                         for k = 1:numel(axFields)
                             f    = axFields{k};
                             vals = nexObj.DF_postOp.ax.(f)';   % transpose to Nx1
@@ -353,12 +353,12 @@ classdef nexObj_stateSpace < nexObject
 
             nexObj.STATE = STATE;
 
-            %% Auto-populate domain.F from ax.factor labels or column count
+            %% Auto-populate domain.F from ax.latent labels or column count
             if ~isempty(STATE.Z)
                 nFactors = size(STATE.Z, 2);
                 if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ax') ...
-                        && isfield(nexObj.DF_postOp.ax, 'factor')
-                    nexObj.domain.F = string(nexObj.DF_postOp.ax.factor);
+                        && isfield(nexObj.DF_postOp.ax, 'latent')
+                    nexObj.domain.F = string(nexObj.DF_postOp.ax.latent);
                 elseif isempty(nexObj.domain.F) || isequal(nexObj.domain.F, "")
                     nexObj.domain.F = "f" + string(1:nFactors);
                 end
@@ -379,6 +379,7 @@ classdef nexObj_stateSpace < nexObject
             STAT = nexObj.STAT;
             % dfCol = nexOp_trimDfCol(STAT.df);
             TF = table2struct(STAT); TF = arrayfun(@(DF) DF, TF, "UniformOutput", false);
+            TF_aligned = nexOp_eventAlignTF(nexObj, TF);
             [dfCol, axCol] = nexOp_trimTF(TF);
             STAT.df = dfCol(:);
             STAT.ax = repmat(axCol, height(STAT),1);
@@ -514,7 +515,7 @@ classdef nexObj_stateSpace < nexObject
             bus = nexObj.collector.Domain;
             bus.selKeys.F    = fKeys;
             nF = numel(fKeys);
-            bus.selections.F = 1:min(3, nF);   % default first 3 factors
+            bus.selections.F = 1:min(3, nF);   % default first 3 latents
             if isfield(bus.listBoxes, 'F') && ~isempty(bus.listBoxes.F)
                 bus.listBoxes.F.Value  = 1:min(3, nF);
                 bus.listBoxes.F.String = fKeys;

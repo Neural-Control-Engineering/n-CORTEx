@@ -14,7 +14,7 @@ function nexVisualization_stateSpace(nexObj, ~)
         return;
     end
 
-    %% Factor column indices (X / Y / Z of scatter3)
+    %% Latent column indices (X / Y / Z of scatter3)
     % Read directly from the Domain selectionBus — domain.F is not consulted.
     domSel = nex_returnSelectionMask(nexObj.collector.Domain);
     fSel   = string(domSel.F);
@@ -23,16 +23,16 @@ function nexVisualization_stateSpace(nexObj, ~)
     if isempty(fSel) || isequal(fSel, ""), return; end
 
     if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ax') ...
-            && isfield(nexObj.DF_postOp.ax, 'factor')
-        factorList = string(nexObj.DF_postOp.ax.factor);
+            && isfield(nexObj.DF_postOp.ax, 'latent')
+        latentList = string(nexObj.DF_postOp.ax.latent);
     else
-        factorList = "f" + string(1:size(STATE.Z, 2));
+        latentList = "z" + string(1:size(STATE.Z, 2));
     end
-    [~, fIdx] = ismember(fSel, factorList);
+    [~, fIdx] = ismember(fSel, latentList);
     fIdx = fIdx(fIdx > 0);
     if numel(fIdx) < 2, return; end
 
-    % Pad to 3 columns with zeros when only 2 factors are selected
+    % Pad to 3 columns with zeros when only 2 latents are selected
     Z_full = STATE.Z(:, fIdx);
     if numel(fIdx) == 2
         Z_full = [Z_full, zeros(size(Z_full, 1), 1)];
@@ -84,6 +84,9 @@ function nexVisualization_stateSpace(nexObj, ~)
                     end
                 end
                 mask_ptr = mask_ptr & mask_f;
+                if sum(mask_ptr)==0
+                    keyboard
+                end
                 % fprintf('[vis]   ptr.%s: %.1f ms  (numel(sel)=%d, type=%s)\n', ...
                 %     f, toc(t_ptr)*1e3, numel(sel), class(sel));
             end

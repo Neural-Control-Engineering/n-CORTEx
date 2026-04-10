@@ -1,7 +1,12 @@
 function idx = nex_buildSliceIndex(df, ptr, axSel, sliceType)
     ptrFields = fieldnames(ptr);
-    % idx = repmat({':'},1,ndims(ptrFields));
-    idx = repmat({':'},1,length(ptrFields));
+
+    % isolate ptrFields with non-empty dim entries
+    hasDim = [];    
+    for i = 1:length(ptrFields); hasDim = [hasDim, isfield(ptr.(ptrFields{i}),"dim")]; end
+    ptrFields = ptrFields(hasDim==1);
+    % idx = repmat({':'},1,ndims(ptrFields));    
+    idx = repmat({':'},1,length(ptrFields));    
     switch sliceType
         case "single"
             % slice a single pointer using selected axis, leave

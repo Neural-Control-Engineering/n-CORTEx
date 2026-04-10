@@ -277,15 +277,26 @@ class LGSSM:
         return
 
     def filter(self, emissions):
+        gc.collect()
+        jax.clear_caches()
         print("filtering ssm...")
         emissions = jnp.asarray(emissions, dtype=jnp.float64)
         print(f"[lgssm] filter emissions shape={emissions.shape}, dtype={emissions.dtype}")
-        if emissions.ndim == 3:
-            # batched: (batch, T, emission_dim) — vmap over batch dim
-            Z = jax.vmap(lambda e: self.model.filter(self.params, e))(emissions)
-        else:
-            Z = self.model.filter(self.params, emissions)
-        return Z
+        # First call after a cache clear triggers JIT recompilation; cuSolver can
+        # fail transiently during warm-up even though the kernel compiles fine.
+        # Retry once — the second call hits the now-cached kernel and succeeds.
+        for attempt in range(2):
+            try:
+                if emissions.ndim == 3:
+                    Z = jax.vmap(lambda e: self.model.filter(self.params, e))(emissions)
+                else:
+                    Z = self.model.filter(self.params, emissions)
+                return Z
+            except Exception as e:
+                if attempt == 0:
+                    print(f"[lgssm] filter warm-up fail (attempt 1), retrying: {e}")
+                else:
+                    raise
 
     def predict(self, steps):
         return

@@ -209,6 +209,12 @@ classdef nexObject < handle
         function gif(nexObj)
         end
 
+        function STAT = reportSTAT(nexObj, fcn, groupVars)
+            % Split-apply fcn by groupvars (findgroups)
+            nexObj.UserData.(TID) = STAT;
+        end
+
+
     end
 
 end

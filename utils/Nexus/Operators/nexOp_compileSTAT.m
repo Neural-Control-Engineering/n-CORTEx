@@ -48,6 +48,7 @@ function STAT = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
     end    
     Y = array2table(Y, 'VariableNames', categoryProps);
     Y = Y(selMatch,:); % filter by intersection of all category selections
+    TF_pooled = TF_pooled(selMatch); % filter selected data as well
     % enumerate rows as trial numbers, relative to subject/phase combos
     % TF_trialNum = nexon.console.BASE.DTS.trialNumber(idxSel);
     [G, groups] = findgroups(Y.sessionLabel_subj, Y.sessionLabel_phase);    
@@ -56,11 +57,11 @@ function STAT = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
     % TF_trialNum_sort = TF_trialNum(idx_sort);
     n = splitapply(@(x) {(1:numel(x))'}, G_sort, G_sort);    
     TF_trialNum = cat(1,n{:});
-    % TF_trialNum = TF_trialNum(selMatch,:);
+    % TF_trialNum = TF_trialNum(selMatch,:);        
     Y = Y(idx_sort,:); % sort Y by groups
     TF_pooled = TF_pooled(idx_sort,:); % sort TF by groups
     Y.trialNumber = TF_trialNum;
-    % TF = TF(selMatch); % filter selected data as well
+    
     % parallel parsing
     SS = outerjoinStructs(S_categories, S_items);
     keep = convertCharsToStrings(fieldnames(SS)); keep = keep(contains(keep, "ax"));

@@ -129,9 +129,9 @@ classdef mdlObject < handle
 
         function fit(mdlObj)          
             % inherit STAT
-            if isempty(mdlObj.STAT)
-                mdlObj.compileSTAT(); 
-            end
+            % if isempty(mdlObj.STAT)
+            mdlObj.compileSTAT(); 
+            % end
             % prepare DM
             mdlObj.getDesignMatrix();
             % apply training assembly on stored dataset

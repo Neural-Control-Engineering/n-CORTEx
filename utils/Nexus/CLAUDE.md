@@ -177,6 +177,44 @@ Do NOT write per-figure `fitCfgEntryChanged`, `aniCfgEntryChanged`, etc. — use
 
 ---
 
+## Domain Convention
+
+Every Nexus object (both `nexObject` subclasses and `mdlObject` subclasses) carries a `domain` struct that describes which axes play which role.
+
+| Field | Meaning |
+|-------|---------|
+| `domain.D1` | **Primary axis** — rendered on the canvas itself (e.g. `"t"` for time). For all `mdlObject`s this is always `"t"`. |
+| `domain.D2` | **Full complement** — `setdiff(allAxes, D1, "stable")`. The complete set of non-primary axes. Never set this manually; it is computed by `nexInit_domain`. |
+| `domain.FTR` | **Feature selection** — a caller-chosen subset of `D2` (one axis or several). Not an alias for `D2`; can be narrowed at any time by `applyDomainBus`. |
+| `domain.animate` | (`nexObject` only) The currently animated member of `D2`. |
+
+**Initialization** — always use `nexInit_domain`:
+```matlab
+% base mdlObject constructor calls this automatically:
+mdlObj.domain = nexInit_domain(mdlObj.Origin.DF_postOp);  % D1="t", D2=all other axes, FTR=D2 default
+
+% subclasses narrow FTR to the axis they actually operate on:
+mdlObj.domain.FTR = mdlObj.domain.D2(1);   % e.g. first non-t axis
+```
+
+**Rules:**
+- Do NOT manually set `domain.D1` or `domain.D2` in subclass constructors — the base `mdlObject` constructor handles both via `nexInit_domain`.
+- `FTR` is the only domain field subclasses should write after construction; it expresses *which* feature dimension(s) this model operates on and may be narrowed further by `applyDomainBus`.
+- `FTR` is initialized to `D2` by `nexInit_domain` as a safe default; subclasses that know their operating axis should narrow it to `D2(1)` or a specific axis name.
+- For `nexObject` subclasses, `D2` may contain `"t"` (the sweep axis lives in D2, D1 is the complement) — the semantics flip relative to `mdlObject`. Check `nexObject.inferDomain()` for that path.
+
+---
+
+## nexObject Architecture
+
+See `nexObj/CLAUDE.md` for the full nexObject architecture including:
+- Collector / selectionBus conventions
+- RESULTS / reportSTAT architecture (planned)
+- applySRC cascade and PostSet listener rules
+- Window Panel slot architecture (planned)
+
+---
+
 ## Adding New Analysis Modules
 
 1. Create a directory under `Analysis/<Domain>/`

@@ -66,7 +66,11 @@ function nexVisualization_monoGraph(nexObj, args)
                 if isfield(ptr_DF.(axSel),"range")
                     ptr_DF.(axSel).range = ptr.(axSel).range;
                 end
+                % try
                 df_phase_slice = sliceDF(df_phase, ptr_DF, axSel, "range");
+                % catch
+                    % keyboard
+                % end
                 sem_phase_slice = sliceDF(sem_phase, ptr_DF, axSel,"range");  
                 df_phase_slice=nexOp_permuteLong2second(squeeze(df_phase_slice));
                 sem_phase_slice=nexOp_permuteLong2second(squeeze(sem_phase_slice));
