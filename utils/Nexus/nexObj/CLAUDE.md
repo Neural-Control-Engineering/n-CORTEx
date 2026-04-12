@@ -55,8 +55,22 @@ Standard buses:
 | Bus | Purpose |
 |-----|---------|
 | `collector.Domain` | F / D1 / ANI axis selectors |
-| `collector.View` | AVG / VW / CLR / SRC group selectors |
+| `collector.View` | SRC / VW / CLR (standard, all nexObjects) + subclass keys e.g. AVG |
 | `collector.Pointer` | Per-axis value selectors (one key per DF.ax field, excluding `latent`) |
+
+**Standard View keys** — always present, initialized by `nexInit_collectorView`:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `SRC` | `"DF"` | Active data source — `"DF"` (router path) or any `RESULTS` key |
+| `VW` | `""` | Group labels within the active RESULT; empty until `reportSTAT` |
+| `CLR` | `""` | Column used for per-point colorization; empty by default |
+
+Subclass-specific keys (e.g. `AVG` for `nexObj_stateSpace`) are passed via `viewDict` and appear before the standard keys in the bus:
+```matlab
+nexObj.collector.View = nexInit_collectorView(nexObj);              % SRC/VW/CLR only
+nexObj.collector.View = nexInit_collectorView(nexObj, viewDict);    % viewDict keys first, then SRC/VW/CLR
+```
 
 **Pointer bus** is rebuilt via `refreshPointer()`, which is triggered automatically by a PostSet listener on `DF_postOp.ax`. This is the canonical example of a correct leaf-level PostSet listener — narrow scope, single trigger, no downstream dependencies of its own.
 

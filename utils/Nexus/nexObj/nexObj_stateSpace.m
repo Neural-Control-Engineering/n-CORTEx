@@ -82,7 +82,7 @@ classdef nexObj_stateSpace < nexObject
             viewDict.AVG = avgKeys;
             viewDict.VW  = vwKeys;
             viewDict.CLR = clrKeys;
-            nexObj.collector.View = buildSelection(nexObj, viewDict);
+            nexObj.collector.View = nexInit_collectorView(nexObj, viewDict);
 
             %% Collector — Domain selection bus (F / D1 / ANI)
             % F: values inside DF.ax.latent — the actual latent labels (pc1, pc2,

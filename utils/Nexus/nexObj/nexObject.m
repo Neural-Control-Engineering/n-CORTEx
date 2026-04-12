@@ -13,7 +13,8 @@ classdef nexObject < handle
         dfID_target
         pMap
         collector
-        domain        
+        RESULTS = struct()
+        domain
         Figure
         UserData
         cfg=struct
@@ -209,9 +210,22 @@ classdef nexObject < handle
         function gif(nexObj)
         end
 
-        function STAT = reportSTAT(nexObj, fcn, groupVars)
-            % Split-apply fcn by groupvars (findgroups)
-            nexObj.UserData.(TID) = STAT;
+        function [STAT, resID] = reportSTAT(nexObj, fcn, compareVars, groupVars, resID)
+            
+            % Split-apply groupwise-comparative fcn by groupvars (findgroups)
+
+            % Sub-selection
+
+
+            % Grouping
+            L = [];
+            G = findgroups(L);
+
+            % Apply fcn
+            splitapply(@(x1,x2) fcn(x1, x2), G);
+
+            % Store result
+            nexObj.RESULTS.(resID) = STAT;
         end
 
 
