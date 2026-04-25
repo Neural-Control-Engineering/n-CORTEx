@@ -25,12 +25,13 @@ classdef nexObj_monoGram < nexObject
     methods
 
         % ── Constructor ───────────────────────────────────────────────────
-        function nexObj = nexObj_monoGram(nexon, Parent, dfID_source, opCfgFcn, domain)
+        function nexObj = nexObj_monoGram(nexon, Parent, dfID_source, opCfgFcn, domain, headline)
             % resolve nexon before superclass call (no object access allowed yet)
             if ~isempty(Parent)
                 nexon = Parent.nexon;
             end
-            nexObj = nexObj@nexObject(nexon, Parent, dfID_source);
+            if nargin < 6, headline = []; end
+            nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);
             nexObj.classID = "mgm";
 
             %% DF loading

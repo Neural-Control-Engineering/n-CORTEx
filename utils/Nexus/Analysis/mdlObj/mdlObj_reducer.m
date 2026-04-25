@@ -94,6 +94,31 @@ classdef mdlObj_reducer < handle
             DM_dr = cat(2, out{:});
         end
 
+        function save(mdlObj, fitDir)
+            % Python model objects (sklearn PCA, etc.) → pickle
+            % MATLAB metadata (block indices, binEdges, modelID) → .mat
+            pickle = py.importlib.import_module('pickle');
+            fh = py.open(py.str(fullfile(fitDir, "reducer_models.pkl")), py.str('wb'));
+            pickle.dump(py.list(mdlObj.MDL.models), fh);
+            fh.close();
+            MDL_meta.modelID     = mdlObj.MDL.modelID;
+            MDL_meta.nComponents = mdlObj.MDL.nComponents;
+            MDL_meta.ax          = mdlObj.MDL.ax;
+            save(fullfile(fitDir, "reducer_meta.mat"), "MDL_meta");
+        end
+
+        function load(mdlObj, fitDir)
+            pickle = py.importlib.import_module('pickle');
+            fh = py.open(py.str(fullfile(fitDir, "reducer_models.pkl")), py.str('rb'));
+            models_py         = pickle.load(fh);
+            fh.close();
+            mdlObj.MDL.models = cell(models_py);
+            S = load(fullfile(fitDir, "reducer_meta.mat"));
+            mdlObj.MDL.modelID     = S.MDL_meta.modelID;
+            mdlObj.MDL.nComponents = S.MDL_meta.nComponents;
+            mdlObj.MDL.ax          = S.MDL_meta.ax;
+        end
+
     end
 
 end

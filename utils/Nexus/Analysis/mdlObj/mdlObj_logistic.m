@@ -4,11 +4,12 @@ classdef mdlObj_logistic < mdlObject
     end
 
     methods
-        function mdlObj = mdlObj_logistic(Parent, Origin, dfID_source)            
+        function mdlObj = mdlObj_logistic(Parent, Origin, dfID_source, headline)
+            if nargin < 4, headline = []; end
             % Directly import the submodule
             % args = extractMethodCfg('model_ssm');
             % neural network handle to train and infer from a neural
-            mdlObj = mdlObj@mdlObject(Parent, Origin, "logistic", dfID_source);
+            mdlObj = mdlObj@mdlObject(Parent, Origin, "logistic", dfID_source, [], headline);
             mdlObj.py.np = py.importlib.import_module('numpy');
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing'); 
             mdlObj.py.stdScaler = sklearnPreProc.StandardScaler();

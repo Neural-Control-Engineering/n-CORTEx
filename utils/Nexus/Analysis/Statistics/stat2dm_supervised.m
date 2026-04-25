@@ -12,20 +12,19 @@ function DM = stat2dm_supervised(mdlObj)
     T = cell2table(STAT_cell, 'VariableNames', STAT.Properties.VariableNames);
     [Z, G, S] = nexOp_stackSTAT(STAT);
     % isolate target-variable
-    if ~strcmp(mdlObj.targetVar,"all")
-        G = G.(mdlObj.targetVar);
-        G = array2table(G,"VariableNames",mdlObj.targetVar);
-        % assuming only one targetVar is selected (general-purpose - future do for each)
-        labels_unique = unique(STAT.(mdlObj.targetVar));
+    tVar = char(mdlObj.dfID_target);
+    if ~strcmp(tVar,"all")
+        G = G.(tVar);
+        G = array2table(G,"VariableNames",{tVar});
+        labels_unique = unique(STAT.(tVar));
         key.code=[1:length(labels_unique)];
         key.label=labels_unique;
     end
     % label encoding
-    % G_cell = table2cell(G);
     L = varfun(@(var) nexOp_labelEncode(var), G);
-    
+
     % result
     DM.X=Z;
     DM.Y=table2array(L);
-    DM.K.(mdlObj.targetVar)=key; % future: expand to all
+    DM.K.(tVar)=key; % future: expand to all
 end

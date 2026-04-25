@@ -1,6 +1,9 @@
 classdef mdlObject < handle
 
     properties
+        headline
+        fitPath      % absolute path to saveFit folder — set by saveFit/loadFit
+        RESULTS = struct()   % model-diagnostic results (CV scores, eigenspectra, ...)
         nexon
         modelID
         predictorID
@@ -15,7 +18,6 @@ classdef mdlObject < handle
         STAT % stat table with training samples (dereference-able file locations of samples)
         STAT_postOp % post-operative STAT table to pass to other vis/analysis
         trainMask % mask training samples for cross validation
-        targetVar
         TEST
         TRAIN
         Figure
@@ -33,12 +35,15 @@ classdef mdlObject < handle
     end
 
     methods
-        function mdlObj = mdlObject(Parent, Origin, modelID, dfID_source, predictorID)             
+        function mdlObj = mdlObject(Parent, Origin, modelID, dfID_source, predictorID, headline)
             % cebra = py.importlib.import_module('cebra');
             % args = extractMethodCfg('model_cebra');
             % neural network handle to train and infer from a neural
             % mdlObj.modelObj = model_cebra(cebra, args);                        
             % network, etc.
+            if nargin >= 6 && ~isempty(headline)
+                mdlObj.headline = headline;
+            end
             mdlObj.modelID=modelID;
             mdlObj.Parent=Parent;
             nexOp_addChild(Parent, mdlObj);
@@ -54,7 +59,6 @@ classdef mdlObject < handle
             catch e
                 disp(getReport(e));
             end
-            mdlObj.targetVar = "sessionLabel_phase"; % TEMPORARY
             switch class(Parent)
                 case "Nexon"
                     mdlObj.nexon=Parent;
@@ -92,9 +96,47 @@ classdef mdlObject < handle
             catch
                 mdlObj.domain = nexInit_domain([]);
             end
-            % Build Figure
-            figFcn = str2func(sprintf("nexFigure_%s",mdlObj.modelID));
-            figFcn(mdlObj);
+            % Build Figure (skipped in headless mode)
+            isHeadless = isfield(mdlObj.nexon, 'settings') && ...
+                         isfield(mdlObj.nexon.settings, 'headless') && ...
+                         mdlObj.nexon.settings.headless;
+            if ~isHeadless
+                figFcn = str2func(sprintf("nexFigure_%s", mdlObj.modelID));
+                figFcn(mdlObj);
+                mdlObj.applyHeadline();
+            end
+        end
+
+        function initTargetBus(mdlObj)
+            % Seed collector.Target.Y from Origin's categorical column names.
+            % Called by supervised predictor subclasses (lda, logistic, linear).
+            % The figure adds a dropdown to change it interactively.
+            try
+                S_cat  = nex_returnSelectionMask(mdlObj.Origin.selectionBus.categories);
+                catIDs = string(struct2cell(S_cat))';
+                catIDs = strrep(catIDs(~strcmp(catIDs, "None")), "--", "_");
+                if isempty(catIDs), catIDs = "sessionLabel_phase"; end
+                mdlObj.collector.Target.Y       = catIDs(1);
+                mdlObj.collector.Target.options = catIDs;
+            catch
+                mdlObj.collector.Target.Y       = "sessionLabel_phase";
+                mdlObj.collector.Target.options = "sessionLabel_phase";
+            end
+            mdlObj.applyTargetBus();
+        end
+
+        function applyTargetBus(mdlObj)
+            % Sync dfID_target from collector.Target.Y.
+            % Called after any interactive Target selection change.
+            if isfield(mdlObj.collector, 'Target') && isfield(mdlObj.collector.Target, 'Y')
+                mdlObj.dfID_target = string(mdlObj.collector.Target.Y);
+            end
+        end
+
+        function applyHeadline(mdlObj)
+            if ~isempty(mdlObj.headline) && isfield(mdlObj.Figure, 'fh') && isvalid(mdlObj.Figure.fh)
+                mdlObj.Figure.fh.Name = mdlObj.headline;
+            end
         end
 
         function locateDataset(mlObj)
@@ -310,7 +352,7 @@ classdef mdlObject < handle
             mdlObjs = arrayfun(@(m) {m}, mdlObjs);                        
             mdlObj.CV = cell2struct(mdlObjs, mdlIDs_cv);      
             % prepare folds
-            stratVar = mdlObj.STAT.(mdlObj.targetVar);
+            stratVar = mdlObj.STAT.(mdlObj.dfID_target);
             trainMasks= nexStat_allocateFolds(stratVar, numFolds);
 
             TEST_PRED=[];
@@ -341,12 +383,12 @@ classdef mdlObject < handle
                 mdlObj_cv.model.get_params;
                 double(mdlObj_cv.model.coef_);
             end
-            Y_true=mdlObj.TEST.STAT.(mdlObj.targetVar);
+            Y_true=mdlObj.TEST.STAT.(mdlObj.dfID_target);
             TF_preds = mdlObj.TEST.STAT.prediction;
             % [TF_probs, TF_scores] = cellfun(@(DF) max(mean(DF.df,1)), TF_preds, "UniformOutput",false);
             [TF_probs] = cellfun(@(DF) (mean(DF.df,1)), TF_preds, "UniformOutput",false);
             TF_probs=cat(1,TF_probs{:});
-            L=TF_preds{1}.ax.(mdlObj.targetVar);
+            L=TF_preds{1}.ax.(mdlObj.dfID_target);
             Scores = cellfun(@(score) L(score), TF_scores);            
             rocObj = rocmetrics(nexOp_labelEncode(Y_true), TF_probs, [1:4], NumBootstraps=1000);
             % rocObj = rocmetrics(nexOp_labelEncode(Y_true), nexOp_labelEncode(Scores),NumBootstraps=1000);
@@ -392,7 +434,7 @@ classdef mdlObject < handle
             Y_py = mdlObj.Predictor.model.predict_proba(X_py);                   
             % Y_py = mdlObj.predictor.model.predict(X_py);                    
             Y = double(Y_py);
-            key = mdlObj.Predictor.DM.K.(mdlObj.Predictor.targetVar);
+            key = mdlObj.Predictor.DM.K.(mdlObj.Predictor.dfID_target);
             % logit_pt = log(Y./ (1 - Y));     % convert probabilities to log-odds
             % logit_smoothed = movmean(logit_pt, 50);
             % trial_prob = mean(1 ./ (1 + exp(-logit_smoothed)));
@@ -401,7 +443,7 @@ classdef mdlObject < handle
             % Y = find(mean(Y)==max(mean(Y)));
             DF_Y.df=Y;
             DF_Y.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
-            DF_Y.ax.(mdlObj.Predictor.targetVar)=key.label';                        
+            DF_Y.ax.(mdlObj.Predictor.dfID_target)=key.label';                        
         end
 
         function reportTestScores(mdlObj)
@@ -415,7 +457,7 @@ classdef mdlObject < handle
             % with 'AVG' table formatting
             %% GATHER
             STAT_test = mdlObj.TEST.STAT;
-            G = STAT_test.(mdlObj.targetVar); % get target groupings
+            G = STAT_test.(mdlObj.dfID_target); % get target groupings
             G_enum = findgroups(G);
             predictions = STAT_test.prediction;
             AVG = splitapply(@(TF) nexOp_averageTF(TF), predictions, G_enum);
@@ -437,8 +479,15 @@ classdef mdlObject < handle
 
         end
 
-        function saveFit(mdlObj)
-            % save model weights
+        function saveFit(mdlObj, uniqueID)
+            % Subclasses override. Creates a folder named mdlObj_{modelID}_{uniqueID}
+            % and serializes all fit artifacts into it. Python objects must go
+            % through Python (pickle / npz) — MATLAB save() cannot handle them.
+        end
+
+        function loadFit(mdlObj, fitDir)
+            % Subclasses override. Restores fit artifacts from the folder
+            % produced by saveFit.
         end
 
         function inspectGeometry(mdlObj, nexObj)
@@ -447,5 +496,66 @@ classdef mdlObject < handle
             % combinations in latent space
         end
 
+        function state = saveState(mdlObj)
+        % Serialize the object's configuration into a plain struct (no handles).
+        % Saved state + fitPath is the full contract for headless reconstruction.
+        % Weights (W, Scaler, Reducer, model) live at fitPath — not included here.
+            state.className   = class(mdlObj);
+            state.modelID     = char(mdlObj.modelID);
+            state.headline    = char(mdlObj.headline);
+            state.dfID_source = char(mdlObj.dfID_source);
+            state.dfID_target = char(mdlObj.dfID_target);
+            state.fitPath     = char(mdlObj.fitPath);
+            state.domain      = mdlObj_serializeDomain(mdlObj.domain);
+            state.cfg         = nex_serializeCfg(mdlObj.cfg);
+            state.collector   = mdlObj_serializeCollector(mdlObj.collector);
+        end
+
+    end
+end
+
+% ── Local serialization helpers ───────────────────────────────────────────────
+
+function dom = mdlObj_serializeDomain(domain)
+    dom = struct();
+    if isempty(domain), return; end
+    fields = fieldnames(domain);
+    for i = 1:numel(fields)
+        f   = fields{i};
+        val = domain.(f);
+        if isstring(val) || ischar(val) || isnumeric(val)
+            dom.(f) = val;
+        end
+    end
+end
+
+function col = mdlObj_serializeCollector(collector)
+    col = struct();
+    if isempty(collector), return; end
+    fields = fieldnames(collector);
+    for i = 1:numel(fields)
+        f   = fields{i};
+        val = collector.(f);
+        if isa(val, 'nexObj_selectionBus')
+            col.(f) = nex_returnSelectionMask(val);
+        elseif isstruct(val)
+            col.(f) = mdlObj_serializePrimitives(val);
+        elseif isstring(val) || ischar(val) || isnumeric(val) || islogical(val)
+            col.(f) = val;
+        end
+    end
+end
+
+function out = mdlObj_serializePrimitives(s)
+    out = struct();
+    fields = fieldnames(s);
+    for i = 1:numel(fields)
+        f   = fields{i};
+        val = s.(f);
+        if isstring(val) || ischar(val) || isnumeric(val) || islogical(val)
+            out.(f) = val;
+        elseif isstruct(val)
+            out.(f) = mdlObj_serializePrimitives(val);
+        end
     end
 end

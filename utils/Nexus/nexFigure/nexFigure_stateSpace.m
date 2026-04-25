@@ -136,4 +136,5 @@ function nexFigure_stateSpace(nexObj)
     pan_pool.ph = uipanel(ctrl.ph, ...
         "Position", [xInner, yPool, wInner, hPool], "BackgroundColor", [0,0,0], "Scrollable", "on");
     nexObj.Figure.panel_pool = nexObj_poolCfgPanel_v2(nexObj, pan_pool, str2func("poolCfgEntryChanged"));
+    nexObj.applyHeadline();
 end

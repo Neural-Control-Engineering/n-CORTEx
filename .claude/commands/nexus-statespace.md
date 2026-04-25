@@ -376,6 +376,20 @@ isfield(nexObj.DF_postOp.ax, 'factor')  % correct — ax itself is a struct
 
 ---
 
+## Headline
+
+`nexObj_stateSpace` accepts an optional `headline` arg (last positional):
+
+```matlab
+nexObj = nexObj_stateSpace(nexon, Parent, Partner, dfID_source, headline)
+```
+
+Stored on `nexObject.headline`; `applyHeadline()` sets `Figure.fh.Name` at the end of
+`nexFigure_stateSpace`. Pass `[]` or omit to leave the title bar at the MATLAB default.
+All nexObj subclasses follow the same pattern — `headline` is always the final arg.
+
+---
+
 ## Animation config
 
 `aniCfg` is generated from the base `nexObject.stepAnimate` — no subclass animate function:

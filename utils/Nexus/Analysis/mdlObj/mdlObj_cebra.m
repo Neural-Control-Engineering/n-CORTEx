@@ -4,15 +4,14 @@ classdef mdlObj_cebra < mdlObject
     end
 
     methods
-        function obj = mdlObj_cebra(Parent, Origin, dfID_source, predictorID)            
+        function obj = mdlObj_cebra(Parent, Origin, dfID_source, predictorID, headline)
             % cebra = py.importlib.import_module('cebra');
             % args = extractMethodCfg('model_cebra');
             % % neural network handle to train and infer from a neural
-            % mdlObj.modelObj = model_cebra(cebra, args);                        
-            if nargin < 4
-                predictorID=[];
-            end
-            obj = obj@mdlObject(Parent, Origin, "cebra", dfID_source, predictorID);            
+            % mdlObj.modelObj = model_cebra(cebra, args);
+            if nargin < 4, predictorID = []; end
+            if nargin < 5, headline = []; end
+            obj = obj@mdlObject(Parent, Origin, "cebra", dfID_source, predictorID, headline);            
             obj.py.np = py.importlib.import_module('numpy');
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing'); 
             obj.py.stdScaler = sklearnPreProc.StandardScaler();            

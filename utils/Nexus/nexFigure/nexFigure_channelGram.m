@@ -67,5 +67,6 @@ function nexObj = nexFigure_channelGram(nexObj)
     catch e
         disp(getReport(e))
     end
-    % channelGram.chgFigure = visFcn_out.fhObj;               
+    % channelGram.chgFigure = visFcn_out.fhObj;
+    nexObj.applyHeadline();
 end

@@ -1,24 +1,27 @@
-classdef nexObj_categorical < handle
+classdef nexObj_categorical < nexObject
     properties
-        classID = "ctg"
-        nexon
-        Parent
-        Partners
-        Children=struct();
-        dfID_source
-        dfID_target
+        % classID = "ctg"
+        % nexon
+        % Parent
+        % Partners
+        % Children=struct();
+        % dfID_source
+        % dfID_target
         selectionBus    % categories + items — DTS path (backward compat)
-        collector       % View (SRC, VW) + Pointer — RESULTS path
-        pMap
-        cfg
-        DF
-        DF_postOp
+        % collector       % View (SRC, VW) + Pointer — RESULTS path
+        % pMap
+        % cfg
+        % DF
+        % DF_postOp
         STAT
-        Figure
+        % Figure
     end
     methods
 
-        function nexObj = nexObj_categorical(nexon, Partner, dfID_source, opFcn)
+        function nexObj = nexObj_categorical(nexon, Partner, dfID_source, opFcn, headline)
+            if nargin < 5, headline = []; end
+            nexObj = nexObj@nexObject(nexon, [], dfID_source, headline);
+            nexObj.classID="ctg";
             nexObj.dfID_source = dfID_source;
             if isempty(Partner)
                 nexObj.nexon = nexon;
@@ -54,35 +57,47 @@ classdef nexObj_categorical < handle
             % modify selectionBus hierarchy (arrange selection cascade)
             nexObj.selectionBus.categories.Parent = nexObj.selectionBus.items;
             nexObj.selectionBus.items.Children.sbus = nexObj.selectionBus.categories;
-            % ── collector — View (SRC, VW) ────────────────────────────────
-            % SRC: active data source — "DF" (router), or any RESULTS key
-            % VW:  group labels within the active RESULT (empty until reportSTAT)
-            nexObj.collector.View    = nexInit_collectorView(nexObj);
-            nexObj.collector.Pointer = [];   % populated by applySRC for RESULTS sources
+            % ── collector — View (SRC, CLR, CMP, GRP) ────────────────────────
+            % categorical omits VW and Pointer — selectionBus.categories/items
+            % already serve both roles (group selection + value navigation).
+            % CMP / GRP: compareVars / groupVars for reportSTAT, seeded from
+            % the active category IDs in the categories bus.
+            S_cat   = nex_returnSelectionMask(nexObj.selectionBus.categories);
+            catIDs  = string(struct2cell(S_cat))';
+            catIDs  = strrep(catIDs(~strcmp(catIDs,"None")), "--", "_");
+            viewDict.SRC = "DTS";
+            viewDict.CLR = "";
+            viewDict.CMP = catIDs;
+            viewDict.GRP = catIDs;
+            nexObj.collector.View = buildSelection(nexObj, viewDict);
             % ── draw figure ───────────────────────────────────────────────
             nexFigure_categorical(nexObj);
         end
 
         % ── Source switching ──────────────────────────────────────────────
         function applySRC(nexObj, srcKey)
-            % Root entry point for SRC changes.  All panels remain visible
-            % (vertically arranged); only the active data path changes.
+            % Root entry point for SRC changes.
+            % 1. updateSentinel — rebuilds DF_postOp sentinel for the new SRC
+            %    (DTS: pool from raw DF; RESULTS: forge DF_postOp.ax from ax_ columns).
+            %    PostSet on DF_postOp.ax fires automatically → nexOp_sBus_alignItems2ax.
+            % 2. restoreItems — re-enumerates all category slots via enumerateItemsFor,
+            %    which dispatches to DTS registry or RESULTS table based on current SRC.
+            % 3. Draw.
             srcKey = string(srcKey);
-            isResultsSRC = isfield(nexObj.RESULTS, char(srcKey));
-            if isResultsSRC
-                nexObj.refreshVW(srcKey);
+            nexObj.updateSentinel();
+            nexObj.restoreItems();
+            if isfield(nexObj.RESULTS, char(srcKey))
                 nexObj.drawFromRESULT(srcKey);
             else
-                nexObj.reportStats([]);
+                % nexObj.reportStats([]);
             end
         end
 
         function refreshSRC(nexObj)
             % Update SRC listbox after a new RESULTS entry is added.
             if ~isfield(nexObj.collector, 'View'), return; end
-            keys = ["DF"; string(fieldnames(nexObj.RESULTS))];
+            keys = ["DTS"; string(fieldnames(nexObj.RESULTS))];
             bus  = nexObj.collector.View;
-            nK   = numel(keys);
             bus.selKeys.SRC    = keys;
             bus.selections.SRC = 1;
             if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
@@ -92,26 +107,75 @@ classdef nexObj_categorical < handle
             end
         end
 
-        function refreshVW(nexObj, srcKey)
-            % Populate VW listbox from RESULTS.(srcKey) grouping columns.
-            if ~isfield(nexObj.RESULTS, char(srcKey)), return; end
-            T = nexObj.RESULTS.(char(srcKey));
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem"];
-            cols     = string(T.Properties.VariableNames)';
-            grpCols  = cols(~ismember(cols, DF_STRUCT_FIELDS));
-            if isempty(grpCols)
-                vwKeys = "";
+        function srcKey = getCurrentSRC(nexObj)
+            % Return the currently selected SRC key as a string.
+            if ~isfield(nexObj.collector, 'View'), srcKey = "DTS"; return; end
+            bus  = nexObj.collector.View;
+            keys = bus.selKeys.SRC;
+            idx  = bus.selections.SRC;
+            if isempty(idx) || idx < 1 || idx > numel(keys)
+                srcKey = "DTS";
             else
-                vwKeys = unique(T.(char(grpCols(1))));
+                srcKey = string(keys(idx));
             end
-            bus = nexObj.collector.View;
-            nVW = numel(vwKeys);
-            bus.selKeys.VW    = vwKeys;
-            bus.selections.VW = 1:nVW;
-            if isfield(bus.listBoxes, 'VW') && ~isempty(bus.listBoxes.VW)
-                bus.listBoxes.VW.String = vwKeys;
-                bus.listBoxes.VW.Max    = nVW;
-                bus.listBoxes.VW.Value  = 1:nVW;
+        end
+
+        function items = enumerateItemsFor(nexObj, category)
+            % SRC-aware item enumeration for the items bus (Node 1 replacement).
+            % DTS path  → nexOp_enumerateCategory (DF_postOp.ax then DTS registry).
+            % RESULTS path → unique values from the matching RESULTS table column.
+            %   Category names use "ax--fieldname" convention; RESULTS columns use
+            %   "ax_fieldname" — strrep maps between them.
+            srcKey = nexObj.getCurrentSRC();
+            if strcmp(srcKey, "DTS") || ~isfield(nexObj.RESULTS, char(srcKey))
+                items = nexOp_enumerateCategory(nexObj, category);
+            else
+                T   = nexObj.RESULTS.(char(srcKey));
+                col = char(strrep(string(category), "--", "_"));
+                if ismember(col, T.Properties.VariableNames)
+                    raw = T.(col);
+                    if iscell(raw), raw = string(raw); end
+                    items = unique(string(raw), "stable");
+                else
+                    items = "";
+                end
+            end
+        end
+
+        function updateSentinel(nexObj)
+            % Forge DF_postOp.ax to match the active SRC (Node 2 replacement).
+            % DTS path    — rebuild DF_postOp normally via updateScope (pools raw DF).
+            %               PostSet on DF_postOp.ax fires → nexOp_sBus_alignItems2ax.
+            % RESULTS path — extract ax_* columns from RESULTS table, build ax struct
+            %               from unique values, and assign to DF_postOp.ax directly.
+            %               PostSet on DF_postOp.ax fires → nexOp_sBus_alignItems2ax.
+            srcKey = nexObj.getCurrentSRC();
+            if strcmp(srcKey, "DTS") || ~isfield(nexObj.RESULTS, char(srcKey))
+                nexObj.updateScope();
+            else
+                T    = nexObj.RESULTS.(char(srcKey));
+                cols = string(T.Properties.VariableNames)';
+                axCols = cols(startsWith(cols, "ax_"));
+                newAx = struct();
+                for i = 1:numel(axCols)
+                    field = char(extractAfter(axCols(i), "ax_"));
+                    raw   = T.(char(axCols(i)));
+                    if iscell(raw), raw = [raw{:}]; end
+                    newAx.(field) = unique(raw, "stable");
+                end
+                nexObj.DF_postOp.ax = newAx;
+            end
+        end
+
+        function restoreItems(nexObj)
+            % Re-enumerate every category slot in the items bus from the current SRC.
+            % Calls sBus.updateScope per key — which dispatches to enumerateItemsFor —
+            % so DTS and RESULTS paths are handled automatically by the current SRC.
+            S    = nex_returnSelectionMask(nexObj.selectionBus.categories);
+            sBus = nexObj.selectionBus.items;
+            keys = fieldnames(S);
+            for i = 1:numel(keys)
+                sBus.updateScope(keys{i}, S.(keys{i}));
             end
         end
 
@@ -147,8 +211,21 @@ classdef nexObj_categorical < handle
                 nexDraw_clearViolin(nexObj);
             end
             S_categories = nex_returnSelectionMask(nexObj.selectionBus.categories);
+            S_items = nex_returnSelectionMask(nexObj.selectionBus.items);
             C_errorBar = nexObj.nexon.settings.Colors.cyberGreen;
-            nexObj.Figure.panel0.graphics.canvas = nexDraw_violin(nexObj.Figure.panel0.tiles.ax, nexObj.STAT, S_categories, C_errorBar);
+            % nexObj.Figure.panel0.graphics.canvas = nexDraw_violin(nexObj.Figure.panel0.tiles.ax, nexObj.STAT, S_categories, C_errorBar);
+            srcKey = nexObj.getCurrentSRC();
+            switch srcKey
+                case 'DTS'
+                    STAT=nexObj.STAT;
+                otherwise
+                    S_sel = outerjoinStructs(S_categories, S_items);
+                    S_sel = rmfield(S_sel,"None");
+                    STAT=nexObj.RESULTS.(srcKey);
+                    % filter using selection
+                    STAT = nexOp_filterSTAT(STAT, S_sel);
+            end
+            nexObj.Figure.panel0.graphics.canvas = nexDraw_violin(nexObj.Figure.panel0.tiles.ax, STAT, S_categories, C_errorBar);
         end
 
         function visualize(nexObj)
@@ -185,6 +262,50 @@ classdef nexObj_categorical < handle
             DF_pooled = nexOp_poolAxes(pm, nexObj.DF, ptr);
             nexObj.DF_postOp.df = DF_pooled.df;
             nexObj.DF_postOp.ax = DF_pooled.ax;
+        end
+
+        function reportSTAT(nexObj, fcn, compareVars, groupVars, resID, dfID)
+            % 1. Run base reportSTAT — calls nexOp_reportSTAT and stores the
+            %    initial comparison result in RESULTS.(resID), then refreshSRC.
+            if nargin < 6
+                reportSTAT@nexObject(nexObj, fcn, compareVars, groupVars, resID);
+            else
+                reportSTAT@nexObject(nexObj, fcn, compareVars, groupVars, resID, dfID);
+            end
+            % 2. Expand every row of RESULTS.(resID) along all DF axes.
+            %    For each row: build a DF struct, construct SS_ax covering all
+            %    ax fields at all values (full breakout), call nexStat_breakoutDF,
+            %    then replicate the row's grouping columns across the expanded rows.
+            T          = nexObj.RESULTS.(resID);
+            STRUCT_COLS = ["df","ax","ptr"];
+            rows        = cell(height(T), 1);
+            for i = 1:height(T)
+                % Unpack — table cells may wrap the values one level deep
+                df_i  = T.df(i);  if iscell(df_i),  df_i  = df_i{1};  end
+                ax_i  = T.ax(i);  if iscell(ax_i),  ax_i  = ax_i{1};  end
+                ptr_i = T.ptr(i); if iscell(ptr_i), ptr_i = ptr_i{1}; end
+                DF.df  = df_i;
+                DF.ax  = ax_i;
+                DF.ptr = ptr_i;
+                % SS_ax: all ax fields, all values → complete axis breakout.
+                % nexStat_breakoutDF expects fieldnames of the form "ax_<field>"
+                % (matches sprintf("ax_%s", axID) convention in nexStat_breakoutDF).
+                SS_ax    = struct();
+                axFields = string(fieldnames(DF.ax))';
+                for fi = 1:numel(axFields)
+                    SS_ax.(sprintf("ax_%s", axFields(fi))) = DF.ax.(char(axFields(fi)));
+                end
+                dfSet = nexStat_breakoutDF(DF, SS_ax);
+                % Replicate grouping columns (non-structural) across expanded rows
+                grpCols = string(T.Properties.VariableNames);
+                grpCols = grpCols(~ismember(grpCols, STRUCT_COLS));
+                if ~isempty(grpCols)
+                    dfSet = [dfSet, repmat(T(i, cellstr(grpCols)), height(dfSet), 1)];
+                end
+                rows{i} = dfSet;
+            end
+            nexObj.RESULTS.(resID) = cat(1, rows{:});
+            nexObj.refreshSRC();
         end
 
         function [X, Y, Z, L] = binSTAT(nexObj)

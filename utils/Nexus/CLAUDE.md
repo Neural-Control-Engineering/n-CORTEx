@@ -94,11 +94,13 @@ utils/Nexus/
 | `nexOp_*` | Operator function (slice, transform, etc.) |
 | `nexWrite_*` | Data formatting/export function |
 | `nexPlot_*` | Plotting function |
-| `nexAnalysis_*` | Standalone analysis function |
+| `nexAnalysis_*` | Standalone analysis function (agent-callable; no live objects required) |
+| `nexAgent_*` | Agent entry point or contract builder |
 | `nexExtract*` | Data extraction function |
 | `applyMethod` | Runs a configured analysis method on a timecourse dataFrame |
 | `grabDataFrame` / `grabDF` | Retrieve a named dataframe from the nexon object |
 | `grabSession` | Retrieve session data |
+| `*_fromState` | Headless object reconstructor from a saved state struct |
 
 ---
 
@@ -212,6 +214,107 @@ See `nexObj/CLAUDE.md` for the full nexObject architecture including:
 - RESULTS / reportSTAT architecture (planned)
 - applySRC cascade and PostSet listener rules
 - Window Panel slot architecture (planned)
+
+---
+
+## Agentic Analysis — Dehydrate / Rehydrate Paradigm
+
+### Core Constraint
+
+MATLAB handle classes (`nexObject`, `mdlObject`, `Nexon`) are reference types and **cannot be passed to parallel workers** (`parfeval`, `matlab -batch`, separate processes). The dehydrate-rehydrate schema is the canonical solution: serialize object state to a plain struct on the main session, reconstruct headless objects in the agent workspace from that struct.
+
+### Dehydrate — `obj.saveState()`
+
+Every `nexObject` and `mdlObject` subclass inherits `saveState()` from its base class. It returns a plain struct containing:
+
+- Identity fields: `className`, `modelID`/`classID`, `dfID_source`, `headline`
+- `domain` — axis role assignments (D1, FTR, etc.) as plain strings
+- `cfg` — all `nexObj_cfg` sub-trees serialized via `nex_serializeCfg` (primitives only; function handles are dropped and re-derived at load time)
+- `collector` — selection bus values as plain value structs
+- `selectionBus` — (nexObject only) category/item selection values
+- `fitPath` — (mdlObject only) path to saved model weights on disk
+
+What is **not** saved: live Python model objects, figure handles, Parent/nexon/Origin references, raw data arrays. These are either re-derived at construction or loaded separately via `loadFit(fitPath)`.
+
+```matlab
+% Main session — dehydrate
+state_ssm = mdlObj_ssm.saveState();
+state_ctg = nexObj_ctg.saveState();
+save('contract.mat', 'state_ssm', 'state_ctg', 'analysisCfg');
+```
+
+### Rehydrate — `*_fromState`
+
+Two standalone constructors reconstruct headless objects from a saved state:
+
+```matlab
+% Agent workspace — rehydrate
+nexon    = nexon_fromManifest(manifestPath);           % lightweight, HDF5-backed
+nexObj   = nexObj_fromState(state_ctg, nexon, []);     % nexObject subclass
+mdlObj   = mdlObj_fromState(state_ssm, nexObj, nexObj); % mdlObject subclass
+mdlObj.loadFit(state_ssm.fitPath);                     % restore trained weights
+```
+
+The reconstructed objects behave identically to their main-session counterparts. All method calls (`compileSTAT`, `fit`, `transform`, `scaleApply_transform`) work unchanged because the manifest nexon wires HDF5-backed DTS IO transparently.
+
+### Generic Cfg Utilities
+
+`nex_serializeCfg` / `nex_restoreCfg` are the shared engine behind `saveState` / `fromState` for both object families:
+
+- `nex_serializeCfg(cfg)` — walks any `nexObj_cfg` or plain struct recursively; uses `properties()` for `nexObj_cfg` (dynamicprops) and `fieldnames()` for plain structs; keeps primitives, drops function handles and handle objects
+- `nex_restoreCfg(target, serial)` — inverse walk; skips function handles already in the live target (they stay as-is), restores all primitive fields
+
+Both functions are model-agnostic: the same call handles `fitCfg`, `visCfg`, `dmCfg`, `cvCfg` — any sub-cfg regardless of content.
+
+### Manifest Nexon
+
+`nexon_fromManifest(manifestPath)` creates a lightweight `Nexon` instance with:
+- `settings.headless = true` — suppresses all figure construction
+- `console.BASE.DTS` set to the saved manifest table (h5_path + h5_root columns only; no data arrays in memory)
+- `console.BASE.controlPanel.averagingSelection` restored from saved state
+
+All `dtsIO_readDF` calls on this nexon fetch from HDF5 on demand. The full DTS is never loaded into the agent workspace.
+
+### Phase-Based Pipeline Convention
+
+Analysis pipelines are composed as **independent phases**, not monolithic chains. Each phase has one primary mdlObj and communicates with the next phase through a named artifact written to the HDF5 manifest:
+
+```
+Phase 1:  mdlObj_ssm  reads dfID "lfp"       → fits SSM, transforms, writes dfID "ssm_lfp"
+Phase 2:  mdlObj_lda  reads dfID "ssm_lfp"   → CV, scores, writes RESULTS to resultsPath
+```
+
+The "chain" is the dfID lineage in HDF5, not object linkage. Each phase is independently resumable, auditable, and agent-dispatchable.
+
+### Agent Contract and Dispatch
+
+```matlab
+% Contract schema (saved as .mat or JSON)
+contract.nexonManifestPath    % path to manifest .mat
+contract.controlPanelState    % averagingSelection values
+contract.nexObj_ctg_state     % saveState() output for the categorical nexObject
+contract.mdlObj_state         % saveState() output for the primary mdlObject
+contract.analysisID           % e.g. 'nexAnalysis_cvPermute'
+contract.analysisCfg          % nFolds, nPermute, resultID, resultsPath, ...
+```
+
+```matlab
+% nexAgent_run(contractPath) — universal agent entry point
+% Callable via:  parfeval(@nexAgent_run, 0, contractPath)
+%                matlab -batch "nexAgent_run('contract.mat')"
+function nexAgent_run(contractPath)
+    C       = load(contractPath);
+    nexon   = nexon_fromManifest(C.nexonManifestPath, C.controlPanelState);
+    nexObj  = nexObj_fromState(C.nexObj_ctg_state, nexon, []);
+    mdlObj  = mdlObj_fromState(C.mdlObj_state, nexObj, nexObj);
+    if ~isempty(mdlObj.fitPath)
+        mdlObj.loadFit(mdlObj.fitPath);
+    end
+    feval(C.analysisID, mdlObj, C.analysisCfg);
+end
+```
+
+The analysis function (`nexAnalysis_cvPermute`, `nexAnalysis_fitTransform`, etc.) takes only `(mdlObj, cfg)` — `nexObj_ctg` is already wired as `mdlObj.Parent` by `mdlObj_fromState`, so it never needs to be passed separately. The function is unaware of whether it's running in an agent or a live session.
 
 ---
 

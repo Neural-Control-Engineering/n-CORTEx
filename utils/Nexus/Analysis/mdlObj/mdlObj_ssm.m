@@ -5,11 +5,12 @@ classdef mdlObj_ssm < mdlObject
     end
 
     methods
-        function mdlObj = mdlObj_ssm(Parent, Origin, dfID_source)            
+        function mdlObj = mdlObj_ssm(Parent, Origin, dfID_source, headline)
+            if nargin < 4, headline = []; end
             % Directly import the submodule
             % args = extractMethodCfg('model_ssm');
             % neural network handle to train and infer from a neural
-            mdlObj = mdlObj@mdlObject(Parent, Origin, "ssm", dfID_source);
+            mdlObj = mdlObj@mdlObject(Parent, Origin, "ssm", dfID_source, [], headline);
             mdlObj.py.np = py.importlib.import_module('numpy');
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing');
             mdlObj.Scaler.model = sklearnPreProc.StandardScaler();
@@ -200,18 +201,38 @@ classdef mdlObj_ssm < mdlObject
         end
 
         function saveFit(mdlObj, uniqueID)
-            % save model weights
-            nexon = mdlObj.nexon;
-            params = nexon.console.BASE.params;
-            % save to FTR             
-            mdlSave.W=mdlObj.W;
-            mdlSave.model=mdlObj.model;
-            mdlSave.Reducer=mdlObj.Reducer;
-            mdlSave.Scaler=mdlObj.Scaler;
-            savePath = params.paths.Data.FTR.local;
-            savePath = fullfile(savePath,sprintf("mdlObj_ssm_%s.mat",uniqueID));
-            save(savePath,"mdlSave");            
-            fprintf("Model: %s_%s saved successfully", mdlObj.modelID, uniqueID);
+            nexon   = mdlObj.nexon;
+            rootDir = nexon.console.BASE.params.paths.Data.FTR.local;
+            fitDir  = fullfile(rootDir, sprintf("mdlObj_ssm_%s", uniqueID));
+            mkdir(fitDir);
+            LGSSM   = py.importlib.import_module('pytafix.ssm.lgssm_dynamax').LGSSM;
+            % LGSSM params (JAX arrays) → numpy .npz
+            if ~isempty(mdlObj.W)
+                mdlObj.W.save(py.str(fullfile(fitDir, "lgssm.npz")));
+            end
+            % Scaler (sklearn) → pickle
+            LGSSM.save_pickle(mdlObj.Scaler.model, py.str(fullfile(fitDir, "scaler.pkl")));
+            % Reducer (per-block sklearn models + MATLAB metadata) — writes into fitDir
+            mdlObj.Reducer.save(fitDir);
+            mdlObj.fitPath = fitDir;
+            fprintf("[mdlObj_ssm] saved: %s\n", fitDir);
+        end
+
+        function loadFit(mdlObj, fitDir)
+            if nargin < 2 || isempty(fitDir)
+                fitDir = uigetdir(pwd, "Select SSM fit folder");
+                if isequal(fitDir, 0), return; end
+            end
+            LGSSM = py.importlib.import_module('pytafix.ssm.lgssm_dynamax').LGSSM;
+            % Reconstruct LGSSM from .npz
+            mdlObj.W     = LGSSM.load(py.str(fullfile(fitDir, "lgssm.npz")));
+            mdlObj.model = mdlObj.W.model;
+            % Reconstruct Scaler from pickle
+            mdlObj.Scaler.model = LGSSM.load_pickle(py.str(fullfile(fitDir, "scaler.pkl")));
+            % Reconstruct Reducer
+            mdlObj.Reducer.load(fitDir);
+            mdlObj.fitPath = fitDir;
+            fprintf("[mdlObj_ssm] loaded: %s\n", fitDir);
         end
 
     end

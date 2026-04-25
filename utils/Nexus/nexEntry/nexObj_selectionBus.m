@@ -40,17 +40,17 @@ classdef nexObj_selectionBus < handle
         end
 
         function updateScope(obj, selectionID, selectionVal)
-            % update associated listCfg panel settings given new
-            % environment
-            % update keys and values
-            % obj.listBoxes.();
-            % obj.selections.();
-            % obj.selections;
-            %% to be updated and revised...
-            % use selectionVal to list items
-            selectionVal = convertCharsToStrings(split(selectionVal,"--")); selectionVal = selectionVal(end);
+            % Enumerate items for the given category slot and update listbox.
+            % Dispatches to enumerateItemsFor if the parent implements it
+            % (e.g. nexObj_categorical, SRC-aware), otherwise falls back to
+            % the global nexOp_enumerateCategory (DTS registry + DF_postOp.ax).
             if ~strcmp(selectionVal,"None")
-                selItems = nexOp_enumerateCategory(obj.Parent,selectionVal);
+                if ismethod(obj.Parent, "enumerateItemsFor")
+                    selItems = obj.Parent.enumerateItemsFor(selectionVal);
+                else
+                    selectionVal = convertCharsToStrings(split(selectionVal,"--")); selectionVal = selectionVal(end);
+                    selItems = nexOp_enumerateCategory(obj.Parent, selectionVal);
+                end
             else
                 selItems = "";
             end

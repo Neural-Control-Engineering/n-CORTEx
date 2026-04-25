@@ -7,7 +7,11 @@ function [idx, ax_idx] = nexOp_buildSliceIndex(ax, ptr, axSels, axVals)
         axSel = axSels(i);
         sliceRange = axVals{i};
         sliceAx = ax.(axSel);
-        sliceCond = find(ismember(sliceAx, sliceRange));
+        try
+            sliceCond = find(ismember(sliceAx, sliceRange));
+        catch
+            keyboard
+        end
         ptrDim = ptr.(axSel).dim(1); % take only first element (case of axes with same lengths - DEBUG)
         idx{ptrDim} = sliceCond;
         % try

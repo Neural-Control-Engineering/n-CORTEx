@@ -2,6 +2,7 @@ import os
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"   # allocate on demand — prevents OOM on shared GPU
 os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"]   = "platform" # return memory to CUDA when arrays are freed
 import gc
+import pickle
 import jax
 jax.config.update("jax_enable_x64", True)   # float64 — prevents covariance blow-up at high iters
 import numpy as np
@@ -303,7 +304,59 @@ class LGSSM:
 
     # ---------- utilities ----------
     def save(self, path):
-        return
+        """Serialize fitted params to .npz (all JAX arrays converted to numpy)."""
+        p = self.params
+        np.savez(str(path),
+            state_dim     = np.array(self.model.state_dim),
+            emission_dim  = np.array(self.model.emission_dim),
+            initial_mean  = np.array(p.initial.mean),
+            initial_cov   = np.array(p.initial.cov),
+            dyn_weights   = np.array(p.dynamics.weights),
+            dyn_cov       = np.array(p.dynamics.cov),
+            em_weights    = np.array(p.emissions.weights),
+            em_cov        = np.array(p.emissions.cov),
+        )
+        print(f"[lgssm] saved to {path}")
+
+    @classmethod
+    def load(cls, path):
+        """Reconstruct LGSSM instance from .npz saved by save()."""
+        data         = np.load(str(path))
+        state_dim    = int(data['state_dim'])
+        emission_dim = int(data['emission_dim'])
+        model        = LinearGaussianSSM(state_dim=state_dim, emission_dim=emission_dim)
+        params, _    = model.initialize(jr.PRNGKey(0))
+        params = params._replace(
+            initial   = params.initial._replace(
+                mean = jnp.array(data['initial_mean']),
+                cov  = jnp.array(data['initial_cov']),
+            ),
+            dynamics  = params.dynamics._replace(
+                weights = jnp.array(data['dyn_weights']),
+                cov     = jnp.array(data['dyn_cov']),
+            ),
+            emissions = params.emissions._replace(
+                weights = jnp.array(data['em_weights']),
+                cov     = jnp.array(data['em_cov']),
+            ),
+        )
+        print(f"[lgssm] loaded from {path}")
+        return cls(model, params)
+
+    @staticmethod
+    def save_pickle(obj, path):
+        """Serialize any Python object to a pickle file."""
+        with open(str(path), 'wb') as f:
+            pickle.dump(obj, f)
+        print(f"[lgssm] pickled to {path}")
+
+    @staticmethod
+    def load_pickle(path):
+        """Deserialize a pickle file."""
+        with open(str(path), 'rb') as f:
+            obj = pickle.load(f)
+        print(f"[lgssm] unpickled from {path}")
+        return obj
 
     def get_params(self):
         return

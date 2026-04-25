@@ -48,5 +48,5 @@ function nexFigure_spectroGraph(nexObj)
     load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
     colormap(nexObj.Figure.fh,CT);
     colorAx_green(nexObj.Figure.panel1.tiles.Axes.(nexObj.classID));
-    % 
+    nexObj.applyHeadline();
 end

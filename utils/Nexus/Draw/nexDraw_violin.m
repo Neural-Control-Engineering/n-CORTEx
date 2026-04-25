@@ -14,7 +14,9 @@ function V = nexDraw_violin(ax, STAT,  S_categories, C_errorBar)
     % V.v = violinplot(ax, X, Y, GroupByColor=X);    
     % label bookkeeping
     xLabels_sub = xLabels{1}; xTicks_sub = xTicks{1};
+    X = round(X,10); xTicks_sub = round(xTicks_sub,10); % floating point drift
     L = arrayfun(@(x) xLabels_sub(x==xTicks_sub), X, "UniformOutput",true);
+    % L = arrayfun(@(x) xLabels_sub(x==xTicks_sub), X, "UniformOutput",false);
     Z = nexOp_accumCols(X, Y, L);
     V.v = violinplot(ax, Z);    
     V.s = nexDraw_scatter(ax, Z, V.v);        

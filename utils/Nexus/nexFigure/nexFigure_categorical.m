@@ -12,13 +12,15 @@ function nexFigure_categorical(nexObj)
     nexObj.Figure.panel1.ph = uipanel(nexObj.Figure.fh,"Position",[710,5,wInner,680],"BackgroundColor",[0,0,0],"Scrollable","on");
 
     % Y layout — panels stacked bottom→top inside scrollable panel1:
-    %   panel6        Y=5      opFcn
-    %   panel5        Y=285    compFcn
-    %   panel4        Y=565    items selection
-    %   panel3        Y=845    categories selection
-    %   panel_pointer Y=1125   RESULTS axis navigation (Window slots)
-    %   panel_src     Y=1405   SRC + VW source selector
-    %   panel2        Y=1685   pool cfg  ← top
+    %   panel6    Y=5      opFcn
+    %   panel5    Y=285    compFcn
+    %   panel4    Y=565    items selection
+    %   panel3    Y=845    categories selection
+    %   panel_src Y=1125   SRC / CLR / CMP / GRP source+compare selector
+    %   panel2    Y=1405   pool cfg  ← top
+    %
+    % NOTE: no Pointer panel — categories/items buses serve that role
+    % NOTE: no VW panel — categories bus selects group dimensions natively
 
     %% opFcn panel
     panel6.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 5, wInner-2*gap, H_panel],"BackgroundColor",[0,0,0]);
@@ -34,19 +36,16 @@ function nexFigure_categorical(nexObj)
     panel3.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 845, wInner-2*gap, H_panel],"BackgroundColor",[0,0,0],"Scrollable","on");
     nexObj.Figure.panel3 = nexObj_listCfgPanel(nexObj.nexon, panel3, nexObj.selectionBus.categories, []);
 
-    %% Pointer panel — RESULTS axis navigation (Window panel slots, planned)
-    panel_ptr.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 1125, wInner-2*gap, H_panel],...
-        "BackgroundColor",[0,0,0],"Title","Pointer","ForegroundColor",nexObj.nexon.settings.Colors.cyberGreen);
-    nexObj.Figure.panel_pointer = panel_ptr;
-
-    %% SRC + VW + CLR panel — source selector and view group filter
-    panel_src.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 1405, wInner-2*gap, H_panel],...
-        "BackgroundColor",[0,0,0],"Title","View","ForegroundColor",nexObj.nexon.settings.Colors.cyberGreen);
+    %% SRC / CLR / CMP / GRP panel — source + compare selector
+    % No Pointer panel: categories/items buses serve that role for categorical.
+    % No VW panel: categories bus natively selects group dimensions.
+    panel_src.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 1125, wInner-2*gap, H_panel],...
+        "BackgroundColor",[0,0,0],"Title","View","ForegroundColor",nexObj.nexon.settings.Colors.cyberGreen, "Scrollable","on");
     nexObj.Figure.panel_src = panel_src;
     nex_buildCollectorViewPanel(nexObj, panel_src.ph, H_panel);
 
     %% pool cfg panel  ← top of stack
-    panel2.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 1685, wInner-2*gap, H_panel],"BackgroundColor",[0,0,0]);
+    panel2.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 1405, wInner-2*gap, H_panel],"BackgroundColor",[0,0,0]);
     poolCfgChangedFcn = str2func("poolCfgEntryChanged");
     try
         nexObj.Figure.panel2 = nexObj_poolCfgPanel_v3(nexObj, panel2, poolCfgChangedFcn);
@@ -67,5 +66,5 @@ function nexFigure_categorical(nexObj)
     nexObj.Figure.panel0.tiles.t  = tiledlayout(nexObj.Figure.panel0.ph,1,1);
     nexObj.Figure.panel0.tiles.ax = nexttile(nexObj.Figure.panel0.tiles.t);
     colorAx_green(nexObj.Figure.panel0.tiles.ax);
-
+    nexObj.applyHeadline();
 end

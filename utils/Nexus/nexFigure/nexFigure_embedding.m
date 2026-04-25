@@ -29,5 +29,5 @@ function nexFigure_embedding(nexObj)
     colormap(nexObj.Figure.fh,CT);
     % add windowKeyListner
     nexObj.keyListener = nexObj_windowKeyListener(nexObj.Figure.fh);
-    
+    nexObj.applyHeadline();
 end

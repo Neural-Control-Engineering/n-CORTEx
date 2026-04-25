@@ -3,11 +3,10 @@ classdef mdlObj_lda < mdlObject
     end
 
     methods
-        function mdlObj = mdlObj_lda(Parent, Origin, dfID_source, predictorID)            
-            if nargin < 4
-                predictorID=[];
-            end
-            mdlObj = mdlObj@mdlObject(Parent, Origin, "lda", dfID_source, predictorID);            
+        function mdlObj = mdlObj_lda(Parent, Origin, dfID_source, predictorID, headline)
+            if nargin < 4, predictorID = []; end
+            if nargin < 5, headline = []; end
+            mdlObj = mdlObj@mdlObject(Parent, Origin, "lda", dfID_source, predictorID, headline);            
             mdlObj.py.np = py.importlib.import_module('numpy');
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing'); 
             mdlObj.py.stdScaler = sklearnPreProc.StandardScaler();            

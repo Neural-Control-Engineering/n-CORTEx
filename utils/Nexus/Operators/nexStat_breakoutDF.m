@@ -33,7 +33,11 @@ function dfSet = nexStat_breakoutDF(DF, SS_ax)
             % replace coords column with actual ax coords
             axCol = coords{1,axDim};
             ax_slice_i = ax_slice.(axID);
-            axCol(:) = ax_slice_i(axCol(:));   
+            if ~isstring(ax_slice_i)         
+                axCol(:) = ax_slice_i(axCol(:));   
+            else
+                axCol = ax_slice_i(axCol(:));   
+            end
             coordCol = [coordCol, axCol'];
             axID_varName = sprintf("ax_%s",axID);
             coordIDs_varName = [coordIDs_varName, axID_varName];

@@ -4,8 +4,9 @@ classdef nexObj_monoGraph < nexObject
     end
 
     methods
-        function nexObj = nexObj_monoGraph(Parent, Origin, nexon, dfID_source, opCfgFcn, DF)
-            nexObj = nexObj@nexObject(nexon, Parent, dfID_source);
+        function nexObj = nexObj_monoGraph(Parent, Origin, nexon, dfID_source, opCfgFcn, DF, headline)
+            if nargin < 7, headline = []; end
+            nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);
             nexObj.classID = "mgph";
             if nargin >= 6
                 nexObj.DF = DF;            

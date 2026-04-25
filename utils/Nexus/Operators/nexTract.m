@@ -8,12 +8,26 @@ function nexTract(nexon, fcn, dfID, mask, fcnName)
     
     % apply analysis fcn to all rows of a DTS column indicated by dfID
     dtsRows = height(nexon.console.BASE.DTS); % visit each row
+    dfID_entry = strrep(dfID,"_df","");
+
     % minLength to truncate long recordings if necessary
-    minLength = arrayfun(@(x) size(x{1},2), nexon.console.BASE.DTS.(dfID),"UniformOutput",true);
-    minLength(minLength==0) = [];
-    minLength = min(minLength);
+    if ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames)
+        lengths = zeros(1, dtsRows);
+        for ii = 1:dtsRows
+            try
+                info = h5info(char(nexon.console.BASE.DTS.h5_path(ii)), ...
+                    char(nexon.console.BASE.DTS.h5_root(ii) + "/" + dfID_entry + "/df"));
+                lengths(ii) = info.Dataspace.Size(end);
+            catch
+            end
+        end
+        minLength = min(lengths(lengths > 0));
+    else
+        minLength = arrayfun(@(x) size(x{1},2), nexon.console.BASE.DTS.(dfID),"UniformOutput",true);
+        minLength(minLength==0) = [];
+        minLength = min(minLength);
+    end
     
-    dfID_entry = strrep(dfID,"_df",""); % get rid of df handle
     dfColName = sprintf("%s_%s", dfID_entry, fcnName);
 
     

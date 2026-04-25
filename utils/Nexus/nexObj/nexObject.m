@@ -1,6 +1,7 @@
 classdef nexObject < handle
 
     properties
+        headline
         classID
         Parent
         Partners
@@ -22,11 +23,20 @@ classdef nexObject < handle
     end
 
     methods
-        function nexObj = nexObject(nexon, Parent, dfID_source)
+        function nexObj = nexObject(nexon, Parent, dfID_source, headline)
             nexObj.nexon = nexon;
             nexObj.Parent = Parent;
             nexObj.dfID_source = dfID_source;
             nexObj.UserData.preBufferLen=3.5;
+            if nargin >= 4 && ~isempty(headline)
+                nexObj.headline = headline;
+            end
+        end
+
+        function applyHeadline(nexObj)
+            if ~isempty(nexObj.headline) && isfield(nexObj.Figure, 'fh') && isvalid(nexObj.Figure.fh)
+                nexObj.Figure.fh.Name = nexObj.headline;
+            end
         end
 
         function domain = inferDomain(nexObj)
@@ -210,25 +220,98 @@ classdef nexObject < handle
         function gif(nexObj)
         end
 
-        function [STAT, resID] = reportSTAT(nexObj, fcn, compareVars, groupVars, resID)
-            
+        function state = saveState(nexObj)
+        % Serialize selection state, cfg, and domain into a plain struct.
+        % The manifest nexon and live DTS are NOT included — those are
+        % supplied separately via nexon_fromManifest at load time.
+            state.className   = class(nexObj);
+            state.classID     = char(nexObj.classID);
+            state.dfID_source = char(nexObj.dfID_source);
+            state.headline    = char(nexObj.headline);
+            state.domain      = nexObj_serializeDomain(nexObj.domain);
+            state.cfg         = nex_serializeCfg(nexObj.cfg);
+            state.collector   = nexObj_serializeCollector(nexObj.collector);
+            if isprop(nexObj, 'selectionBus') && ~isempty(nexObj.selectionBus)
+                state.selectionBus = nexObj_serializeSelectionBus(nexObj.selectionBus);
+            end
+        end
+
+        function  reportSTAT(nexObj, fcn, compareVars, groupVars, resID, dfID)
+
+            % CFG HEADER
+            k = 2;
+
             % Split-apply groupwise-comparative fcn by groupvars (findgroups)
-
-            % Sub-selection
-
-
-            % Grouping
-            L = [];
-            G = findgroups(L);
-
-            % Apply fcn
-            splitapply(@(x1,x2) fcn(x1, x2), G);
-
-            % Store result
-            nexObj.RESULTS.(resID) = STAT;
+            if nargin < 6
+                dfID = nexObj.dfID_source;
+            end
+            nexObj.RESULTS.(resID) = nexOp_reportSTAT(nexObj, dfID, fcn, compareVars, groupVars, k);
+            % UPDATE UI
+            if ismethod(nexObj,"refreshSRC")
+                nexObj.refreshSRC();
+            end
         end
 
 
     end
 
+end
+
+% ── Local serialization helpers ───────────────────────────────────────────────
+
+function dom = nexObj_serializeDomain(domain)
+    dom = struct();
+    if isempty(domain), return; end
+    fields = fieldnames(domain);
+    for i = 1:numel(fields)
+        f   = fields{i};
+        val = domain.(f);
+        if isstring(val) || ischar(val) || isnumeric(val)
+            dom.(f) = val;
+        end
+    end
+end
+
+function col = nexObj_serializeCollector(collector)
+    col = struct();
+    if isempty(collector), return; end
+    fields = fieldnames(collector);
+    for i = 1:numel(fields)
+        f   = fields{i};
+        val = collector.(f);
+        if isa(val, 'nexObj_selectionBus')
+            col.(f) = nex_returnSelectionMask(val);
+        elseif isstruct(val)
+            col.(f) = nexObj_serializePrimitives(val);
+        elseif isstring(val) || ischar(val) || isnumeric(val) || islogical(val)
+            col.(f) = val;
+        end
+    end
+end
+
+function sbs = nexObj_serializeSelectionBus(selectionBus)
+    sbs = struct();
+    if isempty(selectionBus), return; end
+    fields = fieldnames(selectionBus);
+    for i = 1:numel(fields)
+        f   = fields{i};
+        bus = selectionBus.(f);
+        if isa(bus, 'nexObj_selectionBus')
+            sbs.(f) = nex_returnSelectionMask(bus);
+        end
+    end
+end
+
+function out = nexObj_serializePrimitives(s)
+    out = struct();
+    fields = fieldnames(s);
+    for i = 1:numel(fields)
+        f   = fields{i};
+        val = s.(f);
+        if isstring(val) || ischar(val) || isnumeric(val) || islogical(val)
+            out.(f) = val;
+        elseif isstruct(val)
+            out.(f) = nexObj_serializePrimitives(val);
+        end
+    end
 end

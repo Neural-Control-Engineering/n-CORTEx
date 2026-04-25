@@ -101,4 +101,5 @@ function nexFigure_monoGram(nexObj)
         "Visualization/RealtimeVis/cmap-cyberGreen.mat"));
     colormap(nexObj.Figure.fh, CT);
     colorAx_green(nexObj.Figure.panel0.tiles.ax);
+    nexObj.applyHeadline();
 end

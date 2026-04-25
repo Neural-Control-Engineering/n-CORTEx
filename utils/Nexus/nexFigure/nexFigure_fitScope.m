@@ -85,6 +85,5 @@ function nexFigure_fitScope(nexObj)
     catch
     end
     colorAx_green(ax_canvas);
-
-
+    nexObj.applyHeadline();
 end

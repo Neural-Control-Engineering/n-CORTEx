@@ -21,12 +21,16 @@ classdef nexObj_myThing < nexObject
 ## 2. Constructor signature
 
 ```matlab
-function nexObj = nexObj_myThing(nexon, Parent, dfID_source, opCfgFcn, domain)
+function nexObj = nexObj_myThing(nexon, Parent, dfID_source, opCfgFcn, domain, headline)
+    if nargin < 6, headline = []; end
 ```
 
 - If `Parent` provided, pull `nexon` from it: `nexon = Parent.nexon;`
-- Call super: `nexObj = nexObj@nexObject(nexon, Parent, dfID_source);`
+- Call super: `nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);`
 - Set `nexObj.classID = "xyz";` (short unique tag)
+- `headline` is optional — when non-empty, `applyHeadline()` sets `Figure.fh.Name` (window
+  title bar) after the figure is built. All existing nexObj subclasses accept it as their
+  last positional argument.
 
 ---
 

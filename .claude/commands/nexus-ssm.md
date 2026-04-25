@@ -104,3 +104,57 @@ close to the solution and spends iterations on dynamics/noise refinement, not re
 passing to `fit()` so covariance initialization scales correctly. The `data_var` in Fix 4
 assumes standardized data (variance ≈ 1 per channel); if not standardized, `data_var` will
 still adapt correctly but the 0.1 prefactors on Q/R may need tuning.
+
+---
+
+## Headline
+
+`mdlObj_ssm` accepts an optional `headline` arg (last positional):
+
+```matlab
+mdlObj = mdlObj_ssm(Parent, Origin, dfID_source, headline)
+```
+
+Passed through to `mdlObject` base constructor → `applyHeadline()` sets `Figure.fh.Name`
+after the figure is built. Pass `[]` or omit to leave the title bar at the MATLAB default.
+
+---
+
+## Save / Load
+
+MATLAB `save()` cannot serialize Python handles. `saveFit` / `loadFit` route each artifact
+through the appropriate serializer into a single self-contained folder:
+
+```
+FTR/mdlObj_ssm_{uniqueID}/
+    lgssm.npz              ← JAX params as numpy arrays   (LGSSM.save / LGSSM.load)
+    scaler.pkl             ← sklearn StandardScaler        (LGSSM.save_pickle / load_pickle)
+    reducer_models.pkl     ← cell of per-block sklearn models (pickle via mdlObj_reducer)
+    reducer_meta.mat       ← block indices, binEdges, modelID  (MATLAB save/load)
+```
+
+**Save:**
+```matlab
+mdlObj.saveFit("myExperiment_20260420");
+```
+
+**Load** (folder picker or explicit path):
+```matlab
+mdlObj.loadFit();                                  % opens uigetdir
+mdlObj.loadFit("/path/to/mdlObj_ssm_myExperiment_20260420");
+```
+
+### Python serialization helpers (`lgssm_dynamax.LGSSM`)
+
+| Method | Purpose |
+|--------|---------|
+| `LGSSM.save(path)` | Extract all JAX arrays → `numpy.savez` |
+| `LGSSM.load(path)` | Reconstruct `LinearGaussianSSM` + params from `.npz` |
+| `LGSSM.save_pickle(obj, path)` | Generic pickle — used for scaler and any other Python object |
+| `LGSSM.load_pickle(path)` | Generic unpickle |
+
+### Reducer save / load (`mdlObj_reducer`)
+
+`mdlObj_reducer.save(fitDir)` / `load(fitDir)` handle their own artifacts internally.
+Uses `pickle` directly (not through LGSSM) — the Reducer is model-agnostic (PCA, etc.).
+MATLAB metadata (`ax`, `modelID`, `nComponents`) saved separately to `reducer_meta.mat`.

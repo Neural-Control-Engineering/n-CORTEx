@@ -9,13 +9,14 @@ classdef nexObj_stateSpace < nexObject
     methods
 
         % ── Constructor ───────────────────────────────────────────────────
-        function nexObj = nexObj_stateSpace(nexon, Parent, Partner, dfID_source)
+        function nexObj = nexObj_stateSpace(nexon, Parent, Partner, dfID_source, headline)
             % dfID_source : optional — if provided, DF is loaded from DTS and
             %               used to seed domain/ptr axes. If empty, axes are
             %               inherited from Partner.DF_postOp where available.
             if nargin < 4, dfID_source = []; end
+            if nargin < 5, headline = []; end
 
-            nexObj = nexObj@nexObject(nexon, Parent, dfID_source);
+            nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);
             nexObj.classID = "stspc";
 
             %% Partner

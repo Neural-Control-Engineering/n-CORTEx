@@ -6,6 +6,7 @@ function avgSelection = nexSelect_averaging(nexObj)
     avgingDict.phase = parseSessionLabelUnique(sessionLabels,"phase");
     avgingDict.date = parseSessionLabelUnique(sessionLabels,"date");
     % dynamically retrieve slrt signal types
+    % signalTags = dtsIO_listSignals(nexon.console.BASE.DTS, ["tag","affix"]);
     signalTags = dtsIO_listSignals(nexon.console.BASE.DTS, ["tag","affix"]);
     sigTagsDict = dtsIO_buildDictionary(nexon.console.BASE.DTS, signalTags);    
     % merge signal tags with avging dict

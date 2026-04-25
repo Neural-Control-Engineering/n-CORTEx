@@ -63,7 +63,5 @@ function nexFigure_pixelGram(nexObj)
     % colormap(nexObj.Figure.panel0.tiles.ax,CT);
     % colorbar(nexObj.Figure.panel0.tiles.ax,"Color",nexObj.nexon.settings.Colors.cyberGreen);
     colorAx_green(nexObj.Figure.panel0.tiles.ax);
-
-
-
+    nexObj.applyHeadline();
 end

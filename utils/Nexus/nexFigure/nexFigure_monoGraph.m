@@ -72,5 +72,5 @@ function nexFigure_monoGraph(nexObj)
     load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path,"Visualization/RealtimeVis/cmap-cyberGreen.mat"));
     colormap(nexObj.Figure.fh,CT);
     colorAx_green(nexObj.Figure.panel0.tiles.ax);
-    % 
+    nexObj.applyHeadline();
 end
