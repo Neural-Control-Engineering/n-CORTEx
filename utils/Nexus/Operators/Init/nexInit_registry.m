@@ -15,7 +15,13 @@ function  nexInit_registry(nexon)
         signalKey = categories_signalTypes(i);
         signalKey_parts = split(signalKey,"--");
         signalKey_part = signalKey_parts(end);
-        signalVals = unique(nexon.console.BASE.DTS.(signalKey_part));
+        try
+            signalVals = unique(nexon.console.BASE.DTS.(signalKey_part));
+        catch
+            dfCol = dtsIO_readTFH5(nexon.console.BASE.DTS, signalKey_part, [],'simple');
+            dfCol = cat(1,dfCol{:});
+            signalVals = unique(dfCol);
+        end
         nexon.console.BASE.registry.categories.(signalKey_part) = signalVals;
     end
     %% LUT — color lookup tables (label → hex color), one per sessionLabel category.

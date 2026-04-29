@@ -18,8 +18,13 @@ function dtsIO_writeDF_toHDF5(h5File, h5Root, DFID, DF)
         axFields = fieldnames(DF.ax);
         for k = 1:numel(axFields)
             suf = axFields{k};
-            if any(strcmp(axisKeyWords, suf)) && ~isempty(DF.ax.(suf))
-                h5writeSafe(h5File, [h5Root '/' DFID '/' suf], double(DF.ax.(suf)));
+            val = DF.ax.(suf);
+            if isempty(val), continue; end
+            if isnumeric(val) && any(strcmp(axisKeyWords, suf))
+                h5writeSafe(h5File, [h5Root '/' DFID '/' suf], double(val));
+            elseif isstring(val) || iscellstr(val)
+                % String axes bypass axisKeyWords — they are always intentional.
+                h5writeStringSafe(h5File, [h5Root '/' DFID '/' suf], val);
             end
         end
     end
@@ -69,12 +74,58 @@ function dimOrder = resolveDimOrder(DF)
 end
 
 function h5writeSafe(h5File, dset, arr)
+    persistent deleteCounts;
+    if isempty(deleteCounts), deleteCounts = containers.Map('KeyType','char','ValueType','double'); end
+    repackThreshold = 50;
+
     try
         h5create(h5File, dset, size(arr), 'Datatype', 'double');
     catch ME
         if ~contains(ME.message, 'already exists')
             rethrow(ME);
         end
+        % Dataset exists — delete and recreate so that overwriting with a
+        % different shape never errors. HDF5 fixed-size datasets cannot be
+        % resized in place; delete+recreate is the only portable solution.
+        fid = H5F.open(h5File, 'H5F_ACC_RDWR', 'H5P_DEFAULT');
+        H5L.delete(fid, dset, 'H5P_DEFAULT');
+        H5F.close(fid);
+        h5create(h5File, dset, size(arr), 'Datatype', 'double');
+
+        % Track dead-space accumulation per file; repack periodically.
+        if deleteCounts.isKey(h5File)
+            deleteCounts(h5File) = deleteCounts(h5File) + 1;
+        else
+            deleteCounts(h5File) = 1;
+        end
+        if deleteCounts(h5File) >= repackThreshold
+            h5repackSafe(h5File);
+            deleteCounts(h5File) = 0;
+        end
     end
     h5write(h5File, dset, arr);
+end
+
+function h5repackSafe(h5File)
+% Defragment h5File in-place via h5repack to reclaim space from deleted datasets.
+% Silently skips if h5repack is not on PATH.
+    tmp = [h5File '.repack_tmp'];
+    [status, ~] = system(sprintf('h5repack "%s" "%s"', h5File, tmp));
+    if status == 0 && isfile(tmp)
+        movefile(tmp, h5File, 'f');
+    elseif isfile(tmp)
+        delete(tmp);
+    end
+end
+
+function h5writeStringSafe(h5File, dset, val)
+    c = cellstr(val);   % normalise string/cellstr → cell of chars
+    try
+        h5create(h5File, dset, size(c), 'Datatype', 'string');
+    catch ME
+        if ~contains(ME.message, 'already exists')
+            rethrow(ME);
+        end
+    end
+    h5write(h5File, dset, c);
 end

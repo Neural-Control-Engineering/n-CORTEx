@@ -10,13 +10,12 @@ function selCond = nex_applySelectionMask(DTS, S)
         % read TF by category
         % prepare categoryLabel (find var type and append; 'var' for table var and 'sessionLabel' for sessionLabel-nested var)
         categoryType = dtsIO_classifyCategory(DTS, key);
-        category = sprintf("%s--%s", categoryType,key);
-        if ~strcmp(key,"None")
-            TF = dtsIO_readTF_category(DTS, category, ':');
-            matchingRows = dtsIO_findMatchingRows(keySel, TF);
-        else
-            continue
+        if strcmp(key, "None") || isempty(categoryType)
+            continue;
         end
+        category = sprintf("%s--%s", categoryType, key);
+        TF = dtsIO_readTF_category(DTS, category, ':');
+        matchingRows = dtsIO_findMatchingRows(keySel, TF);
         
         % selCond = (selCond &  matchingRows);   
 

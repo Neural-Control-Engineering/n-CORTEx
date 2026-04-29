@@ -17,6 +17,7 @@ function nexon = startNexus(params, DTS)
     % nexon.console.base.UserData.params = params;    
     nexon.console.BASE = nexPanel_BASE(nexon, DTS, params);     
     if ~isempty(DTS)
+        signal_types = dtsIO_readTF(nexon,'signal_types',[]);
         nexon.console.BASE.controlPanel = nexObj_controlPanel(nexon);    
         try
             nexon.console.BASE.router.UserData.subjectDir = fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subject);        

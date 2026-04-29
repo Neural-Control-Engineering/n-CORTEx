@@ -52,7 +52,8 @@ classdef npxls_shank < handle
             %     dataFrame = grabDataFrame(nexon,"lfp_df",[]);
             % end
             % nexObj.DF = lfp2DF(dataFrame, df_t);            
-            nexObj.DF = dtsIO_readDF(nexObj.nexon, "lfp",[]);
+            % nexObj.DF = dtsIO_readDF(nexObj.nexon, "lfp_df",[]);
+            nexObj.DF = dtsIO_readHDF5(nexObj.nexon, 'lfp',[]);
             nexObj.DF_postOp = nexObj.DF;            
             % nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, dataFrame, "lfp");
             nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, nexObj.DF, "lfp");

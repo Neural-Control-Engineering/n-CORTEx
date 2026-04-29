@@ -1,23 +1,30 @@
 function categoryType = dtsIO_classifyCategory(DTS, category)
-    % search the datastore
     dtsVars = DTS.Properties.VariableNames;
-    % priority 1 (sessionLabel)
+
+    % Priority 1: sessionLabel-nested field
     TF_sl = DTS.sessionLabel;
-    TF = cellfun(@(var) parseSessionLabel(convertCharsToStrings(var), category), TF_sl, "UniformOutput", false);
-    % TF_sl = dtsIO_readTF_category(DTS, category, []);
-    % TF_t = cellfun(@(var) parseSessionLabel(convertCharsToStrings(var), "vhtScore"), TF_sl, "UniformOutput", false);
-    TF = cat(1,TF{:});
-    if isempty(TF)
-        % priority 2 (var)
-        isVar = ismember(category, dtsVars);
-        if isVar
-            categoryType = "var"; % did find key in the other var columns
-        else
-            categoryType = [];
-        end
-    else
-        categoryType = "sessionLabel"; % did find key in the sessionLabel column
+    TF    = cellfun(@(var) parseSessionLabel(convertCharsToStrings(var), category), ...
+                    TF_sl, "UniformOutput", false);
+    TF    = cat(1, TF{:});
+    if ~isempty(TF)
+        categoryType = "sessionLabel";
+        return;
     end
-    
-    % identify and return
+
+    % Priority 2: direct manifest table column
+    if ismember(category, dtsVars)
+        categoryType = "var";
+        return;
+    end
+
+    % Priority 3: HDF5 dfID (disk-backed manifest only)
+    if ismember('h5_path', dtsVars)
+        allIDs = dtsIO_readDFIDs(DTS);
+        if ismember(category, allIDs)
+            categoryType = "h5";
+            return;
+        end
+    end
+
+    categoryType = [];
 end

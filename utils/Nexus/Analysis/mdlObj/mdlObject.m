@@ -85,8 +85,8 @@ classdef mdlObject < handle
                 end
             end
             % PARAMS INIT
-            mdlObj.cfg.cvCfg.entryParams.numFolds=5;
-            mdlObj.cfg.cvCfg.entryParams.isShuffle=0;
+            mdlObj.cfg.cvCfg.entryParams.nFolds=5;
+            mdlObj.cfg.cvCfg.entryParams.nPermute=50;
             fitFcn_str = sprintf("nexFit_%s",mdlObj.modelID);
             mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func(fitFcn_str));
             mdlObj.cfg.dmCfg.format="stack";
@@ -108,20 +108,30 @@ classdef mdlObject < handle
         end
 
         function initTargetBus(mdlObj)
-            % Seed collector.Target.Y from Origin's categorical column names.
-            % Called by supervised predictor subclasses (lda, logistic, linear).
-            % The figure adds a dropdown to change it interactively.
+            % Seed collector.Target.Y from Origin's categorical column names
+            % plus any HDF5 dfIDs present in the active DTS.
             try
                 S_cat  = nex_returnSelectionMask(mdlObj.Origin.selectionBus.categories);
                 catIDs = string(struct2cell(S_cat))';
                 catIDs = strrep(catIDs(~strcmp(catIDs, "None")), "--", "_");
                 if isempty(catIDs), catIDs = "sessionLabel_phase"; end
-                mdlObj.collector.Target.Y       = catIDs(1);
-                mdlObj.collector.Target.options = catIDs;
             catch
-                mdlObj.collector.Target.Y       = "sessionLabel_phase";
-                mdlObj.collector.Target.options = "sessionLabel_phase";
+                catIDs = "sessionLabel_phase";
             end
+
+            % Append HDF5 dfIDs so numeric per-trial columns (e.g. withdrawalScore)
+            % are selectable as regression targets.
+            try
+                DTS      = mdlObj.nexon.console.BASE.DTS;
+                allIDs   = dtsIO_readDFIDs(DTS);
+                exclude  = ["sessionLabel","trialNumber","h5_path","h5_root"];
+                h5IDs    = allIDs(~ismember(allIDs, [catIDs, exclude]));
+                catIDs   = [catIDs, h5IDs];
+            catch
+            end
+
+            mdlObj.collector.Target.Y       = catIDs(1);
+            mdlObj.collector.Target.options = catIDs;
             mdlObj.applyTargetBus();
         end
 
@@ -131,6 +141,15 @@ classdef mdlObject < handle
             if isfield(mdlObj.collector, 'Target') && isfield(mdlObj.collector.Target, 'Y')
                 mdlObj.dfID_target = string(mdlObj.collector.Target.Y);
             end
+        end
+
+        function applyDomainBus(mdlObj)
+            % Sync mdlObj.domain from collector.Domain selections.
+            % Called after any interactive Domain listbox change.
+            if ~isfield(mdlObj.collector, 'Domain'), return; end
+            sel = nex_returnSelectionMask(mdlObj.collector.Domain);
+            if isfield(sel, 'D1')  && ~isempty(sel.D1),  mdlObj.domain.D1  = string(sel.D1);  end
+            if isfield(sel, 'FTR') && ~isempty(sel.FTR), mdlObj.domain.FTR = string(sel.FTR); end
         end
 
         function applyHeadline(mdlObj)
@@ -288,7 +307,7 @@ classdef mdlObject < handle
             end
         end
 
-        function compileSTAT(mdlObj)
+        function [STAT, idxSel] = compileSTAT(mdlObj)
             % use categorical parent selection to compile dfID_source relative STAT
             % table
             Parent = mdlObj.Parent;
@@ -296,7 +315,7 @@ classdef mdlObject < handle
             if strcmp(parentClass,"nexObj_categorical") % if parent is categorical
                 S_categories = nex_returnSelectionMask(Parent.selectionBus.categories);
                 S_items = nex_returnSelectionMask(Parent.selectionBus.items);
-                STAT = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
+                [STAT, idxSel] = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
                 % STAT = nexOp_compileSTAT(Parent, mdlObj.dfID_source, S_categories, S_items, []);
             elseif contains(parentClass,"mdlObj") % if parent is a model
                 STAT = Parent.transformSTAT(Parent.STAT);
@@ -320,6 +339,12 @@ classdef mdlObject < handle
             DF_ptr = table2struct(STAT(1,:)); DF_ptr = rmfield(DF_ptr,"ptr");
             DF_ptr =nex_initAxisPointer_v2(DF_ptr);
             STAT.ptr = repmat(DF_ptr.ptr,height(STAT),1);
+
+            % Apply Pointer window if user has made an axis selection
+            if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
+                STAT = mdlObj.applyPointer(STAT);
+            end
+
             mdlObj.STAT=STAT;
         end
 
@@ -333,6 +358,18 @@ classdef mdlObject < handle
             TF_Z_cat = cat(1, TF_Z{:});
             STAT_tf=struct2table(TF_Z_cat);
             % STAT_tf = STAT_in.transform();
+        end
+
+        function cvPermute(mdlObj)
+           
+            args = mdlObj.cfg.cvCfg.entryParams;
+
+            % CFG HEADER
+            nFolds = args.nFolds; % default = 5
+            nPermute = args.nPermute; % default = 50
+
+            nexAnalysis_cvPermute(mdlObj);
+            
         end
 
         function crossValidate(mdlObj)
@@ -511,6 +548,63 @@ classdef mdlObject < handle
             state.collector   = mdlObj_serializeCollector(mdlObj.collector);
         end
 
+        function STAT = applyPointer(mdlObj, STAT)
+        % Slice STAT.df along any axis where the Pointer bus has a
+        % multi-item selection.  Single-item selections (initSel=1 default)
+        % are treated as "no window" so the default state is pass-through.
+            bus      = mdlObj.collector.Pointer;
+            axFields = fieldnames(bus.selections);
+            anyChanged = false;
+
+            for i = 1:numel(axFields)
+                f      = axFields{i};
+                selIdx = bus.selections.(f);
+
+                % Default (scalar 1) or single item → skip
+                if numel(selIdx) <= 1, continue; end
+
+                allVals      = bus.selKeys.(f);
+                selectedVals = allVals(selIdx);
+                if numel(selectedVals) == numel(allVals), continue; end
+
+                if ~isfield(STAT.ax(1), f) || ~isprop(STAT.ptr(1), f)
+                    continue;
+                end
+
+                statVals = STAT.ax(1).(f);
+                if isnumeric(selectedVals) && isnumeric(statVals)
+                    scale = max(abs(double(statVals(:))));
+                    if scale == 0, scale = 1; end
+                    [tf, loc] = ismembertol(double(selectedVals(:)), double(statVals(:)), ...
+                                            1e-3, 'DataScale', scale);
+                    dimIdx = sort(loc(tf));
+                else
+                    [~, dimIdx] = ismember(selectedVals, statVals);
+                    dimIdx = sort(dimIdx(dimIdx > 0));
+                end
+                if isempty(dimIdx) || numel(dimIdx) == numel(statVals), continue; end
+
+                dim     = STAT.ptr(1).(f).dim;
+                STAT.df = cellfun(@(df) ptrSliceDim(df, dim, dimIdx), ...
+                                  STAT.df, 'UniformOutput', false);
+
+                newAx   = STAT.ax(1);
+                newAx.(f) = statVals(dimIdx);
+                STAT.ax = repmat(newAx, height(STAT), 1);
+
+                fprintf('[mdlObject] applyPointer: %s  [%d → %d]\n', ...
+                        f, numel(statVals), numel(dimIdx));
+                anyChanged = true;
+            end
+
+            if anyChanged
+                DF_ptr = table2struct(STAT(1,:));
+                DF_ptr = rmfield(DF_ptr, 'ptr');
+                DF_ptr = nex_initAxisPointer_v2(DF_ptr);
+                STAT.ptr = repmat(DF_ptr.ptr, height(STAT), 1);
+            end
+        end
+
     end
 end
 
@@ -558,4 +652,10 @@ function out = mdlObj_serializePrimitives(s)
             out.(f) = mdlObj_serializePrimitives(val);
         end
     end
+end
+
+function X = ptrSliceDim(A, dim, idx)
+    S      = repmat({':'}, 1, ndims(A));
+    S{dim} = idx;
+    X      = A(S{:});
 end

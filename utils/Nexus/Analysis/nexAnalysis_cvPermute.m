@@ -1,4 +1,4 @@
-function nexAnalysis_cvPermute(mdlObj, cvCfg)
+function nexAnalysis_cvPermute(mdlObj, resultID)
 % N-fold cross-validation with permutation null distribution.
 %
 %   nexAnalysis_cvPermute(mdlObj, cvCfg)
@@ -9,8 +9,6 @@ function nexAnalysis_cvPermute(mdlObj, cvCfg)
 %   cvCfg  : struct with fields:
 %              nFolds      — number of CV folds
 %              nPermute    — number of permutation iterations
-%              resultID    — key written to mdlObj.RESULTS
-%              resultsPath — (optional) .mat path to save result
 %
 % Folds are split at trial level to prevent data leakage across time.
 % Permutations shuffle trial-level Y (preserving within-trial temporal
@@ -26,15 +24,18 @@ function nexAnalysis_cvPermute(mdlObj, cvCfg)
 %   .ax.permute              ["real", "null_001", ...]
 %   .ax.(outerAxisID)        e.g. ["NULL","STN",...] (if outer axis present)
 
+    cvCfg = mdlObj.cfg.cvCfg.entryParams;
+
     nFolds   = cvCfg.nFolds;
-    nPermute = cvCfg.nPermute;
-    resultID = cvCfg.resultID;
+    nPermute = cvCfg.nPermute;    
 
     % ── 1. Compile full STAT ─────────────────────────────────────────────────
-    mdlObj.compileSTAT();
-    STAT_full = mdlObj.STAT;
-    nTrials   = height(STAT_full);
+    [STAT_full, idxSel] = mdlObj.compileSTAT();    
     tVar      = char(mdlObj.dfID_target);
+    Y_all = dtsIO_readTF(mdlObj.nexon, tVar, idxSel, 'simple');
+    STAT_full.(tVar)=Y_all;
+    nTrials   = height(STAT_full);
+    
     fitArgs   = mdlObj.cfg.fitCfg.entryParams;
     dmFcn     = str2func(sprintf('stat2dm_%s', mdlObj.cfg.dmCfg.format));
 
@@ -57,7 +58,7 @@ function nexAnalysis_cvPermute(mdlObj, cvCfg)
     end
 
     % ── 3. Y type and trial-level fold allocation ────────────────────────────
-    Y_all  = STAT_full.(tVar);
+    % Y_all  = STAT_full.(tVar;    
     if iscell(Y_all), Y_flat = [Y_all{:}]'; else, Y_flat = Y_all(:); end
     isCont = isnumeric(Y_flat);
 
@@ -144,25 +145,38 @@ end
 
 
 % ── Stack TEST.STAT, predict, return fold score ───────────────────────────────
+% Fit functions that do feature extraction (TDR, trajectory geometry, LDS) store
+% W.buildTestX = @(STAT_test) and W.isTrialLevel = true/false.
+% If present, buildTestX is used instead of the default sample-stacking path.
 function score = scoreFold(mdlObj, tVar, isCont)
     STAT_test = mdlObj.TEST.STAT;
-    X_test    = nexOp_stackSamples(STAT_test, "stack", mdlObj.domain.D1);
 
-    Y_trial = STAT_test.(tVar);
+    % Route through method-specific projection if registered, else trial-mean.
+    if isstruct(mdlObj.W) && isfield(mdlObj.W, 'buildTestX') && ~isempty(mdlObj.W.buildTestX)
+        X_test       = mdlObj.W.buildTestX(STAT_test);
+        isTrialLevel = isstruct(mdlObj.W) && isfield(mdlObj.W, 'isTrialLevel') && mdlObj.W.isTrialLevel;
+    else
+        % Trial-averaged features to match stat2dm_regression training DM
+        d1    = char(mdlObj.domain.D1(1));
+        d1dim = STAT_test.ptr(1).(d1).dim;
+        X_test       = cell2mat(cellfun(@(df) mean(df, d1dim), STAT_test.df, 'UniformOutput', false));
+        isTrialLevel = true;
+    end
+
+    Y_trial   = STAT_test.(tVar);
     if iscell(Y_trial), Y_trial = [Y_trial{:}]'; end
-    nRowsTest = cellfun(@(df) size(df,1), STAT_test.df);
 
     if isCont
-        Y_test = double(repelem(double(Y_trial(:)), nRowsTest));
+        Y_test = double(Y_trial(:));
         Y_pred = mdlObj.predict(X_test);
         cc     = corrcoef(Y_test(:), Y_pred(:));
         score  = cc(1,2)^2;
     else
-        Y_test    = repelem(string(Y_trial(:)), nRowsTest);
-        np        = py.importlib.import_module('numpy');
-        Y_py      = mdlObj.model.predict(np.array(double(X_test)));
-        Y_pred    = string(cellfun(@char, cell(Y_py), 'UniformOutput', false));
-        score     = balancedAccuracy(Y_test, Y_pred);
+        Y_test = string(Y_trial(:));
+        np     = py.importlib.import_module('numpy');
+        Y_py   = mdlObj.model.predict(np.array(double(X_test)));
+        Y_pred = string(cellfun(@char, cell(Y_py), 'UniformOutput', false));
+        score  = balancedAccuracy(Y_test, Y_pred);
     end
 end
 

@@ -1,12 +1,20 @@
 function DM = stat2dm_regression(mdlObj)
 % Build design matrix for continuous-target regression.
-% X: all trial time points stacked (T_total × features).
-% Y: trial-level target replicated once per time point so sizes match.
+% X: trial-averaged features [nTrials × nFeatures] — one row per trial.
+% Y: trial-level target [nTrials × 1].
+%
+% Averaging over the time axis (D1) rather than stacking all samples keeps
+% the regression at the trial level so the Lasso/Ridge gradient is not
+% diluted across 5000+ within-trial samples, each with the same Y label.
     STAT = mdlObj.TRAIN.STAT;
-    DM.X = nexOp_stackSamples(STAT, "stack", mdlObj.domain.D1);
-    % Trial-level Y — replicate each value across its trial's T_i time points
+    d1   = char(mdlObj.domain.D1(1));
+
+    % Per-trial mean over the D1 (time) axis → [nTrials × nFeatures]
+    ptr = STAT.ptr(1);
+    d1dim = ptr.(d1).dim;
+    DM.X = cell2mat(cellfun(@(df) mean(df, d1dim), STAT.df, 'UniformOutput', false));
+
     Y_trial = STAT.(char(mdlObj.dfID_target));
     if iscell(Y_trial), Y_trial = [Y_trial{:}]'; end
-    nRows = cellfun(@(df) size(df,1), STAT.df);
-    DM.Y  = double(repelem(double(Y_trial(:)), nRows));
+    DM.Y = double(Y_trial(:));
 end

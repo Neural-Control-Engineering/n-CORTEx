@@ -34,7 +34,11 @@ classdef nexObj_categorical < nexObject
             nexObj.cfg.opCfg=[];
             nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_categorical"));
             % retrieve dataframe
-            nexObj.DF = dtsIO_readDF(nexObj.nexon, nexObj.dfID_source, []);
+            DF = dtsIO_readDF(nexObj.nexon, nexObj.dfID_source, []);
+            if isempty(DF) || isempty(fieldnames(DF))
+                DF = dtsIO_readHDF5(nexObj.nexon, char(nexObj.dfID_source), []);
+            end
+            nexObj.DF=DF;            
             % compute result
             nexObj.compute();
             % axis control

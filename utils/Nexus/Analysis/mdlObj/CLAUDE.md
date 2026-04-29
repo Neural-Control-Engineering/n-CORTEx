@@ -109,6 +109,65 @@ The chain is the dfID lineage in HDF5. No live Predictor link is required betwee
 
 ---
 
+## Collector Architecture for Predictor mdlObjects (linear, lda, logistic)
+
+Predictor mdlObjects own a `collector` with three buses, initialized in `nexFigure_<modelID>`:
+
+### `collector.View`  — initialized via `nexInit_collectorView(mdlObj, viewDict)`
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `SRC` | `"fit"` | Active artifact. `"fit"` = current in-memory fit. Any key in `RESULTS` = a stored comparative result. |
+| `VW` | `""` | Group/row labels from the active `RESULTS.(srcKey)` table. One item per row. All selected by default. |
+| `CLR` | `""` | Column for per-point colorization; unused by default. |
+
+`SRC` for mdlObjects defaults to `"fit"` (not `"DF"`) because there is no live router/DTS path — the model has already been trained.
+
+### `collector.Domain` — initialized via `buildSelection(mdlObj, domainDict)`
+
+| Key | Values | Meaning |
+|-----|--------|---------|
+| `D1` | axis names from `Origin.DF_postOp.ax` | Primary axis (always `"t"` for mdlObjects) |
+| `FTR` | same axis names | Feature selection axis |
+
+### `collector.Pointer` — initialized via `buildSelection(mdlObj, ptrDict)`
+
+One key per non-`latent` axis in `Origin.DF_postOp.ax`. Values = axis tick labels. Used to window into the active result's `df` axes (e.g. `regionDropout`, `f`, `chans`). Built at figure init from `Origin.DF_postOp.ax`; rebuilt via `refreshPointer()` when axes change.
+
+---
+
+## VW Bus and RESULTS Table Shape
+
+`RESULTS.(resultID)` is a STAT-shaped table where **each row = one group/condition** being compared. This is the direct output of `nexOp_reportSTAT(nexObj, dfID, fcn, compareVars, groupVars, k)`:
+
+- `compareVars` — defines the comparison axis (e.g. `"sessionLabel_phase"` → phases compared pairwise)
+- `groupVars` — defines stratification (e.g. `"sessionLabel_subj"` → within each subject)
+- Each row in the resulting STAT table carries the DF result for one (groupVar × compareVar) combination
+
+**VW items = non-structural row-label columns** (`setdiff(columnNames, ["df","ax","ptr","avgCfg"])`). Selecting multiple VW items overlays those group traces on the canvas. `refreshVW(resultID)` builds row labels by joining grouping column values with ` | ` and wires them into the listbox.
+
+For `nexAnalysis_cvPermute` results stored as plain DF structs (not tables), `refreshVW` creates a single VW item from `resultID`. The outer axis (e.g. `regionDropout`) is navigated via `collector.Pointer`, not VW.
+
+---
+
+## Results Lifecycle
+
+```matlab
+% Store a result and switch the canvas to it:
+mdlObj.storeResult(resultID, STAT_or_DF)
+
+% Manually switch source view:
+mdlObj.applySRC('fit')          % → scatter Y_pred vs Y_actual, VW hidden
+mdlObj.applySRC(resultID)       % → show VW panel, populate from RESULTS rows, render
+
+% Populate VW without switching SRC:
+mdlObj.refreshVW(resultID)
+```
+
+`applySRC` controls VW panel visibility: hidden when `SRC = "fit"`, shown when `SRC` is a RESULTS key. This keeps the panel uncluttered during normal fitting.
+
+---
+
 ## Adding a New mdlObj Subclass
 
 1. Create `mdlObj_<modelID>.m` in this directory, inheriting `mdlObject`

@@ -19,3 +19,8 @@ function DF = nexSLRT_compileDataFrames(nexon, IDs_signals, IDs_events)
         % dataFrames = [dataFrames; df'];
     end
 end
+
+% for i = 1:length(dtsCols)
+%     dtsCol=convertCharsToStrings(dtsCols{i});
+%     nexus_spliceDTS(DTS_manifest, DTS, dtsCol);
+% end

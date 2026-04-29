@@ -1,4 +1,4 @@
-function STAT = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
+function [STAT, idxSel] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
     % for each DF in DF_col, use dim selection (bus) to slice coordinate of
     % interest and arrange a multi-factoral column-wise grouping/labeling
     % for downstream analysis/visualization
@@ -8,12 +8,20 @@ function STAT = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
     nexon = nexObj.nexon;
     % READ DATA / RESPONSE VARIABLE
     if isempty(idxSel)
+            % GLOBAL FILTER
             S = nex_returnSelectionMask(nexon.console.BASE.controlPanel.averagingSelection);
             idxSel = nex_applySelectionMask(nexon.console.BASE.DTS,S);
-            TF = dtsIO_readTF(nexon, dfID, idxSel);
-    else
-            TF = dtsIO_readTF(nexon, dfID, idxSel);
-    end
+            % TF = dtsIO_readTF(nexon, dfID, idxSel);               
+            try
+                S_items = nex_returnSelectionMask(nexObj.Origin.selectionBus.items);                    
+            catch
+                keyboard
+            end
+            S_categories = nex_returnSelectionMask(nexObj.Origin.selectionBus.categories);
+            S_merge = nexOp_mergeSelections_categorical(S_categories, S_items);
+            idxSel = [idxSel & nex_applySelectionMask(nexon.console.BASE.DTS, S_merge)];                    
+    end    
+    TF = dtsIO_readTF(nexon, dfID, idxSel);    
     % AXIS POOLING
     try
         ptr = nexObj.DF_postOp.ptr;
@@ -45,7 +53,7 @@ function STAT = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
             categoryProps = [categoryProps; strrep(categoryID,"--","_")];
             selMatch = [selMatch & ismember(TF_category, S_items.(category))];
         end
-    end    
+    end        
     Y = array2table(Y, 'VariableNames', categoryProps);
     Y = Y(selMatch,:); % filter by intersection of all category selections
     TF_pooled = TF_pooled(selMatch); % filter selected data as well

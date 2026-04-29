@@ -10,37 +10,85 @@ function nexFigure_linear(mdlObj)
     wInner  = 250;
     xInner  = 5;
 
-    hSrc     = 55;
-    hTarget  = 55;
-    hDomain  = 130;
-    hFitCfg  = 130;
-    hBtn     = 30;
-    gap      = 5;
+    hBtn    = 30;
+    hFitCfg = 130;
+    hPtr    = 200;
+    hDomain = 130;
+    hTarget = 55;
+    hView   = 175;
+    gap     = 5;
 
     yFit    = xInner;
-    yDomain = yFit    + hBtn    + gap;
-    yFitCfg = yDomain + hDomain + gap;
-    yTarget = yFitCfg + hFitCfg + gap;
-    ySrc    = yTarget + hTarget  + gap;
-    hTotal  = ySrc   + hSrc     + gap;
+    yFitCfg = yFit    + hBtn    + gap;
+    yPtr    = yFitCfg + hFitCfg + gap;
+    yDomain = yPtr    + hPtr    + gap;
+    yTarget = yDomain + hDomain + gap;
+    yView   = yTarget + hTarget + gap;
 
-    %% Figure
+    % ── Collector init ────────────────────────────────────────────────────
+
+    % View bus (SRC / VW / CLR)
+    % SRC — saved fit artifact selector; starts as "fit" (current in-memory fit)
+    % VW  — group/row selector for active RESULT; empty until storeResult fires
+    % CLR — per-point colorization column; unused until explicitly set
+    viewDict.SRC = "fit";
+    viewDict.VW  = "";
+    viewDict.CLR = "";
+    mdlObj.collector.View = nexInit_collectorView(mdlObj, viewDict);
+
+    % Domain bus (D1 / FTR)
+    try
+        axNames = string(fieldnames(mdlObj.Origin.DF_postOp.ax))';
+    catch
+        axNames = ["t"];
+    end
+    d1Init  = find(axNames == mdlObj.domain.D1, 1);
+    if isempty(d1Init), d1Init = 1; end
+    ftrIdx  = find(axNames ~= axNames(d1Init));
+    ftrInit = 1;
+    if ~isempty(ftrIdx), ftrInit = ftrIdx(1); end
+    domainDict.D1  = axNames;
+    domainDict.FTR = axNames;
+    mdlObj.collector.Domain = buildSelection(mdlObj, domainDict);
+    mdlObj.collector.Domain.selections.D1  = d1Init;
+    mdlObj.collector.Domain.selections.FTR = ftrInit;
+
+    % Pointer bus (one key per non-latent axis — axis value selector)
+    try
+        axFields = fieldnames(mdlObj.Origin.DF_postOp.ax);
+        axFields = axFields(~strcmp(axFields, 'latent'));
+        ptrDict  = struct();
+        for i = 1:numel(axFields)
+            f    = axFields{i};
+            vals = mdlObj.Origin.DF_postOp.ax.(f);
+            if ~isempty(vals)
+                ptrDict.(f) = vals;
+            end
+        end
+        if ~isempty(fieldnames(ptrDict))
+            mdlObj.collector.Pointer = buildSelection(mdlObj, ptrDict);
+        else
+            mdlObj.collector.Pointer = [];
+        end
+    catch
+        mdlObj.collector.Pointer = [];
+    end
+
+    % ── Figure ────────────────────────────────────────────────────────────
     mdlObj.Figure.fh = uifigure( ...
         "Position", [100, 500, 935, 630], ...
         "Color",    BLACK, ...
         "Name",     sprintf("Linear — %s", mdlObj.dfID_source));
 
-    %% panel0 — main canvas (scatter or CV results)
+    % ── Canvas (left panel) ───────────────────────────────────────────────
     mdlObj.Figure.panel0.ph = uipanel(mdlObj.Figure.fh, ...
         "Position",        [5, 5, 655, 620], ...
         "BackgroundColor", BLACK);
-
     mdlObj.Figure.panel0.tiles.t = tiledlayout( ...
         mdlObj.Figure.panel0.ph, 1, 1, ...
         "TileSpacing", "compact", "Padding", "compact");
     ax = nexttile(mdlObj.Figure.panel0.tiles.t);
     mdlObj.Figure.panel0.tiles.ax = ax;
-
     ax.Color     = BLACK;
     ax.XColor    = GREEN;
     ax.YColor    = GREEN;
@@ -50,48 +98,50 @@ function nexFigure_linear(mdlObj)
     ax.FontSize  = 9;
     grid(ax, "on");
     hold(ax, "on");
-
     xlabel(ax, 'Y actual',    'Color', GREEN);
     ylabel(ax, 'Y predicted', 'Color', GREEN);
     title(ax, 'Predicted vs Actual  (run Fit to populate)', ...
           'Color', GREEN, 'FontWeight', 'normal', 'FontSize', 9);
+    mdlObj.Figure.panel0.tiles.graphics.scatter  = [];
+    mdlObj.Figure.panel0.tiles.graphics.identity = [];
+    mdlObj.Figure.panel0.tiles.graphics.annot    = [];
 
-    mdlObj.Figure.panel0.tiles.graphics.scatter   = [];
-    mdlObj.Figure.panel0.tiles.graphics.identity  = [];
-    mdlObj.Figure.panel0.tiles.graphics.annot     = [];
-
-    %% panel1 — right sidebar (scrollable)
+    % ── Right sidebar (scrollable) ────────────────────────────────────────
     mdlObj.Figure.panel1.ph = uipanel(mdlObj.Figure.fh, ...
         "Position",        [xRight, 5, wRight, 630], ...
         "BackgroundColor", BLACK, ...
         "Scrollable",      "on");
 
-    %% SRC dropdown — switch between fit view and RESULTS keys
-    pan_src.ph = uipanel(mdlObj.Figure.panel1.ph, ...
-        "Position",        [xInner, ySrc, wInner, hSrc], ...
+    % ── View panel — SRC / VW / CLR via standard selection bus ───────────────
+    pan_view.ph = uipanel(mdlObj.Figure.panel1.ph, ...
+        "Position",        [xInner, yView, wInner, hView], ...
         "BackgroundColor", BLACK, ...
-        "Title",           "Source", ...
+        "Title",           "View", ...
         "ForegroundColor", GREEN);
+    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView);
+    bus = mdlObj.collector.View;
+    bus.listBoxes.VW.Callback  = @(src,ev) nexFigure_linear_onViewChange(src, ev, 'VW',  mdlObj);
+    bus.listBoxes.CLR.Callback = @(src,ev) nexFigure_linear_onViewChange(src, ev, 'CLR', mdlObj);
 
-    mdlObj.Figure.srcDropdown = uidropdown(pan_src.ph, ...
-        "Position",        [5, 5, wInner-10, 25], ...
-        "Items",           {"fit"}, ...
-        "Value",           "fit", ...
-        "BackgroundColor", BLACK, ...
-        "FontColor",       GREEN, ...
-        "ValueChangedFcn", @(src,~) nexFigure_linear_onSRCChange(src, mdlObj));
+    % Pre-populate SRC with any result keys already stored on this object
+    if isstruct(mdlObj.RESULTS) && ~isempty(fieldnames(mdlObj.RESULTS))
+        existingKeys = string(fieldnames(mdlObj.RESULTS))';
+        newKeys      = existingKeys(~ismember(existingKeys, bus.selKeys.SRC));
+        if ~isempty(newKeys)
+            bus.selKeys.SRC          = [bus.selKeys.SRC, newKeys];
+            bus.listBoxes.SRC.String = cellstr(bus.selKeys.SRC);
+            bus.listBoxes.SRC.Max    = numel(bus.selKeys.SRC);
+        end
+    end
 
-    %% Target bus — which DTS column is Y
+    % ── Target panel — Y column selector ─────────────────────────────────
+    mdlObj.initTargetBus();
+    targetOptions = cellstr(mdlObj.collector.Target.options);
     pan_target.ph = uipanel(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yTarget, wInner, hTarget], ...
         "BackgroundColor", BLACK, ...
         "Title",           "Target (Y)", ...
         "ForegroundColor", GREEN);
-
-    % Seed options from Origin's categories bus; fall back to default
-    mdlObj.initTargetBus();
-    targetOptions = cellstr(mdlObj.collector.Target.options);
-
     mdlObj.Figure.targetDropdown = uidropdown(pan_target.ph, ...
         "Position",        [5, 5, wInner-10, 25], ...
         "Items",           targetOptions, ...
@@ -100,24 +150,7 @@ function nexFigure_linear(mdlObj)
         "FontColor",       GREEN, ...
         "ValueChangedFcn", @(src,~) nexFigure_linear_onTargetChange(src, mdlObj));
 
-    %% Domain selection bus — D1 (time axis) / FTR (feature axis)
-    try
-        axNames = string(fieldnames(mdlObj.Origin.DF_postOp.ax))';
-    catch
-        axNames = ["t"];
-    end
-
-    d1Init  = find(axNames == mdlObj.domain.D1, 1);
-    if isempty(d1Init), d1Init = 1; end
-    ftrInit = find(axNames ~= axNames(d1Init));
-    if isempty(ftrInit), ftrInit = 1; end
-
-    domainDict.D1  = axNames;
-    domainDict.FTR = axNames;
-    mdlObj.collector.Domain = buildSelection(mdlObj, domainDict);
-    mdlObj.collector.Domain.selections.D1  = d1Init;
-    mdlObj.collector.Domain.selections.FTR = ftrInit;
-
+    % ── Domain panel — D1 / FTR axis selection ───────────────────────────
     pan_domain.ph = uipanel(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yDomain, wInner, hDomain], ...
         "BackgroundColor", BLACK, ...
@@ -126,15 +159,26 @@ function nexFigure_linear(mdlObj)
         "ForegroundColor", GREEN);
     mdlObj.Figure.panel_domain = nexObj_listCfgPanel( ...
         nexon, pan_domain, mdlObj.collector.Domain, [1, numel(axNames)]);
-
     domainKeys = string(fieldnames(mdlObj.collector.Domain.listBoxes))';
     for i = 1:numel(domainKeys)
         k  = domainKeys(i);
         lb = mdlObj.collector.Domain.listBoxes.(k);
-        lb.Callback = @(src, ev) nexFigure_linear_onDomainChange(src, ev, k, mdlObj);
+        lb.Callback = @(src,ev) nexFigure_linear_onDomainChange(src, ev, k, mdlObj);
     end
 
-    %% Fit cfg panel
+    % ── Pointer panel — per-axis value selector ───────────────────────────
+    if ~isempty(mdlObj.collector.Pointer)
+        pan_ptr.ph = uipanel(mdlObj.Figure.panel1.ph, ...
+            "Position",        [xInner, yPtr, wInner, hPtr], ...
+            "BackgroundColor", BLACK, ...
+            "Scrollable",      "on", ...
+            "Title",           "Pointer", ...
+            "ForegroundColor", GREEN);
+        mdlObj.Figure.panel_pointer = nexObj_listCfgPanel( ...
+            nexon, pan_ptr, mdlObj.collector.Pointer, []);
+    end
+
+    % ── FitCfg panel ──────────────────────────────────────────────────────
     pan_fitCfg.ph = uipanel(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yFitCfg, wInner, hFitCfg], ...
         "BackgroundColor", BLACK, ...
@@ -143,7 +187,7 @@ function nexFigure_linear(mdlObj)
         mdlObj, mdlObj.cfg.fitCfg, pan_fitCfg, ...
         mdlObj.cfg.fitCfg.entryParams, str2func("cfgEntryChanged_v2"), []);
 
-    %% Fit button
+    % ── Fit button ────────────────────────────────────────────────────────
     mdlObj.Figure.fitButton = uibutton(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yFit, wInner, hBtn], ...
         "Text",            "Fit", ...
@@ -156,10 +200,6 @@ end
 
 % ── Local callbacks ───────────────────────────────────────────────────────
 
-function nexFigure_linear_onSRCChange(src, mdlObj)
-    nexFigure_linear_renderSRC(mdlObj, src.Value);
-end
-
 function nexFigure_linear_onTargetChange(src, mdlObj)
     mdlObj.collector.Target.Y = src.Value;
     mdlObj.applyTargetBus();
@@ -168,4 +208,9 @@ end
 function nexFigure_linear_onDomainChange(src, ev, key, mdlObj)
     listCfgEntryChanged(src, ev, char(key), mdlObj.collector.Domain);
     mdlObj.applyDomainBus();
+end
+
+function nexFigure_linear_onViewChange(src, ev, key, mdlObj)
+    listCfgEntryChanged(src, ev, key, mdlObj.collector.View);
+    nexFigure_linear_renderSRC(mdlObj);
 end

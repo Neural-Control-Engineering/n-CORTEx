@@ -1,6 +1,7 @@
 function [eventSelection, IDs_signals] = nexSelect_eventAlignment(nexObj, IDs_signals)
     % dfIDs = nexObj_slrtTc.dfID;
-    DTSCols = nexObj.nexon.console.BASE.DTS.Properties.VariableNames;
+    % DTSCols_manifest = nexObj.nexon.console.BASE.DTS.Properties.VariableNames;
+    DTSCols = dtsIO_readDFIDs(nexObj.nexon.console.BASE.DTS);
     eventTags = [];
     % ID_signals = nexObj.nexon.console.BASE.DTS.signal_types;
     IDs_signals = [IDs_signals; nex_getSignalTypes(nexObj.nexon)];

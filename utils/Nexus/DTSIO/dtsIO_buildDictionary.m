@@ -4,7 +4,19 @@ function dict = dtsIO_buildDictionary(DTS, dfIDs)
     dict = struct;
     for i = 1:length(dfIDs)
         dfID = dfIDs(i);
-        uniqueVals = unique(DTS.(dfID));
+        try
+            dfCol = DTS.(dfID);
+        catch
+            try
+                dfCol = dtsIO_readTFH5(DTS, dfID, [],'simple');
+            catch
+                keyboard
+            end
+            % dfCol = dtsIO_readTFH5(DTS, dfID, []);
+            dfCol = cat(1,dfCol{:});
+        end
+        uniqueVals = unique(dfCol);
+        % uniqueVals = unique(DTS.(dfID));
         dict.(dfID) = uniqueVals;
     end
 end

@@ -8,6 +8,9 @@ function DF = dtsIO_readHDF5(DTS, DFID, dtsIdx)
 
     if islogical(dtsIdx)
         rows = find(dtsIdx);
+    elseif isempty(dtsIdx)
+        rows = find(nex_getRouterIdx(DTS));
+        DTS=DTS.console.BASE.DTS;
     else
         rows = dtsIdx(:)';
     end
@@ -38,14 +41,19 @@ function DF = readOneTrialHDF5(h5File, h5Root, DFID, axisKeyWords)
     end
 
     for k = 1:numel(info.Datasets)
-        suffix = info.Datasets(k).Name;
-        arr    = h5read(h5File, [groupPath '/' suffix]);
+        suffix    = info.Datasets(k).Name;
+        isStrDset = strcmp(info.Datasets(k).Datatype.Class, 'H5T_STRING');
+        dsetPath  = [groupPath '/' suffix];
+
         if strcmp(suffix, 'df')
-            DF.df = arr;
-        elseif any(strcmp(axisKeyWords, suffix))
-            DF.ax.(suffix) = arr;
+            DF.df = h5read(h5File, dsetPath);
         elseif strcmp(suffix, 'args')
-            DF.args = arr;
+            DF.args = h5read(h5File, dsetPath);
+        elseif isStrDset
+            % String axis — always load, axisKeyWords filter does not apply.
+            DF.ax.(suffix) = string(h5read(h5File, dsetPath));
+        elseif any(strcmp(axisKeyWords, suffix))
+            DF.ax.(suffix) = h5read(h5File, dsetPath);
         end
     end
 

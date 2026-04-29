@@ -5,8 +5,15 @@ function nexFigure_linear_renderSRC(mdlObj, srcKey)
 %   srcKey = <resultID>    → box/strip plot of CV fold scores vs null
 
     if nargin < 2
-        if isfield(mdlObj.Figure, 'srcDropdown') && isvalid(mdlObj.Figure.srcDropdown)
-            srcKey = mdlObj.Figure.srcDropdown.Value;
+        bus = mdlObj.collector.View;
+        if isfield(bus.selections, 'SRC') && ~isempty(bus.selections.SRC) && ...
+                isfield(bus.selKeys, 'SRC') && ~isempty(bus.selKeys.SRC)
+            idx = bus.selections.SRC(1);
+            if idx <= numel(bus.selKeys.SRC)
+                srcKey = bus.selKeys.SRC(idx);
+            else
+                srcKey = "fit";
+            end
         else
             srcKey = "fit";
         end
@@ -16,8 +23,9 @@ function nexFigure_linear_renderSRC(mdlObj, srcKey)
     BLACK = [0 0 0];
     GREEN = mdlObj.nexon.settings.Colors.cyberGreen;
 
-    cla(ax);
-    hold(ax, "on");
+    cla(ax, 'reset');   % 'reset' clears yyaxis state; plain cla does not
+    colorAx_green(ax);
+    hold(ax, 'on');
 
     switch srcKey
         case "fit"
@@ -104,18 +112,59 @@ function nexFigure_linear_renderResults(mdlObj, ax, srcKey, GREEN, BLACK)
     allNull = allNull(:);
 
     nFolds = size(scores, 1);
+    nDots  = numel(allReal);
+
+    % ── Per-dot color from CLR selection ─────────────────────────────────
+    bus    = mdlObj.collector.View;
+    clrKey = '';
+    if isfield(bus.selections, 'CLR') && ~isempty(bus.selections.CLR) && ...
+            isfield(bus.selKeys, 'CLR') && ~isempty(bus.selKeys.CLR) && ...
+            ~all(bus.selKeys.CLR == "")
+        idx = bus.selections.CLR(1);
+        if idx <= numel(bus.selKeys.CLR)
+            clrKey = char(bus.selKeys.CLR(idx));
+        end
+    end
+    if ~isempty(clrKey) && isstruct(R.ax) && isfield(R.ax, clrKey)
+        nGroups   = numel(R.ax.(clrKey));
+        clrLabels = string(R.ax.(clrKey));
+
+        % Per-group RGB palette — registry atlas colors when available
+        [groupColors, regMatched] = nex_axisColorFromRegistry( ...
+            mdlObj.nexon, clrKey, clrLabels);
+        if ~regMatched
+            groupColors = lines(nGroups);
+        end
+
+        if strcmp(clrKey, 'fold')
+            groupIdx = mod((0:nDots-1)', nFolds) + 1;
+        else
+            groupIdx = min(floor((0:nDots-1)' / nFolds) + 1, nGroups);
+        end
+        % Explicit RGB per dot: scatter never auto-updates CLim, so the manual
+        % clim([0.5, nGroups+0.5]) set for the colorbar is guaranteed to stick.
+        dotCData  = groupColors(groupIdx, :);   % [nDots × 3]
+        useColBar = true;
+        cmap      = groupColors;
+    else
+        dotCData  = repmat(GREEN, nDots, 1);
+        useColBar = false;
+        cmap      = [];
+        nGroups   = 0;
+        clrLabels = "";
+    end
 
     % Null distribution as semi-transparent histogram
-    edges = linspace(min([nullFlat; allReal]), max([nullFlat; allReal]), 40);
-    histogram(ax, nullFlat, edges, ...
+    edges = linspace(min([allNull; allReal]), max([allNull; allReal]), 40);
+    histogram(ax, allNull, edges, ...
               'FaceColor', GREEN*0.4, 'FaceAlpha', 0.35, 'EdgeColor', 'none', ...
               'Normalization', 'probability');
 
-    % Real fold scores as vertical strip
-    jitter = (rand(nFolds,1) - 0.5) * 0.015 * range(edges);
+    % Real fold scores as vertical strip, colored by CLR selection
+    jitter = (rand(nDots, 1) - 0.5) * 0.015 * range(edges);
     yyaxis(ax, 'right');
     ax.YAxis(2).Color = GREEN;
-    scatter(ax, allReal, jitter, 50, GREEN, 'filled', ...
+    scatter(ax, allReal, jitter, 100, dotCData, 'filled', ...
             'MarkerEdgeColor', BLACK, 'LineWidth', 0.5);
     yline(ax, 0, 'Color', [GREEN 0.2], 'LineWidth', 0.5);
     ylabel(ax, 'Fold scores', 'Color', GREEN);
@@ -131,4 +180,19 @@ function nexFigure_linear_renderResults(mdlObj, ax, srcKey, GREEN, BLACK)
     if ~isempty(outerID), outerTag = sprintf('  [%s]', outerID); end
     title(ax, sprintf('CV results: %s%s   (p = %.3f)', srcKey, outerTag, pVal), ...
           'Color', GREEN, 'FontWeight', 'normal', 'FontSize', 9);
+
+    % Colorbar — created last, after all yyaxis switching is complete so
+    % subsequent axis state changes cannot reset CLim or cb.Limits.
+    if useColBar
+        cbLim = [0.5, nGroups + 0.5];
+        colormap(ax, cmap);
+        clim(ax, cbLim);
+        cb              = colorbar(ax);
+        cb.Ticks        = 1:nGroups;
+        cb.TickLabels   = cellstr(clrLabels);
+        cb.Color        = GREEN;
+        cb.FontSize     = 8;
+        cb.Label.String = clrKey;
+        cb.Label.Color  = GREEN;
+    end
 end

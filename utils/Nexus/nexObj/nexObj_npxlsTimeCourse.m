@@ -25,7 +25,11 @@ classdef nexObj_npxlsTimeCourse < handle
             nexObj.nexon.console.BASE.nexObjs.npxlsTc_1 = nexObj;            
             nexObj.Parent = shank;            
             nexObj.Children = struct;
-            nexObj.dataFrame=DF.df;       
+            try
+                nexObj.dataFrame=DF.df;       
+            catch
+                keyboard
+            end
             % nexObj.DF.df = dataFrame;
             nexObj.DF = DF;
             nexObj.dfID = dfID;

@@ -3,17 +3,26 @@ function DF = dtsIO_readDF(nexon, DFID, dtsIdx)
     % classify input DF
     % find all columns associated with DFID
     % dfFields = dtsIO_listVarsContaining(nexon.console.BASE.DTS, DFID);
-    if isscalar(dtsIdx)
-        DF = dtsIO_composeDF(nexon.console.BASE.DTS, DFID, dtsIdx);    
-    elseif isempty(dtsIdx)
-        dtsIdx = nex_getRouterIdx(nexon);
-        DF = dtsIO_composeDF(nexon.console.BASE.DTS, DFID, dtsIdx);    
+    dtsCols = nexon.console.BASE.DTS.Properties.VariableNames;
+    if ~ismember(DFID, dtsCols)
+        if isempty(dtsIdx)
+            DF = dtsIO_readHDF5(nexon, char(DFID), dtsIdx);
+        else
+            DF = dtsIO_readHDF5(nexon.console.BASE.DTS, char(DFID), dtsIdx);
+        end
     else
-        DF = {};        
-        for i = 1:length(dtsIdx)
-            dtsIdx_i = dtsIdx(i);
-            DF_i = dtsIO_composeDF(nexon.console.BASE.DTS, DFID, dtsIdx_i);
-            DF = [DF; DF_i];
+        if isscalar(dtsIdx)
+            DF = dtsIO_composeDF(nexon.console.BASE.DTS, DFID, dtsIdx);    
+        elseif isempty(dtsIdx)
+            dtsIdx = nex_getRouterIdx(nexon);
+            DF = dtsIO_composeDF(nexon.console.BASE.DTS, DFID, dtsIdx);    
+        else
+            DF = {};        
+            for i = 1:length(dtsIdx)
+                dtsIdx_i = dtsIdx(i);
+                DF_i = dtsIO_composeDF(nexon.console.BASE.DTS, DFID, dtsIdx_i);
+                DF = [DF; DF_i];
+            end
         end
     end
 end

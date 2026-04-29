@@ -2,7 +2,7 @@ function dtsIO_writeDF(nexon, DF, DFID, dtsIdx)
     % general purpose data-frame writing from nexus datastore
     DTS = nexon.console.BASE.DTS;
     if ismember('h5_path', DTS.Properties.VariableNames)
-        dtsIO_writeHDF5(nexon, DF, DFID, dtsIdx);
+        dtsIO_writeHDF5(nexon, DF, char(DFID), dtsIdx);
         return;
     end
 

@@ -64,20 +64,33 @@ function DTS_out = nexus_spliceDTS(DTS_manifest, DTS_source, dfIDs)
                         arr = raw{srcIdx};
                     elseif isnumeric(raw) && size(raw,1) >= srcIdx
                         arr = raw(srcIdx,:);
+                    elseif (isstring(raw) || iscellstr(raw)) && size(raw,1) >= srcIdx
+                        arr = raw(srcIdx,:);
                     end
-                    if isempty(arr) || ~isnumeric(arr), continue; end
+                    if isempty(arr), continue; end
 
-                    if strcmp(col, dfID)
-                        DF.df = double(arr);
-                    else
+                    suf = '';
+                    if ~strcmp(col, dfID)
                         suf = char(extractAfter(col, dfID + "_"));
-                        if strcmp(suf,'df'),  DF.df = double(arr);
-                        else,                 DF.ax.(suf) = double(arr); end
+                    end
+
+                    if isnumeric(arr)
+                        if isempty(suf) || strcmp(suf,'df')
+                            DF.df = double(arr);
+                        else
+                            DF.ax.(suf) = double(arr);
+                        end
+                    elseif isstring(arr) || iscellstr(arr) || ischar(arr)
+                        if ~isempty(suf)
+                            DF.ax.(suf) = string(arr);
+                        end
                     end
                 end
 
-                if ~isfield(DF,'df'), continue; end
-                if isfield(DF,'ax'), DF = nex_initAxisPointer_v2(DF); end
+                hasDF  = isfield(DF,'df') && ~isempty(DF.df);
+                hasAx  = isfield(DF,'ax') && ~isempty(fieldnames(DF.ax));
+                if ~hasDF && ~hasAx, continue; end
+                if hasDF && hasAx, DF = nex_initAxisPointer_v2(DF); end
 
                 h5Root = char(DTS_manifest.h5_root(r));
                 dtsIO_writeDF_toHDF5(h5File, h5Root, dfID, DF);

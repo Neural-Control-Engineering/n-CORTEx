@@ -36,7 +36,11 @@ function nexTract(nexon, fcn, dfID, mask, fcnName)
         disp(i);
         % df = nexon.console.BASE.DTS.(dfID){i};    
         DF_in = dtsIO_readDF(nexon, dfID_entry, i);
-        df = DF_in.df;
+        try
+            df = DF_in.df;
+        catch
+            continue
+        end
         if ~isempty(df)
             try
                 if size(df,2) > minLength * 1.01                    

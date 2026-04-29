@@ -17,6 +17,7 @@ classdef nexObj_stateSpace < nexObject
             if nargin < 5, headline = []; end
 
             nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);
+            nexObj.Origin=nexObj.Parent;
             nexObj.classID = "stspc";
 
             %% Partner
