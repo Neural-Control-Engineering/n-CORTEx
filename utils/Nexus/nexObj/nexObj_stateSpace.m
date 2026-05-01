@@ -164,6 +164,18 @@ classdef nexObj_stateSpace < nexObject
                 'TimerFcn', @(~,~) nexObj.stepAnimate(nexObj.cfg.aniCfg.entryParams));
         end
 
+        function compileSTAT(nexObj)
+            %% STAT — inherit from categorical Parent if available
+            % nexOp_compileSTAT is too expensive to call at construction;
+            % categorical already holds a compiled STAT from reportStats().
+            if ~isempty(nexObj.Parent) && strcmp(nexObj.Parent.classID, 'ctg')
+                S_categories = nex_returnSelectionMask(nexObj.Parent.selectionBus.categories);
+                S_items = nex_returnSelectionMask(nexObj.Parent.selectionBus.items);
+                % nexObj.STAT = nexOp_compileSTAT(nexObj.Parent, nexObj.dfID_source, S_categories, S_items, []);
+                nexObj.STAT = nexOp_compileSTAT(nexObj, nexObj.dfID_source, S_categories, S_items, []);
+            end
+        end
+
         % ── Player ────────────────────────────────────────────────────────
         % function startPlayer(nexObj)
         %     isPlay = nexObj.Figure.playButton.Value;
@@ -377,7 +389,169 @@ classdef nexObj_stateSpace < nexObject
             nexObj.STAT = nexOp_fuseGroups(nexObj.STAT, groupIDCols);
         end
 
-        function reportAverage(nexObj)
+        function reportAverage(nexObj, resultID, nBins)
+            % Average STAT trials grouped by the columns currently selected in
+            % the AVG bus.  Continuous columns are quantile-binned into nBins
+            % pseudo-categories.  Results go into RESULTS.(resultID) and are
+            % exposed in the VW and SRC buses for display.
+            if nargin < 3, nBins = 4; end
+
+            STAT = nexObj.STAT;
+            if isempty(STAT) || ~istable(STAT), return; end
+
+            % ── 1. Resolve grouping columns from the AVG bus ──────────────────
+            % nex_returnSelectionMask maps listbox indices → the actual column-
+            % name strings that the user highlighted in the AVG listbox.
+            viewSel   = nex_returnSelectionMask(nexObj.collector.View);
+            groupCols = string(viewSel.AVG);
+            statCols  = string(STAT.Properties.VariableNames);
+            groupCols = groupCols(groupCols ~= "" & ismember(groupCols, statCols));
+            if isempty(groupCols), return; end
+
+            % ── 2. Build TF cell array from STAT ──────────────────────────────
+            % table2struct on a table whose df column is a cell unwraps each
+            % cell into the struct field directly: TF{i}.df = numeric array.
+            % That is the form nexOp_trimTF / nexOp_averageTF expect.
+            TF = arrayfun(@(s) s, table2struct(STAT), 'UniformOutput', false);
+
+            % ── 3. Attempt SLRT event alignment; fall back silently ───────────
+            % nexOp_compileSTAT group-sorts rows so STAT indices can no longer
+            % be mapped back to DTS rows for SLRT event lookup.  For latent
+            % trajectories the DFs are already time-aligned at extraction.
+            try
+                TF = nexOp_eventAlignTF(nexObj, TF);
+            catch
+            end
+
+            % ── 4. Build groupTable with numeric recovery + quantile binning ──
+            % nexOp_compileSTAT concatenates all category arrays into a single
+            % numeric matrix Y before array2table.  When a string column (e.g.
+            % sessionLabel--phase) and a numeric column (e.g. h5--responseThreshold_g)
+            % appear together, MATLAB coerces the doubles to strings — so the
+            % numeric column ends up as strings in STAT.  str2double recovers
+            % the values so quantile binning can proceed correctly.
+            groupTable = table();
+            for ci = 1:numel(groupCols)
+                col = char(groupCols(ci));
+                raw = STAT.(col);
+
+                % Attempt numeric recovery for string-encoded float columns
+                if ~isnumeric(raw)
+                    numTry = str2double(string(raw));
+                    if any(~isnan(numTry))   % at least some values parseable
+                        raw = numTry;
+                    end
+                end
+
+                if isnumeric(raw) && numel(unique(raw(~isnan(raw)))) > nBins
+                    % Continuous column: quantile-bin into nBins groups.
+                    % Each bin is labelled "col_qN(mean_val)" so the label
+                    % carries both dimension identity and the bin's centre.
+                    vals       = raw(~isnan(raw));
+                    edges      = quantile(vals, linspace(0, 1, nBins + 1));
+                    edges(end) = edges(end) + abs(edges(end)) * 1e-10 + 1e-10;
+                    binIdx     = discretize(raw, edges);
+                    labels     = strings(numel(raw), 1);
+                    for b = 1:nBins
+                        m = binIdx == b;
+                        if any(m)
+                            labels(m) = sprintf('%s_q%d(%.3g)', col, b, ...
+                                mean(raw(m), 'omitnan'));
+                        end
+                    end
+                    labels(isnan(raw)) = "<NaN>";
+                    groupTable.(col) = labels;
+
+                elseif isnumeric(raw)
+                    % Discrete numeric (few unique values): keep as-is
+                    groupTable.(col) = raw;
+
+                else
+                    % Already a categorical string column
+                    groupTable.(col) = string(raw);
+                end
+            end
+            if width(groupTable) == 0, return; end
+
+            % ── 5. Find unique groups and compute per-group average ───────────
+            % findgroups on a table returns G (Nx1 index) and groupIDs (one row
+            % per unique combination of all groupTable columns).
+            [G, groupIDs] = findgroups(groupTable);
+            nG = height(groupIDs);
+
+            df_out  = cell(nG, 1);
+            ax_out  = cell(nG, 1);
+            ptr_out = cell(nG, 1);
+            sem_out = cell(nG, 1);
+            valid   = false(nG, 1);
+
+            for g = 1:nG
+                % Collect trials that belong to this group; drop empties
+                TF_g    = TF(G == g);
+                isEmpty = cellfun(@(s) isempty(s) || ~isfield(s,'df') || isempty(s.df), TF_g);
+                TF_g    = TF_g(~isEmpty);
+                if isempty(TF_g), continue; end
+
+                % Borrow ptr from the first trial (nexOp_averageTF only trims)
+                ptr = [];
+                if isfield(TF_g{1}, 'ptr') && ~isempty(TF_g{1}.ptr)
+                    ptr = TF_g{1}.ptr;
+                end
+
+                % nexOp_averageTF trims all DFs to minimum length, then means
+                try
+                    DF_avg = nexOp_averageTF(TF_g, ptr, 2);
+                catch
+                    continue;
+                end
+
+                % Build a fresh ptr for the averaged df
+                DF_avg.ptr = nexInit_axisPointer(DF_avg.df, DF_avg.ax);
+
+                % Store as cells: nexOp_stackSTAT expects iscell(STAT.ax) = true
+                df_out{g}  = DF_avg.df;
+                ax_out{g}  = DF_avg.ax;
+                ptr_out{g} = DF_avg.ptr;
+                sem_out{g} = DF_avg.sem;
+                valid(g)   = true;
+            end
+            if ~any(valid), return; end
+
+            % ── 6. Build RESULT table ─────────────────────────────────────────
+            % Structural cell columns (df/ax/ptr/sem) + group-label columns from
+            % groupIDs.  Cell wrapping is required so nexOp_stackSTAT can later
+            % index into them as STAT.ax{k}.
+            RESULT = table(df_out(valid), ax_out(valid), ptr_out(valid), sem_out(valid), ...
+                'VariableNames', {'df','ax','ptr','sem'});
+            RESULT = [RESULT, groupIDs(valid, :)];
+
+            % ── 7. Store and refresh buses ────────────────────────────────────
+            nexObj.RESULTS.(resultID) = RESULT;
+
+            % AVG is the legacy source consumed by buildSTATE → nexOp_stackSTAT
+            nexObj.AVG = RESULT;
+
+            % VW bus: refreshVW calls getAVGGroupKeys which now gathers unique
+            % values from ALL group columns, so the user sees one selectable
+            % entry per category value across every dimension.  Selecting one
+            % value from each dimension ANDs them in the visualizer.
+            nexObj.refreshVW();
+
+            % SRC bus: append the new resultID so the user can switch to it
+            if isfield(nexObj.collector, 'View')
+                bus  = nexObj.collector.View;
+                keys = ["DF"; string(fieldnames(nexObj.RESULTS))];
+                bus.selKeys.SRC    = keys;
+                bus.selections.SRC = numel(keys);
+                if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
+                    bus.listBoxes.SRC.String = keys;
+                    bus.listBoxes.SRC.Max    = 1;
+                    bus.listBoxes.SRC.Value  = numel(keys);
+                end
+            end
+        end
+
+        function reportAverage_legacy(nexObj)
             STAT = nexObj.STAT;
             % dfCol = nexOp_trimDfCol(STAT.df);
             TF = table2struct(STAT); TF = arrayfun(@(DF) DF, TF, "UniformOutput", false);
@@ -429,19 +603,56 @@ classdef nexObj_stateSpace < nexObject
 
         % ── View bus helpers ───────────────────────────────────────────────
         function vwKeys = getAVGGroupKeys(nexObj)
-            % Return unique group name values from nexObj.AVG table for VW bus.
-            DF_STRUCT_FIELDS = ["df", "ax", "ptr", "avgCfg", "cov", "sem", "labels"];
+            % Return all unique category values across EVERY group column of
+            % nexObj.AVG.  VW therefore lists one selectable entry per distinct
+            % label in each dimension (phase values + threshold-bin labels, etc.).
+            % nexVisualization_stateSpace ANDs selections across dimensions so
+            % picking "pre" and "thresh_q2(…)" shows only their intersection.
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
             if isempty(nexObj.AVG) || ~istable(nexObj.AVG)
                 vwKeys = "";
                 return;
             end
-            cols = string(nexObj.AVG.Properties.VariableNames)';
+            cols      = string(nexObj.AVG.Properties.VariableNames)';
             groupCols = cols(~ismember(cols, DF_STRUCT_FIELDS));
             if isempty(groupCols)
                 vwKeys = "";
                 return;
             end
-            vwKeys = unique(nexObj.AVG.(char(groupCols(1))));
+            % Gather unique values from every group column into one flat list
+            all_vals = string.empty(0, 1);
+            for ci = 1:numel(groupCols)
+                vals     = string(nexObj.AVG.(char(groupCols(ci))));
+                all_vals = [all_vals; unique(vals(:))];  %#ok<AGROW>
+            end
+            vwKeys = unique(all_vals);
+            if isempty(vwKeys), vwKeys = ""; end
+        end
+
+        function onSRCChanged(nexObj, lb)
+            % SRC listbox callback — keeps bus selection index in sync then
+            % routes to applySRC so nexObj.AVG always matches the active source.
+            nexObj.collector.View.selections.SRC = lb.Value;
+            if iscell(lb.String)
+                srcKey = lb.String{lb.Value(end)};
+            else
+                srcKey = char(lb.String(lb.Value(end)));
+            end
+            nexObj.applySRC(srcKey);
+        end
+
+        function applySRC(nexObj, srcKey)
+            % Sync nexObj.AVG to the selected source then refresh VW.
+            % "DF" → clear AVG so buildSTATE falls back to raw DF data.
+            % Any RESULTS key → point AVG at that result table.
+            if strcmp(srcKey, 'DF')
+                nexObj.AVG = [];
+            elseif isfield(nexObj.RESULTS, srcKey)
+                nexObj.AVG = nexObj.RESULTS.(srcKey);
+            else
+                return;
+            end
+            nexObj.refreshVW();
         end
 
         function refreshVW(nexObj)
@@ -478,10 +689,14 @@ classdef nexObj_stateSpace < nexObject
             activeGrps = string(viewSel.VW);
             if isequal(activeGrps, ""), activeGrps = string.empty; end
 
-            % Sanitize group labels: hyphens → underscores for use as field names.
-            % The raw label (e.g. "L-hind-paw-CCI") is preserved in activeGrps;
-            % activeFlds holds the corresponding valid field name.
-            activeFlds = strrep(activeGrps, '-', '_');
+            % Sanitize group labels → valid MATLAB identifiers for struct field names.
+            % The raw label is preserved in activeGrps; activeFlds holds the safe name.
+            % matlab.lang.makeValidName handles digits-first, punctuation, spaces, etc.
+            if isempty(activeGrps)
+                activeFlds = string.empty;
+            else
+                activeFlds = string(matlab.lang.makeValidName(cellstr(activeGrps)));
+            end
 
             % Remove handles for groups no longer in VW
             existing = string(fieldnames(gfx.canvas_tracker))';
@@ -508,6 +723,64 @@ classdef nexObj_stateSpace < nexObject
 
             % Write back (struct is value-type inside the Figure struct)
             nexObj.Figure.panel0.tiles.graphics.canvas_tracker = gfx.canvas_tracker;
+
+            %% Legend proxies — one NaN-positioned plot3 per VW group.
+            % Created/deleted here; colors are updated each frame by visualize().
+            GREEN = nexObj.nexon.settings.Colors.cyberGreen;
+            if ~isfield(gfx, 'legend_proxies')
+                gfx.legend_proxies = struct();
+            end
+
+            existingLP = string(fieldnames(gfx.legend_proxies))';
+            for fld = existingLP
+                if ~ismember(fld, activeFlds)
+                    if isvalid(gfx.legend_proxies.(fld))
+                        delete(gfx.legend_proxies.(fld));
+                    end
+                    gfx.legend_proxies = rmfield(gfx.legend_proxies, fld);
+                end
+            end
+
+            hold(ax, "on");
+            for i = 1:numel(activeGrps)
+                fld = char(activeFlds(i));
+                lbl = char(activeGrps(i));
+                if ~isfield(gfx.legend_proxies, fld) || ~isvalid(gfx.legend_proxies.(fld))
+                    gfx.legend_proxies.(fld) = plot3(ax, NaN, NaN, NaN, 'o', ...
+                        'Color',           GREEN, ...
+                        'MarkerFaceColor', GREEN, ...
+                        'MarkerSize',      6, ...
+                        'LineStyle',       'none', ...
+                        'DisplayName',     lbl);
+                else
+                    gfx.legend_proxies.(fld).DisplayName = lbl;
+                end
+            end
+            hold(ax, "off");
+            nexObj.Figure.panel0.tiles.graphics.legend_proxies = gfx.legend_proxies;
+
+            % Configure legend appearance once (structural rebuild)
+            if ~isempty(activeGrps)
+                proxyH = gobjects(0);
+                for i = 1:numel(activeGrps)
+                    fld = char(activeFlds(i));
+                    if isfield(gfx.legend_proxies, fld) && isvalid(gfx.legend_proxies.(fld))
+                        proxyH(end+1) = gfx.legend_proxies.(fld); %#ok<AGROW>
+                    end
+                end
+                if ~isempty(proxyH)
+                    lg = legend(ax, proxyH, ...
+                        'TextColor',   GREEN, ...
+                        'Color',       [0 0 0], ...
+                        'EdgeColor',   GREEN, ...
+                        'FontSize',    7, ...
+                        'Interpreter', 'none', ...
+                        'Location',    'northeast');
+                    lg.Box = 'on';
+                end
+            else
+                legend(ax, 'off');
+            end
         end
 
         % ── Domain bus helpers ─────────────────────────────────────────────

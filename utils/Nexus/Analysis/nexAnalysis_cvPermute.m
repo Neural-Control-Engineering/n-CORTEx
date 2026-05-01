@@ -30,9 +30,10 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
     nPermute = cvCfg.nPermute;    
 
     % ── 1. Compile full STAT ─────────────────────────────────────────────────
-    [STAT_full, idxSel] = mdlObj.compileSTAT();    
+    [STAT_full, idxSel, drop] = mdlObj.compileSTAT();    
     tVar      = char(mdlObj.dfID_target);
     Y_all = dtsIO_readTF(mdlObj.nexon, tVar, idxSel, 'simple');
+    Y_all = Y_all(~drop);
     STAT_full.(tVar)=Y_all;
     nTrials   = height(STAT_full);
     

@@ -1,4 +1,4 @@
-function [STAT, idxSel] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
+function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
     % for each DF in DF_col, use dim selection (bus) to slice coordinate of
     % interest and arrange a multi-factoral column-wise grouping/labeling
     % for downstream analysis/visualization
@@ -21,7 +21,9 @@ function [STAT, idxSel] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items,
             S_merge = nexOp_mergeSelections_categorical(S_categories, S_items);
             idxSel = [idxSel & nex_applySelectionMask(nexon.console.BASE.DTS, S_merge)];                    
     end    
-    TF = dtsIO_readTF(nexon, dfID, idxSel);    
+    % TF = dtsIO_readTF(nexon, dfID, idxSel);    
+    [TF, drop] = nexOp_compileTF(nexObj.nexon, idxSel, dfID);
+    
     % AXIS POOLING
     try
         ptr = nexObj.DF_postOp.ptr;
@@ -44,11 +46,13 @@ function [STAT, idxSel] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items,
     Y = []; % container for category items (across all selected samples)
     categoryProps = []; % list of applicable categories
     selMatch = ones(size(idxSel(idxSel==1)));
+    selMatch= selMatch(~drop);
     for i = 1:length(categories)
         category = categories{i};
         categoryID = S_categories.(category);
         if ~contains(categoryID, "ax") && (~strcmp(categoryID,"None"))
             TF_category = dtsIO_readTF_category(nexon, categoryID, idxSel);
+            TF_category = TF_category(~drop); % filter empty entries
             Y = [Y, TF_category];
             categoryProps = [categoryProps; strrep(categoryID,"--","_")];
             selMatch = [selMatch & ismember(TF_category, S_items.(category))];

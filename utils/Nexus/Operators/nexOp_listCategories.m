@@ -10,7 +10,7 @@ function categories = nexOp_listCategories(nexon)
         h5 = h5(~ismember(bareKeys(h5), existing));
     end
 
-    categories = [sl; var; h5];
+    categories = [sl(:); var(:); h5(:)];
 end
 
 function keys = bareKeys(cats)

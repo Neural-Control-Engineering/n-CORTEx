@@ -74,10 +74,6 @@ function dimOrder = resolveDimOrder(DF)
 end
 
 function h5writeSafe(h5File, dset, arr)
-    persistent deleteCounts;
-    if isempty(deleteCounts), deleteCounts = containers.Map('KeyType','char','ValueType','double'); end
-    repackThreshold = 50;
-
     try
         h5create(h5File, dset, size(arr), 'Datatype', 'double');
     catch ME
@@ -91,31 +87,8 @@ function h5writeSafe(h5File, dset, arr)
         H5L.delete(fid, dset, 'H5P_DEFAULT');
         H5F.close(fid);
         h5create(h5File, dset, size(arr), 'Datatype', 'double');
-
-        % Track dead-space accumulation per file; repack periodically.
-        if deleteCounts.isKey(h5File)
-            deleteCounts(h5File) = deleteCounts(h5File) + 1;
-        else
-            deleteCounts(h5File) = 1;
-        end
-        if deleteCounts(h5File) >= repackThreshold
-            h5repackSafe(h5File);
-            deleteCounts(h5File) = 0;
-        end
     end
     h5write(h5File, dset, arr);
-end
-
-function h5repackSafe(h5File)
-% Defragment h5File in-place via h5repack to reclaim space from deleted datasets.
-% Silently skips if h5repack is not on PATH.
-    tmp = [h5File '.repack_tmp'];
-    [status, ~] = system(sprintf('h5repack "%s" "%s"', h5File, tmp));
-    if status == 0 && isfile(tmp)
-        movefile(tmp, h5File, 'f');
-    elseif isfile(tmp)
-        delete(tmp);
-    end
 end
 
 function h5writeStringSafe(h5File, dset, val)

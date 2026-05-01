@@ -83,6 +83,12 @@ function nexFigure_stateSpace(nexObj)
     nexObj.Figure.panel_collector = nexObj_listCfgPanel(nexObj.nexon, pan_coll, ...
         nexObj.collector.View, []);
 
+    % Override SRC callback so changing source updates nexObj.AVG immediately.
+    if isfield(nexObj.collector.View.listBoxes, 'SRC') ...
+            && ~isempty(nexObj.collector.View.listBoxes.SRC)
+        nexObj.collector.View.listBoxes.SRC.Callback = @(s, ~) nexObj.onSRCChanged(s);
+    end
+
     %% Domain — selectionBus (F / D1 / ANI)
     % F: multi-select, Max=3 (scatter3 X/Y/Z).  D1: single.  ANI: single.
     pan_dom.ph = uipanel(ctrl.ph, ...

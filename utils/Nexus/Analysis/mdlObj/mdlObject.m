@@ -249,7 +249,7 @@ classdef mdlObject < handle
         function scaleApply_transform(mdlObj, dfID_source, isOverwrite)
 
             % CFG HEADER
-            scope = "local"; % scope : global/local
+            scope = "global"; % scope : global/local
 
             % apply fit transform row-by-row — avoids loading entire column into memory
             if nargin < 2
@@ -283,6 +283,9 @@ classdef mdlObject < handle
                 sessionLabel = mdlObj.nexon.console.BASE.DTS.sessionLabel{i};
                 disp(sessionLabel);
                 DF_X = dtsIO_readDF(mdlObj.nexon, dfID_entry, i);
+                if ~isfield(DF_X,"df")
+                    continue
+                end
                 if isempty(DF_X) || isempty(DF_X.df)
                     continue
                 end
@@ -307,7 +310,7 @@ classdef mdlObject < handle
             end
         end
 
-        function [STAT, idxSel] = compileSTAT(mdlObj)
+        function [STAT, idxSel, drop] = compileSTAT(mdlObj)
             % use categorical parent selection to compile dfID_source relative STAT
             % table
             Parent = mdlObj.Parent;
@@ -315,7 +318,7 @@ classdef mdlObject < handle
             if strcmp(parentClass,"nexObj_categorical") % if parent is categorical
                 S_categories = nex_returnSelectionMask(Parent.selectionBus.categories);
                 S_items = nex_returnSelectionMask(Parent.selectionBus.items);
-                [STAT, idxSel] = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
+                [STAT, idxSel, drop] = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
                 % STAT = nexOp_compileSTAT(Parent, mdlObj.dfID_source, S_categories, S_items, []);
             elseif contains(parentClass,"mdlObj") % if parent is a model
                 STAT = Parent.transformSTAT(Parent.STAT);

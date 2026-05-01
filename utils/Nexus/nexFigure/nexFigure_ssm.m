@@ -183,5 +183,9 @@ function nexFigure_ssm_updateEig(mdlObj)
     maxVal = max([abs(real(ev)); abs(imag(ev)); 1.05]) * 1.10;
     xlim(ax, [-maxVal  maxVal]);
     ylim(ax, [-maxVal  maxVal]);
-    nexObj.applyHeadline();
+    try
+        nexObj.applyHeadline();
+    catch e
+        disp(getReport(e))
+    end
 end

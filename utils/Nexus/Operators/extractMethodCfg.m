@@ -41,7 +41,9 @@ function cfgVars = extractMethodCfg(funcName)
 
             % Convert to numeric if possible; detect quoted string literals
             numValue = str2num(defaultValue); %#ok<ST2NM>
-            if ~isempty(numValue)
+            if strcmp(strtrim(defaultValue), '[]')
+                cfgVars.(varName) = [];          % explicit empty-array default
+            elseif ~isempty(numValue)
                 cfgVars.(varName) = numValue;
             else
                 dv = strtrim(defaultValue);

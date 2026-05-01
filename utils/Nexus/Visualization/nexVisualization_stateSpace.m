@@ -40,21 +40,47 @@ function nexVisualization_stateSpace(nexObj, ~)
 
     %% View selections
     viewSel  = nex_returnSelectionMask(nexObj.collector.View);
-    groupCol = char(viewSel.AVG);
     vwGroups = string(viewSel.VW);
-    clrCol   = char(viewSel.CLR);
+    clrCols  = string(viewSel.CLR);
+    clrCols  = clrCols(clrCols ~= "");   % strip empty entries from no-selection
 
     gCols = STATE.G.Properties.VariableNames;
-    hasGroupCol = ~isempty(groupCol) && ismember(groupCol, gCols);
-    hasClrCol   = ~isempty(clrCol)   && ismember(clrCol,   gCols);
+    hasClrCol = ~isempty(clrCols) && ismember(clrCols(1), gCols);
 
-    % t0 = tic;
-    %% VW row mask
-    if hasGroupCol && ~isequal(vwGroups, "")
-        groupVals = STATE.G.(groupCol);
-        mask_VW   = false(height(STATE.G), 1);
-        for k = 1:numel(vwGroups)
-            mask_VW = mask_VW | strcmp(groupVals, char(vwGroups(k)));
+    % AVG selection can be multi-valued (one string per selected group column).
+    % Filter to names that actually exist in STATE.G.
+    groupCols_vis = string(viewSel.AVG);
+    groupCols_vis = groupCols_vis(groupCols_vis ~= "" & ismember(groupCols_vis, gCols));
+    nGC           = numel(groupCols_vis);
+
+    % For each VW value, record which group column owns it (0 = unmatched).
+    % Look up against nexObj.AVG (N_groups rows) not STATE.G (N_rows) — avoids
+    % O(N_rows × nGC) string conversions and unique() calls in the hot path.
+    vw_col_idx = zeros(numel(vwGroups), 1, 'int32');
+    if nGC > 0 && ~isequal(vwGroups, "") && ~isempty(vwGroups) ...
+            && ~isempty(nexObj.AVG) && istable(nexObj.AVG)
+        avgVarNames = nexObj.AVG.Properties.VariableNames;
+        for ci = 1:nGC
+            col = char(groupCols_vis(ci));
+            if ~ismember(col, avgVarNames), continue; end
+            uniq_ci = unique(string(nexObj.AVG.(col)));
+            for i = 1:numel(vwGroups)
+                if vw_col_idx(i) == 0 && any(uniq_ci == vwGroups(i))
+                    vw_col_idx(i) = int32(ci);
+                end
+            end
+        end
+    end
+
+    %% VW row mask — AND intersection across group columns
+    % Selecting "pre" (phase) AND "thresh_q2(…)" (threshold) shows only rows
+    % where phase=pre AND threshold=q2.  Columns with no VW match are unconstrained.
+    if ~isequal(vwGroups, "") && ~isempty(vwGroups) && nGC > 0
+        mask_VW = true(height(STATE.G), 1);
+        for ci = 1:nGC
+            sel_col = vwGroups(vw_col_idx == ci);   % VW values for this column
+            if isempty(sel_col), continue; end
+            mask_VW = mask_VW & ismember(string(STATE.G.(char(groupCols_vis(ci)))), sel_col);
         end
     else
         mask_VW = true(height(STATE.G), 1);
@@ -76,7 +102,7 @@ function nexVisualization_stateSpace(nexObj, ~)
             if ~isempty(sel) && ~isequal(sel, "") && ismember(f, gCols)
                 % t_ptr = tic;
                 if isnumeric(sel)
-                    mask_f = ismembertol(double(STATE.G.(f)), double(sel(:)), 1e-6);
+                    mask_f = ismembertol(double(STATE.G.(f)), double(sel(:)), 1e-3);
                 else
                     mask_f = false(height(STATE.G), 1);
                     for j = 1:numel(sel)
@@ -107,7 +133,9 @@ function nexVisualization_stateSpace(nexObj, ~)
         d1Start  = d1Axis(max(1, curIdx - half));
         d1End    = d1Axis(min(numel(d1Axis), curIdx + half));
         d1Vals_G = double(STATE.G.(d1Ax));
-        mask_d1  = d1Vals_G >= d1Start & d1Vals_G <= d1End;
+        d1Tol    = 0;
+        if numel(d1Axis) > 1, d1Tol = abs(d1Axis(2) - d1Axis(1)) * 0.01; end
+        mask_d1  = d1Vals_G >= d1Start - d1Tol & d1Vals_G <= d1End + d1Tol;
     end
 
     % fprintf('[vis] D1 mask:      %.1f ms\n', toc(t0)*1e3); t0 = tic;
@@ -122,6 +150,7 @@ function nexVisualization_stateSpace(nexObj, ~)
     end
     winStart_ani = -Inf;
     winEnd_ani   =  Inf;
+    aniTol       = 0;      % tolerance for float-mismatched time axes (set below)
     if ~isempty(animAx) && ~isempty(nexObj.DF_postOp) ...
             && isprop(nexObj.DF_postOp, 'ptr') && isprop(nexObj.DF_postOp.ptr, animAx) ...
             && isfield(nexObj.DF_postOp.ax, animAx)
@@ -130,6 +159,14 @@ function nexVisualization_stateSpace(nexObj, ~)
         curIdx       = aPtr.value;
         winEnd_ani   = aniAxis(curIdx);
         winStart_ani = aniAxis(max(1, curIdx - len_afterImage));
+        % STATE.G time values come from averaged-DF ax, which accumulates
+        % slightly different float rounding from DF_postOp.ax.  Use 1% of the
+        % axis step as tolerance — far larger than any rounding error, far
+        % smaller than the actual sample spacing.  Only numeric range masks use
+        % this; strcmp-based category comparisons are unaffected.
+        if numel(aniAxis) > 1
+            aniTol = abs(aniAxis(2) - aniAxis(1)) * 0.01;
+        end
     end
 
     % fprintf('[vis] ANI window:   %.1f ms\n', toc(t0)*1e3); t0 = tic;
@@ -140,31 +177,91 @@ function nexVisualization_stateSpace(nexObj, ~)
     nSel   = height(G_sel);
 
     % fprintf('[vis] Subset:       %.1f ms  (N_total=%d → N_sel=%d)\n', toc(t0)*1e3, height(STATE.G), nSel); t0 = tic;
-    %% Color map — only over selected rows
-    C_sel = zeros(nSel, 3);
+    %% Color map — two-pass hybrid: LUT columns blended in RGB, non-LUT columns
+    % tuned in HSV.
+    %
+    % Pass 1 (RGB): every selected CLR column that has a LUT entry contributes
+    % an Nx3 color layer.  Layers are averaged; when >1 the result is normalized
+    % to max-channel=1 so the blended hue stays vivid before the D1 gradient.
+    % Averaging is commutative — selection order never affects the result.
+    %
+    % Pass 2 (HSV saturation): every CLR column with no LUT modulates the
+    % saturation of the Pass-1 base color.  Unique values are mapped linearly
+    % to S ∈ [0.35, 1.0] in stable sort order, so the base hue is preserved
+    % while the unmapped dimension adds a perceptible tonal gradient.
     if hasClrCol
-        clrVals = string(G_sel.(clrCol));
-        try
-            lut = nexObj.nexon.console.BASE.registry.LUT.(clrCol);
-            for k = 1:height(lut)
-                mask_k = clrVals == string(lut.label(k));
-                hex    = char(lut.color(k));
-                rgb    = [hex2dec(hex(1:2)), hex2dec(hex(3:4)), hex2dec(hex(5:6))] / 255;
-                C_sel(mask_k, :) = repmat(rgb, sum(mask_k), 1);
+        C_lut   = {};   % Nx3 per LUT-mapped column
+        hsv_mod = {};   % clrVals string vectors for non-LUT columns
+
+        for ci = 1:numel(clrCols)
+            col = char(clrCols(ci));
+            if ~ismember(col, G_sel.Properties.VariableNames), continue; end
+            clrVals  = string(G_sel.(col));
+            C_ci     = zeros(nSel, 3);
+            lutFound = false;
+            try
+                lut = nexObj.nexon.console.BASE.registry.LUT.(col);
+                for k = 1:height(lut)
+                    mask_k = clrVals == string(lut.label(k));
+                    hex    = char(lut.color(k));
+                    rgb    = [hex2dec(hex(1:2)), hex2dec(hex(3:4)), hex2dec(hex(5:6))] / 255;
+                    C_ci(mask_k, :) = repmat(rgb, sum(mask_k), 1);
+                end
+                lutFound = true;
+            catch
             end
-        catch
-            uniqVals = unique(clrVals, 'stable');
-            colorMap = lines(numel(uniqVals));
-            for k = 1:numel(uniqVals)
-                mask_k = clrVals == uniqVals(k);
-                C_sel(mask_k, :) = repmat(colorMap(k,:), sum(mask_k), 1);
+            if lutFound
+                C_lut{end+1} = C_ci;
+            else
+                hsv_mod{end+1} = clrVals;
             end
+        end
+
+        % Pass 1 — RGB blend of LUT columns
+        if ~isempty(C_lut)
+            C_sel = mean(cat(3, C_lut{:}), 3);
+            if numel(C_lut) > 1
+                maxC = max(C_sel, [], 2);
+                maxC(maxC < eps) = 1;
+                C_sel = C_sel ./ maxC;
+            end
+        else
+            C_sel = repmat(nexObj.nexon.settings.Colors.cyberGreen, nSel, 1);
+        end
+
+        % Pass 2 — HSV hue-shift + vividness tuning for non-LUT columns.
+        % H is rotated by a small per-group offset (spread ±hue_spread around
+        % the base hue) so each group gets a distinct tint while staying in the
+        % same color family.  S ramps from sat_lo to 1.0 (vividness).
+        % V is left untouched; only a very slight lift is applied to the dimmest
+        % group so nothing fully vanishes before the D1 gradient runs.
+        if ~isempty(hsv_mod)
+            hsv_sel    = rgb2hsv(C_sel);
+            hue_spread = 1/12;   % ±half of this around base hue (~±15°)
+            sat_lo     = 0.45;
+            val_lo     = 0.80;   % subtle floor; groups above it keep their value
+            for mi = 1:numel(hsv_mod)
+                vals   = hsv_mod{mi};
+                uniq_v = unique(vals, 'stable');
+                n_u    = numel(uniq_v);
+                t      = linspace(0, 1, max(n_u, 2));   % [0..1] per group
+                h_off  = linspace(-hue_spread/2, hue_spread/2, max(n_u, 2));
+                for k = 1:n_u
+                    m = vals == uniq_v(k);
+                    hsv_sel(m, 1) = mod(hsv_sel(m, 1) + h_off(k), 1);
+                    hsv_sel(m, 2) = sat_lo + (1 - sat_lo) * t(k);
+                    hsv_sel(m, 3) = max(hsv_sel(m, 3), val_lo + (1 - val_lo) * t(k));
+                end
+            end
+            C_sel = hsv2rgb(hsv_sel);
         end
     else
         C_sel = repmat(nexObj.nexon.settings.Colors.cyberGreen, nSel, 1);
     end
 
     % fprintf('[vis] Color LUT:    %.1f ms\n', toc(t0)*1e3); t0 = tic;
+    C_sel_pure = C_sel;   % snapshot before D1 gradient — used for legend swatches
+
     %% D1 brightness gradient — over selected rows only
     if ~isempty(d1Ax) && ismember(d1Ax, G_sel.Properties.VariableNames)
         d1Vals = double(G_sel.(d1Ax));
@@ -211,25 +308,33 @@ function nexVisualization_stateSpace(nexObj, ~)
     end
 
     % fprintf('[vis] Labels/title: %.1f ms\n', toc(t0)*1e3); t0 = tic;
-    %% Tracker — per-VW-group x Per-D2 group after-image, operating on already-selected subset
+    %% Tracker — per-VW-value after-image, operating on the canvas-visible subset
+    % Each VW selection value gets its own tracker handle (built by rebuildTrackers).
+    % To find which rows in G_sel match a given VW value, we search across all
+    % group columns (same multi-column lookup used by the VW mask above).
     if isequal(vwGroups, ""), return; end
-    activeFlds  = strrep(vwGroups, '-', '_');
+
+    % Safe struct field names for the same VW values used in rebuildTrackers
+    activeFlds  = string(matlab.lang.makeValidName(cellstr(vwGroups)));
     aniVals_sel = double(G_sel.(animAx));
-    mask_ani    = aniVals_sel >= winStart_ani & aniVals_sel <= winEnd_ani;
+    mask_ani    = aniVals_sel >= winStart_ani - aniTol & aniVals_sel <= winEnd_ani + aniTol;
 
     for i = 1:numel(vwGroups)
-        grp = char(vwGroups(i));
         fld = char(activeFlds(i));
         if ~isfield(gfx.canvas_tracker, fld), continue; end
         if ~isvalid(gfx.canvas_tracker.(fld)), continue; end
 
-        if hasGroupCol
-            mask_grp = strcmp(G_sel.(groupCol), grp) & mask_ani;
-        else
-            mask_grp = mask_ani;
+        mask_grp = mask_ani;
+        ci = vw_col_idx(i);
+        if ci > 0
+            mask_grp = mask_grp & ismember(string(G_sel.(char(groupCols_vis(ci)))), vwGroups(i));
         end
 
         Z_grp = Z_vis(mask_grp, :);
+        if isempty(Z_grp)
+            set(gfx.canvas_tracker.(fld), 'XData', [], 'YData', [], 'ZData', []);
+            continue;
+        end
 
         hsv_grp = rgb2hsv(C_sel(mask_grp, :));
         recency = (aniVals_sel(mask_grp) - winStart_ani) / max(eps, winEnd_ani - winStart_ani);
@@ -246,8 +351,7 @@ function nexVisualization_stateSpace(nexObj, ~)
             'SizeData', trackerSize);
     end
 
-    % fprintf('[vis] Tracker loop: %.1f ms\n', toc(t0)*1e3); t0 = tic;
-    % Scrub trackers for deselected groups
+    % Scrub trackers for VW values no longer selected
     allFlds = fieldnames(gfx.canvas_tracker);
     for i = 1:numel(allFlds)
         fld = allFlds{i};
@@ -255,6 +359,38 @@ function nexVisualization_stateSpace(nexObj, ~)
             set(gfx.canvas_tracker.(fld), 'XData', [], 'YData', [], 'ZData', []);
         end
     end
+
+    %% Legend — update proxy swatch colors only when VW selection has changed
+    % (skipped during animation frames where VW is stable)
+    if isfield(gfx, 'legend_proxies')
+        vwKey    = strjoin(vwGroups, '|');
+        prevKey  = '';
+        if isfield(nexObj.Figure.panel0.tiles.graphics, 'legend_vwCache')
+            prevKey = nexObj.Figure.panel0.tiles.graphics.legend_vwCache;
+        end
+        if ~strcmp(vwKey, prevKey)
+            for i = 1:numel(vwGroups)
+                fld = char(activeFlds(i));
+                if ~isfield(gfx.legend_proxies, fld) || ~isvalid(gfx.legend_proxies.(fld)), continue; end
+                ci = vw_col_idx(i);
+                if ci > 0
+                    mask_grp_c = ismember(string(G_sel.(char(groupCols_vis(ci)))), vwGroups(i));
+                else
+                    mask_grp_c = true(nSel, 1);
+                end
+                if any(mask_grp_c)
+                    clr = mean(C_sel_pure(mask_grp_c, :), 1);
+                    mx  = max(clr);
+                    if mx > 0, clr = clr / mx; end
+                else
+                    clr = nexObj.nexon.settings.Colors.cyberGreen;
+                end
+                set(gfx.legend_proxies.(fld), 'Color', clr, 'MarkerFaceColor', clr);
+            end
+            nexObj.Figure.panel0.tiles.graphics.legend_vwCache = vwKey;
+        end
+    end
+
     % fprintf('[vis] Tracker scrub:%.1f ms\n', toc(t0)*1e3);
     % fprintf('[vis] TOTAL:        %.1f ms\n', toc(t_total)*1e3);
 end
