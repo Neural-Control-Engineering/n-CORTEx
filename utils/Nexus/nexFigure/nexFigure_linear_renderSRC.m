@@ -129,12 +129,8 @@ function nexFigure_linear_renderResults(mdlObj, ax, srcKey, GREEN, BLACK)
         nGroups   = numel(R.ax.(clrKey));
         clrLabels = string(R.ax.(clrKey));
 
-        % Per-group RGB palette — registry atlas colors when available
-        [groupColors, regMatched] = nex_axisColorFromRegistry( ...
-            mdlObj.nexon, clrKey, clrLabels);
-        if ~regMatched
-            groupColors = lines(nGroups);
-        end
+        % Per-group RGB palette — LUT → atlas → HSV spread
+        [groupColors, ~] = nexOp_resolveGroupColors(mdlObj.nexon, clrKey, clrLabels);
 
         if strcmp(clrKey, 'fold')
             groupIdx = mod((0:nDots-1)', nFolds) + 1;
@@ -155,7 +151,11 @@ function nexFigure_linear_renderResults(mdlObj, ax, srcKey, GREEN, BLACK)
     end
 
     % Null distribution as semi-transparent histogram
-    edges = linspace(min([allNull; allReal]), max([allNull; allReal]), 40);
+    allVals  = [allNull; allReal];
+    vMin     = min(allVals);
+    vMax     = max(allVals);
+    if vMax <= vMin, vMax = vMin + max(abs(vMin) * 1e-6, 1e-10); end
+    edges = linspace(vMin, vMax, 40);
     histogram(ax, allNull, edges, ...
               'FaceColor', GREEN*0.4, 'FaceAlpha', 0.35, 'EdgeColor', 'none', ...
               'Normalization', 'probability');

@@ -11,6 +11,11 @@ function [Y, idxSel] = nexOp_compileLabels(nexObj, categories)
         S_categories = nex_returnSelectionMask(nexObj.selectionBus.categories);
         S_merge = nexOp_mergeSelections_categorical(S_categories, S_items);
         idxSel = [idxSel & nex_applySelectionMask(nexObj.nexon.console.BASE.DTS, S_merge)];
+    elseif isa(nexObj.Parent,"nexObj_categorical")
+        S_items = nex_returnSelectionMask(nexObj.Parent.selectionBus.items);    
+        S_categories = nex_returnSelectionMask(nexObj.Parent.selectionBus.categories);
+        S_merge = nexOp_mergeSelections_categorical(S_categories, S_items);
+        idxSel = [idxSel & nex_applySelectionMask(nexObj.nexon.console.BASE.DTS, S_merge)];
     elseif isfield(nexObj.Partners,"ctg")
     % elseif nexObj has categorical partner
         S_items = nex_returnSelectionMask(nexObj.Partners.ctg.selectionBus.items);    

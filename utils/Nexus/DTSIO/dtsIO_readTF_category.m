@@ -9,8 +9,7 @@ function TF = dtsIO_readTF_category(dataObj, category, idxSel)
         case "var"
             TF = dtsIO_readVar(dataObj, categoryID, idxSel);
         case "h5"
-            % Read scalar-per-trial values from HDF5 and flatten to double vector.
-            % idxSel ':' → all rows; otherwise pass through.
+            % Read per-trial values from HDF5 — numeric or string.
             % dataObj may be a DTS table or a nexon handle — unwrap if needed.
             if istable(dataObj)
                 DTS = dataObj;
@@ -22,9 +21,16 @@ function TF = dtsIO_readTF_category(dataObj, category, idxSel)
                 sel = idxSel;
             end
             raw = dtsIO_readTFH5(DTS, char(categoryID), sel, 'simple');
-            % raw is {N×1} cell of scalar numeric arrays or [].
-            % Flatten: missing trials → NaN (will not match any keySel value).
-            TF = cellfun(@(c) scalarOrNaN(c), raw);
+            % Auto-detect string vs numeric content
+            nonEmpty = raw(~cellfun('isempty', raw));
+            if ~isempty(nonEmpty) && (ischar(nonEmpty{1}) || isstring(nonEmpty{1}))
+                TF = strings(numel(raw), 1);
+                for ri = 1:numel(raw)
+                    if ~isempty(raw{ri}), TF(ri) = string(raw{ri}); end
+                end
+            else
+                TF = cellfun(@(c) scalarOrNaN(c), raw);
+            end
     end
 end
 

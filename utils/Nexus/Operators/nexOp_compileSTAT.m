@@ -63,7 +63,11 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
     TF_pooled = TF_pooled(selMatch); % filter selected data as well
     % enumerate rows as trial numbers, relative to subject/phase combos
     % TF_trialNum = nexon.console.BASE.DTS.trialNumber(idxSel);
-    [G, groups] = findgroups(Y.sessionLabel_subj, Y.sessionLabel_phase);    
+    try
+        [G, groups] = findgroups(Y.sessionLabel_subj, Y.sessionLabel_phase);    
+    catch
+        [G, groups] = findgroups(Y.sessionLabel_subj);    
+    end
     % sort groups
     [G_sort, idx_sort] = sort(G);
     % TF_trialNum_sort = TF_trialNum(idx_sort);

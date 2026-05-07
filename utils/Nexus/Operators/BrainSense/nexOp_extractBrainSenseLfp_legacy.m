@@ -1,0 +1,28 @@
+function R = nexOp_extractBrainSenseLfp(R_bs, side)
+    R_bs=struct2table(R_bs);
+    R = {};
+    for i = 1:height(R_bs)
+        r = R_bs(i,:);
+        meta1 = removevars(r,["TherapySnapshot","LfpData"]);
+        meta2 = removevars(struct2table(r.TherapySnapshot),["Left","Right"]);
+        meta = [meta1, meta2];
+        % therapy snapshot
+        meta_TS = struct2table(r.TherapySnapshot.(side));
+        meta = [meta, meta_TS];               
+        % lfpData
+        r_lfp = struct2table(r.LfpData{1,1});
+        r_lfp_meta =  removevars(r_lfp,["Left","Right"]);
+        r_lfp = struct2table(r_lfp.(side));
+        T_r = [r_lfp_meta, r_lfp];
+        try
+            meta.LFP_bs={T_r};
+        catch
+            keyboard
+        end
+        try
+            R = [R; meta];
+        catch
+            keyboard
+        end
+    end
+end

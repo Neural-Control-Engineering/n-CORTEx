@@ -12,8 +12,7 @@ classdef nexObj_categorical < nexObject
         % pMap
         % cfg
         % DF
-        % DF_postOp
-        STAT
+        % DF_postOp        
         % Figure
     end
     methods
@@ -268,13 +267,13 @@ classdef nexObj_categorical < nexObject
             nexObj.DF_postOp.ax = DF_pooled.ax;
         end
 
-        function reportSTAT(nexObj, fcn, compareVars, groupVars, resID, dfID)
+        function reportSTAT(nexObj, fcn, compareVars, groupVars, resID, dfID, nBins)
             % 1. Run base reportSTAT — calls nexOp_reportSTAT and stores the
             %    initial comparison result in RESULTS.(resID), then refreshSRC.
             if nargin < 6
                 reportSTAT@nexObject(nexObj, fcn, compareVars, groupVars, resID);
             else
-                reportSTAT@nexObject(nexObj, fcn, compareVars, groupVars, resID, dfID);
+                reportSTAT@nexObject(nexObj, fcn, compareVars, groupVars, resID, dfID, nBins);
             end
             % 2. Expand every row of RESULTS.(resID) along all DF axes.
             %    For each row: build a DF struct, construct SS_ax covering all

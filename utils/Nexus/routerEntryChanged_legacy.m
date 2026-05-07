@@ -1,65 +1,29 @@
 function routerEntryChanged(nexon,entryPanel,entryfield)
-    if strcmp(entryfield,"subject"), entryfield = "subj"; end
-
-    % Sync changed field into both panel params and router params
+    % update parameters and relevant scope dataframes, etc
+    if strcmp(entryfield,"subject")
+        entryfield = "subj";
+    end
     value = entryPanel.Panel.(entryfield).uiField.Value;
     entryPanel.entryParams.(entryfield) = value;
-    nexon.console.BASE.router.entryParams.(entryfield) = value;
-
-    params = nexon.console.BASE.params;
-    DTS    = nexon.console.BASE.DTS;
-    ep     = nexon.console.BASE.router.entryParams;  % working copy; written back below
-
-    % ── Level 1: subject ──────────────────────────────────────────────────
-    subjField = "subj";
-    if isfield(ep,"subject"), subjField = "subject"; end
-    subjLabels = DTS.sessionLabel(contains(DTS.sessionLabel, ep.(subjField)));
-    if isempty(subjLabels), return; end
-
-    % ── Level 2: date — reset if stale for the new subject ────────────────
-    availDates = parseSessionLabelUnique(subjLabels, "date");
-    if ~ismember(ep.date, availDates), ep.date = availDates(1); end
-    nexon.console.BASE.router.Panel.date.uiField.Items = availDates;
-    nexon.console.BASE.router.Panel.date.uiField.Value = ep.date;
-
-    subjXdateLabels = subjLabels(contains(subjLabels, ep.date));
-    if isempty(subjXdateLabels), subjXdateLabels = subjLabels; end
-
-    % ── Level 3: phase — reset if stale for the new subject × date ────────
-    availPhases = parseSessionLabelUnique(subjXdateLabels, "phase");
-    if ~ismember(ep.phase, availPhases), ep.phase = availPhases(1); end
-    nexon.console.BASE.router.Panel.phase.uiField.Items = availPhases;
-    nexon.console.BASE.router.Panel.phase.uiField.Value = ep.phase;
-
-    subjXdateXphaseLabels = subjXdateLabels(contains(subjXdateLabels, ep.phase));
-    if isempty(subjXdateXphaseLabels), subjXdateXphaseLabels = subjXdateLabels; end
-
-    % ── Level 4 (optional): site ──────────────────────────────────────────
-    terminalLabels = subjXdateXphaseLabels;
-    hasSitePanel   = isfield(nexon.console.BASE.router.Panel, 'site') && ...
-                     isfield(ep, 'site');
-    if hasSitePanel
-        availSites = parseSessionLabelUnique(subjXdateXphaseLabels, "site");
-        if ~isempty(availSites) && ~all(availSites == "")
-            if ~ismember(ep.site, availSites), ep.site = availSites(1); end
-            nexon.console.BASE.router.Panel.site.uiField.Items = availSites;
-            nexon.console.BASE.router.Panel.site.uiField.Value = ep.site;
-            terminalLabels = subjXdateXphaseLabels(contains(subjXdateXphaseLabels, ep.site));
-            if isempty(terminalLabels), terminalLabels = subjXdateXphaseLabels; end
-        end
+    params = nexon.console.BASE.params;    
+    % refind dropdown items    
+    entryParams = nexon.console.BASE.router.entryParams;
+    if isfield(entryParams,"subject")
+        subjSessionLabels = nexon.console.BASE.DTS.sessionLabel(contains(nexon.console.BASE.DTS.sessionLabel,entryParams.subject));    
+    elseif isfield(entryParams,"subj")
+        subjSessionLabels = nexon.console.BASE.DTS.sessionLabel(contains(nexon.console.BASE.DTS.sessionLabel,entryParams.subj));    
     end
-
-    % ── Level 5: trial ────────────────────────────────────────────────────
-    trialNums   = DTS.trialNumber(strcmp(DTS.sessionLabel, terminalLabels(1)));
-    availTrials = string(num2str(trialNums))';
-    nexon.console.BASE.router.Panel.trial.uiField.Items = availTrials;
+    parseSessionLabelUnique(subjSessionLabels,"date");
+    subjXdateSessionLabels = subjSessionLabels(contains(subjSessionLabels,entryParams.date));    
+    subjXdateXphaseLabels = subjXdateSessionLabels(contains(subjXdateSessionLabels,entryParams.phase));    
+    nexon.console.BASE.router.Panel.date.uiField.Items=parseSessionLabelUnique(subjSessionLabels,"date");
+    nexon.console.BASE.router.Panel.phase.uiField.Items=parseSessionLabelUnique(subjXdateSessionLabels,"phase");
+    subjXdateXphaseTrialList = nexon.console.BASE.DTS.trialNumber(strcmp(nexon.console.BASE.DTS.sessionLabel,subjXdateXphaseLabels(1)));    
+    nexon.console.BASE.router.Panel.trial.uiField.Items=string(num2str(subjXdateXphaseTrialList))';      
+    % initialize trial selection
     if ~strcmp(entryfield,"trial")
-        ep.trial = availTrials(1);
-        nexon.console.BASE.router.Panel.trial.uiField.Value = availTrials(1);
+        nexon.console.BASE.router.entryParams.trial = num2str(subjXdateXphaseTrialList(1));
     end
-
-    % Write working copy back
-    nexon.console.BASE.router.entryParams = ep;
 
     if strcmp(entryfield,"subject") 
         nexon.console.BASE.router.UserData.subjectDir =  fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subject);

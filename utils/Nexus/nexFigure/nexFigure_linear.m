@@ -36,9 +36,27 @@ function nexFigure_linear(mdlObj)
     viewDict.CLR = "";
     mdlObj.collector.View = nexInit_collectorView(mdlObj, viewDict);
 
+    % Read axes from the model's own source DF — Origin.DF_postOp belongs to the
+    % parent categorical and won't contain axes like 'latent' that are produced
+    % by an upstream transform (e.g. dPCA).
+    srcAx = struct();
+    try
+        srcDF = dtsIO_readDF(mdlObj.nexon, mdlObj.dfID_source, []);
+        if ~isempty(srcDF) && isfield(srcDF, 'ax')
+            srcAx = srcDF.ax;
+        end
+    catch
+    end
+    if isempty(fieldnames(srcAx))
+        try, srcAx = mdlObj.Origin.DF_postOp.ax; catch, end
+    end
+
+    % Pointer bus — delegate to base method
+    mdlObj.initPointerBus();
+
     % Domain bus (D1 / FTR)
     try
-        axNames = string(fieldnames(mdlObj.Origin.DF_postOp.ax))';
+        axNames = string(fieldnames(srcAx))';
     catch
         axNames = ["t"];
     end
@@ -52,27 +70,6 @@ function nexFigure_linear(mdlObj)
     mdlObj.collector.Domain = buildSelection(mdlObj, domainDict);
     mdlObj.collector.Domain.selections.D1  = d1Init;
     mdlObj.collector.Domain.selections.FTR = ftrInit;
-
-    % Pointer bus (one key per non-latent axis — axis value selector)
-    try
-        axFields = fieldnames(mdlObj.Origin.DF_postOp.ax);
-        axFields = axFields(~strcmp(axFields, 'latent'));
-        ptrDict  = struct();
-        for i = 1:numel(axFields)
-            f    = axFields{i};
-            vals = mdlObj.Origin.DF_postOp.ax.(f);
-            if ~isempty(vals)
-                ptrDict.(f) = vals;
-            end
-        end
-        if ~isempty(fieldnames(ptrDict))
-            mdlObj.collector.Pointer = buildSelection(mdlObj, ptrDict);
-        else
-            mdlObj.collector.Pointer = [];
-        end
-    catch
-        mdlObj.collector.Pointer = [];
-    end
 
     % ── Figure ────────────────────────────────────────────────────────────
     mdlObj.Figure.fh = uifigure( ...
@@ -167,16 +164,7 @@ function nexFigure_linear(mdlObj)
     end
 
     % ── Pointer panel — per-axis value selector ───────────────────────────
-    if ~isempty(mdlObj.collector.Pointer)
-        pan_ptr.ph = uipanel(mdlObj.Figure.panel1.ph, ...
-            "Position",        [xInner, yPtr, wInner, hPtr], ...
-            "BackgroundColor", BLACK, ...
-            "Scrollable",      "on", ...
-            "Title",           "Pointer", ...
-            "ForegroundColor", GREEN);
-        mdlObj.Figure.panel_pointer = nexObj_listCfgPanel( ...
-            nexon, pan_ptr, mdlObj.collector.Pointer, []);
-    end
+    mdlObj.buildPointerPanel(mdlObj.Figure.panel1.ph, [xInner, yPtr, wInner, hPtr]);
 
     % ── FitCfg panel ──────────────────────────────────────────────────────
     pan_fitCfg.ph = uipanel(mdlObj.Figure.panel1.ph, ...

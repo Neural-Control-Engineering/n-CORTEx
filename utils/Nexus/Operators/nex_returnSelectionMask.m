@@ -1,6 +1,10 @@
 function S = nex_returnSelectionMask(selectionBus)
     % controlPanel = nexon.console.BASE.controlPanel;
-    selKeys = selectionBus.selKeys;
+    try
+        selKeys = selectionBus.selKeys;
+    catch
+        % keyboard
+    end
     selections = selectionBus.selections;
     selFields = fieldnames(selectionBus.selKeys);    
     for i = 1:length(selFields)

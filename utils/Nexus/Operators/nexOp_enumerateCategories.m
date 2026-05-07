@@ -1,10 +1,12 @@
-function [Y_sorted, G] = nexOp_enumerateCategories(Y, compareVars, groupVars, k)
+function [Y_sorted, G] = nexOp_enumerateCategories(Y, compareVars, groupVars, k, nBins)
 % Sort Y by [groupVars, compareVars] and enumerate k-combinations of
 % compareVar levels within each groupVar stratum.
 %
 % Adds one column to Y_sorted:
 %   trialNumber — within-(groupVars × compareVars) trial counter; restarts at
 %                 1 for each unique combination → [1,2,3,1,2,3,...] pattern
+%
+% nBins : optional — quantile-bin continuous compareVars before enumeration
 %
 % Output
 %   Y_sorted      — Y sorted by [groupVars, compareVars] with trialNumber added
@@ -14,11 +16,17 @@ function [Y_sorted, G] = nexOp_enumerateCategories(Y, compareVars, groupVars, k)
 %   G.labels{g}   — nCombos × 1 comparison label strings for group g
 %   G.nGroups     — total number of strata
 
+    if nargin < 5 || isempty(nBins),     nBins = [];     end
     if nargin < 4 || isempty(k),         k = 2;          end
     if nargin < 3 || isempty(groupVars), groupVars = []; end
     compareVars = string(strrep(compareVars, "--", "_"))';
     groupVars   = string(strrep(groupVars,   "--", "_"))';
     groupVars   = groupVars(groupVars ~= "");
+
+    % ── Bin continuous compareVars before enumeration ─────────────────────
+    if ~isempty(nBins)
+        Y = nexOp_binContinuousVars(Y, compareVars, nBins);
+    end
 
     % ── Sort by [groupVars, compareVars] ──────────────────────────────────
     sortCols = [groupVars, compareVars];

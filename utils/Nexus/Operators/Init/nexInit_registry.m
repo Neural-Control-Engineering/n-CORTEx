@@ -10,19 +10,21 @@ function  nexInit_registry(nexon)
         nexon.console.BASE.registry.categories.(strrep(sessionLabelKey_part,"--","_")) = items;
     end
     %% SIGNAL TYPES
-    categories_signalTypes = nexOp_listCategories_signals(nexon);
-    for i = 1:length(categories_signalTypes)
-        signalKey = categories_signalTypes(i);
-        signalKey_parts = split(signalKey,"--");
-        signalKey_part = signalKey_parts(end);
-        try
-            signalVals = unique(nexon.console.BASE.DTS.(signalKey_part));
-        catch
-            dfCol = dtsIO_readTFH5(nexon.console.BASE.DTS, signalKey_part, [],'simple');
-            dfCol = cat(1,dfCol{:});
-            signalVals = unique(dfCol);
+    if isfield(nexon.console.BASE.DTS,"signal_types")
+        categories_signalTypes = nexOp_listCategories_signals(nexon);
+        for i = 1:length(categories_signalTypes)
+            signalKey = categories_signalTypes(i);
+            signalKey_parts = split(signalKey,"--");
+            signalKey_part = signalKey_parts(end);
+            try
+                signalVals = unique(nexon.console.BASE.DTS.(signalKey_part));
+            catch
+                dfCol = dtsIO_readTFH5(nexon.console.BASE.DTS, signalKey_part, [],'simple');
+                dfCol = cat(1,dfCol{:});
+                signalVals = unique(dfCol);
+            end
+            nexon.console.BASE.registry.categories.(signalKey_part) = signalVals;
         end
-        nexon.console.BASE.registry.categories.(signalKey_part) = signalVals;
     end
     %% LUT — color lookup tables (label → hex color), one per sessionLabel category.
     %       Accessible as nexon.console.BASE.registry.LUT.(categoryKey), e.g.
@@ -64,7 +66,11 @@ function  nexInit_registry(nexon)
         try
             load(regMapDir_local);
         catch
-            load(regMapDir_cloud);
+            try
+                load(regMapDir_cloud);
+            catch
+                return
+            end
         end
         subjectID = sprintf("subj_%s",subject);
         subjectID = strrep(subjectID,"-","_");

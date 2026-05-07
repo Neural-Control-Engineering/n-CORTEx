@@ -5,6 +5,6 @@ function matchingRows = dtsIO_findMatchingRows(keySel, TF)
         case 'double'
             matchingRows = arrayfun(@(x) ismember(x, keySel), TF);
         case 'string'
-            matchingRows = cellfun(@(x) ismember(x, keySel), TF);
+            matchingRows = arrayfun(@(x) ismember(x, string(keySel)), TF);
     end
 end

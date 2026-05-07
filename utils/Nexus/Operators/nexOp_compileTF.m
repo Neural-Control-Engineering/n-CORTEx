@@ -1,9 +1,17 @@
 function [TF, drop] =  nexOp_compileTF(nexObj, idxSel, dfID)
     if ~isa(nexObj,'Nexon')
-        nexon = nexObj.nexon;    
-        dfID = nexObj.dfID_source;    
+        nexon = nexObj.nexon;
+        if nargin < 3 || isempty(dfID)
+            dfID = nexObj.dfID_source;
+        end
+        t_preBuff = nexObj.UserData.preBufferLen; % s
     else        
         nexon=nexObj;
+        if isfield(nexon.console.BASE.UserData,"preBuffLen");
+            t_preBuff = nexon.console.BASE.UserData.preBuffLen;
+        else
+            t_preBuff=[];
+        end
     end
     
     %% RETRIEVAL    
@@ -23,16 +31,18 @@ function [TF, drop] =  nexOp_compileTF(nexObj, idxSel, dfID)
     TF   = TF(~drop);    
     %% ALIGNMENT (align all samples by '0' given preBuffLen)
     try
-        S_slrt = nex_returnSelectionMask(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
+        % S_slrt = nex_returnSelectionMask(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
+        S_slrt = nex_returnSelectionMask(nexon.console.SLRT.signals.eventAlignmentSelection);
         alignColTags = split(S_slrt.events,"_");
         % tColID = sprintf("%s_aligned_%s_time",alignColTags(1),alignColTags(2));
         % tColID
         % tCol_slrt = nexObj.nexon.console.BASE.DTS.(tColID)(idxSel);
-        fs_slrt = nexObj.nexon.console.SLRT.signals.UserData.Fs;
-        t_preBuff = nexObj.UserData.preBufferLen;
+        % fs_slrt = nexObj.nexon.console.SLRT.signals.UserData.Fs;
+        fs_slrt = nexon.console.SLRT.signals.UserData.Fs;
+        % t_preBuff = nexon.UserData.preBufferLen;
         % TF_aligned = nexOp_eventAlignTF(TF, tCol_slrt, fs_slrt, t_preBuff);
         ID_sample_event = alignColTags(1);
-        TF_sampleEvent = dtsIO_readTF(nexon, ID_sample_event, idxSel);
+        TF_sampleEvent = dtsIO_readTF(nexon, ID_sample_event, idxSel, 'simple');
         % TF_sampleEvent = nexon.console.BASE.DTS.(ID_sample_event);
         % TF_sampleEvent = TF_sampleEvent(idxSel);
         TF_sampleEvent = TF_sampleEvent(~drop);

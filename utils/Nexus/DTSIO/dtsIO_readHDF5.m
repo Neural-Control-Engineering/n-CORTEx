@@ -10,6 +10,7 @@ function DF = dtsIO_readHDF5(DTS, DFID, dtsIdx)
         rows = find(dtsIdx);
     elseif isempty(dtsIdx)
         rows = find(nex_getRouterIdx(DTS));
+        rows = rows(1);
         DTS=DTS.console.BASE.DTS;
     else
         rows = dtsIdx(:)';
@@ -38,6 +39,14 @@ function DF = readOneTrialHDF5(h5File, h5Root, DFID, axisKeyWords)
         info = h5info(h5File, groupPath);
     catch
         return; % dfID absent for this trial
+    end
+
+    % Flat dataset (not a group): read directly into DF.df
+    if isfield(info, 'Dataspace')
+        val = h5read(h5File, groupPath);
+        if iscell(val), val = string(val); end  % H5 strings come back as cellstr
+        DF.df = val;
+        return;
     end
 
     for k = 1:numel(info.Datasets)

@@ -152,6 +152,57 @@ classdef mdlObject < handle
             if isfield(sel, 'FTR') && ~isempty(sel.FTR), mdlObj.domain.FTR = string(sel.FTR); end
         end
 
+        function initPointerBus(mdlObj)
+        % Build collector.Pointer from the model's own dfID_source axes.
+        % One key per axis; values = axis tick labels for windowing at fit time.
+            srcAx = struct();
+            try
+                srcDF = dtsIO_readDF(mdlObj.nexon, mdlObj.dfID_source, []);
+                if ~isempty(srcDF) && isfield(srcDF, 'ax')
+                    srcAx = srcDF.ax;
+                end
+            catch
+            end
+            if isempty(fieldnames(srcAx))
+                try, srcAx = mdlObj.Origin.DF_postOp.ax; catch, end
+            end
+
+            try
+                axFields = fieldnames(srcAx);
+                ptrDict  = struct();
+                for i = 1:numel(axFields)
+                    f    = axFields{i};
+                    vals = srcAx.(f);
+                    if ~isempty(vals)
+                        ptrDict.(f) = vals;
+                    end
+                end
+                if ~isempty(fieldnames(ptrDict))
+                    mdlObj.collector.Pointer = buildSelection(mdlObj, ptrDict);
+                else
+                    mdlObj.collector.Pointer = [];
+                end
+            catch
+                mdlObj.collector.Pointer = [];
+            end
+        end
+
+        function buildPointerPanel(mdlObj, panelParent, position)
+        % Create a scrollable Pointer panel wired to collector.Pointer.
+        % Does nothing if collector.Pointer is empty.
+            if isempty(mdlObj.collector.Pointer), return; end
+            BLACK = [0 0 0];
+            GREEN = mdlObj.nexon.settings.Colors.cyberGreen;
+            pan_ptr.ph = uipanel(panelParent, ...
+                "Position",        position, ...
+                "BackgroundColor", BLACK, ...
+                "Scrollable",      "on", ...
+                "Title",           "Pointer", ...
+                "ForegroundColor", GREEN);
+            mdlObj.Figure.panel_pointer = nexObj_listCfgPanel( ...
+                mdlObj.nexon, pan_ptr, mdlObj.collector.Pointer, []);
+        end
+
         function applyHeadline(mdlObj)
             if ~isempty(mdlObj.headline) && isfield(mdlObj.Figure, 'fh') && isvalid(mdlObj.Figure.fh)
                 mdlObj.Figure.fh.Name = mdlObj.headline;
@@ -290,6 +341,9 @@ classdef mdlObject < handle
                     continue
                 end
                 DF_X = nex_initAxisPointer_v2(DF_X);
+                if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
+                    DF_X = mdlObj.applyPointerDF(DF_X);
+                end
                 DF_X = nexOp_permute2First(DF_X, d1Sel, DF_X.ptr);
                 try
                     DF_Z = mdlObj.transform(DF_X);
@@ -302,6 +356,7 @@ classdef mdlObject < handle
                 end
                 switch isOverwrite
                     case 0 
+                        fprintf("writing to: %s", mdlObj.dfID_target);
                         dtsIO_writeDF(mdlObj.nexon, DF_Z, mdlObj.dfID_target, i);
                     case 1
                         dtsIO_writeDF(mdlObj.nexon, DF_Z, dfID_entry, i);
@@ -605,6 +660,49 @@ classdef mdlObject < handle
                 DF_ptr = rmfield(DF_ptr, 'ptr');
                 DF_ptr = nex_initAxisPointer_v2(DF_ptr);
                 STAT.ptr = repmat(DF_ptr.ptr, height(STAT), 1);
+            end
+        end
+
+        function DF = applyPointerDF(mdlObj, DF)
+        % Slice a single DF struct along axes where collector.Pointer has a
+        % non-trivial selection.  Single-item default selections are pass-through.
+            bus = mdlObj.collector.Pointer;
+            if isempty(bus), return; end
+            axFields = fieldnames(bus.selections);
+            if isempty(axFields), return; end
+            if ~isfield(DF,'ptr') || isempty(DF.ptr)
+                DF = nex_initAxisPointer_v2(DF);
+            end
+            anyChanged = false;
+            for ai = 1:numel(axFields)
+                f      = axFields{ai};
+                selIdx = bus.selections.(f);
+                if numel(selIdx) <= 1, continue; end
+                allVals      = bus.selKeys.(f);
+                selectedVals = allVals(selIdx);
+                if ~isfield(DF.ax, f), continue; end
+                axVals = DF.ax.(f);
+                if numel(selectedVals) == numel(axVals), continue; end
+                if isnumeric(selectedVals) && isnumeric(axVals)
+                    sc = max(abs(double(axVals(:)))); if sc == 0, sc = 1; end
+                    [tf2, loc] = ismembertol(double(selectedVals(:)), double(axVals(:)), ...
+                                             1e-3, 'DataScale', sc);
+                    dimIdx = sort(loc(tf2));
+                else
+                    [~, dimIdx] = ismember(selectedVals, axVals);
+                    dimIdx = sort(dimIdx(dimIdx > 0));
+                end
+                if isempty(dimIdx) || numel(dimIdx) == numel(axVals), continue; end
+                dim = DF.ptr.(f).dim;
+                S = repmat({':'}, 1, ndims(DF.df)); S{dim} = dimIdx;
+                DF.df      = DF.df(S{:});
+                DF.ax.(f)  = axVals(dimIdx);
+                fprintf('[mdlObject] applyPointerDF: %s  [%d → %d]\n', ...
+                        f, numel(axVals), numel(dimIdx));
+                anyChanged = true;
+            end
+            if anyChanged
+                DF = nex_initAxisPointer_v2(DF);
             end
         end
 

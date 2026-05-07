@@ -1,163 +1,214 @@
 function nexVisualization_monoGraph(nexObj, args)
-
     % CFG HEADER
-    alphaVal = args.alphaVal; % default = 0.6
-    yLim_high = args.yLim_high; % default = 1
-    yLim_low = args.yLim_low; % default = -1
+    alphaVal  = args.alphaVal;   % default = 0.6
+    yLim_high = args.yLim_high;  % default = 1
+    yLim_low  = args.yLim_low;   % default = -1
 
-    numIDParts_base=2;    
-    % alphaVal = 0.6;
-    % CASES:
-    % 1) single trial
-    % 2) avg but only for current phase
-    % 3) avg for multiple phases
-    DF = nexObj.DF_postOp;
-    % df_slice = DF.df(chanSel, freqSel,:);
-    % plot timecourse 
-    % 1: with sem shading if applicable
-    % 2: with other averaged if applicable
-    axis = nexObj.Figure.panel0.tiles.ax;
-    axSel = nexObj.Figure.axSelDropDown.Value;         
-    list_legend = [];
-    h_legend = [];
-    if isfield(DF,"sem")
-        if isfield(DF,"avgCfg")
-            % clear all existing base graphics
-            graphics_current = struct2cell(nexObj.Figure.panel0.tiles.graphics);
-            ID_graphics_current = (fieldnames(nexObj.Figure.panel0.tiles.graphics));
-            ID_graphics_parts = cellfun(@(ID) split(string(ID),"_"),ID_graphics_current,"UniformOutput",false);
-            isBaseGraphics = cellfun(@(IDparts) size(IDparts,1)==numIDParts_base,ID_graphics_parts,"UniformOutput",true);
-            graphics_base = graphics_current(isBaseGraphics);
-            ID_graphics_base = convertCharsToStrings(ID_graphics_current(isBaseGraphics));
-            % cellfun(@(graphic, ID_graphic) nex_removeGraphic(nexObj, graphic, ID_graphic, "xLine"), graphics_current, ID_graphics_current,"UniformOutput",false);
-            % empty the visual data for the base figure
-            % ID_l_phase_base = ID_graphics_base(contains(ID_graphics_base,"l"));
-            l_phase_base = graphics_base{contains(ID_graphics_base,"_l")};
-            p_phase_base = graphics_base{contains(ID_graphics_base,"_p")};
-            t_axis = DF.ax.(axSel);
-            nex_updateBoundedLineData(l_phase_base, p_phase_base, t_axis, nan(size(t_axis)), nan(size(t_axis)),[],[]);
-            % look for matching averages (in Origin.UserData)
-            AVG = dtsIO_readAVG(nexObj.Origin, DF.avgCfg);
-            avgFields = convertCharsToStrings(fieldnames(AVG));       
-            % UPDATE PLOT  
-            list_legend=[];
-            list_color = [];            
-            for i = 1:length(avgFields)
-                avgField = avgFields(i);                
-                % phase color
-                % phaseLUT = nexObj.nexon.console.BASE.map_phase.Map;
-                phaseLUT = nexObj.nexon.console.BASE.map_phase;
-                idx_phase = find(strcmp(phaseLUT.phase,strrep(avgField,"_","-")));
-                color = phaseLUT(idx_phase,:).color;
-                list_legend = [list_legend, strrep(avgField,"_","-")];
-                list_color = [list_color, color];
-                ID_l_phase = sprintf("%s_canvas_l_%s", nexObj.classID, strrep(avgField,"_","x"));                
-                ID_p_phase = sprintf("%s_canvas_p_%s",nexObj.classID, strrep(avgField,"_","x"));
-                df_phase = AVG.(avgField).df;
-                sem_phase = AVG.(avgField).sem;
-                axData = AVG.(avgField).ax.(axSel);
-                % SLICE DF
-                % df_phase_slice = squeeze(df_phase(chanSel, freqSel,:))';
-                % t_axis = AVG.(avgField).ax.t(1:size(df_phase_slice,2));
-                % sem_phase_slice = squeeze(sem_phase(chanSel, freqSel,:))';                 
-                ptr_DF = DF.ptr;
-                ptr = AVG.(avgField).ptr;
-                % replace canonical range with AVG_DF specific range
-                if isfield(ptr_DF.(axSel),"range")
-                    ptr_DF.(axSel).range = ptr.(axSel).range;
+    ax    = nexObj.Figure.panel0.tiles.ax;
+    axSel = nexObj.Figure.axSelDropDown.Value;
+    GREEN = nexObj.nexon.settings.Colors.cyberGreen;
+
+    srcKey   = nexObj.getCurrentSRC();
+    viewSel  = nex_returnSelectionMask(nexObj.collector.View);
+    vwGroups = string(viewSel.VW);
+    clrCols  = string(viewSel.CLR);
+    clrCols  = clrCols(clrCols ~= "");
+
+    useResults = ~strcmp(srcKey, 'DF') ...
+        && isfield(nexObj.RESULTS, srcKey) ...
+        && ~isempty(nexObj.RESULTS.(srcKey)) ...
+        && ~isequal(vwGroups, "") ...
+        && ~isempty(vwGroups);
+
+    % Set scale before rendering so patches are created in the correct mode
+    if strcmp(axSel, 'f'), ax.XScale = 'log'; else, ax.XScale = 'linear'; end
+
+    %% Clear base canvas when switching to RESULTS mode
+    gfx = nexObj.Figure.panel0.tiles.graphics;
+    if useResults && isfield(gfx, 'canvas_l') && isvalid(gfx.canvas_l)
+        set(gfx.canvas_l, 'XData', NaN, 'YData', NaN);
+    end
+
+    if useResults
+        %% ── RESULTS-based multi-group rendering ──────────────────────────
+        RESULT    = nexObj.RESULTS.(srcKey);
+        gCols     = RESULT.Properties.VariableNames;
+        DF_STRUCT = ["df","ax","ptr","sem"];
+        groupCols = string(gCols(~ismember(gCols, DF_STRUCT)));
+        labelCols = groupCols;
+
+        % Bucket VW selections by which group column they belong to
+        colSel = cell(numel(groupCols), 1);
+        for ci = 1:numel(groupCols)
+            uniq_ci    = unique(string(RESULT.(char(groupCols(ci)))));
+            colSel{ci} = vwGroups(ismember(vwGroups, uniq_ci));
+        end
+
+        % AND-filter RESULT rows: must match selected values in every column
+        % that has at least one VW selection; unconstrained columns are skipped.
+        rowMask = true(height(RESULT), 1);
+        for ci = 1:numel(groupCols)
+            if isempty(colSel{ci}), continue; end
+            rowMask = rowMask & ismember(string(RESULT.(char(groupCols(ci)))), colSel{ci});
+        end
+        matchingRows = find(rowMask)';
+        nMatch       = numel(matchingRows);
+
+        % Composite label per row: join group column values with ' | '
+        rowLabels  = strings(nMatch, 1);
+        activeFlds = strings(nMatch, 1);
+        for ri = 1:nMatch
+            r     = matchingRows(ri);
+            parts = arrayfun(@(c) string(RESULT.(char(groupCols(c)))(r)), ...
+                1:numel(groupCols), 'UniformOutput', false);
+            rowLabels(ri)  = strjoin([parts{:}], ' | ');
+            activeFlds(ri) = string(matlab.lang.makeValidName(char(rowLabels(ri))));
+        end
+
+        % Colors — one per matching row
+        if nMatch > 0 && ~isempty(labelCols)
+            grpTable = RESULT(matchingRows, cellstr(labelCols));
+        else
+            grpTable = table();
+        end
+        if ~isempty(clrCols) && nMatch > 0
+            groupColors = nexObj.resolveGroupColors(grpTable, clrCols);
+        elseif nMatch > 1
+            groupColors = nexVis_hsvSpread(nMatch);
+        else
+            groupColors = repmat(GREEN, nMatch, 1);
+        end
+
+        h_legend   = gobjects(0);
+        lbl_legend = string.empty;
+        ptr_DF     = nexObj.DF_postOp.ptr;
+
+        for ri = 1:nMatch
+            r    = matchingRows(ri);
+            df_g  = RESULT.df{r};
+            ax_g  = RESULT.ax{r};
+            sem_g = RESULT.sem{r};
+            ptr_g = RESULT.ptr{r};
+
+            ptr_use = ptr_DF;
+            if isstruct(ptr_g) && isfield(ptr_g, axSel) && isfield(ptr_DF, axSel)
+                ptr_use.(axSel).range = ptr_g.(axSel).range;
+            end
+            df_slice  = nexOp_permuteLong2second(squeeze(sliceDF(df_g,  ptr_use, axSel, "range")));
+            sem_slice = nexOp_permuteLong2second(squeeze(sliceDF(sem_g, ptr_use, axSel, "range")));
+            t_ax   = ax_g.(axSel);
+            if strcmp(axSel, 'f')
+                posF = t_ax > 0;
+                t_ax = t_ax(posF); df_slice = df_slice(posF); sem_slice = sem_slice(posF);
+            end
+            clr    = groupColors(ri, :);
+            hexStr = sprintf('%02X%02X%02X', round(clr * 255));
+
+            fld  = char(activeFlds(ri));
+            ID_l = fld + "_l";
+            ID_p = fld + "_p";
+
+            hasH = isfield(nexObj.Figure.panel0.tiles.graphics, ID_l) ...
+                && isfield(nexObj.Figure.panel0.tiles.graphics, ID_p);
+            try, isValid = hasH && isvalid(nexObj.Figure.panel0.tiles.graphics.(ID_l)); catch, isValid = false; end
+
+            if isValid
+                nex_updateBoundedLineData( ...
+                    nexObj.Figure.panel0.tiles.graphics.(ID_l), ...
+                    nexObj.Figure.panel0.tiles.graphics.(ID_p), ...
+                    t_ax, df_slice, sem_slice, string(hexStr), alphaVal);
+            else
+                [l_g, p_g] = plotWithSEM(ax, t_ax, df_slice, sem_slice, clr, alphaVal);
+                colorAx_green(ax);
+                nexObj.Figure.panel0.tiles.graphics.(ID_l) = l_g;
+                nexObj.Figure.panel0.tiles.graphics.(ID_p) = p_g;
+            end
+            h_legend(end+1)   = nexObj.Figure.panel0.tiles.graphics.(ID_l); %#ok<AGROW>
+            lbl_legend(end+1) = rowLabels(ri); %#ok<AGROW>
+        end
+
+        % NaN-clear handles for groups no longer selected
+        gfx      = nexObj.Figure.panel0.tiles.graphics;
+        allFlds  = string(fieldnames(gfx))';
+        lineFlds = allFlds(endsWith(allFlds, "_l") & allFlds ~= "canvas_l");
+        for fld = lineFlds
+            baseName = extractBefore(fld, strlength(fld) - 1);
+            if ismember(baseName, activeFlds), continue; end
+            hl = gfx.(fld);
+            if isvalid(hl), set(hl, 'XData', NaN, 'YData', NaN); end
+            pFld = baseName + "_p";
+            if isfield(gfx, pFld)
+                hp = gfx.(pFld);
+                if isvalid(hp)
+                    set(hp, 'XData', NaN, 'YData', NaN, 'Vertices', [NaN NaN], 'Faces', 1);
                 end
-                % try
-                df_phase_slice = sliceDF(df_phase, ptr_DF, axSel, "range");
-                % catch
-                    % keyboard
-                % end
-                sem_phase_slice = sliceDF(sem_phase, ptr_DF, axSel,"range");  
-                df_phase_slice=nexOp_permuteLong2second(squeeze(df_phase_slice));
-                sem_phase_slice=nexOp_permuteLong2second(squeeze(sem_phase_slice));
-                isSubFields = isfield( nexObj.Figure.panel0.tiles.graphics,ID_l_phase) && isfield( nexObj.Figure.panel0.tiles.graphics,ID_p_phase);
-                try
-                    isValid = isvalid( nexObj.Figure.panel0.tiles.graphics.(ID_l_phase)) && isvalid( nexObj.Figure.panel0.tiles.graphics.(ID_p_phase));
-                catch
-                    isValid = 0;
-                end
-                if isSubFields && isValid
-                    l_phase = nexObj.Figure.panel0.tiles.graphics.(ID_l_phase);
-                    p_phase = nexObj.Figure.panel0.tiles.graphics.(ID_p_phase);
-                    % try
-                    nex_updateBoundedLineData(l_phase, p_phase, axData, df_phase_slice, sem_phase_slice, color,alphaVal);
-                    % catch
-                        % keyboard
-                    % end
-                else % generate new                                       
-                    [l_phase, p_phase] = plotWithSEM(axis,axData,df_phase_slice,sem_phase_slice,hex2rgb(color),alphaVal);
-                    colorAx_green(axis);                   
-                    % add graphics handles to figure tree
-                    nexObj.Figure.panel0.tiles.graphics.(ID_l_phase) = l_phase;
-                    nexObj.Figure.panel0.tiles.graphics.(ID_p_phase) = p_phase;                    
-                end
-                h_legend = [h_legend, l_phase];
             end
         end
-    else % single trial vis
-        % format plot data
-        ID_line = sprintf("canvas_l");
-        ID_patch = sprintf("canvas_p");
-        df = DF.df;                     
+
+        % Legend
+        if ~isempty(h_legend)
+            lgd = legend(ax, h_legend, cellstr(lbl_legend), 'Interpreter', 'none');
+            lgd.TextColor = GREEN;
+            lgd.Color     = [0 0 0];
+            lgd.EdgeColor = GREEN;
+            lgd.FontSize  = 16;
+        end
+
+    else
+        %% ── Single-DF rendering ──────────────────────────────────────────
+        DF  = nexObj.DF_postOp;
         ptr = DF.ptr;
-        % slice dataframe
-        axSel = nexObj.Figure.axSelDropDown.Value;                
-        df_slice = sliceDF(df, ptr, axSel, "range");
-        df_slice=nexOp_permuteLong2second(squeeze(df_slice));    
-        % t_axis = DF.ax.t(1:size(df_slice,2));
-        t_axis = DF.ax.(axSel);
-        sem_slice = nan(size(df_slice));                     
-        % UPDATE PLOT
-        if isfield( nexObj.Figure.panel0.tiles.graphics,ID_line) && isfield( nexObj.Figure.panel0.tiles.graphics,ID_patch) % graphics sub field exists
-            line = nexObj.Figure.panel0.tiles.graphics.(ID_line);
-            patch = nexObj.Figure.panel0.tiles.graphics.(ID_patch);
-            % df = DF.df;                
-            % df_slice = squeeze(df(chanSel, freqSel,:))';
-            % t_axis = DF.ax.t(1:size(df_slice,2));
-            % sem_slice = nan(size(df_slice));
-            nex_updateBoundedLineData(line, patch, t_axis, df_slice, sem_slice,[],[]);
-        else                
-            [l_phase, p_phase] = plotWithSEM(axis,t_axis,df_slice,sem_slice,[],[]);
-            colorAx_green(axis);                   
-            % add graphics handles to figure tree
-            nexObj.Figure.panel0.tiles.graphics.(ID_line) = l_phase;
-            nexObj.Figure.panel0.tiles.graphics.(ID_phase) = p_phase;                    
-        end    
-    end    
+        df_slice  = nexOp_permuteLong2second(squeeze(sliceDF(DF.df, ptr, axSel, "range")));
+        t_axis    = DF.ax.(axSel);
+        sem_slice = nan(size(df_slice));
+        if strcmp(axSel, 'f')
+            posF = t_axis > 0;
+            t_axis = t_axis(posF); df_slice = df_slice(posF); sem_slice = sem_slice(posF);
+        end
 
+        if isfield(gfx, 'canvas_l') && isvalid(gfx.canvas_l)
+            nex_updateBoundedLineData(gfx.canvas_l, gfx.canvas_p, t_axis, df_slice, sem_slice, [], []);
+        else
+            [l, p] = plotWithSEM(ax, t_axis, df_slice, sem_slice, [1,1,1], []);
+            colorAx_green(ax);
+            nexObj.Figure.panel0.tiles.graphics.canvas_l = l;
+            nexObj.Figure.panel0.tiles.graphics.canvas_p = p;
+        end
+        legend(ax, 'off');
+    end
 
-    nexObj.Figure.panel0.tiles.ax.YLim=[yLim_low, yLim_high];
-    %% TITLE
-    % chanBinType = nexObj.Origin.pMap.pMap_chans.binType;    
-    % [binEdges, binIDs_chans] = nexObj.Origin.pMap.pMap_chans.getBinEdges(nexObj.Origin.DF_postOp.ax.chans);
-    % freqBinType = nexObj.Origin.pMap.pMap_freqs.binType;            
-    % [binEdges, binIDs_freqs] = nexObj.Origin.pMap.pMap_freqs.getBinEdges(nexObj.Origin.DF_postOp.ax.f);
-    % binID_chans = binIDs_chans(chanSel);
-    % binID_freqs = binIDs_freqs(freqSel);
-    % % region inference
-    % binID_alpha = split(binID_chans,"--"); binID_alpha=binID_alpha(1);binID_num = str2double(binID_alpha);
-    % region = convertCharsToStrings(nexObj.Origin.regMap(cell2mat(nexObj.Origin.regMap.channel==binID_num),:).region);
-    % % title label
-    % titleText = sprintf("%s, %s: %s; %s: %s", region, chanBinType, binID_chans, freqBinType, binID_freqs);
-    %% makeshift domain
-    domain.F = nexObj.dfID_source;
+    %% Axis limits + labels + ticks
+    ax.YLim = [yLim_low, yLim_high];
+
+    xlabel(ax, axSel, 'Color', GREEN);
+    if isfield(nexObj.DF_postOp.ax, axSel)
+        t_vals = double(nexObj.DF_postOp.ax.(axSel));
+        if strcmp(axSel, 'f')
+            t_vals = t_vals(t_vals > 0);
+            lo = log10(min(t_vals));  hi = log10(max(t_vals));
+            decades  = floor(lo) : ceil(hi);
+            base125  = [1, 2, 5];
+            tickCands = (10 .^ decades(:)) .* base125;
+            tickCands = unique(tickCands(:));
+            ax.XTick = tickCands(tickCands >= min(t_vals) & tickCands <= max(t_vals));
+        else
+            ax.XTick = linspace(min(t_vals), max(t_vals), 40);
+        end
+    end
+
+    domain.F  = nexObj.dfID_source;
     domain.D1 = axSel;
-    % domain.animate=axSel;
-    d2List = fieldnames(nexObj.DF_postOp.ptr); d2List = d2List(~strcmp(axSel, d2List));
-    domain.D2 = convertCharsToStrings(d2List);
-    nexObj.domain=domain;
-    axTitle=nexTract_axisTitle(nexObj, DF);
-    title(axis, axTitle,"Color",nexObj.nexon.settings.Colors.cyberGreen);
-    %% LEGEND
-    if ~isempty(list_legend)
-        lgd = legend(axis, h_legend, list_legend);
-        lgd.TextColor = nexObj.nexon.settings.Colors.cyberGreen;
-        lgd.EdgeColor = 'none';        % No border
-        % lgd.Color = [0 0 0];           % black background
-    end   
+    d2List    = fieldnames(nexObj.DF_postOp.ptr);
+    domain.D2 = convertCharsToStrings(d2List(~strcmp(axSel, d2List)));
+    nexObj.domain = domain;
 
+    axTitle = nexTract_axisTitle(nexObj, nexObj.DF_postOp);
+    title(ax, axTitle, "Color", GREEN);
+end
+
+
+function colors = nexVis_hsvSpread(n)
+    hues   = linspace(0, 1, n + 1);  hues(end) = [];
+    colors = arrayfun(@(h) hsv2rgb([h, 0.8, 0.9]), hues, 'UniformOutput', false);
+    colors = vertcat(colors{:});
 end

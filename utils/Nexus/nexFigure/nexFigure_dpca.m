@@ -12,13 +12,15 @@ function nexFigure_dpca(mdlObj)
 
     hCondVars = 200;
     hFitCfg   = 145;
+    hPtr      = 150;
     hBtn      = 30;
     gap       = 5;
 
     yFit      = xInner;
     yVis      = yFit    + hBtn      + gap;
     yFitCfg   = yVis    + hBtn      + gap;
-    yCondVars = yFitCfg + hFitCfg   + gap;
+    yPtr      = yFitCfg + hFitCfg   + gap;
+    yCondVars = yPtr    + hPtr      + gap;
 
     %% Figure
     mdlObj.Figure.fh = uifigure( ...
@@ -55,6 +57,10 @@ function nexFigure_dpca(mdlObj)
         "Position",        [xRight, 5, wRight, 620], ...
         "BackgroundColor", BLACK, ...
         "Scrollable",      "on");
+
+    %% Pointer panel — per-axis value selector
+    mdlObj.initPointerBus();
+    mdlObj.buildPointerPanel(mdlObj.Figure.panel1.ph, [xInner, yPtr, wInner, hPtr]);
 
     %% CondVars listbox — multi-select task/condition variables
     condCols = nexFigure_dpca_condVarOptions(mdlObj);

@@ -1,6 +1,10 @@
 function categories = nexOp_listCategories(nexon)
     sl  = nexOp_listCategories_sessionLabel(nexon);
-    var = nexOp_listCategories_signals(nexon);
+    if isfield(nexon.console.BASE.DTS,"signal_types")
+        var = nexOp_listCategories_signals(nexon);
+    else
+        var = [];
+    end
     h5  = nexOp_listCategories_h5(nexon);
 
     % Remove h5 entries whose bare key already appears in sl or var lists,

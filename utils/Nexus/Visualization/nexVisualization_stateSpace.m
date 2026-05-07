@@ -45,7 +45,6 @@ function nexVisualization_stateSpace(nexObj, ~)
     clrCols  = clrCols(clrCols ~= "");   % strip empty entries from no-selection
 
     gCols = STATE.G.Properties.VariableNames;
-    hasClrCol = ~isempty(clrCols) && ismember(clrCols(1), gCols);
 
     % AVG selection can be multi-valued (one string per selected group column).
     % Filter to names that actually exist in STATE.G.
@@ -189,75 +188,7 @@ function nexVisualization_stateSpace(nexObj, ~)
     % saturation of the Pass-1 base color.  Unique values are mapped linearly
     % to S ∈ [0.35, 1.0] in stable sort order, so the base hue is preserved
     % while the unmapped dimension adds a perceptible tonal gradient.
-    if hasClrCol
-        C_lut   = {};   % Nx3 per LUT-mapped column
-        hsv_mod = {};   % clrVals string vectors for non-LUT columns
-
-        for ci = 1:numel(clrCols)
-            col = char(clrCols(ci));
-            if ~ismember(col, G_sel.Properties.VariableNames), continue; end
-            clrVals  = string(G_sel.(col));
-            C_ci     = zeros(nSel, 3);
-            lutFound = false;
-            try
-                lut = nexObj.nexon.console.BASE.registry.LUT.(col);
-                for k = 1:height(lut)
-                    mask_k = clrVals == string(lut.label(k));
-                    hex    = char(lut.color(k));
-                    rgb    = [hex2dec(hex(1:2)), hex2dec(hex(3:4)), hex2dec(hex(5:6))] / 255;
-                    C_ci(mask_k, :) = repmat(rgb, sum(mask_k), 1);
-                end
-                lutFound = true;
-            catch
-            end
-            if lutFound
-                C_lut{end+1} = C_ci;
-            else
-                hsv_mod{end+1} = clrVals;
-            end
-        end
-
-        % Pass 1 — RGB blend of LUT columns
-        if ~isempty(C_lut)
-            C_sel = mean(cat(3, C_lut{:}), 3);
-            if numel(C_lut) > 1
-                maxC = max(C_sel, [], 2);
-                maxC(maxC < eps) = 1;
-                C_sel = C_sel ./ maxC;
-            end
-        else
-            C_sel = repmat(nexObj.nexon.settings.Colors.cyberGreen, nSel, 1);
-        end
-
-        % Pass 2 — HSV hue-shift + vividness tuning for non-LUT columns.
-        % H is rotated by a small per-group offset (spread ±hue_spread around
-        % the base hue) so each group gets a distinct tint while staying in the
-        % same color family.  S ramps from sat_lo to 1.0 (vividness).
-        % V is left untouched; only a very slight lift is applied to the dimmest
-        % group so nothing fully vanishes before the D1 gradient runs.
-        if ~isempty(hsv_mod)
-            hsv_sel    = rgb2hsv(C_sel);
-            hue_spread = 1/12;   % ±half of this around base hue (~±15°)
-            sat_lo     = 0.45;
-            val_lo     = 0.80;   % subtle floor; groups above it keep their value
-            for mi = 1:numel(hsv_mod)
-                vals   = hsv_mod{mi};
-                uniq_v = unique(vals, 'stable');
-                n_u    = numel(uniq_v);
-                t      = linspace(0, 1, max(n_u, 2));   % [0..1] per group
-                h_off  = linspace(-hue_spread/2, hue_spread/2, max(n_u, 2));
-                for k = 1:n_u
-                    m = vals == uniq_v(k);
-                    hsv_sel(m, 1) = mod(hsv_sel(m, 1) + h_off(k), 1);
-                    hsv_sel(m, 2) = sat_lo + (1 - sat_lo) * t(k);
-                    hsv_sel(m, 3) = max(hsv_sel(m, 3), val_lo + (1 - val_lo) * t(k));
-                end
-            end
-            C_sel = hsv2rgb(hsv_sel);
-        end
-    else
-        C_sel = repmat(nexObj.nexon.settings.Colors.cyberGreen, nSel, 1);
-    end
+    C_sel = nexObj.resolveGroupColors(G_sel, clrCols);
 
     % fprintf('[vis] Color LUT:    %.1f ms\n', toc(t0)*1e3); t0 = tic;
     C_sel_pure = C_sel;   % snapshot before D1 gradient — used for legend swatches

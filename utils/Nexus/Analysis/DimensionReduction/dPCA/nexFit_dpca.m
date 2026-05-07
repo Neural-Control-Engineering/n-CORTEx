@@ -25,6 +25,10 @@ function nexFit_dpca(mdlObj, args)
         error('nexFit_dpca: DM not built — call getDesignMatrix first.');
     end
 
+    % Cap nComp to available input dimensions so SVD in dpca_explainedVariance
+    % never overruns (e.g. after applyPointer reduces the feature count).
+    nComp = min(nComp, size(DM.X_avg, 1));
+
     if isempty(lambda)
         fprintf('[nexFit_dpca] optimizing lambda...\n');
         lambda = dpca_optimizeLambda(DM.X_avg, DM.X_single, DM.numOfTrials, ...

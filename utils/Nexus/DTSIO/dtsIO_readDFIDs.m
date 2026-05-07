@@ -15,15 +15,24 @@ function dfIDs = dtsIO_readDFIDs(DTS)
         return;
     end
 
-    h5File = char(DTS.h5_path(10));
-    h5Root = char(DTS.h5_root(10));
+    sampleRow = min(10, height(DTS));
+    h5File = char(DTS.h5_path(sampleRow));
+    h5Root = char(DTS.h5_root(sampleRow));
 
     try
         info    = h5info(h5File, h5Root);
         leafFcn = @(fullPath) fullPath(find(fullPath == '/', 1, 'last') + 1 : end);
-        h5IDs   = string(cellfun(leafFcn, {info.Groups.Name}, 'UniformOutput', false));
-        dfIDs   = [dfIDs, h5IDs];
+        % DF-group entries: info.Groups.Name is a full path → extract leaf
+        h5IDs = string({});
+        if ~isempty(info.Groups)
+            h5IDs = [h5IDs, string(cellfun(leafFcn, {info.Groups.Name}, 'UniformOutput', false))];
+        end
+        % Flat dataset entries: info.Datasets.Name is already the leaf name
+        if ~isempty(info.Datasets)
+            h5IDs = [h5IDs, string({info.Datasets.Name})];
+        end
+        dfIDs = [dfIDs, h5IDs];
     catch
-        warning('[dtsIO_readDFIDs] Could not read HDF5 groups from %s%s', h5File, h5Root);
+        warning('[dtsIO_readDFIDs] Could not read HDF5 from %s%s', h5File, h5Root);
     end
 end

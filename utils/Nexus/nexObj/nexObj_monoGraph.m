@@ -8,53 +8,70 @@ classdef nexObj_monoGraph < nexObject
             if nargin < 7, headline = []; end
             nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);
             nexObj.classID = "mgph";
-            if nargin >= 6
-                nexObj.DF = DF;            
-            end        
-            % resolve time-resolved recordings over varied dimensions
-            % (channel, frequency, etc.)
-            if isempty(Parent) % standalone monograph, attach to nexon
-                nexObj.nexon = nexon;
-                % df = grabDataFrame(nexon, "lfp",[]);
-                % df_t = grabDataFrame(nexon,"t_lfp",[]);
-                % nexObj.DF = lfp2DF(df, df_t);                
+
+            if nargin >= 6 && ~isempty(DF)
+                nexObj.DF = DF;
+            end
+
+            if isempty(Parent)
+                nexObj.nexon       = nexon;
                 nexObj.dfID_source = dfID_source;
                 if ~isempty(dfID_source)
                     nexObj.DF = dtsIO_readDF(nexon, dfID_source, []);
                 end
-                nexObj.Origin = nexObj; % assign self as origin
+                nexObj.Origin = nexObj;
             else
-                nexObj.Parent = Parent;
-                nexObj.dfID_source = sprintf("nexObj_%s",Parent.classID);
+                nexObj.Parent      = Parent;
+                nexObj.dfID_source = dfID_source;
                 if isempty(Origin)
-                    nexObj.Origin = Parent.Origin;
+                    if isa(Parent,"Nexon")
+                        nexObj.Origin=Parent;
+                    else
+                        nexObj.Origin = Parent.Origin;
+                    end
                 else
                     nexObj.Origin = Origin;
                 end
-                nexObj.nexon = Parent.nexon;
+                if isa(Parent,"Nexon")
+                    nexObj.nexon=Parent;
+                else
+                    nexObj.nexon = Parent.nexon;
+                end
                 nexObj.Parent.Children.(nexObj.classID) = nexObj;
-                nexObj.DF = Parent.DF_postOp;
+                % Categorical parent: load own DF — parent's DF_postOp is unrelated data.
+                % Non-categorical parent: inherit parent's post-op DF as scope.
+                if strcmp(Parent.classID, 'ctg') && ~isempty(dfID_source)
+                    nexObj.DF = dtsIO_readDF(nexObj.nexon, dfID_source, []);
+                elseif isa(Parent,"Nexon")
+                    nexObj.DF = dtsIO_readDF(nexObj.nexon, dfID_source, []);
+                else
+                    nexObj.DF = Parent.DF_postOp;
+                end
             end
-            % CONFIG
+
+            % Config / op
             if ~isempty(opCfgFcn)
-                nexObj.cfg.opCfg=nex_generateCfgObj(opCfgFcn);                
+                nexObj.cfg.opCfg = nex_generateCfgObj(opCfgFcn);
                 nexObj.operate();
             else
-                nexObj.cfg.opCfg=[];
+                nexObj.cfg.opCfg = [];
                 nexObj.DF_postOp = nexObj.DF;
             end
-            % Axis pointer            
-            nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
-            % Pool Map
-            nexObj.pMap = nexInit_pMap(nexObj, nexObj.DF_postOp);            
-            nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_monoGraph"));                        
-            % Inherit DF
+            nexObj.DF_postOp  = nex_initAxisPointer_v2(nexObj.DF_postOp);
+            nexObj.pMap       = nexInit_pMap(nexObj, nexObj.DF_postOp);
+            nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_monoGraph"));
+
+            % STAT + collector.View (base methods)
+            nexObj.compileSTAT();
+            nexObj.initCollectorView();
+
             nexObj.buildFigure();
         end
 
+        % ── Core ──────────────────────────────────────────────────────────
+
         function visualize(nexObj)
-            visArgs = nexObj.cfg.visCfg.entryParams;
-            nexVisualization_monoGraph(nexObj, visArgs);
+            nexVisualization_monoGraph(nexObj, nexObj.cfg.visCfg.entryParams);
         end
 
         function buildFigure(nexObj)
@@ -62,54 +79,61 @@ classdef nexObj_monoGraph < nexObject
         end
 
         function updateScope(nexObj)
-            % inherit new DF
-            nexObj.DF = nexObj.Parent.DF_postOp;
-            % operate
+            if ~isempty(nexObj.Parent) && ~strcmp(nexObj.Parent.classID, 'ctg')
+                nexObj.DF = nexObj.Parent.DF_postOp;
+            end
             nexObj.operate();
-            % visualize
             nexObj.visualize();
         end
 
-        function reportAverage(nexObj, idxSel)
-            %% RETRIEVAL
-            TF = nexOp_compileTF(nexObj, idxSel);
-            %% COMPUTE RESULT
-            ptr = nexObj.DF_postOp.ptr;
-            dimSel = nexObj.domain.D1;
-            DF_avg = nexOp_averageTF(TF, ptr, 2);            
-            % DF_avg.ptr=ptr;
-            DF_avg.ptr = nexInit_axisPointer(DF_avg.df, DF_avg.ax);
-            DF_avg.avgCfg = nexTract_avgCfg(nexObj.nexon);
-            %% STORE RESULT
-            ptr_old = nexObj.DF_postOp.ptr; % preserve old ptr by handle
-            nexObj.DF_postOp = DF_avg;       
-            nexObj.DF_postOp.ptr=ptr_old;
-            % retrieve averaging config (bookkeeping)
-            % nex_storeAverage(nexObj, nexObj.DF_postOp);
-            nex_storeAverage(nexObj, DF_avg);
-            %% VISUALIZE
+        % ── Overrides: call base then visualize immediately ────────────────
+
+        function reportAverage(nexObj, resultID, nBins, STAT)
+            nexObj.compileSTAT;
+            if nargin < 2, resultID = []; end
+            if nargin < 3, nBins = 4; end
+            if nargin < 4 
+                reportAverage@nexObject(nexObj, resultID, nBins); 
+            else
+                reportAverage@nexObject(nexObj, resultID, nBins, STAT); 
+            end
+            % reportAverage@nexObject(nexObj, resultID, nBins);
             nexObj.visualize();
-            disp("Average Complete")
-            %% UPDATE TREE
-            % nex_updateChildren(nexObj.nexon, nexObj);
-            % nex_updatePartners(nexObj);
         end
+
+        function reportSTAT(nexObj, fcn, compareVars, groupVars, resID, dfID, nBins)
+            if nargin < 6
+                reportSTAT@nexObject(nexObj, fcn, compareVars, groupVars, resID);
+            else
+                reportSTAT@nexObject(nexObj, fcn, compareVars, groupVars, resID, dfID, nBins);
+            end
+            % AVERAGE BY COMPAREVARS
+            STAT=nexObj.RESULTS.(resID);
+            nexObj.reportAverage(resID, nBins, STAT);
+            if ismethod(nexObj,"refreshSRC")
+                nexObj.refreshSRC();
+            end
+        end
+
+        function applySRC(nexObj, srcKey)
+            applySRC@nexObject(nexObj, srcKey);
+            nexObj.visualize();
+        end
+
+        % ── operate (preserved) ───────────────────────────────────────────
 
         function operate(nexObj)
-            % reassign the pointer elements
-            % operate
-            if isfield(nexObj.DF_postOp,'ptr')
+            if isfield(nexObj.DF_postOp, 'ptr')
                 oldPtr = nexObj.DF_postOp.ptr;
             else
                 oldPtr = [];
             end
-            if ~isempty( nexObj.cfg.opCfg)
+            if ~isempty(nexObj.cfg.opCfg)
                 opArgs = nexObj.cfg.opCfg.entryParams;
                 nexObj.DF_postOp = nexObj.cfg.opCfg.opFcn(nexObj.DF, opArgs);
             else
                 nexObj.DF_postOp = nexObj.DF;
-            end            
-           % preserve ptrObj
+            end
             if ~isempty(oldPtr)
                 nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
                 newPtr = nexObj_ptr(nexObj.DF_postOp.ptr);
@@ -118,8 +142,7 @@ classdef nexObj_monoGraph < nexObject
                     oldPtr.(f{i}) = newPtr.(f{i});
                 end
                 nexObj.DF_postOp.ptr = oldPtr;
-            end            
+            end
         end
     end
-   
 end

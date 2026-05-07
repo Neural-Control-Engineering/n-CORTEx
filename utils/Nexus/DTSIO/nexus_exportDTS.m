@@ -6,41 +6,53 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
 % DTS          : nexon.console.BASE.DTS (in-memory trial table)
 % h5File       : absolute path for HDF5 output (created or appended)
 %
-% DTS_manifest : same sessionLabel / trialNumber rows, plus h5_path and
-%                h5_root columns — no data arrays. Assign it back to
-%                nexon.console.BASE.DTS to enable the disk-backed IO path.
+% DTS_manifest : sessionLabel / trialNumber (+ signal_types if present) rows,
+%                plus h5_path and h5_root routing columns — no data arrays.
+%                Assign it back to nexon.console.BASE.DTS to enable disk-backed IO.
 %
-% HDF5 layout  : /{subject}/{date}/{phase}/trial_{N:04d}/{dfid}/{suffix}
+% HDF5 layout  : /{subject}/{date}/{phase}/trial_{N:04d}/{dfid}/{suffix}   (DF columns)
+%                /{subject}/{date}/{phase}/trial_{N:04d}/{colName}          (simple columns)
 %
 % All dtsIO_* functions detect the manifest automatically (h5_path column
 % present) and switch to h5read — no other code changes required.
 
     tableVars = string(DTS.Properties.VariableNames);
-    metaCols  = ["sessionLabel","trialNumber"];
-    allExtra  = tableVars(~ismember(tableVars, metaCols));
 
-    % Classify extra columns: numeric DF data (→ HDF5) vs metadata (→ manifest).
-    % Check first non-empty cell to determine type.
-    isNumericDF = false(1, numel(allExtra));
-    for j = 1:numel(allExtra)
-        col = DTS.(char(allExtra(j)));
+    % ── Manifest columns (everything else goes to HDF5) ───────────────────
+    manifestCols = ["sessionLabel", "trialNumber"];
+    if ismember("signal_types", tableVars)
+        manifestCols(end+1) = "signal_types";
+    end
+
+    h5Cols = tableVars(~ismember(tableVars, manifestCols));
+
+    % ── Classify h5 columns ───────────────────────────────────────────────
+    % DF-group columns : cell arrays whose first non-empty element is a
+    %                    non-scalar numeric array (e.g. lfp_df, lfp_t).
+    %                    Written via dtsIO_writeDF_toHDF5.
+    % Simple columns   : everything else (scalars, strings, cell-of-strings,
+    %                    cell-of-scalars). Written as one dataset per trial.
+    isArrayDF = false(1, numel(h5Cols));
+    for j = 1:numel(h5Cols)
+        col = DTS.(char(h5Cols(j)));
         if iscell(col)
             idx = find(~cellfun('isempty', col), 1);
-            isNumericDF(j) = ~isempty(idx) && isnumeric(col{idx});
-        elseif isnumeric(col)
-            isNumericDF(j) = true;
+            if ~isempty(idx)
+                v = col{idx};
+                isArrayDF(j) = isnumeric(v) && ~isscalar(v);
+            end
         end
     end
-    dataCols  = allExtra(isNumericDF);   % go to HDF5
-    extraMeta = allExtra(~isNumericDF);  % non-numeric: preserved in manifest as-is
 
-    % Identify dfID and suffix for each numeric data column.
-    % Convention: last _-separated token is the suffix; everything before is dfID.
-    nData    = numel(dataCols);
-    colDFIDs = strings(1, nData);
-    colSuffs = strings(1, nData);
-    for j = 1:nData
-        parts = strsplit(dataCols(j), "_");
+    dfCols     = h5Cols(isArrayDF);
+    simpleCols = h5Cols(~isArrayDF);
+
+    % Build dfID / suffix mapping for DF-group columns
+    nDF      = numel(dfCols);
+    colDFIDs = strings(1, nDF);
+    colSuffs = strings(1, nDF);
+    for j = 1:nDF
+        parts = strsplit(dfCols(j), "_");
         if numel(parts) == 1
             colDFIDs(j) = parts{1};
             colSuffs(j) = "df";
@@ -49,25 +61,22 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
             colSuffs(j) = parts{end};
         end
     end
-
-    nRows    = height(DTS);
-    h5Roots  = strings(nRows, 1);
-
     uniqueDFIDs = unique(colDFIDs, 'stable');
+
+    nRows   = height(DTS);
+    h5Roots = strings(nRows, 1);
 
     fprintf('Exporting %d trials to %s ...\n', nRows, h5File);
     for i = 1:nRows
         sl   = string(DTS.sessionLabel(i));
         tNum = DTS.trialNumber(i);
 
-        % Build HDF5 group: split sessionLabel on "--", keep parts as hierarchy
         parts  = strsplit(sl, "--");
         parts  = strtrim(parts(~cellfun('isempty', parts)));
         h5Root = "/" + strjoin([parts(:)', {sprintf("trial_%04d", tNum)}], "/");
         h5Roots(i) = h5Root;
 
-        % Reconstruct one DF struct per dfID and write through the shared writer
-        % (dtsIO_writeDF_toHDF5 handles dim_order, axis arrays, and writeSafe)
+        % DF-group columns → reconstruct DF struct per dfID → dtsIO_writeDF_toHDF5
         for d = 1:numel(uniqueDFIDs)
             dfid = uniqueDFIDs(d);
             mask = colDFIDs == dfid;
@@ -75,7 +84,7 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
 
             for j = find(mask)
                 suf = char(colSuffs(j));
-                raw = DTS.(char(dataCols(j)));
+                raw = DTS.(char(dfCols(j)));
                 arr = [];
                 if iscell(raw) && numel(raw) >= i
                     arr = raw{i};
@@ -92,13 +101,19 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
             end
 
             if ~isfield(DF, 'df'), continue; end
-
-            % Build ptr so dim_order uses the authoritative path
             if isfield(DF, 'ax')
                 DF = nex_initAxisPointer_v2(DF);
             end
-
             dtsIO_writeDF_toHDF5(h5File, char(h5Root), char(dfid), DF);
+        end
+
+        % Simple columns → one dataset per column directly under h5Root
+        for j = 1:numel(simpleCols)
+            colName = char(simpleCols(j));
+            raw = DTS.(colName);
+            val = extractTrialVal(raw, i);
+            if isempty(val), continue; end
+            h5writeSimple(h5File, [char(h5Root) '/' colName], val);
         end
 
         if mod(i, 50) == 0
@@ -107,9 +122,53 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
     end
     fprintf('Export complete.\n');
 
-    % Build manifest: metaCols + non-numeric columns + routing columns
-    DTS_manifest = DTS(:, cellstr([metaCols, extraMeta]));
+    % ── Build manifest ────────────────────────────────────────────────────
+    DTS_manifest = DTS(:, cellstr(manifestCols));
     DTS_manifest.h5_path = repmat(string(h5File), nRows, 1);
     DTS_manifest.h5_root = h5Roots;
 end
 
+% ── Local helpers ─────────────────────────────────────────────────────────────
+
+function val = extractTrialVal(raw, i)
+% Extract the i-th trial value from any column type.
+    val = [];
+    if iscell(raw)
+        if numel(raw) >= i && ~isempty(raw{i}), val = raw{i}; end
+    elseif isnumeric(raw)
+        if size(raw,1) >= i, val = raw(i,:); end
+    elseif isstring(raw)
+        if numel(raw) >= i, val = raw(i); end
+    elseif ischar(raw)
+        % char matrix: rows are trials, columns are characters
+        if size(raw,1) >= i, val = strtrim(raw(i,:)); end
+    elseif iscategorical(raw)
+        if numel(raw) >= i, val = string(raw(i)); end
+    end
+end
+
+function h5writeSimple(h5File, dset, val)
+% Write a scalar, numeric array, or string/char/categorical value as an HDF5 dataset.
+    if isnumeric(val)
+        arr = double(val);
+        try
+            h5create(h5File, dset, size(arr), 'Datatype', 'double');
+        catch ME
+            if ~contains(ME.message, 'already exists'), rethrow(ME); end
+            fid = H5F.open(h5File, 'H5F_ACC_RDWR', 'H5P_DEFAULT');
+            H5L.delete(fid, dset, 'H5P_DEFAULT');
+            H5F.close(fid);
+            h5create(h5File, dset, size(arr), 'Datatype', 'double');
+        end
+        h5write(h5File, dset, arr);
+    else
+        % Normalise all text types → cellstr before passing to h5write
+        c = cellstr(string(val));
+        try
+            h5create(h5File, dset, size(c), 'Datatype', 'string');
+        catch ME
+            if ~contains(ME.message, 'already exists'), rethrow(ME); end
+        end
+        h5write(h5File, dset, c);
+    end
+end

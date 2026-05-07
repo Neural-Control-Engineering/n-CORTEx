@@ -1,7 +1,6 @@
 classdef nexObj_stateSpace < nexObject
 
     properties
-        STAT  = [];
         STATE = [];
         AVG   = []         % table: rows = group averages; cols = df (cell) + grouping label(s)        
     end

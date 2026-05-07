@@ -26,11 +26,26 @@ function nexon = startNexus(params, DTS)
             nexon.console.BASE.router.UserData.subjectDir = fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subj);        
             nexon.console.BASE.router.UserData.subjectDir_cloud = fullfile(params.paths.nCORTEx_cloud,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subj);        
         end
-        nexon.console.NPXLS = nexPanel_NPXLS(nexon, 1);
-        nexon.console.SLRT = nexPanel_SLRT(nexon);
+        try
+            nexon.console.NPXLS = nexPanel_NPXLS(nexon, 1);
+        catch e
+            disp(getReport(e));
+            disp("UNABLE TO GENERATE NPXLS PANEL")
+        end
+        try
+            nexon.console.SLRT = nexPanel_SLRT(nexon);
+        catch
+            disp(getReport(e));
+            disp("UNABLE TO GENERATE SLRT PANEL")
+        end
     end
-    % Registry
-    nexInit_registry(nexon);
+    % Registry — load from experiment-scoped cache; build + cache on first run
+    if isfile(nexon.nexCachePath('registry'))
+        nexon.loadRegistry();
+    else
+        nexInit_registry(nexon);
+        nexon.saveRegistry();
+    end
     % router Panel   
     
     % ACTIVATE PYENV

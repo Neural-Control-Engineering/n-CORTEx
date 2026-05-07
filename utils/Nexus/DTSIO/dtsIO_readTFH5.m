@@ -61,7 +61,7 @@ function out = dtsIO_readTFH5(DTS, dfID, idxSel, modifier)
 end
 
 function arr = extractDF(c)
-    if isstruct(c) && isfield(c, 'df') && isnumeric(c.df)
+    if isstruct(c) && isfield(c, 'df')
         arr = c.df;
     else
         arr = [];

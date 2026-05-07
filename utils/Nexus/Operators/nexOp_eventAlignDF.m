@@ -11,7 +11,7 @@ function DF_out = nexOp_eventAlignDF(DF_in, sample_event, Fs, t_preBuff, isShift
     ptr = nexInit_axisPointer(df, DF_in.ax);
 
     idx_origin = round(length(ax_t) * ratio_origin);
-
+    
     ax_t = ax_t - (sample_event / Fs - t_preBuff);    
    
     [~, idx_origin_new] = (min(abs(ax_t)));    

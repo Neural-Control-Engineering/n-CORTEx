@@ -12,12 +12,17 @@ function items = nexOp_enumerateCategory(nexObj, category)
     catch
     end
 
-    % Search 2: HDF5 scalar dfID — read all values and return unique set
+    % Search 2: HDF5 flat dfID — read all values and return unique set
     if prefix == "h5"
-        DTS  = nexObj.nexon.console.BASE.DTS;
-        raw  = dtsIO_readTFH5(DTS, char(bareKey), [], 'simple');
-        vals = cellfun(@(c) scalarOrNaN(c), raw);
-        items = unique(vals(~isnan(vals)));
+        DTS      = nexObj.nexon.console.BASE.DTS;
+        raw      = dtsIO_readTFH5(DTS, char(bareKey), [], 'simple');
+        nonEmpty = raw(~cellfun('isempty', raw));
+        if ~isempty(nonEmpty) && (ischar(nonEmpty{1}) || isstring(nonEmpty{1}))
+            items = unique(string(cellfun(@string, nonEmpty, 'UniformOutput', false)));
+        else
+            vals  = cellfun(@(c) scalarOrNaN(c), raw);
+            items = unique(vals(~isnan(vals)));
+        end
         return;
     end
 

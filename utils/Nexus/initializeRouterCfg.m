@@ -1,17 +1,23 @@
 function routerCfgParams = initializeRouterCfg(DTS)
-    % router.subject="33114-20240526";    
-    % router.date="2024-06-13";    
-    % router.trial=13;
-    % router.phase="L-hind-paw";
-    % router.signal="lfp";            
-    routerCfgParams.subj = parseSessionLabelUnique(DTS.sessionLabel,"subj");
-    % subjSel = routerCfgParams.subject(1)
-    subjSessionLabels = DTS.sessionLabel(contains(DTS.sessionLabel,routerCfgParams.subj(1)));
-    routerCfgParams.date = parseSessionLabelUnique(subjSessionLabels,"date");
-    subjXdateSessionLabels = subjSessionLabels(contains(subjSessionLabels,routerCfgParams.date(1)));
-    routerCfgParams.phase = parseSessionLabelUnique(subjXdateSessionLabels,"phase");
-    subjXdateXphaseLabels = subjXdateSessionLabels(contains(subjXdateSessionLabels,routerCfgParams.phase(1)));
-    subjXdataXphaseTrialList = DTS.trialNumber(strcmp(DTS.sessionLabel,subjXdateXphaseLabels(1)));
-    routerCfgParams.trial = string(num2str(subjXdataXphaseTrialList));
-    
+    routerCfgParams.subj = parseSessionLabelUnique(DTS.sessionLabel, "subj");
+
+    subjLabels = DTS.sessionLabel(contains(DTS.sessionLabel, routerCfgParams.subj(1)));
+
+    routerCfgParams.date = parseSessionLabelUnique(subjLabels, "date");
+    subjXdateLabels = subjLabels(contains(subjLabels, routerCfgParams.date(1)));
+
+    routerCfgParams.phase = parseSessionLabelUnique(subjXdateLabels, "phase");
+    subjXdateXphaseLabels = subjXdateLabels(contains(subjXdateLabels, routerCfgParams.phase(1)));
+
+    % Optional 'site' — included only when present in the session labels
+    terminalLabels = subjXdateXphaseLabels;
+    siteCands = parseSessionLabelUnique(DTS.sessionLabel, "site");
+    if ~isempty(siteCands) && ~all(siteCands == "")
+        routerCfgParams.site = parseSessionLabelUnique(subjXdateXphaseLabels, "site");
+        terminalLabels = subjXdateXphaseLabels(contains(subjXdateXphaseLabels, routerCfgParams.site(1)));
+        if isempty(terminalLabels), terminalLabels = subjXdateXphaseLabels; end
+    end
+
+    trialNums = DTS.trialNumber(strcmp(DTS.sessionLabel, terminalLabels(1)));
+    routerCfgParams.trial = string(num2str(trialNums))';
 end

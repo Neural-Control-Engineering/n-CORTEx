@@ -1,6 +1,8 @@
 classdef Nexon < handle
     properties
+        classID="nexon"
         console % This will hold any type of data, such as a struct
+        Children
         UserData
         settings
     end
@@ -21,6 +23,37 @@ classdef Nexon < handle
         % Example method to retrieve UserData
         function data = getUserData(obj)
             data = obj.UserData;
+        end
+
+        function saveRegistry(nexon)
+            registry = nexon.console.BASE.registry; %#ok<NASGU>
+            save(nexon.nexCachePath('registry'), 'registry');
+        end
+
+        function loadRegistry(nexon)
+            p = nexon.nexCachePath('registry');
+            if ~isfile(p)
+                warning('Nexon:loadRegistry', 'No registry cache found at %s', p);
+                return;
+            end
+            S = load(p, 'registry');
+            nexon.console.BASE.registry = S.registry;
+        end
+
+        function p = nexCachePath(nexon, cacheKey)
+            % Returns experiment-scoped cache path: Startup/Cache/<key>_<experiment>.mat
+            try
+                expt = char(nexon.console.BASE.params.experiment);
+            catch
+                try
+                    expt = char(nexon.console.BASE.params.extractCfg.experiment);
+                catch
+                    expt = 'default';
+                end
+            end
+            expt = matlab.lang.makeValidName(expt);
+            p = fullfile(fileparts(which('Nexon')), 'Startup', 'Cache', ...
+                         sprintf('%s_%s.mat', cacheKey, expt));
         end
 
         function appendToDTS(nexon, DTS)
