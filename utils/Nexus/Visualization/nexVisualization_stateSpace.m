@@ -46,9 +46,9 @@ function nexVisualization_stateSpace(nexObj, ~)
 
     gCols = STATE.G.Properties.VariableNames;
 
-    % AVG selection can be multi-valued (one string per selected group column).
+    % CTG selection can be multi-valued (one string per selected group column).
     % Filter to names that actually exist in STATE.G.
-    groupCols_vis = string(viewSel.AVG);
+    groupCols_vis = string(viewSel.CTG);
     groupCols_vis = groupCols_vis(groupCols_vis ~= "" & ismember(groupCols_vis, gCols));
     nGC           = numel(groupCols_vis);
 

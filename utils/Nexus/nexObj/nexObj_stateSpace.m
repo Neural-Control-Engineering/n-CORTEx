@@ -76,11 +76,11 @@ classdef nexObj_stateSpace < nexObject
             end
             % VW: group name values from nexObj.AVG (empty at construction;
             %     refreshed via refreshVW() after reportAverage populates AVG)
-            vwKeys = nexObj.getAVGGroupKeys();
-            % CLR: non-DF STAT columns available for colorization (same pool as AVG).
+            vwKeys = nexObj.getCTGGroupKeys();
+            % CLR: non-DF STAT columns available for colorization (same pool as CTG).
             %      Empty if STAT does not yet exist.
             clrKeys = avgKeys;
-            viewDict.AVG = avgKeys;
+            viewDict.CTG = avgKeys;
             viewDict.VW  = vwKeys;
             viewDict.CLR = clrKeys;
             nexObj.collector.View = nexInit_collectorView(nexObj, viewDict);
@@ -381,10 +381,10 @@ classdef nexObj_stateSpace < nexObject
 
         % ── Existing methods (preserved) ──────────────────────────────────
         function joinSamplesByGroup(nexObj)
-            % groupIDCols resolved from View.AVG selectionBus
+            % groupIDCols resolved from View.CTG selectionBus
             nexObj.STAT = nexObj.Partners.ctg.STAT;
             viewSel = nex_returnSelectionMask(nexObj.collector.View);
-            groupIDCols = viewSel.AVG;
+            groupIDCols = viewSel.CTG;
             nexObj.STAT = nexOp_fuseGroups(nexObj.STAT, groupIDCols);
         end
 
@@ -398,11 +398,11 @@ classdef nexObj_stateSpace < nexObject
             STAT = nexObj.STAT;
             if isempty(STAT) || ~istable(STAT), return; end
 
-            % ── 1. Resolve grouping columns from the AVG bus ──────────────────
+            % ── 1. Resolve grouping columns from the CTG bus ──────────────────
             % nex_returnSelectionMask maps listbox indices → the actual column-
-            % name strings that the user highlighted in the AVG listbox.
+            % name strings that the user highlighted in the CTG listbox.
             viewSel   = nex_returnSelectionMask(nexObj.collector.View);
-            groupCols = string(viewSel.AVG);
+            groupCols = string(viewSel.CTG);
             statCols  = string(STAT.Properties.VariableNames);
             groupCols = groupCols(groupCols ~= "" & ismember(groupCols, statCols));
             if isempty(groupCols), return; end
@@ -559,7 +559,7 @@ classdef nexObj_stateSpace < nexObject
             STAT.df = dfCol(:);
             STAT.ax = repmat(axCol, height(STAT),1);
             viewSel  = nex_returnSelectionMask(nexObj.collector.View);
-            groupCol = char(viewSel.AVG);
+            groupCol = char(viewSel.CTG);
             [G, groupNames] = findgroups(STAT.(groupCol));
             catDim = ndims(dfCol{1}) + 1;
             STAT_avg = splitapply(@(tf) {mean(cat(catDim, tf{:}), catDim)}, STAT.df, G);
@@ -601,7 +601,7 @@ classdef nexObj_stateSpace < nexObject
         end
 
         % ── View bus helpers ───────────────────────────────────────────────
-        function vwKeys = getAVGGroupKeys(nexObj)
+        function vwKeys = getCTGGroupKeys(nexObj)
             % Return all unique category values across EVERY group column of
             % nexObj.AVG.  VW therefore lists one selectable entry per distinct
             % label in each dimension (phase values + threshold-bin labels, etc.).
@@ -660,7 +660,7 @@ classdef nexObj_stateSpace < nexObject
             % selKeys leaves the listbox stale and index potentially out of range.
             % (Pattern from nexOp_sBus_alignItems2ax.)
             if ~isfield(nexObj.collector, 'View'), return; end
-            newKeys = nexObj.getAVGGroupKeys();
+            newKeys = nexObj.getCTGGroupKeys();
             bus = nexObj.collector.View;
             nVW = numel(newKeys);
             bus.selKeys.VW    = newKeys;

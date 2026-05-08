@@ -261,8 +261,8 @@ classdef nexObject < handle
         end
 
         function initCollectorView(nexObj)
-            % Initialise collector.View (AVG / VW / CLR / SRC) from current STAT.
-            % Call after compileSTAT() so AVG/CLR keys are populated.
+            % Initialise collector.View (CTG / VW / CLR / SRC) from current STAT.
+            % Call after compileSTAT() so CTG/CLR keys are populated.
             DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem"];
             if ~isempty(nexObj.STAT) && istable(nexObj.STAT)
                 allCols = string(nexObj.STAT.Properties.VariableNames)';
@@ -271,9 +271,26 @@ classdef nexObject < handle
             else
                 grpKeys = "";
             end
-            viewDict.AVG = grpKeys;
-            viewDict.VW  = nexObj.getAVGGroupKeys();
-            viewDict.CLR = grpKeys;
+            % Append ax--<field> entries so CLR can color by pointer axis value.
+            % Stored as ax--X in CLR; resolveGroupColors translates to ax_X for
+            % RESULTS table lookup and passes bare X to nexOp_resolveGroupColors
+            % so atlas registry (dropout, chans) resolves correctly.
+            axClrKeys = string.empty;
+            try
+                if ~isempty(nexObj.DF_postOp) && isfield(nexObj.DF_postOp, 'ax') ...
+                        && ~isempty(nexObj.DF_postOp.ax)
+                    axClrKeys = "ax--" + string(fieldnames(nexObj.DF_postOp.ax))';
+                end
+            catch
+            end
+            clrKeys = [grpKeys(:); axClrKeys(:)];
+            clrKeys = clrKeys(clrKeys ~= "");
+            if isempty(clrKeys), clrKeys = ""; end
+
+            viewDict.SRC = "DTS";
+            viewDict.CTG = grpKeys;
+            viewDict.VW  = nexObj.getCTGGroupKeys();
+            viewDict.CLR = clrKeys;
             nexObj.collector.View = nexInit_collectorView(nexObj, viewDict);
         end
 
@@ -294,11 +311,11 @@ classdef nexObject < handle
             end
 
             viewSel   = nex_returnSelectionMask(nexObj.collector.View);
-            groupCols = string(viewSel.AVG);
+            groupCols = string(viewSel.CTG);
             statCols  = string(STAT.Properties.VariableNames);
             groupCols = groupCols(groupCols ~= "" & ismember(groupCols, statCols));
             if isempty(groupCols)
-                fprintf('[%s.reportAverage] No AVG columns selected.\n', class(nexObj));
+                fprintf('[%s.reportAverage] No CTG columns selected.\n', class(nexObj));
                 return;
             end
 
@@ -371,8 +388,9 @@ classdef nexObject < handle
             % Update SRC bus before refreshVW so getCurrentSRC() returns the
             % new resultID and getAVGGroupKeys can read the correct RESULTS entry.
             if isfield(nexObj.collector, 'View')
-                bus  = nexObj.collector.View;
-                keys = ["DF"; string(fieldnames(nexObj.RESULTS))];
+                bus     = nexObj.collector.View;
+                baseKey = bus.selKeys.SRC(1);  % preserve DF or DTS — don't hardcode
+                keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
                 bus.selKeys.SRC    = keys;
                 bus.selections.SRC = numel(keys);
                 if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
@@ -388,17 +406,17 @@ classdef nexObject < handle
         end
 
         function srcKey = getCurrentSRC(nexObj)
-            % Return the currently selected SRC key, or 'DF' as fallback.
+            % Return the currently selected SRC key, or 'DTS' as fallback.
             try
                 bus    = nexObj.collector.View;
                 idx    = bus.selections.SRC;
                 srcKey = char(bus.selKeys.SRC(idx(end)));
             catch
-                srcKey = 'DF';
+                srcKey = 'DTS';
             end
         end
 
-        function vwKeys = getAVGGroupKeys(nexObj)
+        function vwKeys = getCTGGroupKeys(nexObj)
             DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
             srcKey = nexObj.getCurrentSRC();
             if strcmp(srcKey, 'DF') || ~isfield(nexObj.RESULTS, srcKey)
@@ -418,6 +436,34 @@ classdef nexObject < handle
             if isempty(vwKeys), vwKeys = ""; end
         end
 
+        function rowIdx = filterResultsByVW(nexObj, RESULT, vwLabels)
+            % AND-filter RESULT rows by VW selection.
+            % Buckets selected labels by which group column they belong to,
+            % then requires each row to match in every constrained column.
+            % Returns all row indices when vwLabels is empty.
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
+            allCols  = string(RESULT.Properties.VariableNames);
+            grpCols  = allCols(~ismember(allCols, DF_STRUCT_FIELDS));
+            vwLabels = string(vwLabels);
+            vwLabels = vwLabels(vwLabels ~= "");
+            if isempty(vwLabels) || isempty(grpCols)
+                rowIdx = (1:height(RESULT))';
+                return;
+            end
+            colSel = cell(numel(grpCols), 1);
+            for ci = 1:numel(grpCols)
+                uniq_ci    = unique(string(RESULT.(char(grpCols(ci)))));
+                colSel{ci} = vwLabels(ismember(vwLabels, uniq_ci));
+            end
+            mask = true(height(RESULT), 1);
+            for ci = 1:numel(grpCols)
+                if isempty(colSel{ci}), continue; end
+                mask = mask & ismember(string(RESULT.(char(grpCols(ci)))), colSel{ci});
+            end
+            rowIdx = find(mask);
+            if isempty(rowIdx), rowIdx = (1:height(RESULT))'; end
+        end
+
         function refreshVW(nexObj)
             % Update VW selectionBus from current RESULTS source.
             % Preserves previously selected labels when they still exist in the
@@ -426,7 +472,7 @@ classdef nexObject < handle
             % Subclasses that need structural side-effects (e.g. rebuildTrackers)
             % should override and call refreshVW@nexObject(nexObj) first.
             if ~isfield(nexObj.collector, 'View'), return; end
-            newKeys = nexObj.getAVGGroupKeys();
+            newKeys = nexObj.getCTGGroupKeys();
             bus     = nexObj.collector.View;
             nVW     = numel(newKeys);
 
@@ -458,14 +504,16 @@ classdef nexObject < handle
                 srcKey = char(lb.String(lb.Value(end)));
             end
             nexObj.applySRC(srcKey);
+            if ismethod(nexObj, 'visualize')
+                nexObj.visualize();
+            end
         end
 
         function applySRC(nexObj, srcKey)
             % Update the SRC bus selection and refresh the VW bus.
-            % Subclasses that need additional side-effects (e.g. visualize)
-            % override and call applySRC@nexObject(nexObj, srcKey) first.
             if ~isfield(nexObj.collector, 'View'), return; end
-            if ~strcmp(srcKey, 'DF') && ~isfield(nexObj.RESULTS, srcKey), return; end
+            if ~strcmp(srcKey, 'DF') && ~strcmp(srcKey, 'DTS') ...
+                    && ~isfield(nexObj.RESULTS, srcKey), return; end
             bus  = nexObj.collector.View;
             idx  = find(string(bus.selKeys.SRC) == string(srcKey), 1);
             if isempty(idx), return; end
@@ -568,6 +616,88 @@ classdef nexObject < handle
                 end
             catch
                 nexObj.collector.Pointer = [];
+            end
+        end
+
+        % ── Selection import / export ──────────────────────────────────────
+
+        function exportSelection(nexObj, busID, varName)
+            % Save selected values from collector.(busID) to the base workspace.
+            % Stores VALUES not indices so the result is portable across nexObjects
+            % whose axes may differ in length or ordering.
+            if nargin < 3 || isempty(varName)
+                varName = sprintf('sel_%s_%s', nexObj.classID, busID);
+            end
+            if ~isfield(nexObj.collector, busID)
+                fprintf('[exportSelection] collector.%s not found on %s.\n', busID, class(nexObj));
+                return;
+            end
+            bus = nexObj.collector.(busID);
+            if isempty(bus), return; end
+
+            sel.busID = busID;
+            sel.keys  = fieldnames(bus.selections);
+            sel.values = struct();
+            for k = 1:numel(sel.keys)
+                key = sel.keys{k};
+                idx = bus.selections.(key);
+                nK  = numel(bus.selKeys.(key));
+                idx = sort(idx(idx >= 1 & idx <= nK));
+                if isempty(idx)
+                    sel.values.(key) = bus.selKeys.(key)(ones(1,0));  % empty, same type
+                else
+                    sel.values.(key) = bus.selKeys.(key)(idx);
+                end
+            end
+            assignin('base', varName, sel);
+            fprintf('[exportSelection] %s.collector.%s → base.%s\n', class(nexObj), busID, varName);
+        end
+
+        function importSelection(nexObj, sel)
+            % Apply a saved selection struct (from exportSelection) to this object.
+            % Matches by value — keys or values absent from this bus are skipped
+            % gracefully rather than erroring.
+            if ~isstruct(sel) || ~isfield(sel, 'busID') || ~isfield(sel, 'keys')
+                warning('[importSelection] Invalid selection struct.');
+                return;
+            end
+            if ~isfield(nexObj.collector, sel.busID)
+                fprintf('[importSelection] collector.%s not found on %s — skipping.\n', sel.busID, class(nexObj));
+                return;
+            end
+            bus = nexObj.collector.(sel.busID);
+            if isempty(bus), return; end
+
+            for k = 1:numel(sel.keys)
+                key = sel.keys{k};
+                if ~isfield(bus.selections, key), continue; end
+                if ~isfield(sel.values, key),     continue; end
+
+                savedVals = sel.values.(key);
+                allVals   = bus.selKeys.(key);
+
+                % Match saved values into current axis — numeric uses tolerance
+                if isnumeric(savedVals) && isnumeric(allVals)
+                    sc = max(abs(double(allVals(:))));
+                    if sc == 0, sc = 1; end
+                    [tf, loc] = ismembertol(double(savedVals(:)), double(allVals(:)), 1e-9, 'DataScale', sc);
+                else
+                    [tf, loc] = ismember(string(savedVals(:)), string(allVals(:)));
+                end
+                newSel = sort(loc(tf & loc > 0))';
+                if isempty(newSel), continue; end  % no overlap — leave as-is
+
+                bus.selections.(key) = newSel;
+                if isfield(bus.listBoxes, key)
+                    lb = bus.listBoxes.(key);
+                    if ~isempty(lb) && isvalid(lb)
+                        lb.Value = newSel;
+                    end
+                end
+            end
+
+            if ismethod(nexObj, 'visualize')
+                nexObj.visualize();
             end
         end
 

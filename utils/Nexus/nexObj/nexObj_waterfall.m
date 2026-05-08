@@ -1,16 +1,17 @@
-classdef nexObj_polyGraph < nexObject
+classdef nexObj_waterfall < nexObject
 
     properties        
     end
 
     methods
 
-        function nexObj = nexObj_polyGraph(nexon, Parent, Origin, dfID_source, opCfgFcn, headline)
+        function nexObj = nexObj_waterfall(nexon, Parent, Origin, dfID_source, opCfgFcn, headline)
             if nargin < 5, opCfgFcn = []; end
             if nargin < 6, headline  = []; end
 
             nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);
-            nexObj.classID = "pgph";
+            nexObj.classID = "wtfl";
+
             %% DF source
             if ~isempty(Parent)
                 nexObj.DF = Parent.DF_postOp;
@@ -34,7 +35,7 @@ classdef nexObj_polyGraph < nexObject
             else
                 nexObj.cfg.opCfg = [];
             end
-            nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_polyGraph"));
+            nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_waterfall"));
             nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexObject.stepAnimate"));
 
             %% DF_postOp — apply operation, init ptr
@@ -85,7 +86,7 @@ classdef nexObj_polyGraph < nexObject
             nexObj.initPointerBus();
 
             %% Figure
-            nexFigure_polyGraph(nexObj);
+            nexFigure_waterfall(nexObj);
 
             %% Player
             nexObj.player = timer( ...
@@ -98,7 +99,6 @@ classdef nexObj_polyGraph < nexObject
         % ── Core methods ──────────────────────────────────────────────────
 
         function operate(nexObj)
-            % Save ptr handle before any DF_postOp replacement
             if ~isempty(nexObj.DF_postOp) && isstruct(nexObj.DF_postOp) ...
                     && isfield(nexObj.DF_postOp, 'ptr') ...
                     && isa(nexObj.DF_postOp.ptr, 'nexObj_ptr')
@@ -114,7 +114,6 @@ classdef nexObj_polyGraph < nexObject
                 nexObj.DF_postOp = nexObj.DF;
             end
 
-            % Restore or initialise ptr — never create a new handle after construction
             if ~isempty(savedPtr)
                 nex_updateAxisPointer(savedPtr, nexObj.DF_postOp);
                 nexObj.DF_postOp.ptr = savedPtr;
@@ -125,12 +124,12 @@ classdef nexObj_polyGraph < nexObject
         end
 
         function buildFigure(nexObj)
-            nexFigure_polyGraph(nexObj);
+            nexFigure_waterfall(nexObj);
         end
 
         function visualize(nexObj)
             visArgs = nexObj.cfg.visCfg.entryParams;
-            nexVisualization_polyGraph(nexObj, visArgs);
+            nexVisualization_waterfall(nexObj, visArgs);
         end
 
         function updateScope(nexObj)

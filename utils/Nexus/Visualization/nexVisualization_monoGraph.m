@@ -31,27 +31,13 @@ function nexVisualization_monoGraph(nexObj, args)
 
     if useResults
         %% ── RESULTS-based multi-group rendering ──────────────────────────
-        RESULT    = nexObj.RESULTS.(srcKey);
-        gCols     = RESULT.Properties.VariableNames;
-        DF_STRUCT = ["df","ax","ptr","sem"];
-        groupCols = string(gCols(~ismember(gCols, DF_STRUCT)));
-        labelCols = groupCols;
+        RESULT       = nexObj.RESULTS.(srcKey);
+        DF_STRUCT    = ["df","ax","ptr","sem"];
+        groupCols    = string(RESULT.Properties.VariableNames);
+        groupCols    = groupCols(~ismember(groupCols, DF_STRUCT));
+        labelCols    = groupCols;
 
-        % Bucket VW selections by which group column they belong to
-        colSel = cell(numel(groupCols), 1);
-        for ci = 1:numel(groupCols)
-            uniq_ci    = unique(string(RESULT.(char(groupCols(ci)))));
-            colSel{ci} = vwGroups(ismember(vwGroups, uniq_ci));
-        end
-
-        % AND-filter RESULT rows: must match selected values in every column
-        % that has at least one VW selection; unconstrained columns are skipped.
-        rowMask = true(height(RESULT), 1);
-        for ci = 1:numel(groupCols)
-            if isempty(colSel{ci}), continue; end
-            rowMask = rowMask & ismember(string(RESULT.(char(groupCols(ci)))), colSel{ci});
-        end
-        matchingRows = find(rowMask)';
+        matchingRows = nexObj.filterResultsByVW(RESULT, vwGroups)';
         nMatch       = numel(matchingRows);
 
         % Composite label per row: join group column values with ' | '

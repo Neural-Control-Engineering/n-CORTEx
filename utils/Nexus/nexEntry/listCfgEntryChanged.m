@@ -1,17 +1,10 @@
 function listCfgEntryChanged(src, event, key, selectionBus)
-    % update selection index
     selectionBus.selections.(key) = src.Value;
-    % update Parent
-    if ismethod(selectionBus.Parent,"updateScope")
-        switch class(selectionBus.Parent)
-            case "nexObj_selectionBus"
-                selectionVal = src.String{src.Value};
-                selectionID = key;
-                selectionBus.Parent.updateScope(selectionID, selectionVal);
-            otherwise
-                if ismethod(selectionBus.Parent, 'visualize')
-                    selectionBus.Parent.visualize();
-                end
-        end
+    parent = selectionBus.Parent;
+    if isa(parent, 'nexObj_selectionBus')
+        % Items bus of nexObj_categorical — enumerate items for the new selection
+        parent.updateScope(char(key), src.String{src.Value(end)});
+    elseif ismethod(parent, 'visualize')
+        parent.visualize();
     end
 end
