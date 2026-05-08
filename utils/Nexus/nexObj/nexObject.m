@@ -277,8 +277,7 @@ classdef nexObject < handle
             % so atlas registry (dropout, chans) resolves correctly.
             axClrKeys = string.empty;
             try
-                if ~isempty(nexObj.DF_postOp) && isfield(nexObj.DF_postOp, 'ax') ...
-                        && ~isempty(nexObj.DF_postOp.ax)
+                if ~isempty(nexObj.DF_postOp) && ~isempty(nexObj.DF_postOp.ax)
                     axClrKeys = "ax--" + string(fieldnames(nexObj.DF_postOp.ax))';
                 end
             catch
@@ -542,9 +541,18 @@ classdef nexObject < handle
 
             for ci = 1:numel(clrCols)
                 col = char(clrCols(ci));
+                % ax--X keys: translate to bare axis name for table lookup and
+                % color resolution (lets stateSpace G_sel columns work directly).
+                bareKey = col;
+                if startsWith(col, 'ax--')
+                    bare = col(5:end);
+                    if ~ismember(bare, gCols), continue; end
+                    col     = bare;
+                    bareKey = bare;
+                end
                 if ~ismember(col, gCols), continue; end
                 [C_ci, matched] = nexOp_resolveGroupColors( ...
-                    nexObj.nexon, col, string(dataTable.(col)));
+                    nexObj.nexon, bareKey, string(dataTable.(col)));
                 if matched
                     C_lut{end+1} = C_ci;              %#ok<AGROW>
                 else
@@ -589,6 +597,83 @@ classdef nexObject < handle
                     C = hsv2rgb(hsv_c);
                 end
             end
+        end
+
+        function [C, labels] = resolveCLRColors(nexObj, DF, clrCols, nTraces, rowTable)
+            % Unified per-trace color resolution for any mix of CLR key types.
+            %
+            %   ax--X keys  — resolve from DF.ax.(X) at Pointer bus selections;
+            %                 one color entry per trace (1:nTraces clamped into
+            %                 the selected indices).
+            %   column keys — resolve one color from rowTable.(col) and broadcast
+            %                 to all nTraces (categorical / group-level coloring).
+            %
+            % Both types feed the same two-pass blend as resolveGroupColors:
+            %   Pass 1 — average all LUT/atlas-matched N×3 layers, normalise.
+            %   Pass 2 — rotate hue/sat of unmatched layers on top of the LUT base.
+            %
+            % labels: axis-value strings from the first ax-- key that resolves,
+            %   or empty when only group-column keys are active (caller uses its
+            %   own row labels for the legend in that case).
+            if nargin < 5, rowTable = table(); end
+            GREEN  = nexObj.nexon.settings.Colors.cyberGreen;
+            if ischar(GREEN) || isstring(GREEN)
+                h = strrep(char(GREEN), '#', '');
+                if numel(h) == 6
+                    GREEN = [hex2dec(h(1:2)), hex2dec(h(3:4)), hex2dec(h(5:6))] / 255;
+                else
+                    GREEN = [0, 1, 0.25];
+                end
+            end
+            C      = repmat(GREEN, nTraces, 1);
+            labels = string.empty;
+            if isempty(clrCols) || nTraces == 0, return; end
+
+            grpCols = string(rowTable.Properties.VariableNames);
+            ptrBus  = nexObj.collector.Pointer;
+            all_C   = {};
+
+            for ci = 1:numel(clrCols)
+                key = char(clrCols(ci));
+                if startsWith(key, 'ax--')
+                    % ── Axis-value layer (per-trace) ──────────────────────
+                    axField = key(5:end);
+                    if ~isfield(DF.ax, axField), continue; end
+                    nAx  = numel(DF.ax.(axField));
+                    sIdx = 1:nAx;
+                    if ~isempty(ptrBus) && isfield(ptrBus.selections, axField)
+                        s = ptrBus.selections.(axField);
+                        s = sort(s(s >= 1 & s <= nAx));
+                        if ~isempty(s), sIdx = s; end
+                    end
+                    axVals = string(DF.ax.(axField)(sIdx));
+                    vals   = axVals(min((1:nTraces)', numel(axVals)));
+                    if numel(unique(vals)) <= 1, continue; end
+                    [C_ci, ~] = nexOp_resolveGroupColors(nexObj.nexon, axField, vals);
+                    if isempty(labels), labels = vals; end
+                else
+                    % ── Group-column layer (broadcast to all traces) ──────
+                    if ~ismember(key, grpCols), continue; end
+                    rowVal    = string(rowTable.(key));
+                    [C_ci, ~] = nexOp_resolveGroupColors(nexObj.nexon, key, rowVal);
+                    C_ci      = repmat(C_ci, nTraces, 1);
+                end
+                all_C{end+1} = C_ci; %#ok<AGROW>
+            end
+
+            % Average all contributing layers; normalise each row so the
+            % brightest channel reaches 1 (keeps blended colours vivid).
+            if ~isempty(all_C)
+                C    = mean(cat(3, all_C{:}), 3);
+                maxC = max(C, [], 2);
+                maxC(maxC < eps) = 1;
+                C    = C ./ maxC;
+            end
+        end
+
+        function [C, labels] = resolveAxColors(nexObj, DF, axField, nTraces)
+            % Convenience wrapper: resolve per-trace colors for a single ax-- key.
+            [C, labels] = nexObj.resolveCLRColors(DF, "ax--" + string(axField), nTraces);
         end
 
         % ── Pointer bus ───────────────────────────────────────────────────

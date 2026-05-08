@@ -15,6 +15,8 @@ function nexVisualization_waterfall(nexObj, args)
 
     ax = nexObj.Figure.panel0.tiles.ax;
     C  = nexObj.nexon.settings.Colors;
+    GREEN = C.cyberGreen;
+    if ischar(GREEN) || isstring(GREEN), GREEN = wtfl_toRGB(GREEN); end
 
     % Read domain selections
     domSel = nex_returnSelectionMask(nexObj.collector.Domain);
@@ -30,14 +32,16 @@ function nexVisualization_waterfall(nexObj, args)
     srcKey      = nexObj.getCurrentSRC();
     isResultSRC = ~strcmp(srcKey, 'DTS') && ~strcmp(srcKey, 'DF') && isfield(nexObj.RESULTS, srcKey);
 
-    ptrBus = nexObj.collector.Pointer;
+    ptrBus  = nexObj.collector.Pointer;
+    viewSel = nex_returnSelectionMask(nexObj.collector.View);
+    clrCols = string(viewSel.CLR);
+    clrCols = clrCols(clrCols ~= "");
 
     % Compute shared y-spacing from first / only DF
     if ~isResultSRC
         [allTraces, ~, ~] = wtfl_extractD1D2(nexObj.DF_postOp, xKey, stackKey, ptrBus);
     else
         RESULT   = nexObj.RESULTS.(srcKey);
-        viewSel  = nex_returnSelectionMask(nexObj.collector.View);
         rowIdx   = nexObj.filterResultsByVW(RESULT, viewSel.VW);
         firstRow = wtfl_rowToDF(RESULT, rowIdx(1));
         [allTraces, ~, ~] = wtfl_extractD1D2(firstRow, xKey, stackKey, ptrBus);
@@ -48,19 +52,21 @@ function nexVisualization_waterfall(nexObj, args)
     cla(ax);
     hold(ax, 'on');
 
-    if ~isResultSRC
-        GREEN = C.cyberGreen;
-        if ischar(GREEN) || isstring(GREEN)
-            GREEN = wtfl_toRGB(GREEN);
-        end
-        [traces, sems, xAxis] = wtfl_extractD1D2(nexObj.DF_postOp, xKey, stackKey, ptrBus);
-        wtfl_drawGroup(ax, xAxis, traces, sems, ySpacing, GREEN, alphaVal, lineWidth);
-        legend(ax, 'off');
-    else
-        clrCols = string(viewSel.CLR);
-        clrCols = clrCols(clrCols ~= "");
-        C_grp   = nexObj.resolveGroupColors(RESULT(rowIdx, :), clrCols);
+    h_legend   = gobjects(0);
+    lbl_legend = string.empty;
 
+    if ~isResultSRC
+        [traces, sems, xAxis] = wtfl_extractD1D2(nexObj.DF_postOp, xKey, stackKey, ptrBus);
+        nT = numel(traces);
+        [C_traces, axLabels] = nexObj.resolveCLRColors(nexObj.DF_postOp, clrCols, nT);
+        h_all = wtfl_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth);
+        if ~isempty(axLabels)
+            h_v = h_all(isvalid(h_all));
+            nL  = min(numel(h_v), numel(axLabels));
+            if nL > 0, h_legend = h_v(1:nL); lbl_legend = axLabels(1:nL); end
+        end
+    else
+        % Group labels from RESULT non-struct columns
         DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
         allCols   = string(RESULT.Properties.VariableNames);
         grpCols   = allCols(~ismember(allCols, DF_STRUCT_FIELDS));
@@ -73,28 +79,46 @@ function nexVisualization_waterfall(nexObj, args)
             rowLabels(ri) = strjoin([parts{:}], ' | ');
         end
 
-        h_legend   = gobjects(0);
-        lbl_legend = string.empty;
+        % Split CLR cols: group-column keys need all rows at once for a correct
+        % spread; ax-- keys are per-trace within each group row.
+        axClrCols  = clrCols(startsWith(clrCols, "ax--"));
+        grpClrCols = clrCols(~startsWith(clrCols, "ax--"));
+        if ~isempty(grpClrCols)
+            rowBaseColors = nexObj.resolveGroupColors(RESULT(rowIdx,:), grpClrCols);
+        else
+            rowBaseColors = [];
+        end
+
+        axLegendDone = false;
         for gi = 1:numel(rowIdx)
             DF_g = wtfl_rowToDF(RESULT, rowIdx(gi));
             [traces, sems, xAxis] = wtfl_extractD1D2(DF_g, xKey, stackKey, ptrBus);
-            h = wtfl_drawGroup(ax, xAxis, traces, sems, ySpacing, C_grp(gi,:), alphaVal, lineWidth);
-            if ~isempty(h) && isvalid(h)
-                h_legend(end+1)   = h;             %#ok<AGROW>
-                lbl_legend(end+1) = rowLabels(gi); %#ok<AGROW>
+            nT = numel(traces);
+            [C_traces, axLabels] = nexObj.resolveCLRColors(DF_g, axClrCols, nT);
+            if ~isempty(rowBaseColors)
+                baseClr = repmat(rowBaseColors(gi,:), nT, 1);
+                if isempty(axClrCols)
+                    C_traces = baseClr;
+                else
+                    C_traces = (C_traces + baseClr) / 2;
+                    maxC = max(C_traces, [], 2); maxC(maxC < eps) = 1; C_traces = C_traces ./ maxC;
+                end
             end
-        end
+            h_all = wtfl_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth);
 
-        if ~isempty(h_legend)
-            GREEN_rgb = C.cyberGreen;
-            if ischar(GREEN_rgb) || isstring(GREEN_rgb)
-                GREEN_rgb = wtfl_toRGB(GREEN_rgb);
+            if ~isempty(axLabels) && ~axLegendDone
+                h_v = h_all(isvalid(h_all));
+                nL  = min(numel(h_v), numel(axLabels));
+                if nL > 0
+                    h_legend = h_v(1:nL); lbl_legend = axLabels(1:nL); axLegendDone = true;
+                end
+            elseif isempty(axLabels)
+                h_v = h_all(isvalid(h_all));
+                if ~isempty(h_v)
+                    h_legend(end+1)   = h_v(1);         %#ok<AGROW>
+                    lbl_legend(end+1) = rowLabels(gi);  %#ok<AGROW>
+                end
             end
-            lgd = legend(ax, h_legend, cellstr(lbl_legend), 'Interpreter', 'none');
-            lgd.TextColor = GREEN_rgb;
-            lgd.Color     = [0 0 0];
-            lgd.EdgeColor = GREEN_rgb;
-            lgd.FontSize  = 16;
         end
     end
 
@@ -105,6 +129,16 @@ function nexVisualization_waterfall(nexObj, args)
         ylabel(ax, char(stackKey), 'Color', C.cyberGreen);
     end
     zlabel(ax, 'magnitude', 'Color', C.cyberGreen);
+
+    if ~isempty(h_legend)
+        lgd = legend(ax, h_legend, cellstr(lbl_legend), 'Interpreter', 'none');
+        lgd.TextColor = GREEN;
+        lgd.Color     = [0 0 0];
+        lgd.EdgeColor = GREEN;
+        lgd.FontSize  = 6;
+    else
+        legend(ax, 'off');
+    end
     % view(ax, -30, 30);
 end
 
@@ -158,7 +192,6 @@ function [traces, sems, xAxis] = wtfl_extractD1D2(DF, xKey, stackKey, ptrBus)
         traces = {double(data(:)')};
         if hasSEM
             try
-                % sems = {double(squeeze(DF.sem(idx{:}))(:)')};
                 sems = {double(squeeze(DF.sem(idx{:}))')};
             catch
                 keyboard
@@ -228,7 +261,8 @@ function ySpacing = wtfl_computeSpacing(traces, multiplier)
     end
 end
 
-function h = wtfl_drawGroup(ax, xAxis, traces, sems, ySpacing, color, alphaVal, lineWidth)
+function h = wtfl_drawGroup(ax, xAxis, traces, sems, ySpacing, C, alphaVal, lineWidth)
+    % C is either 1×3 (same color for all traces) or N×3 (per-trace colors).
     h       = gobjects(0);
     nTraces = numel(traces);
     x       = double(xAxis(:)');
@@ -239,12 +273,13 @@ function h = wtfl_drawGroup(ax, xAxis, traces, sems, ySpacing, color, alphaVal, 
         if n == 0, continue; end
         x_i = x(1:n);  z_i = z(1:n);  s_i = s(1:n);
         y_i = (i - 1) * ySpacing;
+        c   = C(min(i, size(C, 1)), :);
 
         % Main 3D trace
         lh = plot3(ax, x_i, y_i * ones(1,n), z_i, '-', ...
-            'Color',     color, ...
+            'Color',     c, ...
             'LineWidth', lineWidth);
-        if isempty(h), h = lh; end
+        h(end+1) = lh; %#ok<AGROW>
 
         % SEM ribbon — transparent surf spanning [z-sem, z+sem] at constant Y
         if any(s_i > 0)
@@ -252,7 +287,7 @@ function h = wtfl_drawGroup(ax, xAxis, traces, sems, ySpacing, color, alphaVal, 
             y2 = y_i * ones(2, n);
             z2 = [z_i + s_i; z_i - s_i];
             surf(ax, x2, y2, z2, ...
-                'FaceColor', color, ...
+                'FaceColor', c, ...
                 'FaceAlpha', alphaVal, ...
                 'EdgeColor', 'none');
         end

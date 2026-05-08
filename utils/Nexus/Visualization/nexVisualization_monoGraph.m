@@ -51,18 +51,14 @@ function nexVisualization_monoGraph(nexObj, args)
             activeFlds(ri) = string(matlab.lang.makeValidName(char(rowLabels(ri))));
         end
 
-        % Colors — one per matching row
-        if nMatch > 0 && ~isempty(labelCols)
-            grpTable = RESULT(matchingRows, cellstr(labelCols));
-        else
-            grpTable = table();
-        end
-        if ~isempty(clrCols) && nMatch > 0
-            groupColors = nexObj.resolveGroupColors(grpTable, clrCols);
+        % Pre-compute per-row colors across all matching rows so that
+        % resolveGroupColors sees the full spread of each column's values.
+        if ~isempty(clrCols)
+            rowColors = nexObj.resolveGroupColors(RESULT(matchingRows,:), clrCols);
         elseif nMatch > 1
-            groupColors = nexVis_hsvSpread(nMatch);
+            rowColors = nexVis_hsvSpread(nMatch);
         else
-            groupColors = repmat(GREEN, nMatch, 1);
+            rowColors = repmat(GREEN, nMatch, 1);
         end
 
         h_legend   = gobjects(0);
@@ -87,7 +83,7 @@ function nexVisualization_monoGraph(nexObj, args)
                 posF = t_ax > 0;
                 t_ax = t_ax(posF); df_slice = df_slice(posF); sem_slice = sem_slice(posF);
             end
-            clr    = groupColors(ri, :);
+            clr = rowColors(ri,:);
             hexStr = sprintf('%02X%02X%02X', round(clr * 255));
 
             fld  = char(activeFlds(ri));

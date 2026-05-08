@@ -105,7 +105,7 @@ Standard buses:
 |-----|---------|---------|
 | `SRC` | `"DF"` | Active data source — `"DF"` (router path) or any `RESULTS` key. `nexObj_categorical` uses `"DTS"` instead of `"DF"` |
 | `VW` | `""` | Group labels within the active RESULT; empty until `reportSTAT` |
-| `CLR` | `""` | Column used for per-point colorization; empty by default |
+| `CLR` | `""` | Column(s) for trace colorization. Two key forms: bare column name (group-level, one color per result row) or `"ax--<field>"` (per-trace, from `DF.ax.(field)` at Pointer indices). See CLR Color Resolution section. |
 
 Subclass-specific keys (e.g. `AVG` for `nexObj_stateSpace`) are passed via `viewDict` and appear before the standard keys in the bus:
 ```matlab
@@ -292,6 +292,115 @@ The Window panel controls `ptr` range/window per axis. Pre-allocate **3–5 fixe
 | `nexObj_ptr` | Handle wrapper around a ptr struct; enables stable references across ptr reinit |
 
 > `buildSTATE()` is **specific to `nexObj_stateSpace`**. It compiles AVG/DF into `STATE.Z` and initializes `STATE.ptr`. It is not a general nexObject concept.
+
+---
+
+## CLR Bus — Color Resolution Architecture
+
+### CLR key types
+
+The CLR selection bus in `collector.View` accepts two classes of key:
+
+| Key form | Source | Semantics |
+|----------|--------|-----------|
+| `"sessionLabel_phase"`, `"responseThreshold"`, … | RESULT table column names (from `nexObj.STAT`) | **Group-level** — one color per result row, broadcast to all traces within that row |
+| `"ax--chans"`, `"ax--f"`, `"ax--t"`, … | `"ax--" + fieldnames(DF_postOp.ax)` | **Per-trace** — one color per trace, resolved from `DF.ax.(field)` at Pointer-bus selected indices |
+
+CLR keys are populated at construction by `initCollectorView`:
+- Group-column keys come from `nexObj.STAT` columns (non-struct columns).
+- `ax--X` keys are appended from `fieldnames(nexObj.DF_postOp.ax)`.
+
+**`isfield` pitfall:** `DF_postOp` is a `nexObj_DF` handle object, not a struct. `isfield` returns `false` for handle objects even when the property exists. Use direct property access inside a `try/catch` block — never `isfield(nexObj.DF_postOp, 'ax')`.
+
+---
+
+### Resolution methods
+
+Two distinct methods on `nexObject`, each with a different scope:
+
+#### `resolveGroupColors(nexObj, dataTable, clrCols)` → `N×3`
+
+**Table-level** — must be called with all N rows at once. Needed for group-column keys because `nexOp_resolveGroupColors` computes its HSV spread from the full set of unique values; calling it one row at a time gives `n_u = 1` → always `hues(1) = 0` → red for every row.
+
+Two-pass blend:
+1. **Pass 1 (LUT/atlas matched keys)** — Average all matched N×3 layers. If more than one matched layer, normalise per row (divide by row max) to keep hues vivid.
+2. **Pass 2 (unmatched keys)** — If no LUT base, use the first unmatched key's spread directly. If LUT base present, apply HSV hue rotation ± `hue_spread/2` around the base color using the unmatched column values as the modulating variable. `n_u ≤ 1` skips the rotation (no differentiation possible).
+
+`ax--X` entries in `clrCols` are translated to bare axis names (`col(5:end)`) before looking up in `dataTable`. If the bare name is not a column, the key is silently skipped. This lets stateSpace pass its `G_sel` table (bare column names) through `resolveGroupColors` without special-casing.
+
+#### `resolveCLRColors(nexObj, DF, clrCols, nTraces [, rowTable])` → `[N×3, labels]`
+
+**Per-trace, single-row** — called once per result row. Only meaningful for `ax--X` keys (per-trace differentiation). Group-column keys require the full table context — never pass them to this method via a single-row `rowTable`.
+
+- For each `ax--X` key: reads `DF.ax.(X)` at Pointer-bus selected indices → assigns one value per trace (clamping `1:nTraces` into the selected index range). **Skips keys where all traces map to the same value** (`numel(unique(vals)) ≤ 1`) — single-value keys cannot differentiate traces and would collapse all colors to one tint.
+- For each group-column key in `rowTable`: broadcasts one `rowTable.(key)` value to all nTraces. (Correct only if the full set of rows has already been handled upstream.)
+- Collects all contributing N×3 layers in `all_C`, then returns their element-wise mean, normalised per row.
+- `labels`: set from the first `ax--` key that resolves with >1 unique value; used by callers to build axis-value legend entries.
+
+---
+
+### Visualization file patterns
+
+Each visualization file splits `clrCols` based on context:
+
+#### `nexVisualization_monoGraph` (RESULTS branch)
+
+Group-column keys dominate — each result row is exactly one trace (`nTraces = 1`), so `ax--` keys provide no per-trace differentiation. Call `resolveGroupColors` once **before the loop** on all matching rows:
+
+```matlab
+if ~isempty(clrCols)
+    rowColors = nexObj.resolveGroupColors(RESULT(matchingRows,:), clrCols);
+elseif nMatch > 1
+    rowColors = nexVis_hsvSpread(nMatch);
+else
+    rowColors = repmat(GREEN, nMatch, 1);
+end
+% Inside loop:
+clr = rowColors(ri,:);
+```
+
+#### `nexVisualization_waterfall` / `nexVisualization_polyGraph` (RESULTS branch)
+
+Split `clrCols` into `axClrCols` and `grpClrCols` **before the loop**, then handle each independently:
+
+```matlab
+axClrCols  = clrCols(startsWith(clrCols, "ax--"));
+grpClrCols = clrCols(~startsWith(clrCols, "ax--"));
+if ~isempty(grpClrCols)
+    rowBaseColors = nexObj.resolveGroupColors(RESULT(rowIdx,:), grpClrCols);
+else
+    rowBaseColors = [];
+end
+
+for gi = 1:numel(rowIdx)
+    ...
+    [C_traces, axLabels] = nexObj.resolveCLRColors(DF_g, axClrCols, nT);
+    if ~isempty(rowBaseColors)
+        baseClr = repmat(rowBaseColors(gi,:), nT, 1);
+        if isempty(axClrCols)
+            C_traces = baseClr;                          % group color only
+        else
+            C_traces = (C_traces + baseClr) / 2;         % blend group + per-trace
+            maxC = max(C_traces, [], 2); maxC(maxC < eps) = 1; C_traces = C_traces ./ maxC;
+        end
+    end
+    ...
+end
+```
+
+Non-RESULTS branch: pass all `clrCols` to `resolveCLRColors` directly — there is only one "group" so cross-row spread is not needed, and group-column keys will be silently skipped (empty `rowTable`).
+
+---
+
+### `nexOp_resolveGroupColors` — resolution order
+
+(`Operators/nexOp_resolveGroupColors.m`)
+
+1. **Registry LUT** — `nexon.console.BASE.registry.LUT.(clrKey)`: exact label match. Cross-comparison `"A-×-B"` labels get HSV circular-mean blend of their component colors. → `matched = true`
+2. **Atlas registry** — `nex_axisColorFromRegistry(nexon, clrKey, vals)` — handles structured axes like `dropout`, `chans`. → `matched = true`
+3. **HSV spread fallback** — `hues = linspace(0, 1, n_u+1); hues(end) = []` — one maximally distinct hue per unique value. → `matched = false`
+
+`matched` drives the two-pass blend in `resolveGroupColors`: matched layers go to Pass 1 (averaging), unmatched go to Pass 2 (hue rotation on the LUT base, or direct spread when no LUT base exists).
 
 ---
 
