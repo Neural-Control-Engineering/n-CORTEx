@@ -1,7 +1,11 @@
 function DF = nexSLRT_compileDataFrames(nexon, IDs_signals, IDs_events)
     dataFrames = {};
     % first appearing event dfID is signal dfID
-    idx_signalDFIDs = arrayfun(@(sigID) contains(IDs_events, sigID), IDs_signals, "UniformOutput", false);
+    try
+        idx_signalDFIDs = arrayfun(@(sigID) contains(IDs_events, sigID), IDs_signals, "UniformOutput", false);
+    catch
+        keyboard
+    end
     idx_signalDFIDs = cellfun(@(matchFlags) find(matchFlags), idx_signalDFIDs, "UniformOutput", false);
     idx_signalDFIDs = cellfun(@(matchIdxs) matchIdxs(1), idx_signalDFIDs, "UniformOutput", true);
     DFIDs_signals = IDs_events(idx_signalDFIDs);

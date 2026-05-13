@@ -56,6 +56,10 @@ function DF = readOneTrialHDF5(h5File, h5Root, DFID, axisKeyWords)
 
         if strcmp(suffix, 'df')
             DF.df = h5read(h5File, dsetPath);
+        elseif strcmp(suffix, 'df_re')
+            DF.df_re = h5read(h5File, dsetPath);
+        elseif strcmp(suffix, 'df_im')
+            DF.df_im = h5read(h5File, dsetPath);
         elseif strcmp(suffix, 'args')
             DF.args = h5read(h5File, dsetPath);
         elseif isStrDset
@@ -64,6 +68,12 @@ function DF = readOneTrialHDF5(h5File, h5Root, DFID, axisKeyWords)
         elseif any(strcmp(axisKeyWords, suffix))
             DF.ax.(suffix) = h5read(h5File, dsetPath);
         end
+    end
+
+    % Reconstruct complex df from split real/imaginary datasets.
+    if isfield(DF, 'df_re') && isfield(DF, 'df_im')
+        DF.df = complex(DF.df_re, DF.df_im);
+        DF = rmfield(DF, {'df_re', 'df_im'});
     end
 
     if isfield(DF, 'df') && ~isfield(DF, 'ax')

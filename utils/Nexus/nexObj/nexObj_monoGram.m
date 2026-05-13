@@ -1,43 +1,38 @@
 classdef nexObj_monoGram < nexObject
-    % nexObj_monoGram  2-D visualization object, parallel to nexObj_monoGraph.
-    % Renders factor data (F) across two display dimensions (D1 × D2) using
-    % surf, enabling both flat image and pseudo-3D views. An animation player
-    % steps through whichever axis is assigned as domain.animate.
+    % nexObj_monoGram  2-D surf visualization (spectrogram, TF, heatmap).
     %
-    % Terminology
-    %   F        : factor axis  – output features (CEBRA dims, freq bins, PCA comps, ...)
-    %   D1       : primary display dimension(s)  (channels, trials, ...)
-    %   D2       : secondary / animation dimension(s)  (time, trials, ...)
-    %   animate  : the single ax key currently driven by the player timer
-    %   display.rows / .cols : ax keys mapped to surf YData / XData
+    % Domain convention (monoGram-specific):
+    %   D1       — two display axes shown as surf rows × cols (e.g. [f, t])
+    %   animate  — animation axis stepped by the player (e.g. chans)
+    %   (no D2 in the waterfall sense; ANI is the only non-display axis)
+    %
+    % Collectors populated at construction:
+    %   collector.View    — SRC / VW / CLR  (via initCollectorView)
+    %   collector.Domain  — D1 (multi-select, 2 items) / ANI (single-select)
+    %   collector.Pointer — per-axis value filter (via initPointerBus)
     %
     % Constructor
-    %   nexObj_monoGram(nexon, Parent, dfID_source, opCfgFcn, domain)
-    %     nexon       – Nexon handle  (ignored when Parent provided)
-    %     Parent      – parent nexObj  (pass [] for standalone use)
-    %     dfID_source – DTS column prefix; DF loaded via dtsIO_readDF
-    %     opCfgFcn    – function handle for op  (pass [] for identity)
-    %     domain      – domain struct override  (pass [] to auto-infer)
+    %   nexObj_monoGram(nexon, Parent, dfID_source, opCfgFcn, domain, headline)
 
-    properties  
+    properties
     end
 
     methods
 
         % ── Constructor ───────────────────────────────────────────────────
         function nexObj = nexObj_monoGram(nexon, Parent, dfID_source, opCfgFcn, domain, headline)
-            % resolve nexon before superclass call (no object access allowed yet)
             if ~isempty(Parent)
                 nexon = Parent.nexon;
             end
+            if nargin < 5, domain   = []; end
             if nargin < 6, headline = []; end
             nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);
             nexObj.classID = "mgm";
 
             %% DF loading
             if ~isempty(Parent)
-                nexObj.DF       = Parent.DF_postOp;
-                nexObj.Origin   = Parent.Origin;
+                nexObj.DF     = Parent.DF_postOp;
+                nexObj.Origin = Parent.Origin;
                 nexObj.Parent.Children.(nexObj.classID) = nexObj;
             elseif ~isempty(dfID_source)
                 nexObj.DF     = dtsIO_readDF(nexObj.nexon, dfID_source, []);
@@ -52,11 +47,8 @@ classdef nexObj_monoGram < nexObject
             nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_monoGram"));
             nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexObject.stepAnimate"));
 
-            %% Operate → DF_postOp
+            %% Operate → DF_postOp (preserves ptr handle across re-operates)
             nexObj.operate();
-
-            %% Axis pointer
-            nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
 
             %% Pool map
             try
@@ -65,12 +57,44 @@ classdef nexObj_monoGram < nexObject
                 disp(getReport(e));
             end
 
-            %% Domain
-            if nargin >= 5 && ~isempty(domain)
+            %% Domain (infer or accept override)
+            if ~isempty(domain)
                 nexObj.domain = domain;
             else
                 nexObj.domain = nexObj.inferDomain();
             end
+
+            %% Collector — View (SRC / VW / CLR with ax-- keys)
+            nexObj.compileSTAT();
+            nexObj.initCollectorView();
+
+            %% Collector — Domain (D1 = two display axes, ANI = animation axis)
+            axisKeys = string(fieldnames(nexObj.DF_postOp.ax))';
+            if isempty(axisKeys), axisKeys = ""; end
+            domainDict.D1  = axisKeys;
+            domainDict.ANI = axisKeys;
+            nexObj.collector.Domain = buildSelection(nexObj, domainDict);
+
+            % Seed selections from inferred domain
+            if ~isequal(axisKeys, "")
+                d1Sel = [];
+                for di = 1:min(2, numel(nexObj.domain.D1))
+                    idx = find(axisKeys == string(nexObj.domain.D1(di)), 1);
+                    if ~isempty(idx), d1Sel(end+1) = idx; end %#ok<AGROW>
+                end
+                if ~isempty(d1Sel)
+                    nexObj.collector.Domain.selections.D1 = d1Sel;
+                end
+                if ~isempty(nexObj.domain.animate) && ~isequal(string(nexObj.domain.animate), "")
+                    aniIdx = find(axisKeys == string(nexObj.domain.animate), 1);
+                    if ~isempty(aniIdx)
+                        nexObj.collector.Domain.selections.ANI = aniIdx;
+                    end
+                end
+            end
+
+            %% Collector — Pointer (one key per DF.ax field)
+            nexObj.initPointerBus();
 
             %% Figure
             nexObj.buildFigure();
@@ -82,34 +106,30 @@ classdef nexObj_monoGram < nexObject
         end
 
         % ── Core pipeline ─────────────────────────────────────────────────
+
         function operate(nexObj)
-            % Apply opCfg (or identity), preserving the ptr handle.
-            %
-            % The ptr handle must be saved BEFORE DF_postOp is replaced,
-            % then updated in-place and re-attached. Replacing it with a new
-            % nexObj_ptr object would orphan UI callbacks (axisPtrChanged etc.)
-            % that captured the original handle by reference at figure-build time.
+            % Apply opCfg (or identity), preserving the ptr handle reference
+            % so UI callbacks bound at figure-build time remain valid.
             if isstruct(nexObj.DF_postOp) && isfield(nexObj.DF_postOp, 'ptr') ...
                     && isa(nexObj.DF_postOp.ptr, 'nexObj_ptr')
-                savedPtr = nexObj.DF_postOp.ptr;   % save handle reference
+                savedPtr = nexObj.DF_postOp.ptr;
             else
                 savedPtr = [];
             end
 
             if ~isempty(nexObj.cfg.opCfg)
-                opArgs = nexObj.cfg.opCfg.entryParams;
-                nexObj.DF_postOp = nexObj.cfg.opCfg.fcn(nexObj.DF, opArgs);
+                opArgs           = nexObj.cfg.opCfg.entryParams;
+                nexObj.DF_postOp = nexObj.cfg.opCfg.opFcn(nexObj.DF, opArgs);
             else
                 nexObj.DF_postOp = nexObj.DF;
             end
 
             if ~isempty(savedPtr)
-                % Update existing handle in-place (preserves callback bindings),
-                % then re-attach to the new DF_postOp struct.
                 nex_updateAxisPointer(savedPtr, nexObj.DF_postOp);
                 nexObj.DF_postOp.ptr = savedPtr;
             else
-                nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
+                nexObj.DF_postOp.ptr = nexInit_axisPointer( ...
+                    nexObj.DF_postOp.df, nexObj.DF_postOp.ax);
             end
         end
 
@@ -121,45 +141,25 @@ classdef nexObj_monoGram < nexObject
             nexObj.visualize();
         end
 
-        % ── Visualization & animation ─────────────────────────────────────
         function buildFigure(nexObj)
             nexFigure_monoGram(nexObj);
         end
 
         function visualize(nexObj)
-            visArgs = nexObj.cfg.visCfg.entryParams;
-            nexVisualization_monoGram(nexObj, visArgs);
+            nexVisualization_monoGram(nexObj, nexObj.cfg.visCfg.entryParams);
         end
 
-        function animate(nexObj)
-            nexObj.stepAnimate(nexObj.cfg.aniCfg.entryParams);
+        function applySRC(nexObj, srcKey)
+            applySRC@nexObject(nexObj, srcKey);
+            nexObj.visualize();
         end
 
-        function startPlayer(nexObj)
-            % Toggle the player timer from a UI button.
-            % Expects nexObj.Figure.playButton with .Value (0=stopped, 1=playing)
-            isPlay = nexObj.Figure.playButton.Value;
-            switch isPlay
-                case 0
-                    nexObj.player.start;
-                case 1
-                    nexObj.player.stop;
-            end
-        end
-
-        % ── Averaging ─────────────────────────────────────────────────────
-        function reportAverage(nexObj, idxSel)
-            %% RETRIEVAL
-            TF = nexOp_compileTF(nexObj, idxSel);
-            %% COMPUTE RESULT
-            ptr = nexObj.DF_postOp.ptr;
-            DF_avg = nexOp_averageTF(TF, ptr, 2);
-            DF_avg.ptr    = ptr;
-            DF_avg.avgCfg = nexTract_avgCfg(nexObj.nexon);
-            %% STORE
-            nexObj.DF_postOp = DF_avg;
-            nex_storeAverage(nexObj, nexObj.DF_postOp);
-            %% VISUALIZE
+        function reportAverage(nexObj, resultID, nBins)
+            nexObj.compileSTAT();
+            if nargin < 2, resultID = []; end
+            if nargin < 3, nBins    = 4; end
+            reportAverage@nexObject(nexObj, resultID, nBins);
+            nexObj.refreshVW();
             nexObj.visualize();
         end
 

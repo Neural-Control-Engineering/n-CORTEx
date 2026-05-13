@@ -2,9 +2,12 @@ function DF_out = fCWT(DF_in, args)
     
     % CFG HEADER
     chanRange_start = args.chanRange_start; % default = 1
-    chanRange_end = args.chanRange_end; % default = 384       
+    chanRange_end = args.chanRange_end; % default = 384     
+    Fs = args.Fs; % default = 500
+    fRange_start = args.fRange_start; % default = 1
+    fRange_end = args.fRange_end; % default = 250
 
-    Fs = args.Fs;
+    % Fs = args.Fs;
     try
         preBuffLen = args.preBuffLen;
     catch

@@ -1,16 +1,18 @@
 function dtsIO_writeDF_toHDF5(h5File, h5Root, DFID, DF)
 % Write one DF struct into an HDF5 file under h5Root/DFID/.
-% Writes df array, axis arrays, args, and a dim_order attribute on df.
+% Writes df array, axis arrays, and args.
 % Shared by dtsIO_writeHDF5 and nexus_exportDTS.
 
     axisKeyWords = ["f","t","chans","factor","dropout","latent"];
 
     if isfield(DF, 'df') && ~isempty(DF.df)
-        dsetPath = [h5Root '/' DFID '/df'];
-        h5writeSafe(h5File, dsetPath, double(DF.df));
-        dimOrder = resolveDimOrder(DF);
-        if ~isempty(dimOrder)
-            h5writeatt(h5File, dsetPath, 'dim_order', dimOrder);
+        if ~isreal(DF.df)
+            % Complex df — store real and imaginary parts as sibling datasets.
+            % Reconstruct with complex(df_re, df_im) on read.
+            h5writeSafe(h5File, [h5Root '/' DFID '/df_re'], double(real(DF.df)));
+            h5writeSafe(h5File, [h5Root '/' DFID '/df_im'], double(imag(DF.df)));
+        else
+            h5writeSafe(h5File, [h5Root '/' DFID '/df'], double(DF.df));
         end
     end
 
@@ -36,43 +38,6 @@ end
 
 % ── Helpers ───────────────────────────────────────────────────────────────
 
-function dimOrder = resolveDimOrder(DF)
-% Comma-separated axis names in array-dimension order, e.g. "chans,t".
-% Uses DF.ptr.dim when present; falls back to length matching.
-    if ~isfield(DF, 'ax') || isempty(DF.df)
-        dimOrder = '';
-        return;
-    end
-    axFields  = fieldnames(DF.ax);
-    nDims     = ndims(DF.df);
-    dimNames  = repmat({''}, 1, nDims);
-    dimsTaken = [];
-
-    for k = 1:numel(axFields)
-        f = axFields{k};
-        d = [];
-        try
-            d = DF.ptr.(f).dim;   % authoritative when ptr is present
-        catch
-        end
-        if isempty(d)
-            axLen = numel(DF.ax.(f));
-            dims  = find(axLen == size(DF.df));
-            for j = 1:numel(dims)
-                if ~ismember(dims(j), dimsTaken)
-                    d = dims(j);
-                    break;
-                end
-            end
-        end
-        if ~isempty(d) && d >= 1 && d <= nDims && isempty(dimNames{d})
-            dimNames{d} = f;
-            dimsTaken(end+1) = d; %#ok<AGROW>
-        end
-    end
-    dimOrder = strjoin(dimNames, ',');
-end
-
 function h5writeSafe(h5File, dset, arr)
     try
         h5create(h5File, dset, size(arr), 'Datatype', 'double');
@@ -83,9 +48,14 @@ function h5writeSafe(h5File, dset, arr)
         % Dataset exists — delete and recreate so that overwriting with a
         % different shape never errors. HDF5 fixed-size datasets cannot be
         % resized in place; delete+recreate is the only portable solution.
+        % try/finally guarantees H5F.close even if H5L.delete throws,
+        % preventing a write-lock leak that would block subsequent h5write calls.
         fid = H5F.open(h5File, 'H5F_ACC_RDWR', 'H5P_DEFAULT');
-        H5L.delete(fid, dset, 'H5P_DEFAULT');
-        H5F.close(fid);
+        try
+            H5L.delete(fid, dset, 'H5P_DEFAULT');
+        finally
+            H5F.close(fid);
+        end
         h5create(h5File, dset, size(arr), 'Datatype', 'double');
     end
     h5write(h5File, dset, arr);

@@ -47,6 +47,27 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
     dfCols     = h5Cols(isArrayDF);
     simpleCols = h5Cols(~isArrayDF);
 
+    % Drop simpleCols whose values are tables or structs — these require
+    % dedicated writers and cannot be written by h5writeSimple.
+    h5writable = true(1, numel(simpleCols));
+    for j = 1:numel(simpleCols)
+        col = DTS.(char(simpleCols(j)));
+        if iscell(col)
+            idx = find(~cellfun('isempty', col), 1);
+            if ~isempty(idx)
+                v = col{idx};
+                h5writable(j) = ~istable(v) && ~isstruct(v);
+            end
+        elseif istable(col) || isstruct(col)
+            h5writable(j) = false;
+        end
+    end
+    if any(~h5writable)
+        fprintf('  Skipping non-writable columns (table/struct): %s\n', ...
+            strjoin(simpleCols(~h5writable), ', '));
+    end
+    simpleCols = simpleCols(h5writable);
+
     % Build dfID / suffix mapping for DF-group columns
     nDF      = numel(dfCols);
     colDFIDs = strings(1, nDF);

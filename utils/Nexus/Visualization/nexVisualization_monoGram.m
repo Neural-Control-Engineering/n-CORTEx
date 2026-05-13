@@ -1,22 +1,57 @@
 function nexVisualization_monoGram(nexObj, args)
 
-    % CFG HEADER    
-    zLim_low  = args.zLim_low;  % default = -1
-    zLim_high = args.zLim_high; % default = 1
-    cLim_low = args.cLim_low; % default = -11.5
-    cLim_high = args.cLim_high; % default = -9.5
+    % CFG HEADER
+    zLim_low  = args.zLim_low;   % default = -1
+    zLim_high = args.zLim_high;  % default = 1
+    cLim_low  = args.cLim_low;   % default = -11.5
+    cLim_high = args.cLim_high;  % default = -9.5
 
-    %% Slice DF using D1 — primary display axes (complement of D2)
-    rowKey = nexObj.domain.D1(1);
-    rowRange = nexObj.DF_postOp.ptr.(rowKey).range;
-    colKey = nexObj.domain.D1(2);
-    colRange = nexObj.DF_postOp.ptr.(colKey).range;
-    ptr    = nexObj.DF_postOp.ptr;
-    Y = nexObj.DF_postOp.ax.(rowKey);
+    % Guard
+    if isempty(nexObj.DF_postOp) || isempty(nexObj.DF_postOp.df), return; end
+
+    GREEN = nexObj.nexon.settings.Colors.cyberGreen;
+
+    %% Domain axes from collector.Domain
+    if isfield(nexObj.collector, 'Domain')
+        domSel = nex_returnSelectionMask(nexObj.collector.Domain);
+        d1Vals = string(domSel.D1);
+    else
+        d1Vals = nexObj.domain.D1;
+    end
+    if numel(d1Vals) < 2 || isequal(d1Vals(1), ""), return; end
+    rowKey = d1Vals(1);
+    colKey = d1Vals(2);
+
+    %% Source selection (DF or RESULTS)
+    srcKey  = nexObj.getCurrentSRC();
+    viewSel = nex_returnSelectionMask(nexObj.collector.View);
+    vwGroups = string(viewSel.VW);
+
+    useResults = ~strcmp(srcKey, 'DF') ...
+        && isfield(nexObj.RESULTS, srcKey) ...
+        && ~isempty(nexObj.RESULTS.(srcKey)) ...
+        && ~isequal(vwGroups, "") ...
+        && ~isempty(vwGroups);
+
+    if useResults
+        RESULT = nexObj.RESULTS.(srcKey);
+        matchingRows = nexObj.filterResultsByVW(RESULT, vwGroups);
+        if isempty(matchingRows), return; end
+        r     = matchingRows(1);
+        DF_src = struct('df', RESULT.df{r}, 'ax', RESULT.ax{r}, 'ptr', RESULT.ptr{r});
+    else
+        DF_src = nexObj.DF_postOp;
+    end
+
+    %% Slice
+    ptr      = DF_src.ptr;
+    rowRange = ptr.(rowKey).range;
+    colRange = ptr.(colKey).range;
+    Y = DF_src.ax.(rowKey);
     Y = Y(rowRange(1):rowRange(end));
-    X = nexObj.DF_postOp.ax.(colKey);
-    X = X(colRange(1):colRange(end));    
-    Z = squeeze(sliceDF(nexObj.DF_postOp.df, ptr, [rowKey, colKey], "range"));
+    X = DF_src.ax.(colKey);
+    X = X(colRange(1):colRange(end));
+    Z = squeeze(sliceDF(DF_src.df, ptr, [rowKey, colKey], "range"));
     if ptr.(rowKey).dim > ptr.(colKey).dim
         Z = Z';
     end
@@ -25,19 +60,19 @@ function nexVisualization_monoGram(nexObj, args)
     canvas = nexObj.Figure.panel0.tiles.graphics.canvas;
     set(canvas, "XData", X, "YData", Y, "ZData", Z, "CData", Z);
 
-    %% View / limits
-    XLim = nexObj.DF_postOp.ax.(colKey);
-    YLim = nexObj.DF_postOp.ax.(rowKey);
+    %% Axis limits and labels
     ax = nexObj.Figure.panel0.tiles.ax;
     ax.ZLim = [zLim_low, zLim_high];
-    ax.YLim = [YLim(rowRange(1)),YLim(rowRange(end))];
-    ax.XLim = [XLim(colRange(1)),XLim(colRange(end))];
-    % ax.XLim = [min(XLim), max(XLim)];
+    ax.YLim = [Y(1), Y(end)];
+    ax.XLim = [X(1), X(end)];
     clim(ax, [cLim_low, cLim_high]);
+
+    xlabel(ax, char(colKey), 'Color', GREEN);
+    ylabel(ax, char(rowKey), 'Color', GREEN);
 
     %% Title
     axTitle = nexTract_axisTitle(nexObj, nexObj.DF_postOp);
-    title(ax, axTitle, "Color", nexObj.nexon.settings.Colors.cyberGreen);
+    title(ax, axTitle, "Color", GREEN);
 
     drawnow limitrate;
 end

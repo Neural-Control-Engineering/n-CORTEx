@@ -34,7 +34,7 @@ function nexon = startNexus(params, DTS)
         end
         try
             nexon.console.SLRT = nexPanel_SLRT(nexon);
-        catch
+        catch e
             disp(getReport(e));
             disp("UNABLE TO GENERATE SLRT PANEL")
         end
