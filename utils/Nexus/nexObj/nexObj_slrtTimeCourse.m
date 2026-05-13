@@ -16,35 +16,48 @@ classdef nexObj_slrtTimeCourse < handle
     
     methods
         % Constructor
-        function nexObj = nexObj_slrtTimeCourse(nexObj_parent, dfIDs)    
+        function nexObj = nexObj_slrtTimeCourse(nexObj_parent, dfIDs)
             nexObj_parent.signals=nexObj;
-            % nexObj.classID = "tc_slrt";
             nexObj.nexon = nexObj_parent.nexon;
-            % nexObj.dataFrame=dataFrame;            
             nexObj.dfIDs = dfIDs;
             nexObj.UserData=struct();
             nexObj.UserData.colorMap = [];
             nexObj.Fs=1000;
             nexObj.UserData.Fs = 1000;
-            [nexObj.eventAlignmentSelection, IDs_signals] = nexSelect_eventAlignment(nexObj, dfIDs);
+            [nexObj.eventAlignmentSelection, IDs_signals, ~] = nexSelect_eventAlignment(nexObj, dfIDs);
             nexObj.dfIDs = IDs_signals;
-            IDs_events = nexObj.eventAlignmentSelection.selKeys.events;
-            nexObj.pMap_time = poolMap_time(IDs_events);
-            % nexObj.pMap_time = map_events2time(IDs_events);            
-            nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, IDs_events);
+            allEventTags = nexObj.eventAlignmentSelection.selKeys.events;
+            nexObj.pMap_time = poolMap_time(allEventTags);
+            defaultTag = "";
+            if ~isempty(allEventTags) && ~isequal(allEventTags(1), "")
+                defaultTag = allEventTags(1);
+            end
+            nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, defaultTag, nexObj.Fs, nexObj.preBuffLen);
             nexObj = nexPlot_slrt_timeCourse(nexObj.nexon, nexObj);
         end
 
-        function updateScope(nexObj,  nexon, parent)  
-            IDs_signals = nexObj.dfIDs;
-            IDs_events = nexObj.eventAlignmentSelection.selKeys.events;
-            nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, IDs_events);
+        function updateScope(nexObj, nexon, parent)
+            IDs_signals  = nexObj.dfIDs;
+            allEventTags = nexObj.eventAlignmentSelection.selKeys.events;
+            selIdx       = nexObj.eventAlignmentSelection.selections.events;
+            if ~isempty(allEventTags) && selIdx >= 1 && selIdx <= numel(allEventTags)
+                selectedTag = allEventTags(selIdx);
+            elseif ~isempty(allEventTags)
+                selectedTag = allEventTags(1);
+            else
+                selectedTag = "";
+            end
+            nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, selectedTag, nexObj.Fs, nexObj.preBuffLen);
             colorMap = nexObj.UserData.colorMap;
             try
                 updateSlrtTimeCourse(nexObj, colorMap)
             catch e
                 disp(getReport(e));
             end
+        end
+
+        function visualize(nexObj)
+            nexObj.updateScope([], []);
         end
         
         % Example method to set UserData
