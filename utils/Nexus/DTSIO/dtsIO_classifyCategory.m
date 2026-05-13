@@ -5,8 +5,10 @@ function categoryType = dtsIO_classifyCategory(DTS, category)
     TF_sl = DTS.sessionLabel;
     TF    = cellfun(@(var) parseSessionLabel(convertCharsToStrings(var), category), ...
                     TF_sl, "UniformOutput", false);
+    % check for empty strings    
     TF    = cat(1, TF{:});
-    if ~isempty(TF)
+    isBlank = all(arrayfun(@(DF) strcmp("",DF), TF, "UniformOutput",true));
+    if ~isempty(TF) && ~isBlank
         categoryType = "sessionLabel";
         return;
     end

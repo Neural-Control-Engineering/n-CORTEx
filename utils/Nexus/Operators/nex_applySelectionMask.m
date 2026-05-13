@@ -15,6 +15,21 @@ function selCond = nex_applySelectionMask(DTS, S)
         end
         category = sprintf("%s--%s", categoryType, key);
         TF = dtsIO_readTF_category(DTS, category, ':');
+        % SKIP IF ALL MISSING — type-aware guard
+        if isnumeric(TF) || islogical(TF)
+            isNAN = all(isnan(double(TF(:))));
+        elseif isstring(TF)
+            isNAN = all(ismissing(TF(:)) | TF(:) == "");
+        elseif iscell(TF)
+            isNAN = all(cellfun(@(x) isempty(x) || ...
+                (isnumeric(x) && isscalar(x) && isnan(x)), TF(:)));
+        else
+            isNAN = false;
+        end
+        if isNAN
+            fprintf("WARNING: %s selection could not be resolved (allNAN)", key);
+            continue
+        end
         matchingRows = dtsIO_findMatchingRows(keySel, TF);
         
         % selCond = (selCond &  matchingRows);   

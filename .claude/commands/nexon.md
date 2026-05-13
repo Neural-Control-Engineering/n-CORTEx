@@ -113,6 +113,125 @@ Each label set falls back to its parent if filtering returns empty, so no downst
 
 ---
 
+## SLRT Signals / Events Framework
+
+### `signal_types` column
+
+Every DTS row carries a `signal_types` cell entry — an `N×2` cell array:
+
+| Column | Content |
+|--------|---------|
+| `col 1` | dataID string (e.g. `"stim_raw"`, `"lickPort_event"`) |
+| `col 2` | type string — one of `"signal"`, `"event"`, `"tag"`, `"affix"` |
+
+Type semantics:
+
+| Type | Meaning |
+|------|---------|
+| `"event"` | Scalar sample index stored per trial — used as alignment anchor |
+| `"signal"` | Behavioral timecourse stored per trial — rendered in the time-course figure |
+| `"tag"` | Categorical label per trial — enumerated for the averaging/selection panel |
+| `"affix"` | Like tag; secondary categorical label |
+
+`signal_types` is always kept in the manifest table (not pushed to HDF5) so it is available without an HDF5 read.
+
+**Max-N row convention**: old trials may have fewer `signal_types` entries if new signals were added mid-session. Both `nex_getEventTypes` and `nex_getSignalTypes` select the row with the most entries (`max(size(st,1))`) to get the most complete type registry.
+
+---
+
+### Helper functions
+
+```matlab
+IDs_events  = nex_getEventTypes(nexon)   % → string array of "event"-typed IDs
+IDs_signals = nex_getSignalTypes(nexon)  % → string array of "signal"-typed IDs
+```
+
+Both read `nexon.console.BASE.DTS.signal_types`, find the max-N row, and filter by type.
+
+`dtsIO_listSignals(DTS, ["tag","affix"])` does the same for tag/affix types — used by `nexSelect_averaging`.
+
+---
+
+### `nexSelect_eventAlignment(nexObj, IDs_signals)`
+
+Builds the event-alignment `nexObj_selectionBus` for the SLRT time-course panel.
+
+```matlab
+[eventSelection, IDs_signals, IDs_events] = nexSelect_eventAlignment(nexObj, IDs_signals)
+```
+
+Steps:
+1. Read `DTSCols` via `dtsIO_readDFIDs` (manifest + HDF5 leaf names).
+2. Call `nex_getSignalTypes` → `IDs_signals_st`; merge with caller-supplied `IDs_signals` via `unique(...,'stable')`.
+3. Call `nex_getEventTypes` → `IDs_events`; **filter against `DTSCols`** so only events with data written are included.
+4. Signals are **not** filtered — missing signal data is handled gracefully by `nexSLRT_compileDataFrames`, and the selection must remain valid for aligning nexObjs whose signal data isn't written yet.
+5. Build `"<eventID>_<signalID>"` tags for every event×signal pair → stored as `eventSelection.selKeys.events`.
+
+**Tag format** `"<eventID>_<signalID>"` is shared with `nexOp_compileTF`. The event ID is always the prefix up to the first `_` that matches a known event ID (resolved by `startsWith` against known event IDs, robust to underscores in either ID).
+
+---
+
+### `nexSLRT_compileDataFrames(nexon, IDs_signals, eventTag, Fs, preBuffLen)`
+
+Single-trial display — reads whichever trial the router is currently pointing to and aligns each signal to the selected event.
+
+```matlab
+DF = nexSLRT_compileDataFrames(nexon, IDs_signals, eventTag, Fs, preBuffLen)
+```
+
+Flow:
+1. Parse `eventID` from `eventTag` using `startsWith(tag, eventID + "_")` match against known event IDs (robust to underscores).
+2. `dtsIO_readDF(nexon, eventID, [])` — empty index → router selects current trial automatically.
+3. For each signal in `IDs_signals`: `dtsIO_readDF(nexon, sigID, [])` → `nexOp_eventAlignDF(DF_sig, sample_event, Fs, preBuffLen, 1)`.
+4. Signals absent from the DTS are silently skipped; `nexPlot_slrt_timeCourse` renders only populated fields.
+
+Returns `DF.df.(fieldName)` and `DF.ax.t.(fieldName)` for each successfully aligned signal.
+
+---
+
+### `nexObj_slrtTimeCourse` constructor and update flow
+
+```matlab
+% Constructor (inside nexPanel_SLRT)
+[nexObj.eventAlignmentSelection, IDs_signals, ~] = nexSelect_eventAlignment(nexObj, dfIDs);
+nexObj.dfIDs     = IDs_signals;
+allEventTags     = nexObj.eventAlignmentSelection.selKeys.events;
+nexObj.pMap_time = poolMap_time(allEventTags);
+defaultTag       = allEventTags(1);   % first tag as default
+nexObj.DF        = nexSLRT_compileDataFrames(nexon, IDs_signals, defaultTag, Fs, preBuffLen);
+nexObj           = nexPlot_slrt_timeCourse(nexon, nexObj);
+```
+
+**`updateScope`** — reads the currently selected listbox index, picks the matching tag, recompiles and re-renders:
+```matlab
+selIdx      = nexObj.eventAlignmentSelection.selections.events;
+selectedTag = allEventTags(selIdx);
+nexObj.DF   = nexSLRT_compileDataFrames(nexon, IDs_signals, selectedTag, Fs, preBuffLen);
+updateSlrtTimeCourse(nexObj, colorMap);
+```
+
+**`visualize`** — thin wrapper so `listCfgEntryChanged` auto-triggers a replot when the user changes the event/signal selection in the panel:
+```matlab
+function visualize(nexObj)
+    nexObj.updateScope([], []);
+end
+```
+
+---
+
+### `nexSelect_averaging` and `signal_types`
+
+The `if isfield(DTS, "signal_types")` guard in `nexSelect_averaging` **must use `ismember`**, not `isfield`, because DTS is a MATLAB table:
+
+```matlab
+% Correct check for a table column
+if ismember("signal_types", string(nexon.console.BASE.DTS.Properties.VariableNames))
+```
+
+`isfield` always returns false for table objects; the signal_types block silently never runs.
+
+---
+
 ## `nexInit_registry` — what the registry contains
 
 Built by `nexInit_registry(nexon)`, stored at `nexon.console.BASE.registry`:
