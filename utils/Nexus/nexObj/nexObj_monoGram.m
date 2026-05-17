@@ -65,7 +65,6 @@ classdef nexObj_monoGram < nexObject
             end
 
             %% Collector — View (SRC / VW / CLR with ax-- keys)
-            nexObj.compileSTAT();
             nexObj.initCollectorView();
 
             %% Collector — Domain (D1 = two display axes, ANI = animation axis)

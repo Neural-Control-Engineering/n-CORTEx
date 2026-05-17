@@ -275,6 +275,42 @@ classdef Nexon < handle
             fprintf('Save manifest:  DTS = nexon.console.BASE.DTS; save(''nexDTS_manifest.mat'',''DTS'')\n');
         end
 
+        function rechunkDTS(nexon, newH5File, chunkTargetBytes, targetDFID, batchSize)
+        % Rechunk trial DF data into a new HDF5 file with automatic
+        % axis-aware chunking, then update the manifest to point to it.
+        %
+        %   nexon.rechunkDTS('nexDTS_chunk.h5')
+        %   nexon.rechunkDTS('nexDTS_chunk.h5', 256*1024)              % 256 KB chunks
+        %   nexon.rechunkDTS('nexDTS_chunk.h5', [], 'fCWT')            % one dfID only
+        %   nexon.rechunkDTS('nexDTS_chunk.h5', [], 'fCWT', 1)         % 1 trial/batch
+        %
+        % batchSize controls peak RAM: batchSize × (bytes per trial).
+        % For large dfIDs (e.g. fCWT at ~7 GB/trial) use batchSize=1.
+        % Default 50 is only safe for small-to-medium DFs.
+        %
+        % Original file is not deleted. Save the manifest afterward:
+        %   DTS = nexon.console.BASE.DTS; save('nexDTS_manifest.mat','DTS')
+            if nargin < 3, chunkTargetBytes = 128*1024; end
+            if nargin < 4, targetDFID = ''; end
+            if nargin < 5, batchSize = 50; end
+            DTS = nexon.console.BASE.DTS;
+            if isempty(DTS) || ...
+                    ~ismember('h5_path', string(DTS.Properties.VariableNames))
+                error('Nexon:rechunkDTS', ...
+                    'nexon.console.BASE.DTS must be disk-backed (h5_path required).');
+            end
+            % Resolve relative newH5File against the source HDF5 directory.
+            newH5File = char(newH5File);
+            if ~java.io.File(newH5File).isAbsolute()
+                srcDir    = fileparts(char(DTS.h5_path(1)));
+                newH5File = fullfile(srcDir, newH5File);
+            end
+            dtsIO_rechunkDTS(DTS, newH5File, chunkTargetBytes, batchSize, targetDFID);
+            nexon.console.BASE.DTS.h5_path(:) = string(newH5File);
+            fprintf('Manifest updated → %s\n', newH5File);
+            fprintf('Save manifest:  DTS = nexon.console.BASE.DTS; save(''nexDTS_manifest.mat'',''DTS'')\n');
+        end
+
         function appendToDTS(nexon, DTS)
             DTS_base = nexon.console.BASE.DTS;
             if isempty(DTS_base)

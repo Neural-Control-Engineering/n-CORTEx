@@ -4,7 +4,7 @@ function [idx, ax_idx] = nexOp_buildSliceIndex(ax, ptr, axSels, axVals)
     ax_idx=ax;
     % ax_df = [];
     for i = 1:length(axSels)
-        axSel = axSels(i);
+        axSel = axSels{i};
         sliceRange = axVals{i};
         sliceAx = ax.(axSel);
         try

@@ -5,6 +5,8 @@ function nexVisualization_monoGram(nexObj, args)
     zLim_high = args.zLim_high;  % default = 1
     cLim_low  = args.cLim_low;   % default = -11.5
     cLim_high = args.cLim_high;  % default = -9.5
+    component = args.component;  % default = 'radial'
+    scale     = args.scale;      % default = 'linear'
 
     % Guard
     if isempty(nexObj.DF_postOp) || isempty(nexObj.DF_postOp.df), return; end
@@ -43,18 +45,16 @@ function nexVisualization_monoGram(nexObj, args)
         DF_src = nexObj.DF_postOp;
     end
 
-    %% Slice
-    ptr      = DF_src.ptr;
-    rowRange = ptr.(rowKey).range;
-    colRange = ptr.(colKey).range;
-    Y = DF_src.ax.(rowKey);
-    Y = Y(rowRange(1):rowRange(end));
-    X = DF_src.ax.(colKey);
-    X = X(colRange(1):colRange(end));
-    Z = squeeze(sliceDF(DF_src.df, ptr, [rowKey, colKey], "range"));
+    %% Sync ptrBus → ptr.indices, then slice
+    ptr = DF_src.ptr;
+    ptr = nexOp_syncPtrFromBus(ptr, nexObj.collector.Pointer);
+    [Z, ax_slice] = nexOp_sliceAndCollapse(DF_src, {rowKey, colKey});
+    Y = double(ax_slice.(rowKey)(:));
+    X = double(ax_slice.(colKey)(:)');
     if ptr.(rowKey).dim > ptr.(colKey).dim
         Z = Z';
     end
+    [Z, ~] = nexOp_applyComplexTransform(Z, [], component, scale);
 
     %% Update canvas
     canvas = nexObj.Figure.panel0.tiles.graphics.canvas;

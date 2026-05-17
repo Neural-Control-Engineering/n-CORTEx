@@ -232,6 +232,120 @@ if ismember("signal_types", string(nexon.console.BASE.DTS.Properties.VariableNam
 
 ---
 
+## Category Taxonomy — sessionLabel / h5 / ax prefixes
+
+Every category key carries a two-part prefix that encodes where its values live and how it participates in filtering and batching:
+
+| Prefix | Example | Value source | Role |
+|--------|---------|--------------|------|
+| `sessionLabel--` | `sessionLabel--subj` | `DTS.sessionLabel` string (parsed by `parseSessionLabel`) | Trial grouping; cheap to read — no HDF5 |
+| `h5--` | `h5--responseThreshold` | HDF5 scalar dfID (one read per trial via `dtsIO_readTFH5`) | Within-batch grouping; requires HDF5 read |
+| `ax--` | `ax--f`, `ax--t` | `DF_postOp.ax.(field)` axis array | **Ptr filter** — becomes a hyperslab constraint on TF reads |
+
+`nexOp_listCategories` assembles all three in order: `sessionLabel--*` first, then signal-type vars, then `h5--*` (deduplicated against the others). The `ax--` entries are appended by `nexSelect_categories` from `nexOp_listDfDims`.
+
+In `collector.View.CTG` and STAT column names the `--` separator is replaced with `_` (via `strrep("--","_")`), so `"sessionLabel--subj"` becomes `"sessionLabel_subj"`. The raw `selectionBus.categories` still uses `--`.
+
+---
+
+## TF Load Chain — compileSTAT → compileTF → readTF → readHDF5
+
+```
+nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
+  │  builds ptr_filter from ax-- selections  →  nexOp_buildPtrFromAxSel
+  │  applies global + CTG item filter        →  idxSel (logical)
+  ↓
+nexOp_compileTF(nexObj, idxSel, dfID, ptr)
+  │  resolves nexon, applies averagingSelection fallback
+  │  calls event alignment (SLRT) if available
+  ↓
+dtsIO_readTF(nexon, dfID, IDX, h5Modifier, ptr)
+  ├─ DTS column path  →  dtsIO_readDF(nexon, dfID, idx, ptr)
+  └─ HDF5 path        →  dtsIO_readTFH5(DTS, dfID, IDX, modifier, ptr)
+                              └─ dtsIO_composeDF(DTS, dfID, row, ptr)
+                                   └─ dtsIO_readHDF5(DTS, dfID, row, ptr)
+                                        └─ h5read(file, dset, start, count)  ← hyperslab
+```
+
+Every function in the chain accepts `ptr` as its last optional argument. Callers that don't need filtering pass `[]` — existing behavior is unchanged.
+
+---
+
+## ax-- selections → ptr filter → hyperslab reads
+
+`nexOp_buildPtrFromAxSel(S_categories, S_items, nexObj)` — standalone function, called by both `nexOp_compileSTAT` and `reportAverage_batched`.
+
+**For each ax-- slot in S_categories:**
+1. Extract bare axis name: `extractAfter("ax--f", "ax--")` → `"f"`
+2. Get selected item values from `S_items.(Ci)` (may be a scalar or array)
+3. Look up each value in `nexObj.DF_postOp.ax.(axName)` — nearest index for numeric axes, exact match for string axes
+4. Collapse to `[min(indices), max(indices)]` — covers the full span of the selection
+5. Set `ptr.(axName).range = [i1, i2]`
+
+Returns `[]` when no ax-- slots are active (no-op path). The resulting `ptr` is a plain struct (not a `nexObj_ptr` handle) — safe for `parfor` broadcast.
+
+**On the read side**, `dtsIO_readHDF5` reads the `dim_order` attribute written by `dtsIO_writeDF_toHDF5` (e.g. `"f,t"`) to map axis names to HDF5 dataset dimensions, then calls `h5read(file, dset, start, count)` for a partial load. I/O savings require a **chunked** dataset — use `nexon.rechunkDTS` to rechunk existing data.
+
+---
+
+## HDF5 Chunking and rechunkDTS
+
+`nexon.rechunkDTS(newH5File, chunkTargetBytes, targetDFID, batchSize, tmpDir)` — rewrites the DTS HDF5 with axis-aware chunking and updates `h5_path` in the manifest.
+
+| Arg | Default | Notes |
+|-----|---------|-------|
+| `newH5File` | required | Relative paths resolved against `DTS.h5_path(1)` directory |
+| `chunkTargetBytes` | `128*1024` (128 KB) | Target chunk size; 64 KB–1 MB is the useful range |
+| `targetDFID` | `''` (all) | Rechunk only this dfID; others copied verbatim (still a complete file) |
+| `batchSize` | `50` | Trials per parfor batch; for large dfIDs (≥1 GB/trial) use `1` |
+| `tmpDir` | `''` | Write to fast scratch first, then move — eliminates read/write contention on the source drive |
+
+**Chunking is ptr-agnostic**: the rechunk worker uses `inferPtr` (shape-based axis→dim inference) to compute chunk sizes; no ptr ranges are applied. The ptr only affects the read side.
+
+**Compression**: add `'Deflate', 4` to `h5create` calls in `h5writeSafeChunk` for 3–6× compression on fCWT spectrograms — biggest single win for USB HDD workflows.
+
+---
+
+## reportAverage_batched — disk-friendly batched averaging
+
+`nexObj.reportAverage_batched(resultID, nBins)` — available on all nexObject subclasses. Bypasses `compileSTAT` entirely; loads one session-label batch at a time.
+
+**Batch boundary** = `sessionLabel--*` categories in the CTG selection (C1, C2, ...). Batch membership is determined from `DTS.sessionLabel` alone using `parseSessionLabel` — zero HDF5 reads needed to form batches.
+
+**`h5--` categories** are within-batch grouping variables (not yet implemented in prototype — deferred). Each batch currently produces one averaged result row.
+
+**ax-- categories** become the `ptr_filter` passed to `nexOp_compileTF`, triggering hyperslab reads within each batch.
+
+**Algorithm:**
+```
+1. global filter (averagingSelection) → rowIdx
+2. apply sessionLabel-- item filters from CTG items bus → further filter rowIdx
+3. build ptr_filter from ax-- CTG selections via nexOp_buildPtrFromAxSel
+4. read sessionLabel columns from DTS (parseSessionLabel cellfun) → batch groups
+5. for each (subj, phase, ...) batch:
+     a. nexOp_compileTF(nexon, batchMask, dfID, ptr_filter)  ← hyperslab read
+     b. nexOp_poolAxes(pMap, TF, DF_postOp.ptr)              ← axis pooling
+     c. nexOp_averageTF(TF, ptr_avg, 2)                      ← average trials
+6. assemble RESULT table with sessionLabel grouping columns
+7. update SRC bus, call refreshVW
+```
+
+**Prototype scope**: batches at the C1/C2 sessionLabel levels (subj + phase). `h5--` within-batch subgrouping and memory-adaptive batch size selection are deferred.
+
+---
+
+## initCollectorView — CTG-driven, no compileSTAT
+
+`nexObject.initCollectorView` now reads grouping keys from `nexObj.Parent.selectionBus.categories` (the CTG parent's selection bus) instead of from `nexObj.STAT` columns. This means nexObject subclasses no longer call `compileSTAT` at construction — it is fully lazy.
+
+**Key detail**: `ax--` entries are **excluded** from `grpKeys` in `collector.View.CTG`. They are ptr constraints, not grouping columns, and never appear as STAT table columns. The filter is `~startsWith(catVals, "ax--")`.
+
+**Fallback**: if no CTG parent is available, falls back to reading group keys from `nexObj.STAT` (legacy path for standalone objects).
+
+`compileSTAT` is still called inside `reportAverage` overrides in subclasses — that on-demand call remains correct.
+
+---
+
 ## `nexInit_registry` — what the registry contains
 
 Built by `nexInit_registry(nexon)`, stored at `nexon.console.BASE.registry`:

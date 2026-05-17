@@ -3,9 +3,14 @@ function nexVisualization_monoGraph(nexObj, args)
     alphaVal  = args.alphaVal;   % default = 0.6
     yLim_high = args.yLim_high;  % default = 1
     yLim_low  = args.yLim_low;   % default = -1
+    component = args.component;  % default = 'radial'
+    scale     = args.scale;      % default = 'linear'
 
-    ax    = nexObj.Figure.panel0.tiles.ax;
-    axSel = nexObj.Figure.axSelDropDown.Value;
+    ax     = nexObj.Figure.panel0.tiles.ax;
+    domSel = nex_returnSelectionMask(nexObj.collector.Domain);
+    d1Vals = string(domSel.D1);
+    if isempty(d1Vals) || isequal(d1Vals(1), ""), return; end
+    axSel  = char(d1Vals(1));
     GREEN = nexObj.nexon.settings.Colors.cyberGreen;
 
     srcKey   = nexObj.getCurrentSRC();
@@ -66,7 +71,7 @@ function nexVisualization_monoGraph(nexObj, args)
         ptr_DF     = nexObj.DF_postOp.ptr;
 
         for ri = 1:nMatch
-            r    = matchingRows(ri);
+            r     = matchingRows(ri);
             df_g  = RESULT.df{r};
             ax_g  = RESULT.ax{r};
             sem_g = RESULT.sem{r};
@@ -76,9 +81,14 @@ function nexVisualization_monoGraph(nexObj, args)
             if isstruct(ptr_g) && isfield(ptr_g, axSel) && isfield(ptr_DF, axSel)
                 ptr_use.(axSel).range = ptr_g.(axSel).range;
             end
-            df_slice  = nexOp_permuteLong2second(squeeze(sliceDF(df_g,  ptr_use, axSel, "range")));
-            sem_slice = nexOp_permuteLong2second(squeeze(sliceDF(sem_g, ptr_use, axSel, "range")));
-            t_ax   = ax_g.(axSel);
+            DF_g   = struct('df', df_g,  'ax', ax_g, 'ptr', ptr_use);
+            DF_sem = struct('df', sem_g, 'ax', ax_g, 'ptr', ptr_use);
+            [df_raw,  ax_out] = nexOp_sliceAndCollapse(DF_g,   axSel);
+            [sem_raw, ~]      = nexOp_sliceAndCollapse(DF_sem, axSel);
+            df_slice  = nexOp_permuteLong2second(df_raw);
+            sem_slice = nexOp_permuteLong2second(sem_raw);
+            [df_slice, sem_slice] = nexOp_applyComplexTransform(df_slice, sem_slice, component, scale);
+            t_ax   = double(ax_out.(axSel)(:)');
             if strcmp(axSel, 'f')
                 posF = t_ax > 0;
                 t_ax = t_ax(posF); df_slice = df_slice(posF); sem_slice = sem_slice(posF);
@@ -133,16 +143,17 @@ function nexVisualization_monoGraph(nexObj, args)
             lgd.TextColor = GREEN;
             lgd.Color     = [0 0 0];
             lgd.EdgeColor = GREEN;
-            lgd.FontSize  = 16;
+            lgd.FontSize  = 6;
         end
 
     else
         %% ── Single-DF rendering ──────────────────────────────────────────
         DF  = nexObj.DF_postOp;
-        ptr = DF.ptr;
-        df_slice  = nexOp_permuteLong2second(squeeze(sliceDF(DF.df, ptr, axSel, "range")));
-        t_axis    = DF.ax.(axSel);
+        [df_raw, ax_out] = nexOp_sliceAndCollapse(DF, axSel);
+        df_slice  = nexOp_permuteLong2second(df_raw);
         sem_slice = nan(size(df_slice));
+        [df_slice, sem_slice] = nexOp_applyComplexTransform(df_slice, sem_slice, component, scale);
+        t_axis    = double(ax_out.(axSel)(:)');
         if strcmp(axSel, 'f')
             posF = t_axis > 0;
             t_axis = t_axis(posF); df_slice = df_slice(posF); sem_slice = sem_slice(posF);
@@ -177,12 +188,6 @@ function nexVisualization_monoGraph(nexObj, args)
             ax.XTick = linspace(min(t_vals), max(t_vals), 40);
         end
     end
-
-    domain.F  = nexObj.dfID_source;
-    domain.D1 = axSel;
-    d2List    = fieldnames(nexObj.DF_postOp.ptr);
-    domain.D2 = convertCharsToStrings(d2List(~strcmp(axSel, d2List)));
-    nexObj.domain = domain;
 
     axTitle = nexTract_axisTitle(nexObj, nexObj.DF_postOp);
     title(ax, axTitle, "Color", GREEN);

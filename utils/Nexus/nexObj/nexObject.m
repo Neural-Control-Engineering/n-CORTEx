@@ -84,6 +84,21 @@ classdef nexObject < handle
             nexObj.domain = nexObj.inferDomain();
         end
 
+        % ── Domain bus callbacks ──────────────────────────────────────────
+        function onD1Changed(nexObj, lb)
+            nexObj.collector.Domain.selections.D1 = lb.Value;
+            nexObj.visualize();
+        end
+
+        function onANIChanged(nexObj, lb)
+            nexObj.collector.Domain.selections.ANI = lb.Value;
+            aniKeys = nexObj.collector.Domain.selKeys.ANI;
+            if ~isempty(lb.Value) && ~isempty(aniKeys)
+                nexObj.domain.animate = string(aniKeys(lb.Value(end)));
+            end
+            nexObj.visualize();
+        end
+
         % -- POOLING -------------------------------------------------------
         function poolDF(nexObj)
             nexObj.DF_postOp = nexOp_poolAxes(nexObj.pMap, nexObj.DF_postOp, nexObj.DF_postOp.ptr);
@@ -261,15 +276,36 @@ classdef nexObject < handle
         end
 
         function initCollectorView(nexObj)
-            % Initialise collector.View (CTG / VW / CLR / SRC) from current STAT.
-            % Call after compileSTAT() so CTG/CLR keys are populated.
+            % Initialise collector.View (CTG / VW / CLR / SRC).
+            % Reads grouping keys from the CTG parent's selectionBus — no
+            % compileSTAT required. Falls back to STAT columns when no CTG
+            % parent is available (legacy / standalone objects).
+            % ax-- entries are excluded from grpKeys: they are ptr filters,
+            % not grouping columns, and never appear as STAT table columns.
             DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem"];
-            if ~isempty(nexObj.STAT) && istable(nexObj.STAT)
+            grpKeys = "";
+            ctgResolved = false;
+            if ~isempty(nexObj.Parent) && isvalid(nexObj.Parent) && ...
+                    strcmp(nexObj.Parent.classID, 'ctg') && ...
+                    isfield(nexObj.Parent.selectionBus, 'categories')
+                try
+                    S_cat   = nex_returnSelectionMask(nexObj.Parent.selectionBus.categories);
+                    catVals = string(struct2cell(S_cat))';
+                    % keep only non-empty, non-None, non-ax-- entries
+                    catVals = catVals( catVals ~= "" & ...
+                                       ~strcmp(catVals,"None") & ...
+                                       ~startsWith(catVals,"ax--") );
+                    if ~isempty(catVals)
+                        grpKeys = strrep(catVals, "--", "_");
+                    end
+                    ctgResolved = true;
+                catch
+                end
+            end
+            if ~ctgResolved && ~isempty(nexObj.STAT) && istable(nexObj.STAT)
                 allCols = string(nexObj.STAT.Properties.VariableNames)';
                 grpKeys = allCols(~ismember(allCols, DF_STRUCT_FIELDS));
                 if isempty(grpKeys), grpKeys = ""; end
-            else
-                grpKeys = "";
             end
             % Append ax--<field> entries so CLR can color by pointer axis value.
             % Stored as ax--X in CLR; resolveGroupColors translates to ax_X for
@@ -404,6 +440,333 @@ classdef nexObject < handle
             fprintf('[%s.reportAverage] %d groups → RESULTS.%s\n', class(nexObj), sum(valid), resultID);
         end
 
+        function reportAverage_batched(nexObj, resultID, nBins)
+            % Disk-friendly reportAverage: loads one sessionLabel batch at a
+            % time, sub-groups within each batch by h5-- keys, averages per
+            % sub-group, and stores all groups in RESULTS.(resultID).
+            %
+            % sessionLabel-- keys → batch boundary (DTS only, no HDF5 reads).
+            % h5--           keys → within-batch sub-grouping.  All h5 scalar
+            %                       values are read once before the batch loop
+            %                       so quantile bins are standardized globally.
+            % ax--           keys → ptr filter for hyperslab reads.
+            %
+            %   nexObj.reportAverage_batched()
+            %   nexObj.reportAverage_batched('avg1')
+            %   nexObj.reportAverage_batched('avg1', nBins)
+            if nargin < 2 || isempty(resultID)
+                resultID = sprintf('avg%d', numel(fieldnames(nexObj.RESULTS)) + 1);
+            end
+            if nargin < 3
+                nBins = 4;
+            end
+
+            nexon = nexObj.nexon;
+            DTS   = nexon.console.BASE.DTS;
+            dfID  = nexObj.dfID_source;
+
+            % ── Global filter (averagingSelection) ────────────────────────
+            S_global = nex_returnSelectionMask(nexon.console.BASE.controlPanel.averagingSelection);
+            idxSel   = nex_applySelectionMask(DTS, S_global);
+
+            % ── CTG selection buses ───────────────────────────────────────
+            if isempty(nexObj.Parent) || ~strcmp(nexObj.Parent.classID,'ctg')
+                fprintf('[%s.reportAverage_batched] requires a CTG Parent.\n', class(nexObj));
+                return;
+            end
+            S_cat     = nex_returnSelectionMask(nexObj.Parent.selectionBus.categories);
+            S_items   = nex_returnSelectionMask(nexObj.Parent.selectionBus.items);
+            catFields = fieldnames(S_cat);
+
+            % ── sessionLabel item filter (DTS only, no HDF5) ─────────────
+            nRows  = height(DTS);
+            slMask = true(nRows, 1);
+            for ci = 1:numel(catFields)
+                catVal = string(S_cat.(catFields{ci}));
+                if ~startsWith(catVal, 'sessionLabel--')
+                    continue
+                end
+                fieldName = char(extractAfter(catVal, 'sessionLabel--'));
+                itemSel   = S_items.(catFields{ci});
+                if isempty(itemSel) || all(strcmp(string(itemSel), 'None'))
+                    continue
+                end
+                colVals = convertCharsToStrings( ...
+                    arrayfun(@(x) parseSessionLabel(x, fieldName), ...
+                             DTS.sessionLabel, 'UniformOutput', true));
+                slMask = slMask & ismember(colVals, string(itemSel));
+            end
+            rowIdx = find(idxSel & slMask);
+            if isempty(rowIdx)
+                fprintf('[%s.reportAverage_batched] no trials selected.\n', class(nexObj));
+                return;
+            end
+
+            % ── ptr filter from ax-- selections ───────────────────────────
+            ptr_filter = nexOp_buildPtrFromAxSel(S_cat, S_items, nexObj);
+
+            % ── Grouping keys from View.CTG ───────────────────────────────
+            viewSel = nex_returnSelectionMask(nexObj.collector.View);
+            grpKeys = string(viewSel.CTG);
+            grpKeys = grpKeys(grpKeys ~= "" & grpKeys ~= "None");
+            slKeys  = grpKeys(startsWith(grpKeys, 'sessionLabel_'));
+
+            % ── Identify h5-- fields ──────────────────────────────────────
+            h5CatFields = {};   % slot names in S_cat
+            h5CatIDs    = {};   % full "h5--X" strings
+            h5Keys_grp  = strings(0,1);  % "h5_X" keys that are also in grpKeys
+            for ci = 1:numel(catFields)
+                catVal = string(S_cat.(catFields{ci}));
+                if ~startsWith(catVal, 'h5--')
+                    continue
+                end
+                h5CatFields{end+1} = catFields{ci};
+                h5CatIDs{end+1}    = char(catVal);
+                h5Key = strrep(catVal, '--', '_');
+                if ismember(h5Key, grpKeys)
+                    h5Keys_grp(end+1) = h5Key;
+                end
+            end
+
+            % ── Pre-read all h5 scalars for rowIdx (one pass, before batching)
+            %    Apply item filter globally, then bin once for standardized
+            %    quantiles across all batches. ──────────────────────────────
+            h5AllTable = table();
+            for hi = 1:numel(h5CatFields)
+                h5Key = char(strrep(string(h5CatIDs{hi}), '--', '_'));
+                h5AllTable.(h5Key) = string( ...
+                    dtsIO_readTF_category(nexon, h5CatIDs{hi}, rowIdx));
+            end
+
+            if width(h5AllTable) > 0
+                % Item filter
+                h5ItemMask = true(numel(rowIdx), 1);
+                for hi = 1:numel(h5CatFields)
+                    h5Key   = char(strrep(string(h5CatIDs{hi}), '--', '_'));
+                    itemSel = S_items.(h5CatFields{hi});
+                    if isempty(itemSel) || all(strcmp(string(itemSel), 'None'))
+                        continue
+                    end
+                    h5ItemMask = h5ItemMask & ismember(h5AllTable.(h5Key), string(itemSel));
+                end
+                rowIdx     = rowIdx(h5ItemMask);
+                h5AllTable = h5AllTable(h5ItemMask, :);
+                if isempty(rowIdx)
+                    fprintf('[%s.reportAverage_batched] no trials after h5 filter.\n', class(nexObj));
+                    return;
+                end
+                % Global bin labels for grp keys — standardized across batches
+                if ~isempty(h5Keys_grp)
+                    grpCols      = intersect(cellstr(h5Keys_grp), ...
+                                             h5AllTable.Properties.VariableNames, 'stable');
+                    h5LabelTable = nexOp_binContinuousVars(h5AllTable(:, grpCols), h5Keys_grp, nBins);
+                else
+                    h5LabelTable = table();
+                end
+            else
+                h5LabelTable = table();
+            end
+
+            % ── Build sessionLabel batch groups from (h5-filtered) rowIdx ─
+            if isempty(slKeys)
+                batchLabels = table();
+                batchGroups = {rowIdx};
+            else
+                batchTable = table();
+                for ki = 1:numel(slKeys)
+                    fieldName = char(extractAfter(slKeys(ki), 'sessionLabel_'));
+                    batchTable.(char(slKeys(ki))) = convertCharsToStrings( ...
+                        arrayfun(@(x) parseSessionLabel(x, fieldName), ...
+                                 DTS.sessionLabel(rowIdx), 'UniformOutput', true));
+                end
+                batchTable  = nexOp_binContinuousVars(batchTable, slKeys, nBins);
+                [G, batchLabels] = findgroups(batchTable);
+                nBatch      = height(batchLabels);
+                batchGroups = arrayfun(@(b) rowIdx(G == b), 1:nBatch, 'UniformOutput', false);
+            end
+
+            % ── Per-batch: load → h5 sub-group → average ─────────────────
+            nBatch    = numel(batchGroups);
+            df_out    = {};  ax_out    = {};
+            ptr_out   = {};  sem_out   = {};
+            rowLabels = {};
+
+            t_preBuff = [];
+            try
+                if isfield(nexon.console.BASE.UserData, 'preBuffLen')
+                    t_preBuff = nexon.console.BASE.UserData.preBuffLen;
+                end
+            catch, end
+
+            for b = 1:nBatch
+                bIdx = batchGroups{b};
+                fprintf('[%s.reportAverage_batched] batch %d/%d  (%d trials)\n', ...
+                        class(nexObj), b, nBatch, numel(bIdx));
+
+                % Sub-group within this batch using pre-computed global h5 labels
+                if width(h5LabelTable) > 0
+                    [~, posInRowIdx] = ismember(bIdx, rowIdx);
+                    h5SubTable = h5LabelTable(posInRowIdx, :);
+                    [G_sub, subLabels] = findgroups(h5SubTable);
+                else
+                    G_sub     = ones(numel(bIdx), 1);
+                    subLabels = table();
+                end
+
+                % Welford online accumulation per sub-group (O(shape) memory)
+                for sg = 1:max(G_sub)
+                    sgIdx = bIdx(G_sub == sg);
+                    [mean_df, sem_df, ax_ref, n] = nexOp_accumulateTF( ...
+                        nexon, sgIdx, dfID, ptr_filter, t_preBuff);
+                    if n == 0 || isempty(mean_df)
+                        continue;
+                    end
+                    ptr_sg         = nexInit_axisPointer(mean_df, ax_ref);
+                    df_out{end+1}  = mean_df;    ax_out{end+1}  = ax_ref;
+                    ptr_out{end+1} = ptr_sg;     sem_out{end+1} = sem_df;
+                    lbl = table();
+                    if ~isempty(batchLabels)
+                        lbl = [lbl, batchLabels(b,:)];
+                    end
+                    if ~isempty(subLabels)
+                        lbl = [lbl, subLabels(sg,:)];
+                    end
+                    rowLabels{end+1} = lbl;
+                end
+            end
+            if isempty(df_out)
+                return;
+            end
+
+            % ── Assemble RESULT table ─────────────────────────────────────
+            RESULT = table(df_out(:), ax_out(:), ptr_out(:), sem_out(:), ...
+                           'VariableNames', {'df','ax','ptr','sem'});
+            if ~isempty(rowLabels)
+                RESULT = [RESULT, cat(1, rowLabels{:})];
+            end
+            nexObj.RESULTS.(resultID) = RESULT;
+
+            % Update SRC bus
+            if isfield(nexObj.collector,'View')
+                bus     = nexObj.collector.View;
+                baseKey = bus.selKeys.SRC(1);
+                keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
+                bus.selKeys.SRC    = keys;
+                bus.selections.SRC = numel(keys);
+                if isfield(bus.listBoxes,'SRC') && ~isempty(bus.listBoxes.SRC)
+                    bus.listBoxes.SRC.String = keys;
+                    bus.listBoxes.SRC.Max    = 1;
+                    bus.listBoxes.SRC.Value  = numel(keys);
+                end
+            end
+            nexObj.refreshVW();
+            fprintf('[%s.reportAverage_batched] %d groups → RESULTS.%s\n', ...
+                    class(nexObj), numel(df_out), resultID);
+
+            % Auto-save when DTS is disk-backed
+            try
+                if ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames)
+                    nexOp_saveResult(nexObj, resultID);
+                end
+            catch ME
+                warning('[%s.reportAverage_batched] auto-save failed: %s', class(nexObj), ME.message);
+            end
+        end
+
+        function loadResult(nexObj, resultID)
+            % Load a saved RESULTS entry from nexRESULTS.h5 into nexObj.RESULTS
+            % and update the SRC bus.
+            %
+            %   nexObj.loadResult('avg1')
+            T = nexOp_loadResult(nexObj, resultID);
+            nexObj.RESULTS.(resultID) = T;
+            if isfield(nexObj.collector, 'View')
+                bus     = nexObj.collector.View;
+                baseKey = bus.selKeys.SRC(1);
+                keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
+                bus.selKeys.SRC    = keys;
+                bus.selections.SRC = numel(keys);
+                if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
+                    bus.listBoxes.SRC.String = keys;
+                    bus.listBoxes.SRC.Max    = 1;
+                    bus.listBoxes.SRC.Value  = numel(keys);
+                end
+            end
+            nexObj.refreshVW();
+            fprintf('[%s.loadResult] %d rows ← RESULTS.%s\n', class(nexObj), height(T), resultID);
+        end
+
+        function importRESULTS(nexObj, srcRESULTS, resultID)
+            % Import entries from another nexObject's RESULTS struct.
+            %
+            %   nexObj.importRESULTS(otherNexObj.RESULTS)
+            %       Import all resultID keys from the source RESULTS struct.
+            %
+            %   nexObj.importRESULTS(otherNexObj.RESULTS, 'avg1')
+            %       Import only the named key from the source RESULTS struct.
+            %
+            % The SRC dropdown is rebuilt and the last imported key is
+            % selected and rendered immediately.
+
+            if nargin < 3, resultID = ''; end
+
+            if ~isstruct(srcRESULTS)
+                fprintf('[%s.importRESULTS] srcRESULTS must be a RESULTS struct — nothing imported.\n', ...
+                    class(nexObj));
+                return;
+            end
+
+            if ~isempty(resultID)
+                % Import one specific key
+                if ~isfield(srcRESULTS, resultID)
+                    fprintf('[%s.importRESULTS] key ''%s'' not found in source RESULTS.\n', ...
+                        class(nexObj), resultID);
+                    return;
+                end
+                nexObj.RESULTS.(resultID) = srcRESULTS.(resultID);
+                importedKeys = {resultID};
+            else
+                % Import all table-valued keys
+                srcFields    = fieldnames(srcRESULTS);
+                importedKeys = srcFields(cellfun(@(k) istable(srcRESULTS.(k)), srcFields));
+                if isempty(importedKeys)
+                    fprintf('[%s.importRESULTS] source RESULTS has no table entries — nothing imported.\n', ...
+                        class(nexObj));
+                    return;
+                end
+                for ki = 1:numel(importedKeys)
+                    nexObj.RESULTS.(importedKeys{ki}) = srcRESULTS.(importedKeys{ki});
+                end
+            end
+
+            lastKey = importedKeys{end};
+            fprintf('[%s.importRESULTS] imported {%s}\n', ...
+                class(nexObj), strjoin(string(importedKeys)', ', '));
+
+            % Rebuild SRC bus with the full key set and select last imported key
+            if isfield(nexObj.collector, 'View')
+                bus     = nexObj.collector.View;
+                baseKey = bus.selKeys.SRC(1);
+                keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
+                selIdx  = find(keys == string(lastKey), 1);
+                if isempty(selIdx), selIdx = numel(keys); end
+                bus.selKeys.SRC    = keys;
+                bus.selections.SRC = selIdx;
+                if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
+                    bus.listBoxes.SRC.String = keys;
+                    bus.listBoxes.SRC.Max    = 1;
+                    bus.listBoxes.SRC.Value  = selIdx;
+                end
+            end
+
+            nexObj.refreshCLR();
+            nexObj.refreshVW();
+
+            if ismethod(nexObj, 'visualize')
+                nexObj.visualize();
+            end
+        end
+
         function srcKey = getCurrentSRC(nexObj)
             % Return the currently selected SRC key, or 'DTS' as fallback.
             try
@@ -456,11 +819,64 @@ classdef nexObject < handle
             end
             mask = true(height(RESULT), 1);
             for ci = 1:numel(grpCols)
-                if isempty(colSel{ci}), continue; end
+                if isempty(colSel{ci})
+                    continue;
+                end
                 mask = mask & ismember(string(RESULT.(char(grpCols(ci)))), colSel{ci});
             end
             rowIdx = find(mask);
-            if isempty(rowIdx), rowIdx = (1:height(RESULT))'; end
+            if isempty(rowIdx)
+                rowIdx = (1:height(RESULT))'; 
+            end
+        end
+
+        function refreshCLR(nexObj)
+            % Rebuild CLR bus to include group columns from all current RESULTS tables.
+            % Preserves existing ax-- keys and any prior selection that still exists.
+            if ~isfield(nexObj.collector, 'View'), return; end
+            bus = nexObj.collector.View;
+
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
+
+            % Separate existing CLR keys into group keys and ax-- keys
+            existing = string(bus.selKeys.CLR);
+            existing = existing(existing ~= "");
+            axKeys   = existing(startsWith(existing, "ax--"));
+            grpKeys  = existing(~startsWith(existing, "ax--"));
+
+            % Merge group columns from every RESULTS table
+            resFields = fieldnames(nexObj.RESULTS);
+            for ki = 1:numel(resFields)
+                T = nexObj.RESULTS.(resFields{ki});
+                if ~istable(T), continue; end
+                cols    = string(T.Properties.VariableNames);
+                newCols = cols(~ismember(cols, DF_STRUCT_FIELDS));
+                grpKeys = union(grpKeys, newCols, 'stable');
+            end
+
+            clrKeys = [grpKeys(:); axKeys(:)];
+            clrKeys = clrKeys(clrKeys ~= "");
+            if isempty(clrKeys), clrKeys = ""; end
+
+            % Preserve selection indices that still exist in the new key list
+            oldKeys = string(bus.selKeys.CLR);
+            oldSel  = bus.selections.CLR;
+            if ~isempty(oldSel) && ~isempty(oldKeys) && ~isequal(oldKeys, "")
+                validOld   = oldSel(oldSel >= 1 & oldSel <= numel(oldKeys));
+                prevLabels = oldKeys(validOld);
+                newSel     = find(ismember(clrKeys, prevLabels))';
+            else
+                newSel = [];
+            end
+
+            bus.selKeys.CLR    = clrKeys;
+            bus.selections.CLR = newSel;
+            if isfield(bus.listBoxes, 'CLR') && ~isempty(bus.listBoxes.CLR) ...
+                    && isvalid(bus.listBoxes.CLR)
+                bus.listBoxes.CLR.String = clrKeys;
+                bus.listBoxes.CLR.Max    = max(1, numel(clrKeys));
+                bus.listBoxes.CLR.Value  = newSel;
+            end
         end
 
         function refreshVW(nexObj)
@@ -470,7 +886,9 @@ classdef nexObject < handle
             % Falls back to all-selected only when nothing carries over.
             % Subclasses that need structural side-effects (e.g. rebuildTrackers)
             % should override and call refreshVW@nexObject(nexObj) first.
-            if ~isfield(nexObj.collector, 'View'), return; end
+            if ~isfield(nexObj.collector, 'View') 
+                return;
+            end
             newKeys = nexObj.getCTGGroupKeys();
             bus     = nexObj.collector.View;
             nVW     = numel(newKeys);
@@ -481,7 +899,9 @@ classdef nexObject < handle
                 validOld   = oldSel(oldSel >= 1 & oldSel <= numel(oldKeys));
                 prevLabels = string(oldKeys(validOld));
                 newSel     = find(ismember(newKeys, prevLabels))';
-                if isempty(newSel), newSel = 1:nVW; end
+                if isempty(newSel)
+                    newSel = 1:nVW; 
+                end
             else
                 newSel = 1:nVW;
             end
@@ -510,12 +930,18 @@ classdef nexObject < handle
 
         function applySRC(nexObj, srcKey)
             % Update the SRC bus selection and refresh the VW bus.
-            if ~isfield(nexObj.collector, 'View'), return; end
+            if ~isfield(nexObj.collector, 'View')
+                return;
+            end
             if ~strcmp(srcKey, 'DF') && ~strcmp(srcKey, 'DTS') ...
-                    && ~isfield(nexObj.RESULTS, srcKey), return; end
+                    && ~isfield(nexObj.RESULTS, srcKey)
+                return;
+            end
             bus  = nexObj.collector.View;
             idx  = find(string(bus.selKeys.SRC) == string(srcKey), 1);
-            if isempty(idx), return; end
+            if isempty(idx)
+                return;
+            end
             bus.selections.SRC = idx;
             if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
                 bus.listBoxes.SRC.Value = idx;
@@ -532,7 +958,9 @@ classdef nexObject < handle
             GREEN = nexObj.nexon.settings.Colors.cyberGreen;
             N     = height(dataTable);
             C     = repmat(GREEN, N, 1);
-            if isempty(clrCols) || N == 0, return; end
+            if isempty(clrCols) || N == 0
+                return;
+            end
 
             gCols   = string(dataTable.Properties.VariableNames);
             C_lut   = {};
@@ -546,11 +974,15 @@ classdef nexObject < handle
                 bareKey = col;
                 if startsWith(col, 'ax--')
                     bare = col(5:end);
-                    if ~ismember(bare, gCols), continue; end
+                    if ~ismember(bare, gCols)
+                        continue;
+                    end
                     col     = bare;
                     bareKey = bare;
                 end
-                if ~ismember(col, gCols), continue; end
+                if ~ismember(col, gCols) 
+                    continue;
+                end
                 [C_ci, matched] = nexOp_resolveGroupColors( ...
                     nexObj.nexon, bareKey, string(dataTable.(col)));
                 if matched

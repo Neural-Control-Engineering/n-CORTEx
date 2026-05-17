@@ -21,8 +21,9 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
             S_merge = nexOp_mergeSelections_categorical(S_categories, S_items);
             idxSel = [idxSel & nex_applySelectionMask(nexon.console.BASE.DTS, S_merge)];                    
     end    
-    % TF = dtsIO_readTF(nexon, dfID, idxSel);    
-    [TF, drop] = nexOp_compileTF(nexObj.nexon, idxSel, dfID);
+    % Build ptr from ax-- category selections for hyperslab reads.
+    ptr_filter = nexOp_buildPtrFromAxSel(S_categories, S_items, nexObj);
+    [TF, drop] = nexOp_compileTF(nexObj.nexon, idxSel, dfID, ptr_filter);
     
     % AXIS POOLING
     try
@@ -102,3 +103,4 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
     STAT = cat(1, M{:});
     % STAT = [];
 end
+

@@ -60,9 +60,30 @@ classdef nexObj_monoGraph < nexObject
             nexObj.DF_postOp  = nex_initAxisPointer_v2(nexObj.DF_postOp);
             nexObj.pMap       = nexInit_pMap(nexObj, nexObj.DF_postOp);
             nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_monoGraph"));
+            nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexObject.stepAnimate"));
 
-            % STAT + collector.View (base methods)
-            nexObj.compileSTAT();
+            %% Domain
+            nexObj.domain = nexObj.inferDomain();
+
+            %% Collector — Domain (D1 = display axis, ANI = animate axis)
+            axisKeys = string(fieldnames(nexObj.DF_postOp.ax))';
+            if isempty(axisKeys), axisKeys = ""; end
+            domainDict.D1  = axisKeys;
+            domainDict.ANI = axisKeys;
+            nexObj.collector.Domain = buildSelection(nexObj, domainDict);
+            if ~isequal(axisKeys, "")
+                sweepAx = nexObj.domain.D2(1);
+                d1Idx = find(ismember(axisKeys, sweepAx), 1);
+                if ~isempty(d1Idx)
+                    nexObj.collector.Domain.selections.D1 = d1Idx;
+                end
+                aniIdx = find(ismember(axisKeys, nexObj.domain.animate), 1);
+                if ~isempty(aniIdx)
+                    nexObj.collector.Domain.selections.ANI = aniIdx;
+                end
+            end
+
+            % collector.View — populated from CTG parent bus (no compileSTAT needed)
             nexObj.initCollectorView();
 
             nexObj.buildFigure();
@@ -76,6 +97,11 @@ classdef nexObj_monoGraph < nexObject
 
         function buildFigure(nexObj)
             nexFigure_monoGraph(nexObj);
+            nexObj.player = timer( ...
+                'Period',        0.2, ...
+                'BusyMode',      'drop', ...
+                'TimerFcn',      @(~,~) nexObj.stepAnimate(nexObj.cfg.aniCfg.entryParams), ...
+                'ExecutionMode', 'fixedRate');
         end
 
         function updateScope(nexObj)

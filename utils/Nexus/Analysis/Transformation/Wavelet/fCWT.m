@@ -11,7 +11,7 @@ function DF_out = fCWT(DF_in, args)
     try
         preBuffLen = args.preBuffLen;
     catch
-        preBuffLen = 0;
+        preBuffLen = 3.5;
     end
     % fcwt = py.importlib.import_module('fcwt');
     chans = [chanRange_start: chanRange_end];

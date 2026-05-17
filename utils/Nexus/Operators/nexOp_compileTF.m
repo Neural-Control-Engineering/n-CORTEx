@@ -1,16 +1,17 @@
-function [TF, drop] =  nexOp_compileTF(nexObj, idxSel, dfID)
+function [TF, drop] = nexOp_compileTF(nexObj, idxSel, dfID, ptr)
+    if nargin < 4, ptr = []; end
     if ~isa(nexObj,'Nexon')
         nexon = nexObj.nexon;
         if nargin < 3 || isempty(dfID)
             dfID = nexObj.dfID_source;
         end
         t_preBuff = nexObj.UserData.preBufferLen; % s
-    else        
-        nexon=nexObj;
-        if isfield(nexon.console.BASE.UserData,"preBuffLen");
+    else
+        nexon = nexObj;
+        if isfield(nexon.console.BASE.UserData,"preBuffLen")
             t_preBuff = nexon.console.BASE.UserData.preBuffLen;
         else
-            t_preBuff=[];
+            t_preBuff = [];
         end
     end
     
@@ -19,7 +20,7 @@ function [TF, drop] =  nexOp_compileTF(nexObj, idxSel, dfID)
         S = nex_returnSelectionMask(nexon.console.BASE.controlPanel.averagingSelection);
         idxSel = nex_applySelectionMask(nexon.console.BASE.DTS, S);            
     end
-    TF = dtsIO_readTF(nexon, dfID, idxSel);        
+    TF = dtsIO_readTF(nexon, dfID, idxSel, [], ptr);
     fprintf("compiling %d samples \n", height(TF));
     %% DROP EMPTY
     % is_empty_TF stays at full length — used below to index TF_sampleEvent.

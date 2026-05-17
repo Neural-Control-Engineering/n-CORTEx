@@ -1,9 +1,11 @@
-function DF = dtsIO_composeDF(DTS, DFID, dtsIdx)
+function DF = dtsIO_composeDF(DTS, DFID, dtsIdx, ptr)
+    if nargin < 4, ptr = []; end
     % Disk-backed path: manifest has h5_path column — delegate to HDF5 reader.
     if ismember('h5_path', DTS.Properties.VariableNames)
-        DF = dtsIO_readHDF5(DTS, DFID, dtsIdx);
+        DF = dtsIO_readHDF5(DTS, DFID, dtsIdx, ptr);
         return;
     end
+    % ptr is not applied to in-memory DTS (no hyperslab concept for arrays in RAM).
 
     axisKeyWords=["f";"t";"chans";"factor";"dropout";"latent"];
     tableVars = convertCharsToStrings(DTS.Properties.VariableNames);

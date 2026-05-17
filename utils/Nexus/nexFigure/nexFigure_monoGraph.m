@@ -16,13 +16,14 @@ function nexFigure_monoGraph(nexObj)
     hPool = 155;
     hPtr  = 260;
     hColl = 260;
+    hDom  = 150;
 
     yVis  = xInner;
     yWin  = yVis  + hVis  + gap;
     yPool = yWin  + hWin  + gap;
     yPtr  = yPool + hPool + gap;
     yColl = yPtr  + hPtr  + gap;
-    hTotal = yColl + hColl + gap;
+    yDom  = yColl + hColl + gap;
 
     %% Figure
     nexObj.Figure.fh = uifigure("Position", [100, 1060, 1005, 420], "Color", BLACK);
@@ -34,10 +35,12 @@ function nexFigure_monoGraph(nexObj)
     nexObj.Figure.panel0.tiles.ax = nexttile(nexObj.Figure.panel0.tiles.t);
 
     % Seed canvas with empty line/patch
-    DF     = nexObj.DF_postOp;
-    axSel  = string(fieldnames(DF.ptr)); axSel = axSel(1);
-    t_axis = DF.ax.(axSel);
-    df_seed  = nan(1, numel(t_axis));
+    DF    = nexObj.DF_postOp;
+    domSel = nex_returnSelectionMask(nexObj.collector.Domain);
+    d1Vals = string(domSel.D1);
+    seedAx = char(d1Vals(1));
+    t_axis = DF.ax.(seedAx);
+    df_seed = nan(1, numel(t_axis));
     [l, p] = plotWithSEM(nexObj.Figure.panel0.tiles.ax, t_axis, df_seed, [], [1,1,1], []);
     nexObj.Figure.panel0.tiles.graphics.canvas_l = l;
     nexObj.Figure.panel0.tiles.graphics.canvas_p = p;
@@ -80,26 +83,42 @@ function nexFigure_monoGraph(nexObj)
     nexObj.initPointerBus();
     nexObj.buildPointerPanel(ctrl.ph, [xInner, yPtr, wInner, hPtr]);
 
-    %% Collector — View bus (AVG / VW / CLR / SRC)
+    %% Collector — View bus (SRC / VW / CLR)
     pan_coll.ph = uipanel(ctrl.ph, ...
         "Position", [xInner, yColl, wInner, hColl], "BackgroundColor", BLACK, "Scrollable", "on");
     nexObj.Figure.panel_collector = nexObj_listCfgPanel(nexObj.nexon, pan_coll, ...
         nexObj.collector.View, []);
-
-    % SRC: single-select; wire to onSRCChanged
     if isfield(nexObj.collector.View.listBoxes, 'SRC') ...
             && ~isempty(nexObj.collector.View.listBoxes.SRC)
         nexObj.collector.View.listBoxes.SRC.Max      = 1;
         nexObj.collector.View.listBoxes.SRC.Callback = @(s, ~) nexObj.onSRCChanged(s);
     end
 
+    %% Collector — Domain (D1 single-select, ANI single-select)
+    pan_dom.ph = uipanel(ctrl.ph, ...
+        "Position",        [xInner, yDom, wInner, hDom], ...
+        "BackgroundColor", BLACK, "Scrollable", "on", ...
+        "Title", "Domain", "ForegroundColor", GREEN);
+    nexObj.Figure.panel_domain = nexObj_listCfgPanel(nexObj.nexon, pan_dom, ...
+        nexObj.collector.Domain, []);
+    if isfield(nexObj.collector.Domain.listBoxes, 'D1') ...
+            && ~isempty(nexObj.collector.Domain.listBoxes.D1)
+        nexObj.collector.Domain.listBoxes.D1.Max      = 1;
+        nexObj.collector.Domain.listBoxes.D1.Callback = @(s, ~) nexObj.onD1Changed(s);
+    end
+    if isfield(nexObj.collector.Domain.listBoxes, 'ANI') ...
+            && ~isempty(nexObj.collector.Domain.listBoxes.ANI)
+        nexObj.collector.Domain.listBoxes.ANI.Max      = 1;
+        nexObj.collector.Domain.listBoxes.ANI.Callback = @(s, ~) nexObj.onANIChanged(s);
+    end
+
     %% Top-bar controls
-    axSelFields = string(fieldnames(nexObj.DF_postOp.ptr));
-    nexObj.Figure.axSelDropDown = uidropdown(nexObj.Figure.fh, ...
-        "Position",        [35, 400, 80, 20], ...
-        "BackgroundColor", GREEN, ...
-        "Items",           axSelFields, ...
-        "FontColor",       BLACK);
+    nexObj.Figure.playButton = uibutton('state', ...
+        'Parent',           nexObj.Figure.fh, ...
+        'Position',         [5, 400, 25, 20], ...
+        'BackgroundColor',  BLACK, ...
+        'Tooltip',          'Play / Pause', ...
+        'ValueChangedFcn',  @(~,~) nexObj.startPlayer());
 
     nexObj.Figure.dfIDEditField = uieditfield(nexObj.Figure.fh, ...
         "BackgroundColor", BLACK, "FontColor", GREEN, ...
@@ -108,14 +127,14 @@ function nexFigure_monoGraph(nexObj)
         "ValueChangedFcn", @(src, evt) nexUpdate_dfID(src, evt, nexObj.nexon, nexObj));
 
     nexObj.Figure.reportAvgButton = uibutton(nexObj.Figure.fh, ...
-        "Position",        [120, 400, 90, 20], ...
+        "Position",        [35, 400, 90, 20], ...
         "BackgroundColor", BLACK, "FontColor", GREEN, ...
         "Text",            "Report Average", ...
         "Tooltip",         "Group STAT by AVG selection and store in RESULTS", ...
         "ButtonPushedFcn", @(~,~) nexObj.reportAverage());
 
     nexObj.Figure.reloadButton = uibutton(nexObj.Figure.fh, ...
-        "Position",        [215, 400, 70, 20], ...
+        "Position",        [130, 400, 70, 20], ...
         "BackgroundColor", BLACK, "FontColor", GREEN, ...
         "Text",            "Reload DF", ...
         "Tooltip",         "Re-read DF from router and refresh", ...
@@ -123,3 +142,4 @@ function nexFigure_monoGraph(nexObj)
 
     nexObj.applyHeadline();
 end
+

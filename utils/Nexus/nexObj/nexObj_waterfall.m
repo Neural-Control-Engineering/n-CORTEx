@@ -52,7 +52,6 @@ classdef nexObj_waterfall < nexObject
             nexObj.domain = nexObj.inferDomain();
 
             %% Collector — View (SRC / CTG / VW / CLR)
-            nexObj.compileSTAT();
             nexObj.initCollectorView();
 
             %% Collector — Domain (D1 = x-axis, D2 = stacking axis, ANI single)

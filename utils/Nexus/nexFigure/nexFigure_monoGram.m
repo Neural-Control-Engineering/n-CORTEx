@@ -109,13 +109,13 @@ function nexFigure_monoGram(nexObj)
     if isfield(nexObj.collector.Domain.listBoxes, 'D1') ...
             && ~isempty(nexObj.collector.Domain.listBoxes.D1)
         nexObj.collector.Domain.listBoxes.D1.Max      = 2;
-        nexObj.collector.Domain.listBoxes.D1.Callback = @(s,~) mgm_D1Changed(nexObj, s);
+        nexObj.collector.Domain.listBoxes.D1.Callback = @(s,~) nexObj.onD1Changed(s);
     end
     % ANI: single-select, updates domain.animate and triggers visualize
     if isfield(nexObj.collector.Domain.listBoxes, 'ANI') ...
             && ~isempty(nexObj.collector.Domain.listBoxes.ANI)
         nexObj.collector.Domain.listBoxes.ANI.Max      = 1;
-        nexObj.collector.Domain.listBoxes.ANI.Callback = @(s,~) mgm_ANIChanged(nexObj, s);
+        nexObj.collector.Domain.listBoxes.ANI.Callback = @(s,~) nexObj.onANIChanged(s);
     end
 
     % ── Top-bar controls ─────────────────────────────────────────────────
@@ -150,18 +150,3 @@ function nexFigure_monoGram(nexObj)
     nexObj.applyHeadline();
 end
 
-% ── Domain callbacks ──────────────────────────────────────────────────────
-
-function mgm_D1Changed(nexObj, lb)
-    nexObj.collector.Domain.selections.D1 = lb.Value;
-    nexObj.visualize();
-end
-
-function mgm_ANIChanged(nexObj, lb)
-    nexObj.collector.Domain.selections.ANI = lb.Value;
-    aniKeys = nexObj.collector.Domain.selKeys.ANI;
-    if ~isempty(lb.Value) && ~isempty(aniKeys)
-        nexObj.domain.animate = string(aniKeys(lb.Value(end)));
-    end
-    nexObj.visualize();
-end

@@ -2,8 +2,11 @@ function nexVisualization_polyGraph(nexObj, args)
 
     % CFG HEADER
     spacingMultiplier = args.spacingMultiplier; % default = 1.2
-    alphaVal = args.alphaVal; % default = 0.4
+    alphaVal  = args.alphaVal;  % default = 0.4
     lineWidth = args.lineWidth; % default = 1.5
+    component = args.component; % default = 'radial'
+    scale     = args.scale;     % default = 'linear'
+
 
     % Guard
     DFp = nexObj.DF_postOp;
@@ -40,11 +43,13 @@ function nexVisualization_polyGraph(nexObj, args)
 
     % Compute shared y-spacing from first / only DF
     if ~isResultSRC
-        [allTraces, ~, ~] = pgph_extractD1D2(nexObj.DF_postOp, xKey, stackKey, ptrBus);
+        [allTraces, ~, ~] = pgph_extractD1D2( ...
+            pgph_transformDF(nexObj.DF_postOp, component, scale), xKey, stackKey, ptrBus);
     else
         RESULT   = nexObj.RESULTS.(srcKey);
         rowIdx   = nexObj.filterResultsByVW(RESULT, viewSel.VW);
-        firstRow = pgph_rowToDF(RESULT, rowIdx(1));
+        firstRow = pgph_transformDF(pgph_rowToDF(RESULT, rowIdx(1)), component, scale);
+        firstRow.ptr = nexOp_syncPtrFromBus(firstRow.ptr, ptrBus);
         [allTraces, ~, ~] = pgph_extractD1D2(firstRow, xKey, stackKey, ptrBus);
     end
     ySpacing = pgph_computeSpacing(allTraces, spacingMultiplier);
@@ -57,7 +62,8 @@ function nexVisualization_polyGraph(nexObj, args)
     lbl_legend = string.empty;
 
     if ~isResultSRC
-        [traces, sems, xAxis] = pgph_extractD1D2(nexObj.DF_postOp, xKey, stackKey, ptrBus);
+        [traces, sems, xAxis] = pgph_extractD1D2( ...
+            pgph_transformDF(nexObj.DF_postOp, component, scale), xKey, stackKey, ptrBus);
         nT = numel(traces);
         [C_traces, axLabels] = nexObj.resolveCLRColors(nexObj.DF_postOp, clrCols, nT);
         h_all = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth);
@@ -89,7 +95,8 @@ function nexVisualization_polyGraph(nexObj, args)
 
         axLegendDone = false;
         for gi = 1:numel(rowIdx)
-            DF_g = pgph_rowToDF(RESULT, rowIdx(gi));
+            DF_g = pgph_transformDF(pgph_rowToDF(RESULT, rowIdx(gi)), component, scale);
+            DF_g.ptr = nexOp_syncPtrFromBus(DF_g.ptr, ptrBus);
             [traces, sems, xAxis] = pgph_extractD1D2(DF_g, xKey, stackKey, ptrBus);
             nT = numel(traces);
             [C_traces, axLabels] = nexObj.resolveCLRColors(DF_g, axClrCols, nT);
@@ -140,67 +147,76 @@ end
 
 % ── Local helpers ─────────────────────────────────────────────────────────────
 
-function [traces, sems, xAxis] = pgph_extractD1D2(DF, xKey, stackKey, ptrBus)
-    % Same single-slice approach as wtfl_extractD1D2.
-    % D1 (x-axis) and D2 (stacking axis) both use Pointer bus selections.
-    % All other dims locked to ptr.value. One slice gives the 2D result;
-    % split along the stack dimension to produce per-trace cell arrays.
+function [traces, sems, xAxis] = pgph_extractD1D2(DF, xKey, stackKey, ~)
+    % Caller must nexOp_syncPtrFromBus(DF.ptr, ptrBus) before calling.
+    % D1/D2 use ptr.indices (or all elements); residual dims use ptr.indices
+    % (multi → mean-reduce) or ptr.value (scalar lock).
 
     nDims  = ndims(DF.df);
     hasSEM = isfield(DF, 'sem') && isnumeric(DF.sem) ...
              && isequal(size(DF.sem), size(DF.df)) && ~isempty(DF.sem);
 
-    % Base index: lock all dims to ptr.value
-    idx = cell(1, nDims);
+    hasStack = ~isempty(stackKey) && ~isequal(string(stackKey), "");
+
+    xDim   = DF.ptr.(char(xKey)).dim;
+    xIdx   = pgph_ptrIdx(DF.ptr.(char(xKey)), numel(DF.ax.(char(xKey))), true);
+    xAxis  = DF.ax.(char(xKey))(xIdx);
+    nT     = numel(xIdx);
+
+    if hasStack
+        stackDim = DF.ptr.(char(stackKey)).dim;
+        stackIdx = pgph_ptrIdx(DF.ptr.(char(stackKey)), numel(DF.ax.(char(stackKey))), true);
+        nStack   = numel(stackIdx);
+    else
+        stackDim = -1;
+    end
+
+    % Build full index: D1/D2 overridden above; residual from ptr.indices or ptr.value
+    idx          = repmat({':'}, 1, nDims);
+    idx{xDim}    = xIdx;
+    if hasStack, idx{stackDim} = stackIdx; end
+    residualDims = [];
+
     ptrFields = fieldnames(DF.ptr);
     for fi = 1:numel(ptrFields)
         f = ptrFields{fi};
         p = DF.ptr.(f);
-        if isfield(p, 'dim') && p.dim <= nDims
-            idx{p.dim} = p.value;
+        if ~isfield(p, 'dim') || p.dim > nDims, continue; end
+        d = p.dim;
+        if d == xDim || d == stackDim, continue; end
+        rIdx = pgph_ptrIdx(p, numel(DF.ax.(f)), false);
+        idx{d} = rIdx;
+        if numel(rIdx) > 1
+            residualDims(end+1) = d; %#ok<AGROW>
         end
     end
     for d = 1:nDims
         if isempty(idx{d}), idx{d} = ':'; end
     end
 
-    % D1: override xDim with Pointer bus selection
-    xDim = DF.ptr.(char(xKey)).dim;
-    xIdx = pgph_ptrSelIdx(ptrBus, char(xKey), numel(DF.ax.(char(xKey))));
-    idx{xDim} = xIdx;
-    xAxis = DF.ax.(char(xKey))(xIdx);
-    nT    = numel(xIdx);
-
-    hasStack = ~isempty(stackKey) && ~isequal(string(stackKey), "");
+    % Slice + mean-reduce residual multi-index dims + squeeze
+    data = DF.df(idx{:});
+    if hasSEM, semData = DF.sem(idx{:}); end
+    for d = sort(residualDims, 'descend')
+        data = mean(data, d, 'omitnan');
+        if hasSEM, semData = mean(semData, d, 'omitnan'); end
+    end
+    data = squeeze(data);
+    if hasSEM, semData = squeeze(semData); end
 
     if ~hasStack
-        data = squeeze(DF.df(idx{:}));
         traces = {double(data(:)')};
         if hasSEM
-            sems = {double(squeeze(DF.sem(idx{:}))')};
+            sems = {double(semData(:)')};
         else
             sems = {zeros(1, nT)};
         end
         return;
     end
 
-    % D2: override stackDim with Pointer bus selection
-    stackDim = DF.ptr.(char(stackKey)).dim;
-    stackIdx = pgph_ptrSelIdx(ptrBus, char(stackKey), numel(DF.ax.(char(stackKey))));
-    idx{stackDim} = stackIdx;
-    nStack = numel(stackIdx);
-
-    % Single 2D slice
-    data = squeeze(DF.df(idx{:}));
-    if hasSEM
-        semData = squeeze(DF.sem(idx{:}));
-    end
-
-    % Split along stack dimension — lower original dim number becomes dim 1
     traces = cell(nStack, 1);
     sems   = cell(nStack, 1);
     if xDim < stackDim
-        % data: nT rows × nStack cols
         for i = 1:nStack
             traces{i} = double(data(:, i)');
             if hasSEM
@@ -210,7 +226,6 @@ function [traces, sems, xAxis] = pgph_extractD1D2(DF, xKey, stackKey, ptrBus)
             end
         end
     else
-        % data: nStack rows × nT cols
         for i = 1:nStack
             traces{i} = double(data(i, :));
             if hasSEM
@@ -222,13 +237,19 @@ function [traces, sems, xAxis] = pgph_extractD1D2(DF, xKey, stackKey, ptrBus)
     end
 end
 
-function sel = pgph_ptrSelIdx(ptrBus, key, nTotal)
-    if ~isempty(ptrBus) && isfield(ptrBus.selections, key)
-        s = ptrBus.selections.(key);
-        s = sort(s(s >= 1 & s <= nTotal));
+function sel = pgph_ptrIdx(p, nTotal, isDisplay)
+% Resolve selection indices for one axis from ptr.(axis) (post-sync).
+%   isDisplay = true  → fall back to 1:nTotal when no selection
+%   isDisplay = false → fall back to ptr.value (scalar lock)
+    if isfield(p, 'indices') && ~isempty(p.indices)
+        s = sort(p.indices(p.indices >= 1 & p.indices <= nTotal));
         if ~isempty(s), sel = s; return; end
     end
-    sel = 1:nTotal;
+    if isDisplay
+        sel = 1:nTotal;
+    else
+        sel = p.value;
+    end
 end
 
 function ySpacing = pgph_computeSpacing(traces, multiplier)
@@ -270,6 +291,24 @@ function DF = pgph_rowToDF(RESULT, rowIdx)
     DF.ptr = row.ptr{1};
     if ismember('sem', RESULT.Properties.VariableNames) && ~isempty(row.sem{1})
         DF.sem = row.sem{1};
+    end
+end
+
+function DF = pgph_transformDF(DF_in, component, scale)
+% Shallow struct copy + complex transform.  Never mutates the live DF_postOp handle.
+    DF.df  = DF_in.df;
+    DF.ax  = DF_in.ax;
+    DF.ptr = DF_in.ptr;   % shared handle ref — intentional (ptr.indices sync propagates)
+    if isfield(DF_in, 'sem') && isnumeric(DF_in.sem) && ~isempty(DF_in.sem)
+        sem_in = DF_in.sem;
+    else
+        sem_in = [];
+    end
+    [DF.df, sem_out] = nexOp_applyComplexTransform(DF.df, sem_in, component, scale);
+    if ~isempty(sem_out)
+        DF.sem = sem_out;
+    else
+        DF.sem = zeros(size(DF.df));
     end
 end
 

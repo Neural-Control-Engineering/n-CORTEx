@@ -1,6 +1,6 @@
 function TF = dtsIO_readTF_category(dataObj, category, idxSel)
-    categoryParts = split(category,"--");
-    categoryLabel = categoryParts(1);
+    categoryParts = split(string(category), "--");
+    categoryLabel = char(categoryParts(1));
     categoryID    = categoryParts(2);
     switch categoryLabel
         case "sessionLabel"

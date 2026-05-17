@@ -39,6 +39,15 @@ function nexon = startNexus(params, DTS)
             disp("UNABLE TO GENERATE SLRT PANEL")
         end
     end
+    % Auto-load nexTract manifest patches so derived dfColumns written in any
+    % session are available immediately on startup.
+    try
+        if ~isempty(DTS) && ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames)
+            dtsIO_loadManifestPatches(nexon);
+        end
+    catch
+    end
+
     % Registry — load from experiment-scoped cache; build + cache on first run
     if isfile(nexon.nexCachePath('registry'))
         nexon.loadRegistry();
