@@ -92,6 +92,14 @@ classdef nexObj_monoGraph < nexObject
         % ── Core ──────────────────────────────────────────────────────────
 
         function visualize(nexObj)
+            % pre-visualization applications
+            %% SPECPARAM MODE (OPTIONAL)
+            % if nexObj.UserData.is_specParamAnalysis
+                % nexObj.DF_postOp = nexOp_markDF(nexObj.DF_postOp, axSel, mkrFcn);
+                % Project basis fcn onto domain (if has 'model')
+                % nexObj.DF_postOp = nexOp_profileDF(nexObj.DF_postOp);                 
+            % end
+            % visualize
             nexVisualization_monoGraph(nexObj, nexObj.cfg.visCfg.entryParams);
         end
 
@@ -125,6 +133,10 @@ classdef nexObj_monoGraph < nexObject
             end
             % reportAverage@nexObject(nexObj, resultID, nBins);
             nexObj.visualize();
+        end
+
+        function modelDF(nexObj, basisFcn)
+            
         end
 
         function reportSTAT(nexObj, fcn, compareVars, groupVars, resID, dfID, nBins)

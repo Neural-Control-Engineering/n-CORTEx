@@ -15,7 +15,7 @@ function dtsIO_writeDF_toHDF5(h5File, h5Root, DFID, DF)
 % This prevents the fd leak from h5create/h5write each opening the file
 % independently (which hits Linux ulimit after ~1000 accumulated opens).
 
-    axisKeyWords = ["f","t","chans","factor","dropout","latent"];
+    axisKeyWords = ["f","t","chans","factor","dropout","latent","peak"];
     [chunkSz, dimOrder] = dfChunkSpec(DF);
 
     fapl = H5P.create('H5P_FILE_ACCESS');
@@ -198,16 +198,32 @@ function h5writeAttLL(fid, dset, attName, attVal)
 end
 
 function h5writeStringSafe(fid, dset, val)
-% Write a string-valued axis array. Uses high-level API (strings are rare).
-% Retrieves the filename from the open fid for the high-level calls.
-    c      = cellstr(val);
-    h5File = H5F.get_name(fid);
+% Write a string-valued axis as a variable-length UTF-8 string dataset.
+% Uses only the low-level API so the already-open fid is never reopened
+% (high-level h5create/h5write would conflict with the open fid).
+    c = cellstr(val(:));
+    n = numel(c);
+
     try
-        h5create(h5File, dset, size(c), 'Datatype', 'string');
-    catch ME
-        if ~contains(ME.message, 'already exists')
-            rethrow(ME);
+        if H5L.exists(fid, dset, 'H5P_DEFAULT')
+            H5L.delete(fid, dset, 'H5P_DEFAULT');
         end
+    catch
     end
-    h5write(h5File, dset, c);
+
+    tid = H5T.copy('H5T_C_S1');
+    H5T.set_size(tid, 'H5T_VARIABLE');
+    H5T.set_cset(tid, 'H5T_CSET_UTF8');
+    H5T.set_strpad(tid, 'H5T_STR_NULLTERM');
+
+    sid  = H5S.create_simple(1, n, n);
+    lcpl = H5P.create('H5P_LINK_CREATE');
+    H5P.set_create_intermediate_group(lcpl, 1);
+    did  = H5D.create(fid, dset, tid, sid, lcpl, 'H5P_DEFAULT', 'H5P_DEFAULT');
+    H5P.close(lcpl);
+    H5S.close(sid);
+
+    H5D.write(did, tid, 'H5S_ALL', 'H5S_ALL', 'H5P_DEFAULT', c);
+    H5D.close(did);
+    H5T.close(tid);
 end

@@ -1,10 +1,11 @@
 function nexVisualization_monoGraph(nexObj, args)
     % CFG HEADER
-    alphaVal  = args.alphaVal;   % default = 0.6
-    yLim_high = args.yLim_high;  % default = 1
-    yLim_low  = args.yLim_low;   % default = -1
-    component = args.component;  % default = 'radial'
-    scale     = args.scale;      % default = 'linear'
+    alphaVal      = args.alphaVal;      % default = 0.6
+    yLim_high     = args.yLim_high;     % default = 1
+    yLim_low      = args.yLim_low;      % default = -1
+    component     = args.component;     % default = 'radial'
+    scale         = args.scale;         % default = 'linear'
+    maxDisplayPts = args.maxDisplayPts; % default = Inf
 
     ax     = nexObj.Figure.panel0.tiles.ax;
     domSel = nex_returnSelectionMask(nexObj.collector.Domain);
@@ -25,27 +26,22 @@ function nexVisualization_monoGraph(nexObj, args)
         && ~isequal(vwGroups, "") ...
         && ~isempty(vwGroups);
 
-    % Set scale before rendering so patches are created in the correct mode
     if strcmp(axSel, 'f'), ax.XScale = 'log'; else, ax.XScale = 'linear'; end
 
-    %% Clear base canvas when switching to RESULTS mode
     gfx = nexObj.Figure.panel0.tiles.graphics;
     if useResults && isfield(gfx, 'canvas_l') && isvalid(gfx.canvas_l)
         set(gfx.canvas_l, 'XData', NaN, 'YData', NaN);
     end
 
     if useResults
-        %% ── RESULTS-based multi-group rendering ──────────────────────────
         RESULT       = nexObj.RESULTS.(srcKey);
         DF_STRUCT    = ["df","ax","ptr","sem"];
         groupCols    = string(RESULT.Properties.VariableNames);
         groupCols    = groupCols(~ismember(groupCols, DF_STRUCT));
-        labelCols    = groupCols;
 
         matchingRows = nexObj.filterResultsByVW(RESULT, vwGroups)';
         nMatch       = numel(matchingRows);
 
-        % Composite label per row: join group column values with ' | '
         rowLabels  = strings(nMatch, 1);
         activeFlds = strings(nMatch, 1);
         for ri = 1:nMatch
@@ -56,8 +52,6 @@ function nexVisualization_monoGraph(nexObj, args)
             activeFlds(ri) = string(matlab.lang.makeValidName(char(rowLabels(ri))));
         end
 
-        % Pre-compute per-row colors across all matching rows so that
-        % resolveGroupColors sees the full spread of each column's values.
         if ~isempty(clrCols)
             rowColors = nexObj.resolveGroupColors(RESULT(matchingRows,:), clrCols);
         elseif nMatch > 1
@@ -93,6 +87,15 @@ function nexVisualization_monoGraph(nexObj, args)
                 posF = t_ax > 0;
                 t_ax = t_ax(posF); df_slice = df_slice(posF); sem_slice = sem_slice(posF);
             end
+
+            % Decimate
+            if isfinite(maxDisplayPts) && numel(t_ax) > maxDisplayPts
+                step      = ceil(numel(t_ax) / maxDisplayPts);
+                t_ax      = t_ax(1:step:end);
+                df_slice  = df_slice(1:step:end);
+                sem_slice = sem_slice(1:step:end);
+            end
+
             clr = rowColors(ri,:);
             hexStr = sprintf('%02X%02X%02X', round(clr * 255));
 
@@ -137,17 +140,12 @@ function nexVisualization_monoGraph(nexObj, args)
             end
         end
 
-        % Legend
         if ~isempty(h_legend)
             lgd = legend(ax, h_legend, cellstr(lbl_legend), 'Interpreter', 'none');
-            lgd.TextColor = GREEN;
-            lgd.Color     = [0 0 0];
-            lgd.EdgeColor = GREEN;
-            lgd.FontSize  = 6;
+            nexVis_legendStyle(lgd, GREEN);
         end
 
     else
-        %% ── Single-DF rendering ──────────────────────────────────────────
         DF  = nexObj.DF_postOp;
         [df_raw, ax_out] = nexOp_sliceAndCollapse(DF, axSel);
         df_slice  = nexOp_permuteLong2second(df_raw);
@@ -157,6 +155,14 @@ function nexVisualization_monoGraph(nexObj, args)
         if strcmp(axSel, 'f')
             posF = t_axis > 0;
             t_axis = t_axis(posF); df_slice = df_slice(posF); sem_slice = sem_slice(posF);
+        end
+
+        % Decimate
+        if isfinite(maxDisplayPts) && numel(t_axis) > maxDisplayPts
+            step      = ceil(numel(t_axis) / maxDisplayPts);
+            t_axis    = t_axis(1:step:end);
+            df_slice  = df_slice(1:step:end);
+            sem_slice = sem_slice(1:step:end);
         end
 
         if isfield(gfx, 'canvas_l') && isvalid(gfx.canvas_l)
@@ -170,9 +176,7 @@ function nexVisualization_monoGraph(nexObj, args)
         legend(ax, 'off');
     end
 
-    %% Axis limits + labels + ticks
     ax.YLim = [yLim_low, yLim_high];
-
     xlabel(ax, axSel, 'Color', GREEN);
     if isfield(nexObj.DF_postOp.ax, axSel)
         t_vals = double(nexObj.DF_postOp.ax.(axSel));
@@ -191,11 +195,4 @@ function nexVisualization_monoGraph(nexObj, args)
 
     axTitle = nexTract_axisTitle(nexObj, nexObj.DF_postOp);
     title(ax, axTitle, "Color", GREEN);
-end
-
-
-function colors = nexVis_hsvSpread(n)
-    hues   = linspace(0, 1, n + 1);  hues(end) = [];
-    colors = arrayfun(@(h) hsv2rgb([h, 0.8, 0.9]), hues, 'UniformOutput', false);
-    colors = vertcat(colors{:});
 end

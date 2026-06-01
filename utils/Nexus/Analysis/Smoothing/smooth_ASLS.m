@@ -23,9 +23,11 @@ function DF_asls = smooth_ASLS(DF_psd, args)
     if ~isfield(args, 'niter'), args.niter = 5; end
 
     % CFG HEADER
-    lam = args.lam; % default = 2e4
+    lam = args.lam; % default = 6e4
     p = args.p; % default = 0.1
     niter = args.niter; % default = 10
+
+    % lam = args.lam; % default = 2e4
 
     % Extract PSD vector
     y = DF_psd.df(:);

@@ -1108,6 +1108,21 @@ classdef nexObject < handle
             [C, labels] = nexObj.resolveCLRColors(DF, "ax--" + string(axField), nTraces);
         end
 
+        function [rowBaseColors, axClrCols] = splitResultsColors(nexObj, RESULT, rowIdx, clrCols)
+            % Pre-compute group-level base colors for a RESULTS rendering loop.
+            %
+            % Splits clrCols into ax-- keys (per-trace, handled inside the loop)
+            % and group-column keys (need all rows at once for a correct hue spread).
+            % rowBaseColors is [] when no group-column CLR keys are active.
+            axClrCols  = clrCols(startsWith(clrCols, "ax--"));
+            grpClrCols = clrCols(~startsWith(clrCols, "ax--"));
+            if ~isempty(grpClrCols)
+                rowBaseColors = nexObj.resolveGroupColors(RESULT(rowIdx,:), grpClrCols);
+            else
+                rowBaseColors = [];
+            end
+        end
+
         % ── Pointer bus ───────────────────────────────────────────────────
 
         function initPointerBus(nexObj)

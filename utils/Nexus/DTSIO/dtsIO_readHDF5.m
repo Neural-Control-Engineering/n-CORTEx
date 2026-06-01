@@ -25,14 +25,28 @@ function DF = dtsIO_readHDF5(DTS, DFID, dtsIdx, ptr)
         rows = dtsIdx(:)';
     end
 
+    % dtsIO_patchManifest writes dfID-specific routing columns named
+    % "h5_path_<DFID>" when a dfID is extracted to a dedicated HDF5 file.
+    % Check for that column first so reads are routed to the right file.
+    specificPathCol = sprintf('h5_path_%s', DFID);
+    hasSpecificPath = ismember(specificPathCol, DTS.Properties.VariableNames);
+
     if isscalar(rows)
-        h5File = char(DTS.h5_path(rows));
+        if hasSpecificPath
+            h5File = char(DTS.(specificPathCol)(rows));
+        else
+            h5File = char(DTS.h5_path(rows));
+        end
         h5Root = char(DTS.h5_root(rows));
         DF = readOneTrialHDF5(h5File, h5Root, DFID, axisKeyWords, ptr);
     else
         DF = {};
         for i = 1:numel(rows)
-            h5File = char(DTS.h5_path(rows(i)));
+            if hasSpecificPath
+                h5File = char(DTS.(specificPathCol)(rows(i)));
+            else
+                h5File = char(DTS.h5_path(rows(i)));
+            end
             h5Root = char(DTS.h5_root(rows(i)));
             DF = [DF; {readOneTrialHDF5(h5File, h5Root, DFID, axisKeyWords, ptr)}]; %#ok<AGROW>
         end

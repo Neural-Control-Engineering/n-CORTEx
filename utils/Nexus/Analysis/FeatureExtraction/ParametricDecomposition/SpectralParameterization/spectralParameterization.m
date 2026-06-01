@@ -2,6 +2,9 @@ function DF_specs = spectralParameterization(DF_chg, args)
     % INPUTS: df_chg --> 'channelgram' derived dataframe containing PSD
     % group
     % OUTPUTS: df_specs --> spectral parameterization time series
+    if nargin < 2 
+        args = extractMethodCfg('spectralParameterization');
+    end
 
     % CFG HEADER
     peakWidth_min = args.peakWidth_min; % default = 2
@@ -74,8 +77,19 @@ function DF_specs = spectralParameterization(DF_chg, args)
                 % mode_PE = 'skewed_gaussian';
                 mode_PE = 'gaussian';
                 % use 'doublexp'
-                mode_AP = 'doublexp';
-                fg = specParam.SpectralGroupModel(peak_width_limits, max_n_peaks, min_peak_height, peak_threshold,aperiodic_mode=mode_AP,periodic_mode=mode_PE);                      
+                % mode_AP = 'fixed';
+                mode_AP = 'knee';
+                % fg = specParam.SpectralGroupModel(peak_width_limits, max_n_peaks, min_peak_height, peak_threshold,aperiodic_mode=mode_AP,periodic_mode=mode_PE);                      
+                fg = specParam.SpectralGroupModel(pyargs( ...
+                  'peak_width_limits', peak_width_limits, ...
+                  'max_n_peaks',       max_n_peaks, ...
+                  'min_peak_height',   min_peak_height, ...
+                  'peak_threshold',    peak_threshold, ...
+                  'aperiodic_mode',    mode_AP, ...
+                  'periodic_mode',     mode_PE));
+
+
+                % fg = specParam.SpectralGroupModel(peak_width_limits, max_n_peaks, min_peak_height, peak_threshold);                      
         end
         % Fit specparam model across the matrix of power spectra
         fg.fit(freqs, spectra)
@@ -84,6 +98,9 @@ function DF_specs = spectralParameterization(DF_chg, args)
         % MATLAB Formatting
         specs = cell((specs))';
         [specs, scores] = cellfun(@(x) formatSpecParamOutputs(x, args), specs, "UniformOutput", false);                
+        psd_spec = spec2psd(f,specs{9,1},mode_AP,mode_PE);
+        psd_spectra = double(spectra); psd_spectra = log10(psd_spectra(9,:));
+        figure; semilogx(psd_spec); hold on; semilogx(psd_spectra);
         %% SPECPARAM BREAKOUT
         specs = cell2mat(specs);
         scores = cell2mat(scores);

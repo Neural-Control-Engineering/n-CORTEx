@@ -125,14 +125,27 @@ function [colors, anyHit] = colorByChannel(regMap, chanVals)
     try
         nVals  = numel(chanVals);
         colors = repmat([0.55 0.55 0.55], nVals, 1);
-        for i = 1:nVals
-            ch  = chanVals(i);
-            hit = find(cellfun(@(c) ismember(ch, double(c)), regMap.channel), 1);
-            if ~isempty(hit)
-                colors(i,:) = hexToRGB(regMap.color, hit);
-                anyHit = true;
-            end
+        nRows  = height(regMap);
+
+        % Flatten regMap once: build parallel channel / row-index arrays and
+        % a pre-decoded color matrix — avoids per-channel cellfun + hex decode.
+        flatCh       = [];
+        flatRow      = [];
+        regionColors = zeros(nRows, 3);
+        for r = 1:nRows
+            regionColors(r,:) = hexToRGB(regMap.color, r);
+            chs = double(regMap.channel{r});
+            n   = numel(chs);
+            flatCh  = [flatCh;  chs(:)];             %#ok<AGROW>
+            flatRow = [flatRow; repmat(r, n, 1)];    %#ok<AGROW>
         end
+        if isempty(flatCh), return; end
+
+        % Single vectorized lookup — replaces 384 individual cellfun calls.
+        [tf, loc] = ismember(double(chanVals(:)), flatCh);
+        if ~any(tf), return; end
+        colors(tf,:) = regionColors(flatRow(loc(tf)), :);
+        anyHit = true;
     catch
         colors = [];
     end

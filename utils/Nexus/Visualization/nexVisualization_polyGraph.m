@@ -6,7 +6,9 @@ function nexVisualization_polyGraph(nexObj, args)
     lineWidth = args.lineWidth; % default = 1.5
     component = args.component; % default = 'radial'
     scale     = args.scale;     % default = 'linear'
+    maxDisplayPts = args.maxDisplayPts; % default = Inf
 
+    tTotal = tic;   % ── timing root ──────────────────────────────────────
 
     % Guard
     DFp = nexObj.DF_postOp;
@@ -39,20 +41,22 @@ function nexVisualization_polyGraph(nexObj, args)
     clrCols = clrCols(clrCols ~= "");
 
     GREEN = C.cyberGreen;
-    if ischar(GREEN) || isstring(GREEN), GREEN = pgph_toRGB(GREEN); end
+    if ischar(GREEN) || isstring(GREEN), GREEN = nexVis_hexToRGB(GREEN); end
 
     % Compute shared y-spacing from first / only DF
+    t_setup = tic;
     if ~isResultSRC
-        [allTraces, ~, ~] = pgph_extractD1D2( ...
-            pgph_transformDF(nexObj.DF_postOp, component, scale), xKey, stackKey, ptrBus);
+        [allTraces, ~, ~] = nexVis_extractD1D2( ...
+            nexVis_transformDF(nexObj.DF_postOp, component, scale), xKey, stackKey, ptrBus);
     else
         RESULT   = nexObj.RESULTS.(srcKey);
         rowIdx   = nexObj.filterResultsByVW(RESULT, viewSel.VW);
-        firstRow = pgph_transformDF(pgph_rowToDF(RESULT, rowIdx(1)), component, scale);
+        firstRow = nexVis_transformDF(nexVis_rowToDF(RESULT, rowIdx(1)), component, scale);
         firstRow.ptr = nexOp_syncPtrFromBus(firstRow.ptr, ptrBus);
-        [allTraces, ~, ~] = pgph_extractD1D2(firstRow, xKey, stackKey, ptrBus);
+        [allTraces, ~, ~] = nexVis_extractD1D2(firstRow, xKey, stackKey, ptrBus);
     end
-    ySpacing = pgph_computeSpacing(allTraces, spacingMultiplier);
+    ySpacing  = nexVis_computeSpacing(allTraces, spacingMultiplier);
+    T_setup   = toc(t_setup);
 
     % Redraw
     cla(ax);
@@ -61,55 +65,63 @@ function nexVisualization_polyGraph(nexObj, args)
     h_legend   = gobjects(0);
     lbl_legend = string.empty;
 
+    % Timing accumulators (RESULTS branch)
+    T_rowToDF = 0;  T_transform = 0;  T_syncPtr = 0;
+    T_extract = 0;  T_color     = 0;  T_draw    = 0;
+
     if ~isResultSRC
-        [traces, sems, xAxis] = pgph_extractD1D2( ...
-            pgph_transformDF(nexObj.DF_postOp, component, scale), xKey, stackKey, ptrBus);
+        t_ = tic;
+        [traces, sems, xAxis] = nexVis_extractD1D2( ...
+            nexVis_transformDF(nexObj.DF_postOp, component, scale), xKey, stackKey, ptrBus);
+        T_transform = toc(t_);
+
+        t_ = tic;
         nT = numel(traces);
         [C_traces, axLabels] = nexObj.resolveCLRColors(nexObj.DF_postOp, clrCols, nT);
-        h_all = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth);
+        T_color = toc(t_);
+
+        t_ = tic;
+        h_all = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth, maxDisplayPts);
+        T_draw = toc(t_);
+
         if ~isempty(axLabels)
             h_v = h_all(isvalid(h_all));
             nL  = min(numel(h_v), numel(axLabels));
             if nL > 0, h_legend = h_v(1:nL); lbl_legend = axLabels(1:nL); end
         end
     else
-        DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
-        allCols   = string(RESULT.Properties.VariableNames);
-        grpCols   = allCols(~ismember(allCols, DF_STRUCT_FIELDS));
-        nRows     = numel(rowIdx);
-        rowLabels = strings(nRows, 1);
-        for ri = 1:nRows
-            r     = rowIdx(ri);
-            parts = arrayfun(@(c) string(RESULT.(char(grpCols(c)))(r)), ...
-                1:numel(grpCols), 'UniformOutput', false);
-            rowLabels(ri) = strjoin([parts{:}], ' | ');
-        end
-
-        axClrCols  = clrCols(startsWith(clrCols, "ax--"));
-        grpClrCols = clrCols(~startsWith(clrCols, "ax--"));
-        if ~isempty(grpClrCols)
-            rowBaseColors = nexObj.resolveGroupColors(RESULT(rowIdx,:), grpClrCols);
-        else
-            rowBaseColors = [];
-        end
+        [rowLabels, ~] = nexVis_rowLabels(RESULT, rowIdx);
+        [rowBaseColors, axClrCols] = nexObj.splitResultsColors(RESULT, rowIdx, clrCols);
 
         axLegendDone = false;
         for gi = 1:numel(rowIdx)
-            DF_g = pgph_transformDF(pgph_rowToDF(RESULT, rowIdx(gi)), component, scale);
+
+            t_ = tic;
+            raw = nexVis_rowToDF(RESULT, rowIdx(gi));
+            T_rowToDF = T_rowToDF + toc(t_);
+
+            t_ = tic;
+            DF_g = nexVis_transformDF(raw, component, scale);
+            T_transform = T_transform + toc(t_);
+
+            t_ = tic;
             DF_g.ptr = nexOp_syncPtrFromBus(DF_g.ptr, ptrBus);
-            [traces, sems, xAxis] = pgph_extractD1D2(DF_g, xKey, stackKey, ptrBus);
+            T_syncPtr = T_syncPtr + toc(t_);
+
+            t_ = tic;
+            [traces, sems, xAxis] = nexVis_extractD1D2(DF_g, xKey, stackKey, ptrBus);
+            T_extract = T_extract + toc(t_);
+
             nT = numel(traces);
+
+            t_ = tic;
             [C_traces, axLabels] = nexObj.resolveCLRColors(DF_g, axClrCols, nT);
-            if ~isempty(rowBaseColors)
-                baseClr = repmat(rowBaseColors(gi,:), nT, 1);
-                if isempty(axClrCols)
-                    C_traces = baseClr;
-                else
-                    C_traces = (C_traces + baseClr) / 2;
-                    maxC = max(C_traces, [], 2); maxC(maxC < eps) = 1; C_traces = C_traces ./ maxC;
-                end
-            end
-            h_all = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth);
+            C_traces = nexVis_blendColors(C_traces, axClrCols, rowBaseColors, gi, nT);
+            T_color = T_color + toc(t_);
+
+            t_ = tic;
+            h_all = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth, maxDisplayPts);
+            T_draw = T_draw + toc(t_);
 
             if ~isempty(axLabels) && ~axLegendDone
                 h_v = h_all(isvalid(h_all));
@@ -136,187 +148,80 @@ function nexVisualization_polyGraph(nexObj, args)
 
     if ~isempty(h_legend)
         lgd = legend(ax, h_legend, cellstr(lbl_legend), 'Interpreter', 'none');
-        lgd.TextColor = GREEN;
-        lgd.Color     = [0 0 0];
-        lgd.EdgeColor = GREEN;
-        lgd.FontSize  = 6;
+        nexVis_legendStyle(lgd, GREEN);
     else
         legend(ax, 'off');
     end
+
+    % ── Timing report ────────────────────────────────────────────────────
+    nR = 1;
+    if isResultSRC, nR = numel(rowIdx); end
+    t_render = tic;
+    drawnow;
+    T_render = toc(t_render);
+    % fprintf('[polyGraph] setup=%.3fs  transform=%.3fs  syncPtr=%.3fs  extract=%.3fs  color=%.3fs  draw=%.3fs  render=%.3fs  TOTAL=%.3fs  (nRows=%d nTraces=%d)\n', ...
+        % T_setup, T_transform, T_syncPtr, T_extract, T_color, T_draw, T_render, toc(tTotal), nR, nT);
 end
 
-% ── Local helpers ─────────────────────────────────────────────────────────────
+% ── Draw (stays local — specific to polyGraph's 2-D stacked layout) ──────────
 
-function [traces, sems, xAxis] = pgph_extractD1D2(DF, xKey, stackKey, ~)
-    % Caller must nexOp_syncPtrFromBus(DF.ptr, ptrBus) before calling.
-    % D1/D2 use ptr.indices (or all elements); residual dims use ptr.indices
-    % (multi → mean-reduce) or ptr.value (scalar lock).
-
-    nDims  = ndims(DF.df);
-    hasSEM = isfield(DF, 'sem') && isnumeric(DF.sem) ...
-             && isequal(size(DF.sem), size(DF.df)) && ~isempty(DF.sem);
-
-    hasStack = ~isempty(stackKey) && ~isequal(string(stackKey), "");
-
-    xDim   = DF.ptr.(char(xKey)).dim;
-    xIdx   = pgph_ptrIdx(DF.ptr.(char(xKey)), numel(DF.ax.(char(xKey))), true);
-    xAxis  = DF.ax.(char(xKey))(xIdx);
-    nT     = numel(xIdx);
-
-    if hasStack
-        stackDim = DF.ptr.(char(stackKey)).dim;
-        stackIdx = pgph_ptrIdx(DF.ptr.(char(stackKey)), numel(DF.ax.(char(stackKey))), true);
-        nStack   = numel(stackIdx);
-    else
-        stackDim = -1;
+function h = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C, alphaVal, lineWidth, maxDisplayPts)
+% Draw N offset traces with SEM shading.
+%
+% Vectorized: one patch() for all SEM fills, one plot() for all lines.
+% maxDisplayPts: decimate x-axis to this many points before rendering.
+%   Inf (default) = no decimation; set to e.g. 800 for faster scans.
+    if nargin < 9 || isempty(maxDisplayPts) || ~isfinite(maxDisplayPts)
+        maxDisplayPts = Inf;
     end
-
-    % Build full index: D1/D2 overridden above; residual from ptr.indices or ptr.value
-    idx          = repmat({':'}, 1, nDims);
-    idx{xDim}    = xIdx;
-    if hasStack, idx{stackDim} = stackIdx; end
-    residualDims = [];
-
-    ptrFields = fieldnames(DF.ptr);
-    for fi = 1:numel(ptrFields)
-        f = ptrFields{fi};
-        p = DF.ptr.(f);
-        if ~isfield(p, 'dim') || p.dim > nDims, continue; end
-        d = p.dim;
-        if d == xDim || d == stackDim, continue; end
-        rIdx = pgph_ptrIdx(p, numel(DF.ax.(f)), false);
-        idx{d} = rIdx;
-        if numel(rIdx) > 1
-            residualDims(end+1) = d; %#ok<AGROW>
-        end
-    end
-    for d = 1:nDims
-        if isempty(idx{d}), idx{d} = ':'; end
-    end
-
-    % Slice + mean-reduce residual multi-index dims + squeeze
-    data = DF.df(idx{:});
-    if hasSEM, semData = DF.sem(idx{:}); end
-    for d = sort(residualDims, 'descend')
-        data = mean(data, d, 'omitnan');
-        if hasSEM, semData = mean(semData, d, 'omitnan'); end
-    end
-    data = squeeze(data);
-    if hasSEM, semData = squeeze(semData); end
-
-    if ~hasStack
-        traces = {double(data(:)')};
-        if hasSEM
-            sems = {double(semData(:)')};
-        else
-            sems = {zeros(1, nT)};
-        end
-        return;
-    end
-
-    traces = cell(nStack, 1);
-    sems   = cell(nStack, 1);
-    if xDim < stackDim
-        for i = 1:nStack
-            traces{i} = double(data(:, i)');
-            if hasSEM
-                sems{i} = double(semData(:, i)');
-            else
-                sems{i} = zeros(1, nT);
-            end
-        end
-    else
-        for i = 1:nStack
-            traces{i} = double(data(i, :));
-            if hasSEM
-                sems{i} = double(semData(i, :));
-            else
-                sems{i} = zeros(1, nT);
-            end
-        end
-    end
-end
-
-function sel = pgph_ptrIdx(p, nTotal, isDisplay)
-% Resolve selection indices for one axis from ptr.(axis) (post-sync).
-%   isDisplay = true  → fall back to 1:nTotal when no selection
-%   isDisplay = false → fall back to ptr.value (scalar lock)
-    if isfield(p, 'indices') && ~isempty(p.indices)
-        s = sort(p.indices(p.indices >= 1 & p.indices <= nTotal));
-        if ~isempty(s), sel = s; return; end
-    end
-    if isDisplay
-        sel = 1:nTotal;
-    else
-        sel = p.value;
-    end
-end
-
-function ySpacing = pgph_computeSpacing(traces, multiplier)
-    pp = cellfun(@(t) max(double(t(:)), [], 'omitnan') - min(double(t(:)), [], 'omitnan'), traces);
-    pp = pp(isfinite(pp) & pp > 0);
-    if isempty(pp)
-        ySpacing = 1;
-    else
-        ySpacing = median(pp) * multiplier;
-    end
-end
-
-function h = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C, alphaVal, lineWidth)
-    % C is either 1×3 (same color for all traces) or N×3 (per-trace colors).
     h       = gobjects(0);
     nTraces = numel(traces);
+    if nTraces == 0, return; end
+
+    xD = double(xAxis(:));
+    L  = numel(xD);
+    if size(C, 1) == 1, C = repmat(C, nTraces, 1); end
+
+    % Build offset Y and SEM S matrices  (L × nTraces)
+    Y = zeros(L, nTraces);
+    S = zeros(L, nTraces);
     for i = 1:nTraces
-        t   = double(traces{i}(:)');
-        s   = double(sems{i}(:)');
-        n   = min([numel(t), numel(s), numel(xAxis)]);
-        if n == 0, continue; end
-        x    = double(xAxis(1:n));
-        t    = t(1:n);
-        s    = s(1:n);
-        yOff = (i - 1) * ySpacing;
-        c    = C(min(i, size(C,1)), :);
-        [lh, ~] = plotWithSEM(ax, x, t + yOff, s, c, alphaVal);
-        if ~isempty(lh) && isvalid(lh)
-            lh.LineWidth = lineWidth;
-            h(end+1) = lh; %#ok<AGROW>
-        end
+        t_i = double(traces{i}(:)');
+        s_i = double(sems{i}(:)');
+        n_i = min([L, numel(t_i), numel(s_i)]);
+        if n_i < 1, continue; end
+        Y(1:n_i, i) = t_i(1:n_i)' + (i - 1) * ySpacing;
+        S(1:n_i, i) = s_i(1:n_i)';
     end
-end
 
-function DF = pgph_rowToDF(RESULT, rowIdx)
-    row    = RESULT(rowIdx, :);
-    DF.df  = row.df{1};
-    DF.ax  = row.ax{1};
-    DF.ptr = row.ptr{1};
-    if ismember('sem', RESULT.Properties.VariableNames) && ~isempty(row.sem{1})
-        DF.sem = row.sem{1};
+    % ── Decimate to maxDisplayPts ─────────────────────────────────────────
+    if isfinite(maxDisplayPts) && L > maxDisplayPts
+        step = ceil(L / maxDisplayPts);
+        xD   = xD(1:step:end);
+        Y    = Y(1:step:end, :);
+        S    = S(1:step:end, :);
+        L    = size(Y, 1);
     end
-end
 
-function DF = pgph_transformDF(DF_in, component, scale)
-% Shallow struct copy + complex transform.  Never mutates the live DF_postOp handle.
-    DF.df  = DF_in.df;
-    DF.ax  = DF_in.ax;
-    DF.ptr = DF_in.ptr;   % shared handle ref — intentional (ptr.indices sync propagates)
-    if isfield(DF_in, 'sem') && isnumeric(DF_in.sem) && ~isempty(DF_in.sem)
-        sem_in = DF_in.sem;
-    else
-        sem_in = [];
-    end
-    [DF.df, sem_out] = nexOp_applyComplexTransform(DF.df, sem_in, component, scale);
-    if ~isempty(sem_out)
-        DF.sem = sem_out;
-    else
-        DF.sem = zeros(size(DF.df));
-    end
-end
+    % ── SEM fill: single patch, one face per trace ────────────────────────
+    % xPoly / yPoly: 2L × nTraces — each column is a closed polygon
+    xPoly = repmat([xD; flipud(xD)], 1, nTraces);
+    yPoly = [Y + S; flipud(Y - S)];
+    ph = patch(ax, xPoly, yPoly, 'w', 'EdgeColor', 'none', ...
+               'FaceAlpha', double(alphaVal));
+    ph.FaceVertexCData = C;       % nTraces × 3 truecolor, one per face
+    ph.FaceColor       = 'flat';
 
-function rgb = pgph_toRGB(hexStr)
-    hexStr = strrep(char(hexStr), '#', '');
-    if numel(hexStr) == 6
-        rgb = [hex2dec(hexStr(1:2)), hex2dec(hexStr(3:4)), hex2dec(hexStr(5:6))] / 255;
-    else
-        rgb = [0, 1, 0.25];
-    end
+    % ── Lines: single plot() via ColorOrder ───────────────────────────────
+    % Setting ax.ColorOrder + ColorOrderIndex lets one plot() call draw
+    % all N columns with per-column colors.  State is restored after.
+    prevOrder = ax.ColorOrder;
+    prevIdx   = ax.ColorOrderIndex;
+    ax.ColorOrder      = C;
+    ax.ColorOrderIndex = 1;
+    lh = plot(ax, xD, Y, '-', 'LineWidth', lineWidth);
+    ax.ColorOrder      = prevOrder;
+    ax.ColorOrderIndex = prevIdx;
+
+    h = lh(arrayfun(@isvalid, lh));
 end

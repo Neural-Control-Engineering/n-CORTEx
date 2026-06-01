@@ -1,6 +1,6 @@
 function DF_out = rtPMTM_magnitude_roll(DF, args)
     % CFG HEADER
-    windowLen = args.windowLen; % default = 600
+    windowLen = args.windowLen; % default = 250
     stride = args.stride; % default = 50
     chanRange_start = args.chanRange_start; % default = 1
     chanRange_end = args.chanRange_end; % default = 384    

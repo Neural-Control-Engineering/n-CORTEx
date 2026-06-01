@@ -12,7 +12,11 @@ function DF_out = nexOp_eventAlignDF(DF_in, sample_event, Fs, t_preBuff, isShift
 
     idx_origin = round(length(ax_t) * ratio_origin);
     
-    ax_t = ax_t - (sample_event / Fs - t_preBuff);    
+    try
+        ax_t = ax_t - (sample_event / Fs - t_preBuff);    
+    catch
+        keyboard
+    end
    
     [~, idx_origin_new] = (min(abs(ax_t)));    
     

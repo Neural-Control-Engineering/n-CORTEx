@@ -30,7 +30,11 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
         ptr = nexObj.DF_postOp.ptr;
         pm = nexObj.pMap;
         if ~isempty(pm)
-            TF_pooled = cellfun(@(DF) nexOp_poolAxes(pm, DF, ptr), TF, "UniformOutput",false);
+            try
+                TF_pooled = cellfun(@(DF) nexOp_poolAxes(pm, DF, ptr), TF, "UniformOutput",false);
+            catch
+                keyboard
+            end
         else
             TF_pooled =TF;
         end

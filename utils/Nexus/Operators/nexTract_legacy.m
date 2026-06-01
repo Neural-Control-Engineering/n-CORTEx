@@ -1,4 +1,4 @@
-function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
+function nexTract_legacy(nexon, fcn, dfID, mask, fcnName, dfColName)
 %   nexTract(nexon, fcn, dfID)
 %   nexTract(nexon, fcn, dfID, mask, fcnName)
 %   nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
@@ -20,18 +20,15 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
         dfColName = string(dfColName);
     end
 
-    nOut = numel(dfColName);  % 1 for single-output functions, N for multi-output
-
     isDiskBacked = ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames);
 
     % Each nexTract run writes to its own dfColumn-specific HDF5 file.
     % This avoids flock(LOCK_EX) conflicts with concurrent RDONLY sessions on
     % the shared source file — no locking workarounds needed.
-    % For N outputs: N independent files, skip-checked independently per output.
     if isDiskBacked
         h5FileIn  = char(nexon.console.BASE.DTS.h5_path(1));
         [d, b, e] = fileparts(h5FileIn);
-        h5FileOut = arrayfun(@(name) fullfile(d, [b '_' char(name) e]), dfColName, 'UniformOutput', false);
+        h5FileOut = fullfile(d, [b '_' char(dfColName) e]);
     end
 
     % minLength — read lengths from the INPUT file (source dfID)
@@ -67,26 +64,21 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
     for i = rowStart:dtsRows
         disp(i);
 
-        % Skip check — independent per output k.
-        % If ALL outputs already exist for this row, skip the fcn call entirely.
-        skip = false(1, nOut);
-        if isDiskBacked
-            for k = 1:nOut
-                if exist(h5FileOut{k}, 'file')
-                    grp     = char(nexon.console.BASE.DTS.h5_root(i) + "/" + dfColName(k));
-                    fapl_sk = H5P.create('H5P_FILE_ACCESS');
-                    H5P.set_fclose_degree(fapl_sk, 'H5F_CLOSE_STRONG');
-                    fid_sk  = H5F.open(h5FileOut{k}, 'H5F_ACC_RDONLY', fapl_sk);
-                    H5P.close(fapl_sk);
-                    try
-                        skip(k) = H5L.exists(fid_sk, [grp '/df'],    'H5P_DEFAULT') || ...
-                                  H5L.exists(fid_sk, [grp '/df_im'], 'H5P_DEFAULT');
-                    catch
-                    end
-                    H5F.close(fid_sk);
-                end
+        % Skip rows already written to the OUTPUT file.
+        if isDiskBacked && exist(h5FileOut, 'file')
+            grp    = char(nexon.console.BASE.DTS.h5_root(i) + "/" + dfColName);
+            fapl_sk = H5P.create('H5P_FILE_ACCESS');
+            H5P.set_fclose_degree(fapl_sk, 'H5F_CLOSE_STRONG');
+            fid_sk = H5F.open(h5FileOut, 'H5F_ACC_RDONLY', fapl_sk);
+            H5P.close(fapl_sk);
+            done = false;
+            try
+                done = H5L.exists(fid_sk, [grp '/df'],    'H5P_DEFAULT') || ...
+                       H5L.exists(fid_sk, [grp '/df_im'], 'H5P_DEFAULT');
+            catch
             end
-            if all(skip), continue; end
+            H5F.close(fid_sk);
+            if done, continue; end
         end
 
         DF_in = dtsIO_readDF(nexon, dfID_entry, i);
@@ -117,12 +109,7 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
                 end
                 args         = extractMethodCfg(fcnName);
                 args.idx_row = i;
-                if nOut > 1
-                    varout = cell(1, nOut);
-                    [varout{:}] = fcn(DF_in, args);
-                else
-                    varout = {fcn(DF_in, args)};
-                end
+                DF_out       = fcn(DF_in, args);
             catch e
                 disp(getReport(e));
                 continue
@@ -131,28 +118,21 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
             continue
         end
 
-        for k = 1:nOut
-            if isDiskBacked && skip(k), continue; end
-            try
-                if isDiskBacked
-                    h5Root = char(nexon.console.BASE.DTS.h5_root(i));
-                    dtsIO_writeDF_toHDF5(h5FileOut{k}, h5Root, char(dfColName(k)), varout{k});
-                else
-                    dtsIO_writeDF(nexon, varout{k}, dfColName(k), i);
-                end
-            catch e
-                warning("nexTract: write failed for row %d output '%s' — %s\nAborting.", i, dfColName(k), e.message);
-                break
+        try
+            if isDiskBacked
+                h5Root = char(nexon.console.BASE.DTS.h5_root(i));
+                dtsIO_writeDF_toHDF5(h5FileOut, h5Root, char(dfColName), DF_out);
+            else
+                dtsIO_writeDF(nexon, DF_out, dfColName, i);
             end
+        catch e
+            warning("nexTract: write failed for row %d — %s\nAborting.", i, e.message);
+            break
         end
     end
 
-    % Register each output file in the manifest so reads route correctly.
-    if isDiskBacked
-        for k = 1:nOut
-            if exist(h5FileOut{k}, 'file')
-                dtsIO_patchManifest(nexon, dfColName(k), h5FileOut{k});
-            end
-        end
+    % Register the output file in the manifest so reads route correctly.
+    if isDiskBacked && exist(h5FileOut, 'file')
+        dtsIO_patchManifest(nexon, dfColName, h5FileOut);
     end
 end
