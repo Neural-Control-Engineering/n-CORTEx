@@ -218,3 +218,5 @@ end
 % slrt250_1K=realtimeLog.data.getElement("sync_250Hz_int").Values.Data;
 % figure; plot(slrt250_1K(1:10000)); hold on; plot(npx250_1K(1:10000));
 % read ap.bin
+
+% copyfile(fullfile(joltPath,session), strcat("\\?\",fullfile(grimadePath,session)));                
