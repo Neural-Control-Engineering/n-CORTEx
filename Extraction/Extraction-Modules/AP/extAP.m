@@ -86,9 +86,9 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     %% TEMPORARY PLOT HERE
     sync.lines.sync_1Hz_imec.t_edges = filterSyncEdges(sync.lines.sync_1Hz_imec.t_edges,1/sync.lines.sync_1Hz_imec.Freq);
     sync = extractSyncOffset(sync_ref.lines.sync_1Hz_slrt, sync, t_start);
-    fig = figure; plot(sync.lines.sync_1Hz_imec.syncOffsets);
-    saveas(fig, strcat(kilosort_path, '/ap_temp_drift.fig'))
-    keyboard 
+    % fig = figure; plot(sync.lines.sync_1Hz_imec.syncOffsets);
+    % saveas(fig, strcat(kilosort_path, '/ap_temp_drift.fig'))
+    % keyboard 
     % visualize offsets
     plotSyncOffsets_postProc(sync.lines.sync_1Hz_nidq, sync_ref.lines.sync_1Hz_slrt, sessionDetails);
     t_ap = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);

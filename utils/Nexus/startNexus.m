@@ -2,6 +2,7 @@ function nexon = startNexus(params, DTS)
     nexon = Nexon();
     % COLOR SETTINGS
     nexon.settings.Colors.cyberGreen   = [0.24, 0.94, 0.46];
+    nexon.settings.Colors.vyberGreen = [0, 1, 0.48];
     nexon.settings.Colors.cyberRed     = [1.00, 0.33, 0.42];
     nexon.settings.Colors.cyberBlack   = [0.00, 0.00, 0.00];
     nexon.settings.Colors.disableGreen = [0.05, 0.14, 0.08];
@@ -10,6 +11,7 @@ function nexon = startNexus(params, DTS)
     nexon.settings.Colors.activeGrey   = [0.96, 0.96, 0.96];
     nexon.settings.Colors.disableGrey  = [0.50, 0.50, 0.50];
     nexon.settings.Colors.enableWhite  = [1.00, 1.00, 1.00];
+    nexon.settings.Colors.cyberPink = [1, 9, 0.5176];
     % nexon.console.base = uifigure("Position",[25,1260,1000, 600],"Color",[0,0,0]);
     % nexon.console.base.UserData.DTS = DTS;
     % nexon.console.base.UserData.params = params;    
@@ -26,6 +28,8 @@ function nexon = startNexus(params, DTS)
         nexon.console.NPXLS = nexPanel_NPXLS(nexon, 1);
         nexon.console.SLRT = nexPanel_SLRT(nexon);
     end
+    % Registry
+    nexInit_registry(nexon);
     % router Panel   
     
     % nexon.UserData.npxls.shanks.shank1 = npxls_shank(nexon);

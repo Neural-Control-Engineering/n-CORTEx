@@ -20,11 +20,27 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
     nexon.console.BASE.router.Panel.phase.uiField.Items=parseSessionLabelUnique(subjXdateSessionLabels,"phase");
     subjXdateXphaseTrialList = nexon.console.BASE.DTS.trialNumber(strcmp(nexon.console.BASE.DTS.sessionLabel,subjXdateXphaseLabels(1)));    
     nexon.console.BASE.router.Panel.trial.uiField.Items=string(num2str(subjXdateXphaseTrialList))';      
+    % initialize trial selection
+    if ~strcmp(entryfield,"trial")
+        nexon.console.BASE.router.entryParams.trial = num2str(subjXdateXphaseTrialList(1));
+    end
 
     if strcmp(entryfield,"subject") 
         nexon.console.BASE.router.UserData.subjectDir =  fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subject);
+        nexon.console.BASE.router.UserData.subjectDir_cloud =  fullfile(params.paths.nCORTEx_cloud,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subject);
+        try
+            nexon.console.NPXLS.shanks.shank1.updateRegMap();
+        catch e
+            disp(getReport(e));
+        end
     elseif strcmp(entryfield,"subj")
         nexon.console.BASE.router.UserData.subjectDir =  fullfile(params.paths.nCORTEx_local,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subj);
+        nexon.console.BASE.router.UserData.subjectDir_cloud =  fullfile(params.paths.nCORTEx_cloud,"Project_Neuromodulation-for-Pain/Experiments/",params.extractCfg.experiment,"Subjects",nexon.console.BASE.router.entryParams.subj);
+        try
+            nexon.console.NPXLS.shanks.shank1.updateRegMap();
+        catch e
+            disp(getReport(e));
+        end
     end
 
     % NPXLS UPDATE (apply new dataFrame for each shank --> existing timeCourse, spectrogram, etc)
@@ -67,8 +83,8 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
     
     % SLRT UPDATE (apply new dataFrame (set))
     try
-        dfID = nexon.console.SLRT.signals.dfIDs; % grab current dfID
-        nexon.console.SLRT.signals.dataFrame = compileDataFrames(nexon, dfID);
+        % dfID = nexon.console.SLRT.signals.dfIDs; % grab current dfID
+        % nexon.console.SLRT.signals.dataFrame = compileDataFrames(nexon, dfID);
         nexon.console.SLRT.signals.updateScope(nexon,  []);
     catch e
         disp(getReport(e))
@@ -77,7 +93,8 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
     nexon.console.BASE.UserData.prevRouter.entryParams=nexon.console.BASE.router.entryParams; % keep track of most recent entryParams
     % grabDataFrame(nexon,"lfp");
     % broadcase 'trialChanged' trigger
-    nexon.console.BASE.controlPanel.trig_trialChanged=~(nexon.console.BASE.controlPanel.trig_trialChanged);
+    %%  EVENT MARKER TRIGGER
+    % nexon.console.BASE.controlPanel.trig_trialChanged=~(nexon.console.BASE.controlPanel.trig_trialChanged);
 end
 
 % rw=6;

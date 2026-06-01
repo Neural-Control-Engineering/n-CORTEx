@@ -7,6 +7,10 @@ function nexFigure_monoGraph(nexObj)
     %% Axis Control
     panel2.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[5,180,180,175],"BackgroundColor",[0,0,0],"Scrollable","on");
     nexObj.Figure.panel2 = nexObj_axisPanel(nexObj, nexObj.DF_postOp.ptr, panel2);
+    %% Pooling control    
+    panel5.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[5, 360, 180, 170],"BackgroundColor",[0,0,0],"Scrollable","on");
+    poolCfgChangedFcn = str2func("poolCfgEntryChanged");
+    nexObj.Figure.panel5 = nexObj_poolCfgPanel_v2(nexObj, panel5, poolCfgChangedFcn);
     %% Visualization Control
     panel3.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[5,5,180,180],"BackgroundColor",[0,0,0],"Scrollable",true);
     visCfgEntryChangedFcn = str2func("visCfgEntryChanged_v2");
@@ -18,9 +22,10 @@ function nexFigure_monoGraph(nexObj)
         nexObj.Figure.panel4 = nexObj_cfgPanel_v2(nexObj.nexon, nexObj, panel4, opArgs, opCfgEntryChangedFcn, []);
     end
     %% UI CONTROL
-    nexObj.Figure.axSelDropDown = uidropdown(nexObj.Figure.fh,"Position",[35, 370, 80, 25], "BackgroundColor",nexObj.nexon.settings.Colors.cyberGreen,"Items",fieldnames(nexObj.DF_postOp.ptr));
+    nexObj.Figure.axSelDropDown = uidropdown(nexObj.Figure.fh,"Position",[35, 370, 80, 25], "BackgroundColor",nexObj.nexon.settings.Colors.cyberGreen,"Items",fieldnames(nexObj.DF_postOp.ptr),"FontColor",[0,0,0]);
     updateDfIDFcn = str2func("nexUpdate_dfID");
     nexObj.Figure.dfIDEditField = uieditfield(nexObj.Figure.fh,"BackgroundColor",[0,0,0],"FontColor",nexObj.nexon.settings.Colors.cyberGreen,"Position",[850, 370, 150, 25],"Value",nexObj.dfID_source,"ValueChangedFcn",@(src, event)updateDfIDFcn(src, event, nexObj.nexon, nexObj));
+    nexObj.Figure.reportAvgButton = uibutton(nexObj.Figure.fh,"Position",[120,370,25,25],"BackgroundColor",[0,0,0],"FontColor",[0,0,0],"ButtonPushedFcn",@(~,~)nexObj.reportAverage([]),"Tooltip","Report Average");
     %% PLOT
     nexObj.Figure.panel0.tiles.t = tiledlayout(nexObj.Figure.panel0.ph,1,1);
     nexObj.Figure.panel0.tiles.ax = nexttile(nexObj.Figure.panel0.tiles.t);
@@ -29,14 +34,18 @@ function nexFigure_monoGraph(nexObj)
     DF = nexObj.DF_postOp;
     axSel = string(nexObj.Figure.axSelDropDown.Value);
     % df_phase_slice = squeeze(DF.df(1, 1,:))';
-    df_slice = sliceDF(DF.df, DF.ptr, axSel);
+    df_slice = sliceDF(DF.df, DF.ptr, axSel, "range");
     if isfield(DF,"sem")
-        sem_slice = sliceDF(DF.sem, DF.ptr, axSel);
+        sem_slice = sliceDF(DF.sem, DF.ptr, axSel,"range");
     else
-        sem_slice = zeros(1,size(df_slice,2));
+        % sem_slice = zeros(1,size(df_slice,2));
+        sem_slice = zeros(size(df_slice));
     end
-    t_axis = DF.ax.t;    
+    t_axis = DF.ax.(axSel);    
     % CANVAS
+    % put 'long' axis on the second dim for both (assume all other dims are 1)    
+    df_slice=nexOp_permuteLong2second(squeeze(df_slice));
+    sem_slice=nexOp_permuteLong2second(squeeze(sem_slice));
     [l, p] = plotWithSEM(nexObj.Figure.panel0.tiles.ax, t_axis, df_slice, sem_slice, [1,1,1],[]);
     % nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_canvas_l",nexObj.classID)) = l;
     % nexObj.Figure.panel1.tiles.graphics.(sprintf("%s_canvas_p",nexObj.classID)) = p;

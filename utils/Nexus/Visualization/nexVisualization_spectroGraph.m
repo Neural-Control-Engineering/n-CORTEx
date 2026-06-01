@@ -69,7 +69,8 @@ function nexVisualization_spectroGraph(nexObj, args)
                 if isSubFields && isValid
                     l_phase = nexObj.Figure.panel1.tiles.graphics.(ID_l_phase);
                     p_phase = nexObj.Figure.panel1.tiles.graphics.(ID_p_phase);
-                    nex_updateBoundedLineData(l_phase, p_phase, t_axis, df_phase_slice, sem_phase_slice, color,alphaVal);
+                    % nex_updateBoundedLineData(l_phase, p_phase, t_axis, df_phase_slice, sem_phase_slice, color,alphaVal);
+                    nex_updateBoundedLineData(l_phase, p_phase, t_axis, df_phase_slice, sem_phase_slice, -1,alphaVal);
                 else % generate new                                       
                     [l_phase, p_phase] = plotWithSEM(axis,t_axis,df_phase_slice,sem_phase_slice,hex2rgb(color),alphaVal);
                     colorAx_green(axis);                   

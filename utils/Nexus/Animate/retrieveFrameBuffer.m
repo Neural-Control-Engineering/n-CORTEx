@@ -17,7 +17,8 @@ function frameBuffer = retrieveFrameBuffer(nexObj)
     dtsIdx = [];
     % [colIdx] = nex_isDtsMember(dtsMemberID, matchArgs, dtsIdx);
     if nex_isDtsMember(nexObj.nexon, dtsMemberID, matchArgs, dtsIdx)
-        DF = nex_grabDF(nexObj.nexon, dtsMemberID, dtsIdx);
+        % DF = nex_grabDF(nexObj.nexon, dtsMemberID, dtsIdx);
+        DF = dtsIO_readDF(nexObj.nexon, dtsMemberID, dtsIdx);
         frameBuffer.opArgs = nexObj.opCfg.entryParams;
         frameBuffer.aniArgs = nexObj.aniCfg.entryParams;
         frameBuffer.ax = DF.ax;

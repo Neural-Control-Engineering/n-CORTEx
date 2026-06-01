@@ -4,23 +4,34 @@ classdef nexObj_monoGraph < handle
         DF
         DF_postOp
         dfID_source
+        domain
         nexon
         polyGraph
         Parent
+        UserData
         Origin
         Figure
         cfg=struct
+        pMap
     end
 
     methods
-        function nexObj = nexObj_monoGraph(Parent, Origin, nexon, opCfgFcn)
+        function nexObj = nexObj_monoGraph(Parent, Origin, nexon, dfID_source, opCfgFcn, DF)
+            if nargin >= 6
+                nexObj.DF = DF;            
+            end
             % resolve time-resolved recordings over varied dimensions
             % (channel, frequency, etc.)
             if isempty(Parent) % standalone monograph, attach to nexon
                 nexObj.nexon = nexon;
-                df = grabDataFrame(nexon, "lfp",[]);
-                df_t = grabDataFrame(nexon,"t_lfp",[]);
-                nexObj.DF = lfp2DF(df, df_t);                
+                % df = grabDataFrame(nexon, "lfp",[]);
+                % df_t = grabDataFrame(nexon,"t_lfp",[]);
+                % nexObj.DF = lfp2DF(df, df_t);                
+                nexObj.dfID_source = dfID_source;
+                if ~isempty(dfID_source)
+                    nexObj.DF = dtsIO_readDF(nexon, dfID_source, []);
+                end
+                nexObj.Origin = nexObj; % assign self as origin
             else
                 nexObj.Parent = Parent;
                 nexObj.dfID_source = sprintf("nexObj_%s",Parent.classID);
@@ -41,8 +52,10 @@ classdef nexObj_monoGraph < handle
                 nexObj.cfg.opCfg=[];
                 nexObj.DF_postOp = nexObj.DF;
             end
-            % Axis pointer
+            % Axis pointer            
             nexObj.DF_postOp = nex_initAxisPointer_v2(nexObj.DF_postOp);
+            % Pool Map
+            nexObj.pMap = nexInit_pMap(nexObj, nexObj.DF_postOp);            
             nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_monoGraph"));                        
             % Inherit DF
             nexObj.buildFigure();
@@ -64,6 +77,26 @@ classdef nexObj_monoGraph < handle
             nexObj.operate();
             % visualize
             nexObj.visualize();
+        end
+
+        function reportAverage(nexObj, idxSel)
+            %% RETRIEVAL
+            TF = nexOp_compileTF(nexObj, idxSel);
+            %% COMPUTE RESULT
+            ptr = nexObj.DF_postOp.ptr;
+            dimSel = nexObj.domain.D1;
+            DF_avg = nexOp_averageTF(TF, ptr, 2);            
+            DF_avg.ptr=ptr;
+            DF_avg.avgCfg = nexTract_avgCfg(nexObj.nexon);
+            %% STORE RESULT
+            nexObj.DF_postOp = DF_avg;            
+            % retrieve averaging config (bookkeeping)
+            nex_storeAverage(nexObj, nexObj.DF_postOp);
+            %% VISUALIZE
+            nexObj.visualize();
+            %% UPDATE TREE
+            % nex_updateChildren(nexObj.nexon, nexObj);
+            % nex_updatePartners(nexObj);
         end
 
         function operate(nexObj)

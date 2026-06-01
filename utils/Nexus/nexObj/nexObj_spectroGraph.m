@@ -58,6 +58,10 @@ classdef nexObj_spectroGraph < handle
             % function reportAverage(nexObj)
             %     % visualize DF (plus stats)
             % end
+            function operate(nexObj)
+                opArgs = nexObj.opCfg.entryParams;
+                nexObj.DF_postOp = nexObj.opCfg.opFcn(nexObj.DF, opArgs);
+            end
 
             function visualize(nexObj)
                 visArgs = nexObj.visCfg.entryParams;
@@ -67,6 +71,12 @@ classdef nexObj_spectroGraph < handle
             function updateScope(nexObj, nexon)
                 nexUpdate_spectroGraph(nexObj);
                 nexObj.visualize();
+            end
+
+            function value = getVal_tMarker(nexObj, t_clock)
+                t = nexObj.DF.ax.t;
+                [minVal, idx] = min(abs(t - t_clock));
+                value = t(idx);
             end
         end
 end

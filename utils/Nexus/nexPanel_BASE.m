@@ -2,6 +2,7 @@ classdef nexPanel_BASE < handle
     properties
         nexon
         router 
+        registry
         controlPanel
         DTS
         map_phase

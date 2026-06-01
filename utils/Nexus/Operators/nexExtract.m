@@ -6,7 +6,8 @@ function nexExtract(nexon, fcn, dfID, mask)
     minLength(minLength==0) = [];
     minLength = min(minLength);
     fcnName = func2str(fcn);
-    dfColName = sprintf("%s_%s", dfID, fcnName);
+    dfID_entry = strrep(dfID,"_df",""); % get rid of df handle
+    dfColName = sprintf("%s_%s", dfID_entry, fcnName);
 
     
     DFOUT = {};

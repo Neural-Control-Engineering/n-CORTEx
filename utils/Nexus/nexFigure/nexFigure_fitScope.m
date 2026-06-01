@@ -58,8 +58,15 @@ function nexFigure_fitScope(nexObj)
     f_ticks = (logspace(log10(f(1)), log10(f(end)), numTicks));
     % f_ticks = (logspace((f(1)), (f(end)), numTicks));
     %% Corner frequencies
-    f_corner1 = nexObj.DF_postOp.cf(1);
-    f_corner2 = nexObj.DF_postOp.cf(2);
+    try
+        f_corner1 = log10(nexObj.DF_postOp.cf(1));
+    catch
+    end
+    try
+        f_corner2 = log10(nexObj.DF_postOp.cf(2));
+    catch
+    end
+    
     %% Plot canvases
     nexObj.Figure.panel1.tiles.graphics.canvas_fit = plot(ax_canvas, f, nexObj.DF_postOp.df_fit(fCond),"Color",nexObj.nexon.settings.Colors.cyberRed);
     nexObj.Figure.panel1.tiles.graphics.canvas_fit.Parent.XTick = f_ticks;
@@ -69,8 +76,14 @@ function nexFigure_fitScope(nexObj)
     nexObj.Figure.panel1.tiles.graphics.canvas_context2 = plot(ax_canvas, f, nexObj.DF.df(ptr_chans,fCond,ptr_t_post),"Color",[0    0.2588    0.3608]);  % look ahead (time)
     nexObj.Figure.panel1.tiles.graphics.canvas_context3 = plot(ax_canvas, f, nexObj.DF.df(ptr_chans_pre,fCond,ptr_t),"Color",[0.4510    0.4157    0.3137]); % look behind (space)
     nexObj.Figure.panel1.tiles.graphics.canvas_context4 = plot(ax_canvas, f, nexObj.DF.df(ptr_chans_post,fCond,ptr_t),"Color",[0.3608    0.2706         0]); % look ahead (space)
-    nexObj.Figure.panel1.tiles.graphics.canvas_cornerFreq1 = xline(ax_canvas, f_corner1, "Color",nexObj.nexon.settings.Colors.cyberGreen);
-    nexObj.Figure.panel1.tiles.graphics.canvas_cornerFreq2 = xline(ax_canvas, f_corner2, "Color",nexObj.nexon.settings.Colors.cyberGreen);
+    try
+        nexObj.Figure.panel1.tiles.graphics.canvas_cornerFreq1 = xline(ax_canvas, f_corner1, "Color",nexObj.nexon.settings.Colors.cyberGreen);
+    catch        
+    end
+    try
+        nexObj.Figure.panel1.tiles.graphics.canvas_cornerFreq2 = xline(ax_canvas, f_corner2, "Color",nexObj.nexon.settings.Colors.cyberGreen);
+    catch
+    end
     colorAx_green(ax_canvas);
 
 

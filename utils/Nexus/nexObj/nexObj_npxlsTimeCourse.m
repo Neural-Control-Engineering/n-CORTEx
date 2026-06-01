@@ -20,13 +20,14 @@ classdef nexObj_npxlsTimeCourse < handle
     
     methods
         % Constructor
-        function nexObj = nexObj_npxlsTimeCourse(nexon, shank, dataFrame, dfID)
+        function nexObj = nexObj_npxlsTimeCourse(nexon, shank, DF, dfID)
             nexObj.nexon = nexon;
             nexObj.nexon.console.BASE.nexObjs.npxlsTc_1 = nexObj;            
             nexObj.Parent = shank;            
             nexObj.Children = struct;
-            nexObj.dataFrame=dataFrame;       
-            nexObj.DF.df = dataFrame;
+            nexObj.dataFrame=DF.df;       
+            % nexObj.DF.df = dataFrame;
+            nexObj.DF = DF;
             nexObj.dfID = dfID;
             nexObj.dfID_source=dfID;
             nexObj.UserData=struct();
@@ -49,11 +50,11 @@ classdef nexObj_npxlsTimeCourse < handle
             end
             % patch
             nexObj.DF_postOp = nexObj.DF;
-            regMap = nexObj.Parent.regMap;
-            updateTimeCourse(nexObj.Parent, nexObj, regMap);
-            % Assign new DF to npxls shank (update Parent)
-            % obj.Parent.DF = obj.DF;
-            % obj.Parent.updateScope();
+            %% VISUALIZE RESULT
+            nexObj.visualize();
+            %% UPDATE CHILDREN/PARTNERS
+            nex_updateChildren(nexObj.nexon, nexObj);
+            nex_updatePartners(nexObj);
         end
 
         function reportAverage(nexObj, selIdx)
@@ -139,6 +140,98 @@ classdef nexObj_npxlsTimeCourse < handle
             %% UPDATE CHILDREN/PARTNERS
             nex_updateChildren(nexObj.nexon, nexObj);
             nex_updatePartners(nexObj);
+        end
+
+        function partialFit(nexObj, selIdx)
+            % train a model on selected trials (using partial fit)
+            %% RETRIEVAL
+            dfID = nexObj.dfID_source;
+            dfTag = sprintf("%s_df",dfID);
+            dfTag_t = sprintf("%s_t",dfID);
+            dfTag_chans = sprintf("%s_chans",dfID);
+            % tTag = sprintf("%s_t",dfID);
+            dfCol = nexObj.nexon.console.BASE.DTS.(dfTag);
+            % time axis
+            try
+                tCol = nexObj.nexon.console.BASE.DTS.(dfTag_t);
+            catch
+                tCol = cellfun(@(x) [1:size(x,2)]/nexObj.UserData.Fs-nexObj.UserData.preBufferLen,dfCol,"UniformOutput",false);
+            end               
+            % channel axis
+            try
+                chanCol = nexObj.nexon.console.BASE.DTS.(dfTag_chans);
+            catch                
+                chanCol = cellfun(@(x) [1:size(x,1)],dfCol,"UniformOutput",false);                               
+            end                      
+            %% MASK SELECTION
+            if isempty(selIdx)
+                S = nex_returnSelectionMask(nexObj.nexon.console.BASE.controlPanel.averagingSelection);
+                maskIdx = nex_applySelectionMask(nexObj.nexon.console.BASE.DTS,S);
+                dfCol_sel = dfCol(maskIdx);
+                tCol_sel = tCol(maskIdx);
+            else
+                dfCol_sel = dfCol(selIdx);
+                tCol_sel = tCol(selIdx);
+                maskIdx = selIdx;
+            end            
+            %% ALIGNMENT
+            try
+                S_slrt = nex_returnSelectionMask(nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
+                alignColTags = split(S_slrt.events,"_");
+                tColID = sprintf("%s_aligned_%s_%s_time",alignColTags(1),alignColTags(2),alignColTags(3));
+                tCol_slrt = nexObj.nexon.console.BASE.DTS.(tColID)(maskIdx);
+                fs_slrt = nexObj.nexon.console.SLRT.signals.UserData.Fs;
+                t_preBuff = nexObj.UserData.preBufferLen;
+                [dfCol_aligned, tCol_aligned] = nexAlign_signals(dfCol_sel, tCol_sel, tCol_slrt, fs_slrt, t_preBuff, 2);            
+            catch e
+                disp(getReport(e))
+                dfCol_aligned = dfCol_sel;
+                tCol_aligned = tCol_sel;
+            end            
+            %% AXIS POOLING
+            try                
+                % chans = nexObj.DF_postOp.ax.chans;                
+                % [dfCol_pooled, binIDs_chans] = cellfun(@(DF) nexAnalysis_averagePool(DF, nexObj.pMap.pMap_chans, 1, chans), dfCol_aligned,"UniformOutput",false);
+                % chans = 1:size(binIDs_chans{1,1});
+                % disp(getReport(e));
+                chans = chanCol{1,1};
+                dfCol_pooled = dfCol_aligned;                
+                % binIDs_chans = nexObj.DF_postOp.ax.chans;                
+                binIDs_chans = chans;                
+            catch e
+                disp(getReport(e));
+                chans = chanCol{1,1};
+                dfCol_pooled = dfCol_aligned;                
+                % binIDs_chans = nexObj.DF_postOp.ax.chans;                
+                binIDs_chans = chans;                
+            end                        
+            %% FIT RESULT  (iterate)          
+            % import model (cebra default for now)
+            mlObj = mlObj_cebra();
+            for i = 1:size(dfCol_pooled,1)
+                X = dfCol_pooled{i}'; % transpose for time ax first
+                Y = [1:size(X,1)]; % leave as time index for time only
+                mlObj.partialFit(X, Y);
+            end                               
+            try
+                disp("embedding complete");
+                if ~isfield(nexObj.Partners,"emb1")
+                    nexObj.Partners.emb1 = nexObj_embedding_single(nexObj, mlObj);
+                else
+                    nexObj.Partners.emb1.mlObj=mlObj;
+                end
+            catch
+                assignin("base","mlObj",mlObj);
+                disp("no embedding obj registered, leaving output in the base workspace");
+            end
+        end
+
+        function writeDataset(nexObj)
+            % prepare X
+            % prepare Y
+        end
+
+        function fit(nexObj)
         end
 
         function visualize(nexObj)

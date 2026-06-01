@@ -8,6 +8,8 @@ function graphics = nex_generateEventMarkers(nexObj, axis)
         eventColor = LUT_eventMap.color(i);
         % wrap these with update methods        
         % graphics.(sprintf("xMarker_event_%s",eventID))=xline(axis,1,"Color",eventColor);
-        graphics.(sprintf("xMarker_event_%s",eventID))=nexObj_xMarker_event(nexObj, axis, Src, eventID, eventColor);
+        % graphics.(sprintf("xMarker_event_%s",eventID))=nexObj_xMarker_event(nexObj, axis, Src, eventID, eventColor);
+        graphic = xline(axis, 1, "Color", hex2rgb(eventColor));
+        graphics.(sprintf("xMarker_event_%s",eventID))=nexObj_eventMarker(nexObj, axis, Src, eventID, eventColor, graphic);
     end
 end

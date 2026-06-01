@@ -1,6 +1,6 @@
 classdef nexObj_slrtTimeCourse < handle
     properties
-        classID
+        classID = "slrtc"
         dataFrame % This will hold any type of data, such as a struct  
         DF
         nexon
@@ -18,7 +18,7 @@ classdef nexObj_slrtTimeCourse < handle
         % Constructor
         function nexObj = nexObj_slrtTimeCourse(nexObj_parent, dfIDs)    
             nexObj_parent.signals=nexObj;
-            nexObj.classID = "tc_slrt";
+            % nexObj.classID = "tc_slrt";
             nexObj.nexon = nexObj_parent.nexon;
             % nexObj.dataFrame=dataFrame;            
             nexObj.dfIDs = dfIDs;
@@ -30,11 +30,15 @@ classdef nexObj_slrtTimeCourse < handle
             nexObj.dfIDs = IDs_signals;
             IDs_events = nexObj.eventAlignmentSelection.selKeys.events;
             nexObj.pMap_time = poolMap_time(IDs_events);
+            % nexObj.pMap_time = map_events2time(IDs_events);            
             nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, IDs_events);
             nexObj = nexPlot_slrt_timeCourse(nexObj.nexon, nexObj);
         end
 
         function updateScope(nexObj,  nexon, parent)  
+            IDs_signals = nexObj.dfIDs;
+            IDs_events = nexObj.eventAlignmentSelection.selKeys.events;
+            nexObj.DF = nexSLRT_compileDataFrames(nexObj.nexon, IDs_signals, IDs_events);
             colorMap = nexObj.UserData.colorMap;
             try
                 updateSlrtTimeCourse(nexObj, colorMap)
@@ -52,5 +56,14 @@ classdef nexObj_slrtTimeCourse < handle
         function data = getUserData(nexObj)
             data = nexObj.UserData;
         end
+        
+        function value = getVal_tMarker(nexObj, t_clock)
+            % for now, use first t ax listed
+            tFields = fieldnames(nexObj.DF.ax.t);
+            t = nexObj.DF.ax.t.(tFields{1});
+            [minVal, idx] = min(abs(t - t_clock));
+            value = t(idx);
+        end
+     
     end
 end

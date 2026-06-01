@@ -21,6 +21,8 @@ classdef nexObj_fitScope < handle
             % fit method configuration
             nexObj.fitCfg.kernel=str2func(fitFcn);
             nexObj.fitCfg.entryParams=extractMethodCfg(fitFcn);
+            psd = slicePSD(nexObj.DF.df, nexObj.DF.ptr);
+            nexObj.DF_postOp.cf = psdIO_readCornerFrequencies(nexObj.DF.ax.f, psd);
             nexObj.DF_postOp.df_fit = nexObj.fitCfg.kernel(nexObj.DF.ax, nexObj.fitCfg.entryParams);
             nexObj.DF_postOp.Y=struct; % empty struct, currently unused
             % machine learning configuration (optional)
@@ -37,7 +39,8 @@ classdef nexObj_fitScope < handle
             % re-compute df_fit with given parameters
             nexObj.DF_postOp.df = nexObj.DF.df(nexObj.DF.ptr.chans,:,nexObj.DF.ptr.t);         
             nexObj.DF_postOp.df_fit = nexObj.fitCfg.kernel(nexObj.DF.ax, nexObj.fitCfg.entryParams);
-            nexObj.DF_postOp.cf = psdIO_estimateCornerFrequencies()
+            psd = slicePSD(nexObj.DF.df, nexObj.DF.ptr);
+            nexObj.DF_postOp.cf = psdIO_readCornerFrequencies(nexObj.DF.ax.f, psd);
             nexObj.DF_postOp.fitParams = nexObj.fitCfg.entryParams;
             % nexObj.DF.df = [];
             nexObj.visualize();

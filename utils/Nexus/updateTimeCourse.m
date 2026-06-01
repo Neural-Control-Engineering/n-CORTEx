@@ -18,6 +18,8 @@ function updateTimeCourse(shank, timeCourse, altRegMap)
         t_df = [1:size(dataFrame,2)] ./ Fs - preBuffer;
     else
         t_df = timeCourse.DF_postOp.ax.t;
+        % test code
+        t_df = t_df - min(t_df) - preBuffer;
     end
     ptr = timeCourse.UserData.tilePtr;
     % update tileset

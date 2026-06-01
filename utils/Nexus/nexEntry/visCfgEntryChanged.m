@@ -20,7 +20,8 @@ function visCfgEntryChanged(nexon, nexObj, nexPanel, entryfield, args)
             visArgs = nexObj.visCfg.entryParams;
             try
                 nexObj.visCfg.visFcn(nexon, nexObj, visArgs);
-            catch
+            catch e
+                disp(getReport(e));
                 nexObj.visCfg.visFcn(nexObj, visArgs);
             end
     end

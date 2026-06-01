@@ -1,6 +1,7 @@
 function idx = nex_buildSliceIndex(df, ptr, axSel, sliceType)
     ptrFields = fieldnames(ptr);
-    idx = repmat({':'},1,ndims(ptrFields));
+    % idx = repmat({':'},1,ndims(ptrFields));
+    idx = repmat({':'},1,length(ptrFields));
     switch sliceType
         case "single"
             % slice a single pointer using selected axis, leave

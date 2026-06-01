@@ -9,6 +9,7 @@ classdef nexObj_controlPanel < handle
     end
     properties (SetObservable)
         trig_trialChanged=0
+        clock=0 % global time (sec)
     end
     methods
         % CONSTRUCTOR

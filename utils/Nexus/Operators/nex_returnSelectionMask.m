@@ -7,7 +7,11 @@ function S = nex_returnSelectionMask(selectionBus)
         key = selFields{i};
         values = selKeys.(key);
         selection = selections.(key);
-        selectedVals = values(selection);
+        try
+            selectedVals = values(selection);
+        catch e
+            keyboard
+        end
         S.(key) = selectedVals;
     end
 end
