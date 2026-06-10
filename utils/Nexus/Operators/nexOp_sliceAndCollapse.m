@@ -30,8 +30,12 @@ function [df_out, ax_out] = nexOp_sliceAndCollapse(DF, displayAxes)
         p     = ptr.(f);
         if ~isstruct(p) || ~isfield(p, 'dim'), continue; end
         if ~isfield(DF.ax, f), continue; end
-
-        axArr  = double(DF.ax.(f)(:)');
+        raw    = DF.ax.(f);
+        if isnumeric(raw) || islogical(raw)
+            axArr = double(raw(:)');
+        else
+            axArr = raw(:)';   % string array or cellstr — keep as-is for ismember
+        end
         nAx    = numel(axArr);
         isDisp = ismember(string(f), displayAxes);
 

@@ -1,16 +1,30 @@
-function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
+function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
 %   nexTract(nexon, fcn, dfID)
 %   nexTract(nexon, fcn, dfID, mask, fcnName)
 %   nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
+%   nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
 %
 % dfColName overrides the default "<dfID>_<fcnName>" output column name.
 % Use this to write alternate parameters without overwriting an existing run.
+%
+% opts.poolRestartInterval  — restart the parallel pool every N rows to
+%   reclaim worker heap that MATLAB's allocator does not return to the OS
+%   between tasks. Default = Inf (never restart). Recommended: 20–50 for
+%   parfor-backed functions on large datasets.
 
     if nargin < 5 || isempty(fcnName)
         fcnName = func2str(fcn);
     end
+    if nargin < 7 || isempty(opts)
+        opts = struct();
+    end
+    poolRestartInterval = inf;
+    if isfield(opts, 'poolRestartInterval')
+        poolRestartInterval = opts.poolRestartInterval;
+    end
 
     rowStart = 1;
+    rowsSinceRestart = 0;
 
     dtsRows    = height(nexon.console.BASE.DTS);
     dfID_entry = strrep(dfID, "_df", "");
@@ -63,6 +77,16 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
         minLength = min(minLength);
     end
 
+    % Register manifest patches before the loop so that other MATLAB workers
+    % can call dtsIO_loadManifestPatches and start consuming completed rows
+    % without waiting for the full nexTract run to finish.
+    % The patch records a path only — no HDF5 file existence required.
+    if isDiskBacked
+        for k = 1:nOut
+            dtsIO_patchManifest(nexon, dfColName(k), h5FileOut{k});
+        end
+    end
+
     DFOUT = {}; %#ok<NASGU>
     for i = rowStart:dtsRows
         disp(i);
@@ -87,6 +111,17 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
                 end
             end
             if all(skip), continue; end
+        end
+
+        % Periodic pool restart — reclaims worker heap accumulated over prior rows.
+        rowsSinceRestart = rowsSinceRestart + 1;
+        if rowsSinceRestart >= poolRestartInterval
+            p = gcp('nocreate');
+            if ~isempty(p)
+                delete(p);
+                fprintf('nexTract: restarted parallel pool at row %d\n', i);
+            end
+            rowsSinceRestart = 0;
         end
 
         DF_in = dtsIO_readDF(nexon, dfID_entry, i);
@@ -147,12 +182,4 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName)
         end
     end
 
-    % Register each output file in the manifest so reads route correctly.
-    if isDiskBacked
-        for k = 1:nOut
-            if exist(h5FileOut{k}, 'file')
-                dtsIO_patchManifest(nexon, dfColName(k), h5FileOut{k});
-            end
-        end
-    end
 end

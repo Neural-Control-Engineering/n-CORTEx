@@ -10,7 +10,7 @@ function DF = dtsIO_readHDF5(DTS, DFID, dtsIdx, ptr)
 %            Falls back to full read for legacy datasets without dim_order.
 
     if nargin < 4, ptr = []; end
-    axisKeyWords = ["f","t","chans","factor","dropout","latent"];
+    axisKeyWords = ["f","t","chans","factor","dropout","latent","peak","param"];
 
     % Convert nexObj_ptr handle to plain struct once, at the boundary.
     ptr = ptrToStruct(ptr);

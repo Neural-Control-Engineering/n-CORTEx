@@ -7,7 +7,7 @@ function DF = dtsIO_composeDF(DTS, DFID, dtsIdx, ptr)
     end
     % ptr is not applied to in-memory DTS (no hyperslab concept for arrays in RAM).
 
-    axisKeyWords=["f";"t";"chans";"factor";"dropout";"latent"];
+    axisKeyWords=["f";"t";"chans";"factor";"dropout";"latent";"peak";"param"];
     tableVars = convertCharsToStrings(DTS.Properties.VariableNames);
     % drop suffixes (for var-matching)
     tableVars_dfID = arrayfun(@(tVar) split(tVar,"_"), tableVars, "UniformOutput", false);

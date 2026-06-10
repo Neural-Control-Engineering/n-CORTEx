@@ -99,7 +99,8 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                         movefile(fullfile(loc,item), fullfile(binFldr,kSortOutFolder),'f');
                                     end
                                 end    
-        
+                                %% RTSORT OPTIONAL
+                                rtSort_out = extractRAW_rtSort(fileName);
                                 %% LFP
                                 % Load LFP data
                                 chan_nidq = 1:9;
