@@ -1,42 +1,47 @@
-function row = formatSpk_toDTS(spk, t_start_ms, t_stop_ms, bin_ms, sigma_ms)
+function row = formatSpk_toDTS(spk, t_start_s, t_stop_s, bin_s, sigma_s)
 % formatSpk_toDTS  Bin spike data for one trial into DTS-ready column structs.
 %
-% row = formatSpk_toDTS(spk, t_start_ms, t_stop_ms, bin_ms, sigma_ms)
+% row = formatSpk_toDTS(spk, t_start_s, t_stop_s, bin_s, sigma_s)
 %
 % Inputs:
 %   spk          — spk_struct from loadKS4_spk or loadRTSort_spk
-%   t_start_ms   — trial start time in ms (relative to recording start)
-%   t_stop_ms    — trial stop  time in ms
-%   bin_ms       — bin width in ms (default 5)
-%   sigma_ms     — Gaussian smoothing sigma in ms for spk_rates (default 25)
+%   t_start_s    — trial start time in s (relative to recording start)
+%   t_stop_s     — trial stop  time in s
+%   bin_s        — bin width in s (default 0.005)
+%   sigma_s      — Gaussian smoothing sigma in s for spk_rates (default 0.025)
 %
-% Outputs (struct row):
-%   .spk_raster          (n_units x n_tbins uint8) — spike count per bin
-%   .spk_rates           (n_units x n_tbins single) — Gaussian-smoothed firing rate (Hz)
-%   .spk_amplitudes      (n_units x n_tbins single) — max amplitude per bin (0 if no spike)
-%   .spk_spatial_profiles(n_units x n_chans single) — static, normalised
-%   .spk_templates       (n_wf x n_units single)    — root-channel waveform per unit
-%   .spk_probe           (n_tbins x n_chans single) — collapsed probe (spk_amp * spat_prof)
-%   .t_bins              (1 x n_tbins double) — bin centres in ms relative to t_start_ms
+% Outputs (struct — 5 DFs + their axis vectors):
+%   .activity     (n_units x n_tbins x 3 single) — measure axis = [raster,rate,amp]
+%   .spatial      (n_units x n_chans single)     — static, normalised footprint
+%   .templates    (n_wf x n_units single)        — root-channel waveform per unit
+%   .probe        (n_tbins x n_chans single)     — collapsed probe (spk_amp * spat_prof)
+%   .units        (n_units x 3 double)           — [root_elec, loc_x, loc_y]
+%   .ax_unit      (1 x n_units double)  — unit ids
+%   .ax_t         (1 x n_tbins double)  — bin centres (s) relative to t_start_s
+%   .ax_chans     (1 x n_chans double)  — channel index
+%   .ax_wf        (1 x n_wf double)     — sample within waveform window
+%   .ax_measure   (1 x 3 string)        — ["raster","rate","amp"]
+%   .ax_factor    (1 x 3 string)        — ["root_elec","loc_x","loc_y"] (units cols)
+%   .unit_quality (n_units x 1 cellstr) — per-unit quality label
 
-    if nargin < 4 || isempty(bin_ms),   bin_ms   = 5;  end
-    if nargin < 5 || isempty(sigma_ms), sigma_ms = 25; end
+    if nargin < 4 || isempty(bin_s),   bin_s   = 0.005; end
+    if nargin < 5 || isempty(sigma_s), sigma_s = 0.025; end
 
     N_UNITS = numel(spk.unit_ids);
     N_CHANS = spk.n_chans;
     N_WF    = spk.n_wf;
 
     % --- time bins (centres relative to trial start) ---
-    bin_edges  = t_start_ms : bin_ms : t_stop_ms;
+    bin_edges  = t_start_s : bin_s : t_stop_s;
     if numel(bin_edges) < 2
-        bin_edges = [t_start_ms, t_start_ms + bin_ms];
+        bin_edges = [t_start_s, t_start_s + bin_s];
     end
     n_tbins    = numel(bin_edges) - 1;
-    t_bins     = (bin_edges(1:n_tbins) + bin_ms/2) - t_start_ms;  % relative ms
+    t_bins     = (bin_edges(1:n_tbins) + bin_s/2) - t_start_s;  % relative s
 
     % --- slice spikes to trial window ---
-    in_win = spk.spike_times_ms >= bin_edges(1) & spk.spike_times_ms < bin_edges(end);
-    st_win   = spk.spike_times_ms(in_win);
+    in_win = spk.spike_times_s >= bin_edges(1) & spk.spike_times_s < bin_edges(end);
+    st_win   = spk.spike_times_s(in_win);
     cl_win   = spk.spike_clusters(in_win);
     amp_win  = spk.spike_amplitudes(in_win);
 
@@ -59,7 +64,7 @@ function row = formatSpk_toDTS(spk, t_start_ms, t_stop_ms, bin_ms, sigma_ms)
     end
 
     % --- Gaussian-smoothed firing rates ---
-    sigma_bins  = sigma_ms / bin_ms;
+    sigma_bins  = sigma_s / bin_s;
     kern_half   = ceil(3 * sigma_bins);
     kern_x      = -kern_half : kern_half;
     kern        = exp(-kern_x.^2 / (2 * sigma_bins^2));
@@ -67,7 +72,7 @@ function row = formatSpk_toDTS(spk, t_start_ms, t_stop_ms, bin_ms, sigma_ms)
 
     spk_rates = zeros(N_UNITS, n_tbins, 'single');
     for u = 1:N_UNITS
-        spk_rates(u,:) = single(conv(double(raster(u,:)), kern, 'same') / (bin_ms/1000));
+        spk_rates(u,:) = single(conv(double(raster(u,:)), kern, 'same') / bin_s);  % counts/bin -> Hz
     end
 
     % --- static fields: root-channel templates, spatial profiles ---
@@ -79,12 +84,22 @@ function row = formatSpk_toDTS(spk, t_start_ms, t_stop_ms, bin_ms, sigma_ms)
     % --- collapsed probe: (n_tbins x n_chans) = spk_amps' * spatial_profiles ---
     spk_probe = single(double(spk_amps)' * double(spk.spatial_profiles));  % n_tbins x n_chans
 
-    % --- pack output ---
-    row.spk_raster          = raster;
-    row.spk_rates           = spk_rates;
-    row.spk_amplitudes      = spk_amps;
-    row.spk_spatial_profiles= spk.spatial_profiles;
-    row.spk_templates       = spk_templates;
-    row.spk_probe           = spk_probe;
-    row.t_bins              = t_bins;
+    % --- pack output: 4 DFs + axis vectors (numeric axes; measure is string) ---
+    % raster (uint8), rates & amps (single) stack along a 'measure' axis; cast
+    % raster to single so the stack stays single (mixed concat would truncate).
+    row = struct();
+    row.activity   = cat(3, single(raster), spk_rates, spk_amps);  % unit × t × measure
+    row.spatial    = spk.spatial_profiles;                          % unit × chan
+    row.templates  = spk_templates;                                 % wf × unit
+    row.probe      = spk_probe;                                     % t × chan
+    row.units      = [double(spk.unit_root_elecs(:)), double(spk.unit_locs)];  % unit × [root, loc_x, loc_y]
+
+    row.ax_unit    = 1:N_UNITS;                  % unit ids
+    row.ax_t       = t_bins;                     % s, relative to trial start
+    row.ax_chans   = 1:N_CHANS;                  % channel index
+    row.ax_wf      = 1:N_WF;                      % sample within waveform window
+    row.ax_measure = ["raster","rate","amp"];    % string measure axis
+    row.ax_factor  = ["root_elec","loc_x","loc_y"];  % string factor axis (units DF cols)
+
+    row.unit_quality = spk.unit_quality;         % N_UNITS × 1 cellstr
 end

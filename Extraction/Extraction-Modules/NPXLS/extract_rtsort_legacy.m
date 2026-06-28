@@ -11,6 +11,7 @@ if ispc
 else
     inter_path = strrep(inter_path, '~', getenv('HOME'));
 end
+PICKLE_PATH = fullfile(inter_path, 'rt_sort.pickle');
 TRACES_PATH = fullfile(inter_path, 'scaled_traces.npy');
 OUT_PATH    = fullfile(inter_path, 'rtsort_results.mat');
 PLOT_PATH   = fullfile(inter_path, 'rtsort_quality.png');
@@ -27,36 +28,46 @@ COLORS = struct('good',  [0.18 0.80 0.44], ...
                 'mua',   [0.95 0.61 0.07], ...
                 'noise', [0.91 0.29 0.24]);
 
-%% Load RTSort fields  (exported by runRTSort.py as a plain .mat - no embedded Python)
-% The RT-Sort pickle holds torch tensors, so it can only be unpickled where
-% torch is importable. runRTSort.py does that in its clean subprocess and dumps
-% the needed fields here; we read them natively to avoid embedding torch in
-% MATLAB (which collides with MATLAB's libexpat.dll in-process).
-disp('Loading RTSort fields...');
-FIELDS_PATH = fullfile(inter_path, 'rtsort_fields.mat');
-F = load(FIELDS_PATH);
+%% Load Python modules
+disp('Loading Python modules...');
+np       = py.importlib.import_module('numpy');
+pickle   = py.importlib.import_module('pickle');
+builtins = py.importlib.import_module('builtins');
 
-N_UNITS  = double(F.num_seqs);
-N_CHANS  = double(F.num_elecs);
-N_BEFORE = double(F.seq_n_before);
-N_AFTER  = double(F.seq_n_after);
+%% Load RTSort pickle
+disp('Loading pickle...');
+fh  = builtins.open(PICKLE_PATH, 'rb');
+obj = pickle.load(fh);
+fh.close();
+
+N_UNITS  = double(int32(obj.num_seqs));
+N_CHANS  = double(int32(obj.num_elecs));
+N_BEFORE = double(int32(obj.seq_n_before));
+N_AFTER  = double(int32(obj.seq_n_after));
 N_WF     = N_BEFORE + N_AFTER + 1;
 fprintf('  %d units  |  %d channels  |  waveform window: %d samples\n', N_UNITS, N_CHANS, N_WF);
 
 %% Spike trains
+spike_list   = py.list(obj.seq_spike_trains);
 spike_trains = cell(N_UNITS, 1);
 for u = 1:N_UNITS
-    spike_trains{u} = double(F.seq_spike_trains{u});
+    spike_trains{u} = double(spike_list{u}.astype(np.float64));
 end
 
 %% Spatial / amplitude / latency fields
-locs = double(F.seq_locs);                               % (N_UNITS x 2)  x/y um
-root_elecs = double(F.seq_root_elecs(:)) + 1;            % Python 0-indexed -> MATLAB 1-indexed
-root_amp_means = double(F.seqs_root_amp_means);
-root_amp_stds  = double(F.seqs_root_amp_stds);
-seqs_amps      = double(F.seqs_amps);                    % (N_UNITS x N_COMP)
-seqs_latencies = double(F.seqs_latencies);               % (N_UNITS x N_COMP)
-comp_elecs     = double(F.comp_elecs_flattened) + 1;
+locs = double(obj.seq_locs.astype(np.float64));          % (N_UNITS x 2)  x/y um
+
+root_elecs_list = py.list(py.getattr(obj, '_seq_root_elecs'));
+root_elecs = zeros(N_UNITS, 1);
+for u = 1:N_UNITS
+    root_elecs(u) = double(root_elecs_list{u}) + 1;     % Python 0-indexed -> MATLAB 1-indexed
+end
+
+root_amp_means = double(obj.seqs_root_amp_means.cpu().numpy().astype(np.float64));
+root_amp_stds  = double(obj.seqs_root_amp_stds.cpu().numpy().astype(np.float64));
+seqs_amps      = double(obj.seqs_amps.cpu().numpy().astype(np.float64));      % (N_UNITS x N_COMP)
+seqs_latencies = double(obj.seqs_latencies.cpu().numpy().astype(np.float64)); % (N_UNITS x N_COMP)
+comp_elecs     = double(obj.comp_elecs_flattened.cpu().numpy().astype(np.float64)) + 1;
 
 %% Load traces (.npy - native MATLAB reader, no Python conversion)
 fprintf('Loading traces: %s\n', TRACES_PATH);
@@ -201,7 +212,7 @@ for u = 1:N_UNITS
 end
 
 N_CHANS = size(mean_templates, 3);
-save(strcat("\\?\", OUT_PATH), ...   % \\?\ = Windows long-path prefix (v7.3 save fails on >260-char paths)
+save(OUT_PATH, ...
     'N_UNITS','N_CHANS','RAW_SAMP_FREQ','N_BEFORE','N_AFTER','REFRAC_MS', ...
     'spike_train_mat','spike_counts','spike_amp_mat', ...
     'locs','root_elecs','comp_elecs', ...

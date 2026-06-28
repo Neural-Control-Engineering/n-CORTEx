@@ -34,7 +34,10 @@ function sync = extractSyncOffset(syncLine_ref, sync, t_start)
         t_edge_deviation_mag = abs(t_edge_deviation);
         % idx_min_deviation = find(round(t_edge_deviation,4)==round(min(abs((t_edge_deviation))),4));
         % idx_min_deviation = find((min(((t_edge_deviation)))));
-        idx_min_deviation = find(t_edge_deviation_mag==min(t_edge_deviation_mag));
+        % FIX #6: use min's index output. find(==min) can return MULTIPLE indices
+        % on ties, which would make t_edge(idx:end) misbehave; [~,idx]=min picks
+        % the first minimum deterministically.
+        [~, idx_min_deviation] = min(t_edge_deviation_mag);
         t_edge = t_edge(idx_min_deviation:end);
 
         % to achieve full sync-precision:

@@ -148,7 +148,7 @@ end
 % ── Serial write (one trial) ───────────────────────────────────────────────
 
 function writeTrialRechunked(dstFile, h5Root, td)
-    axisKeyWords = ["f","t","chans","factor","dropout","latent"];
+    axisKeyWords = ["f","t","chans","factor","dropout","latent","peak","param","unit","wf","measure"];
 
     % ── DF groups ─────────────────────────────────────────────────────────
     for g = 1:numel(td.groups)
@@ -215,7 +215,7 @@ function DF = rawToDF(raw)
         DF.df = complex(raw.df_re, raw.df_im);
     end
     if ~isfield(DF,'df') || isempty(DF.df), DF = struct; return; end
-    axKeywords = {'f','t','chans','factor','dropout','latent'};
+    axKeywords = {'f','t','chans','factor','dropout','latent','peak','param','unit','wf','measure'};
     for k = 1:numel(axKeywords)
         kk = axKeywords{k};
         if isfield(raw, kk), DF.ax.(kk) = raw.(kk); end

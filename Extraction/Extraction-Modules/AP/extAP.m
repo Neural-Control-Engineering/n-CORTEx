@@ -92,22 +92,18 @@ function AP = extAP(SLRT, npxls_path, trigNum)
     % visualize offsets
     plotSyncOffsets_postProc(sync.lines.sync_1Hz_nidq, sync_ref.lines.sync_1Hz_slrt, sessionDetails);
     t_ap = mapSyncTimeline(ap, sync.lines.sync_1Hz_imec, sync.lines.sync_1Hz_imec.offset0);
-    spike_times = t_ap(spike_inds(spike_inds>0)); % for now: ignore negative spike inds
-    spike_clusters = spike_clusters(spike_inds>0);
+    pos = spike_inds > 0;                 % ignore non-positive spike inds
+    spike_times    = t_ap(spike_inds(pos));
+    spike_clusters = spike_clusters(pos);
+    amplitudes     = amplitudes(pos);     % keep amplitudes in the same index space as
+                                          % spike_times/spike_clusters (else trial_spike_inds,
+                                          % which index the filtered space, mis-read raw amplitudes)
     
     % out = table('Size', [size(slrt_data,1),3],  'VariableTypes', {'double', 'cell', 'cell'}, ...
     %     'VariableNames', {'trial_num', 'spiking_data', 'cluster_info'});
     out = [];
     % prevSyncOffset = [];
 
-    max_time = SLRT(end,:).clock_time{1}(end);
-    % % npxls_time = linspace(-3.5, max(max_time)+3.5, max(spike_inds));
-    % npxls_time = linspace(-3.5, max(max_time)+3.5, 30000 * max_time + 7); Fs
-    % % (30K) * (max(max_time) + 7.0)
-    spike_inds = spike_inds(spike_inds > 0);
-    npxls_time = linspace(-3.5, max(max_time)+3.5, max(spike_inds));
-    spike_times = npxls_time(spike_inds);
-    
     for trial = 1:size(SLRT,1)
         % only apply to SLRT trials matching trigNum
         trialGate = SLRT(trial,:).("trial-gate"){1}; % find which acquisition gate

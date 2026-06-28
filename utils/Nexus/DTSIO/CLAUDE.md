@@ -106,4 +106,4 @@ Per-trial HDF5 layout (each trial = its own group) means "read only selected tri
 
 ## `dtsIO_writeDF_toHDF5` — axisKeyWords filter
 
-The writer only writes axis arrays whose names are in `axisKeyWords = ["f","t","chans","factor","dropout","latent"]`. This is intentional — it prevents unintended writes from numeric fields that happen to be in `DF.ax`. Do not remove this filter. Type-dispatch for other data structures (struct→group, table→parallel datasets) belongs in dedicated writers, not in the per-trial DF path.
+The writer only writes axis arrays whose names are in `axisKeyWords = ["f","t","chans","factor","dropout","latent","peak","param","unit","wf","measure"]`. This is intentional — it prevents unintended writes from numeric fields that happen to be in `DF.ax`. Do not remove this filter (extending it — e.g. the spike axes `unit`/`wf`/`measure` — is fine; it must stay synchronized across `dtsIO_composeDF`, `dtsIO_writeDF_toHDF5`, `dtsIO_readHDF5`, and both lists in `dtsIO_rechunkDTS`). Type-dispatch for other data structures (struct→group, table→parallel datasets) belongs in dedicated writers, not in the per-trial DF path.

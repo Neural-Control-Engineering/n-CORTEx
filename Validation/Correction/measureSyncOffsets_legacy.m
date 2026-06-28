@@ -32,27 +32,11 @@ function [syncOffsets, insertOffsets] = measureSyncOffsets(t_edge, t_edge_ref, t
     
     switch refType
         case "world"
-            % FIX #5: pick which reference pulse imec(1) belongs to using the
-            % shared 'insert' — a one-time pulse sent from SLRT into imec on every
-            % trigger, pinning the absolute start moment of each recording segment.
-            % The true partner is the ref edge whose distance-from-insert matches
-            % imec(1)'s distance-from-insert, robust to ANY start-gap. Previously
-            % the insert was only computed into insertOffsets (a QC diagnostic) and
-            % never used for the match, so the decision fell back to a
-            % positive-min-of-two heuristic that breaks for gaps >1 period.
-            % Nearest-edge is the fallback for legacy segments with no insert.
-            if ~isempty(t_inserts) && ~isempty(t_inserts_ref)
-                d_imec0 = t_edge0    - t_inserts(1);        % imec(1) since insert
-                d_ref   = t_edge_ref - t_inserts_ref(1);    % each ref edge since insert
-                [matchResidual, idx_trueOffset] = min(abs(d_ref - d_imec0));
-            else
-                [matchResidual, idx_trueOffset] = min(abs(t_edge_ref - t_edge0));
-            end
-            if matchResidual > IPD/2
-                warning(['measureSyncOffsets: first-edge match residual %.3fs ', ...
-                    'exceeds IPD/2 (%.3fs) — check insert detection / for missed ', ...
-                    'or spurious edges'], matchResidual, IPD/2);
-            end
+            % world-ref synchronizer implies mod acquisitions start after
+            % slrt acquisitions
+            syncOffsets = [syncOffset_00, syncOffset_10]; 
+            syncOffsets = syncOffsets(syncOffsets>0); % positive only
+            [syncOffset, idx_trueOffset] = min(syncOffsets);
             t_edges_ref = t_edge_ref(idx_trueOffset:end);
             % t_edges = t_edge(1:length(t_edges_ref)); % tentative slicing rule            
             syncCutoff = min([length(t_edge),length(t_edges_ref)]);
@@ -76,24 +60,6 @@ function [syncOffsets, insertOffsets] = measureSyncOffsets(t_edge, t_edge_ref, t
             end            
             syncOffsets = t_edges_ref - t_edge;
             insertOffsets = insertDists_ref - insertDists;
-
-            % FIX #5b: post-match consistency check against the insert. When the
-            % match is right, the edge nearest the insert agrees across devices,
-            % so min|insertOffsets| ~ 0 (drift only). If idx_trueOffset is off by a
-            % pulse, the pairing shifts by one period and EVERY paired edge is
-            % ~IPD apart, so min|insertOffsets| ~ IPD. min (not median/mean) is
-            % used so accumulated drift over long segments can't trip the test:
-            % the near-insert edge carries ~no drift. Empty in the no-insert
-            % fallback, where there is nothing to check against.
-            if ~isempty(insertOffsets)
-                insMin = min(abs(insertOffsets));
-                if insMin > IPD/2
-                    warning(['measureSyncOffsets: idx_trueOffset=%d disagrees ', ...
-                        'with the insert (min|insertOffsets|=%.3fs > IPD/2=%.3fs) ', ...
-                        '— match likely off by a pulse; check for clipped/spurious edges'], ...
-                        idx_trueOffset, insMin, IPD/2);
-                end
-            end
         otherwise
             % slrt-ref synchronizer implies mod-recorded slrt signals lag
             % behind slrt-recorded slrt signals

@@ -6,7 +6,7 @@ function spk = loadRTSort_spk(rtsort_mat_path)
 % rtsort_mat_path — full path to rtsort_results.mat (produced by extract_rtsort)
 %
 % Returns the same spk_struct schema as loadKS4_spk:
-%   spike_times_ms      (N_spikes x 1) — spike times in milliseconds
+%   spike_times_s       (N_spikes x 1) — spike times in seconds
 %   spike_clusters      (N_spikes x 1) — unit index, 1-indexed, contiguous
 %   spike_amplitudes    (N_spikes x 1) — peak-to-trough amplitude
 %   unit_ids            (N_UNITS x 1)
@@ -28,17 +28,17 @@ function spk = loadRTSort_spk(rtsort_mat_path)
     fs       = R.RAW_SAMP_FREQ;
 
     % --- flatten spike matrices (NaN-padded columns -> flat vectors) ---
-    spike_times_ms   = zeros(0,1);
+    spike_times_s    = zeros(0,1);
     spike_clusters   = zeros(0,1,'double');
     spike_amplitudes = zeros(0,1);
 
     for u = 1:N_UNITS
         n  = R.spike_counts(u);
-        st = R.spike_train_mat(1:n, u);       % ms
+        st = R.spike_train_mat(1:n, u) / 1000;   % ms -> seconds
         amp = R.spike_amp_mat(1:n, u);
         amp(isnan(amp)) = 0;                  % failed extraction -> 0
 
-        spike_times_ms   = [spike_times_ms;   st(:)];        %#ok<AGROW>
+        spike_times_s    = [spike_times_s;    st(:)];        %#ok<AGROW>
         spike_clusters   = [spike_clusters;   repmat(u, n, 1)];  %#ok<AGROW>
         spike_amplitudes = [spike_amplitudes; amp(:)];        %#ok<AGROW>
     end
@@ -59,7 +59,7 @@ function spk = loadRTSort_spk(rtsort_mat_path)
     end
 
     % --- assemble output ---
-    spk.spike_times_ms     = spike_times_ms;
+    spk.spike_times_s      = spike_times_s;
     spk.spike_clusters     = spike_clusters;
     spk.spike_amplitudes   = spike_amplitudes;
     spk.unit_ids           = (1:N_UNITS)';

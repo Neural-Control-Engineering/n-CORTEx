@@ -1,7 +1,9 @@
 function extractRAW_NPXLS(params, sessions_to_extract, Q)    
     cd(fullfile(params.paths.repo_path,"Extraction/"));
-    pyVersion = "C:\Users\Primus\anaconda3\envs\kilosort\python.EXE";
-    pyenv("Version",pyVersion)
+    % pyVersion = "C:\Users\Primus\anaconda3\envs\kilosort\python.EXE";
+    pyVersion = "C:\Users\Primus\miniconda3\envs\nexus\python.EXE";
+    pyenv(Version=pyVersion,ExecutionMode="OutOfProcess");
+    % pyenv(Version=pyVersion);
     % modality = params.extractCfg.modality;
     modality = params.extractCfg.modality;    
     % Check if there are Neuropixel lfp data files.
@@ -86,9 +88,22 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                 data_dir = params.paths.ksortNpxlsPath;
                                 fileName = (((fullfile(params.paths.ksortNpxlsPath,strcat(exp_template,trigPattern,'.',imecTag,'.ap.bin')))));
                                 chanMap = 'neuropixPhase3A_kilosortChanMap.mat';                            
-                                % Import the Python module; Call the function
-                                mod = py.importlib.import_module('runKilosort4');
-                                results = mod.runKilosort4(data_dir, fileName, chanMap);                            
+                                % Run Kilosort4 in a clean subprocess (nexus env).
+                                % Embedding via py.* fails: the nexus env's pyexpat
+                                % links an external libexpat.dll that collides with
+                                % MATLAB's own libexpat.dll in-process. A subprocess
+                                % has none of MATLAB's DLLs loaded. Results are written
+                                % to the kilosort4 output folder on disk (moved below).
+                                ksScript = fullfile(params.paths.repo_path,"Extraction","runKilosort4.py");
+                                ksCmd = sprintf('"%s" "%s" "%s" "%s" "%s"', pyVersion, ksScript, data_dir, fileName, chanMap);
+                                [ksStatus, ksOut] = system(ksCmd);
+                                if ksStatus ~= 0
+                                    error("extractRAW_NPXLS:kilosortFailed", ...
+                                        "Kilosort4 subprocess failed (exit %d):\n%s", ksStatus, ksOut);
+                                end
+                                % --- Legacy embedded call (revert to this if needed) ---
+                                % mod = py.importlib.import_module('runKilosort4');
+                                % results = mod.runKilosort4(data_dir, fileName, chanMap);
                                 % move output into a subfolder
                                 rawNpxlsFolder = dir(fullfile(params.paths.rawData.(modality).imec));
                                 for n = 3:length(rawNpxlsFolder)
@@ -100,7 +115,8 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                     end
                                 end    
                                 %% RTSORT OPTIONAL
-                                rtSort_out = extractRAW_rtSort(fileName);
+                                rtsArgs = extractMethodCfg('extractRAW_rtSort');                                
+                                extractRAW_rtSort(fileName, kSortOutPath, [], rtsArgs);
                                 %% LFP
                                 % Load LFP data
                                 chan_nidq = 1:9;

@@ -6,7 +6,7 @@ function spk = loadKS4_spk(ks4_dir)
 % ks4_dir — path to the kilosort4/ output folder (contains spike_times.npy etc.)
 %
 % Returns spk_struct with fields:
-%   spike_times_ms      (N_spikes x 1) — all spike times in milliseconds
+%   spike_times_s       (N_spikes x 1) — all spike times in seconds
 %   spike_clusters      (N_spikes x 1) — unit index, 1-indexed, contiguous
 %   spike_amplitudes    (N_spikes x 1) — per-spike KS4 amplitude scalar
 %   unit_ids            (N_UNITS x 1)  — 1:N_UNITS
@@ -88,7 +88,7 @@ function spk = loadKS4_spk(ks4_dir)
     end
 
     % --- assemble output ---
-    spk.spike_times_ms     = spike_inds / fs * 1000;  % samples -> ms
+    spk.spike_times_s      = spike_inds / fs;         % samples -> seconds
     spk.spike_clusters     = spike_clusters_remapped;
     spk.spike_amplitudes   = amplitudes_ks(:);
     spk.unit_ids           = (1:N_UNITS)';

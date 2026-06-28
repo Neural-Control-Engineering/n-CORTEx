@@ -32,6 +32,12 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
     %                    Written via dtsIO_writeDF_toHDF5.
     % Simple columns   : everything else (scalars, strings, cell-of-strings,
     %                    cell-of-scalars). Written as one dataset per trial.
+    % DF columns: numeric arrays, OR string/cellstr arrays whose stub (last
+    % _token) is a recognized axis key (e.g. a 'measure' label axis) so they fold
+    % into the DF group as a string axis instead of spilling out as a simple
+    % column. String columns whose stub is NOT an axis key (e.g. *_quality) stay
+    % simple. Keep this list synchronized with the other DTSIO axisKeyWords.
+    axisKeyWords = ["f","t","chans","factor","dropout","latent","peak","param","unit","wf","measure"];
     isArrayDF = false(1, numel(h5Cols));
     for j = 1:numel(h5Cols)
         col = DTS.(char(h5Cols(j)));
@@ -39,7 +45,10 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
             idx = find(~cellfun('isempty', col), 1);
             if ~isempty(idx)
                 v = col{idx};
-                isArrayDF(j) = isnumeric(v) && ~isscalar(v);
+                parts = strsplit(h5Cols(j), "_");
+                stubIsAxis = numel(parts) > 1 && any(strcmp(axisKeyWords, parts{end}));
+                isArrayDF(j) = (isnumeric(v) && ~isscalar(v)) || ...
+                               ((isstring(v) || iscellstr(v)) && stubIsAxis);
             end
         end
     end
@@ -112,12 +121,14 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
                 elseif isnumeric(raw) && size(raw,1) >= i
                     arr = raw(i,:);
                 end
-                if isempty(arr) || ~isnumeric(arr), continue; end
+                if isempty(arr), continue; end
 
                 if strcmp(suf, 'df')
-                    DF.df = double(arr);
-                else
+                    if isnumeric(arr), DF.df = double(arr); end
+                elseif isnumeric(arr)
                     DF.ax.(suf) = double(arr);
+                elseif isstring(arr) || iscellstr(arr)
+                    DF.ax.(suf) = string(arr);   % string axis (e.g. measure labels)
                 end
             end
 

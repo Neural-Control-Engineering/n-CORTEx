@@ -2,6 +2,7 @@ function extractEXT(params)
     % process each experiment associated modality for given list of
     % sessions
     extrctModules = params.extrctItms.EXT.extrctModules;
+    % FILTER EXTRACTION MODULES BY EXTCFG SELECTION (NEW FIELD)
     extrctFields = fieldnames(extrctModules);
     extractionLog = params.extrctItms.EXT.extractionLog;    
     % process datastreams relative to SLRT
