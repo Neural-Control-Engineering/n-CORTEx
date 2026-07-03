@@ -17,7 +17,7 @@ function spk = loadRTSort_spk(rtsort_mat_path)
 %   spatial_profiles    (N_UNITS x N_CHANS) — from seqs_amps, expanded to full probe
 %   channel_positions   (N_CHANS x 2)  — empty (not stored in rtsort_results)
 %   n_wf                scalar
-%   n_chans             scalar
+%   n_chans             scalar — full physical probe width (RTSort detects on the whole probe)
 %   fs                  scalar
 
     R = load(rtsort_mat_path);
@@ -26,6 +26,18 @@ function spk = loadRTSort_spk(rtsort_mat_path)
     N_WF     = R.N_BEFORE + R.N_AFTER + 1;
     N_CHANS  = size(R.mean_templates, 3);
     fs       = R.RAW_SAMP_FREQ;
+
+    % Physical-domain channel axis (see KILOSORT_RTSORT_SUBPROCESS.md). RTSort
+    % detects on the full probe, so mean_templates / comp_elecs / root_elecs are
+    % expected to already be in the full physical channel space (no scatter
+    % needed, unlike KS4). Warn if the width doesn't match the probe so the chans
+    % axis stays aligned with KS for cross-sorter / cross-session pooling.
+    N_CHANS_PROBE = 384;   % NP1.0 AP band (physical probe width)
+    if N_CHANS ~= N_CHANS_PROBE
+        warning(['loadRTSort_spk: mean_templates span %d channels, not the full ', ...
+            '%d-channel probe — chans axis may not be physically aligned with KS; ', ...
+            'a physical channel list would be needed to scatter.'], N_CHANS, N_CHANS_PROBE);
+    end
 
     % --- flatten spike matrices (NaN-padded columns -> flat vectors) ---
     spike_times_s    = zeros(0,1);

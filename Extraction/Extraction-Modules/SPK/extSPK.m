@@ -230,3 +230,5 @@ function vizSyncAlignment_spk(syncLine, t_imec, Fs, sessionLabel, trigNum)
     xlabel('nearest SLRT reference edge time (s)'); ylabel('edge residual (s)');
     title('Per-edge alignment residual — "after" should sit on 0');
 end
+
+

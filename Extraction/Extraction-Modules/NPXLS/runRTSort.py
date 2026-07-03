@@ -37,7 +37,7 @@ def _pi_read_spikeglx_compat(meta_filename):
 
 pi.read_spikeglx = _pi_read_spikeglx_compat
 
-_TRIG_RE = re.compile(r"_t(\d+)\.imec\d*\.ap\.bin$")
+_KEY_RE = re.compile(r"_g(\d+)_t(\d+)\.imec\d*\.ap\.bin$")
 
 
 def _to_numpy(x):
@@ -47,21 +47,56 @@ def _to_numpy(x):
     return np.asarray(x, dtype=np.float64)
 
 
+# --- Coat-check analogy for what this function does ---------------------------
+# Loading the folder hands us EVERY trigger stacked into one recording, and the
+# loader only fetches a piece back by *position* (segment 0, 1, 2, ...), never by
+# its trigger name. Think of a coat check: your file's name tag says "trigger t3",
+# but the attendant (select_segments) only accepts a hook NUMBER. So we replay the
+# loader's own filing rule -- take the (gate, trigger) tags actually handed in,
+# sort them, and find where ours sits -- to translate "t3" into "hook N", then ask
+# for hook N. The (g,t) tuple never reaches select_segments: keys.index(...)
+# consumes it and returns the integer N; select_segments sees only N. Before
+# trusting the translation we count coats-on-rack (segments) vs tags-we-saw
+# (keys); if they disagree we refuse to guess a hook rather than risk handing back
+# the wrong coat.
+# ------------------------------------------------------------------------------
 def _select_trigger(recording, bin_path):
-    """Select only the trigger named in bin_path (e.g. _t0) without touching the
-    raw .bin. SpikeGLX triggers become segments in ascending trigger order."""
-    if recording.get_num_segments() == 1:
+    """Select only the (gate, trigger) named in bin_path without touching the raw
+    .bin. read_spikeglx loads the whole imec folder as a multi-segment recording;
+    neo (spikeglxrawio.scan_files) assigns each segment index by the position of
+    its (gate_num, trigger_num) integer key in the numerically sorted set of keys.
+    We reconstruct that same sorted key list from the folder and select the
+    matching segment. Matching on (gate, trigger) -- not trigger alone -- keeps the
+    pick correct when more than one gate is present (trigger t1 exists under both
+    g0 and g1)."""
+    n_seg = recording.get_num_segments()
+    if n_seg == 1:
         return recording
-    m = _TRIG_RE.search(os.path.basename(bin_path))
+    m = _KEY_RE.search(os.path.basename(bin_path))
     if m is None:
         return recording
-    target_t = int(m.group(1))
+    target_key = (int(m.group(1)), int(m.group(2)))
     folder = os.path.dirname(os.path.abspath(bin_path))
-    trigs = sorted({int(mm.group(1)) for f in os.listdir(folder)
-                    for mm in [_TRIG_RE.search(f)] if mm})
-    if target_t not in trigs:
-        raise ValueError(f"Trigger t{target_t} not found among {trigs} in {folder}")
-    return recording.select_segments([trigs.index(target_t)])
+    keys = sorted({(int(mm.group(1)), int(mm.group(2)))
+                   for f in os.listdir(folder)
+                   for mm in [_KEY_RE.search(f)] if mm})
+    # Our key list is rebuilt from *.ap.bin in this folder; neo builds segments by
+    # recursively scanning every .meta/.bin pair (any stream) and de-duping on
+    # (gate, trigger). The two agree for the standard single-gate, ap+lf-per-
+    # trigger layout, but diverge if a trigger has a .meta neo counts yet no
+    # .ap.bin here (e.g. lf-only), if extra metas are nested in the tree, or if
+    # the folder spans more gates than we enumerated. In any such case an
+    # index-based select_segments would silently pick the wrong epoch -- refuse to
+    # guess instead.
+    if len(keys) != n_seg:
+        raise ValueError(
+            f"Reconstructed {len(keys)} (gate,trigger) key(s) {keys} from *.ap.bin "
+            f"in {folder}, but the recording has {n_seg} segments -- segment order "
+            f"cannot be safely inferred; refusing to guess which segment is "
+            f"{target_key}.")
+    if target_key not in keys:
+        raise ValueError(f"(gate,trigger) {target_key} not found among {keys} in {folder}")
+    return recording.select_segments([keys.index(target_key)])
 
 
 def export_fields(out_dir):
@@ -93,21 +128,38 @@ def export_fields(out_dir):
     savemat(os.path.join(out_dir, "rtsort_fields.mat"), fields, do_compression=True)
 
 
-def runRTSort(file_path, inter_path):
+def runRTSort(file_path, inter_path, window_s=None):
     rtsort_dir = os.path.join(inter_path, "rtsort")
     os.makedirs(rtsort_dir, exist_ok=True)
+    # Self-report the compute device (subprocess stdout is captured by
+    # extractRAW_rtSort.m). braindance's detect_sequences hardcodes device="cuda"
+    # with no CPU fallback, so RT-Sort cannot silently run on CPU -- it errors if
+    # CUDA is unavailable. This line surfaces that up front instead of mid-run.
+    import torch
+    if torch.cuda.is_available():
+        print(f"[runRTSort] device=cuda ({torch.cuda.get_device_name(0)}); "
+              f"torch {torch.__version__}", flush=True)
+    else:
+        print("[runRTSort] WARNING: CUDA not available -- detect_sequences forces "
+              "device='cuda' (no CPU fallback) and will error below.", flush=True)
     detection_model = ModelSpikeSorter.load_neuropixels()
     folder = os.path.dirname(os.path.abspath(file_path))
     recording = read_spikeglx(folder, stream_id="imec0.ap")
     recording = _select_trigger(recording, file_path)
-    # Clamp the detection window to the actual segment duration. braindance
-    # allocates the on-disk traces buffer from recording_window_ms, but
-    # get_traces() clamps to the real length -- if the segment is shorter than
-    # the requested window (e.g. an 11 s trigger vs a 60 s window) the buffer is
-    # over-sized and _save_traces_si raises "could not broadcast ... into ...".
-    # floor() keeps round(end_ms * samp_freq) <= total samples.
+    # Detect over the full segment. braindance allocates the on-disk traces
+    # buffer from recording_window_ms, but get_traces() clamps to the real
+    # length -- if the requested window is longer than the segment (e.g. a 60 s
+    # window vs an 11 s trigger) the buffer is over-sized and _save_traces_si
+    # raises "could not broadcast ... into ...". Setting the window to the
+    # segment duration keeps window <= segment; floor() keeps
+    # round(end_ms * samp_freq) <= total samples. (Tradeoff: buffer/mem/time now
+    # scale with the full recording length -- reinstate a min(cap, ...) here to
+    # bound very long recordings.)
     dur_ms = recording.get_total_samples() / recording.get_sampling_frequency() * 1000.0
-    window_end_ms = min(1 * 60 * 1000, math.floor(dur_ms))
+    if window_s is None:
+        window_end_ms = math.floor(dur_ms)          # full segment (default)
+    else:
+        window_end_ms = min(window_s * 1000.0, math.floor(dur_ms))  # optional cap
     detect_sequences(
         recording, rtsort_dir, detection_model,
         return_spikes=True,
@@ -137,5 +189,9 @@ def runRTSort(file_path, inter_path):
 
 
 if __name__ == "__main__":
-    runRTSort(sys.argv[1], sys.argv[2])
+    # Optional 3rd arg = detection window in seconds (caps the sort length);
+    # omit for the full segment. extractRAW_rtSort.m passes only file_path +
+    # inter_path, so the default stays full-length.
+    win_s = float(sys.argv[3]) if len(sys.argv) > 3 else None
+    runRTSort(sys.argv[1], sys.argv[2], window_s=win_s)
     print("RTSORT_DONE")

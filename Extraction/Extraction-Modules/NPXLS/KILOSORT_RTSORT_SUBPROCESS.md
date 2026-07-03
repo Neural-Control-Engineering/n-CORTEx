@@ -1,6 +1,6 @@
 # Kilosort4 & RT-Sort — MATLAB → Subprocess Migration (nexus env)
 
-_Last updated: 2026-06-28_
+_Last updated: 2026-07-03_
 
 ## Summary
 
@@ -27,7 +27,7 @@ Result: both Kilosort4 and RT-Sort run end-to-end under the single `nexus` env.
 | 5 | `KeyError: 'imDatPrb_type'` / `'probe_type'` | **Phase 3A** SpikeGLX metas lack the modern probe-type annotation |
 | 6 | `TypeError: cannot pickle 'weakref.ReferenceType'` | braindance shares the recording across a `multiprocessing.Manager`; **spikeinterface 0.94.0** had no neo-reader pickling (`__getstate__`) vs **neo 0.13.3** |
 | 7 | `save ... appears to be corrupt` | MATLAB `-v7.3` HDF5 save fails on **>260-char Windows paths** |
-| 8 | `could not broadcast input array from shape (330000,) into shape (1800000,)` in `save_traces_si` | **Recording segment shorter than the detection window.** `recording_window_ms=(0, 60000)` sizes braindance's on-disk traces buffer at 1.8 M samples, but an ~11 s trigger segment only yields 330 k samples (`get_traces` clamps to real length). Fix: clamp the window to the segment duration in `runRTSort.py` (`min(60000, floor(dur_ms))`). |
+| 8 | `could not broadcast input array from shape (330000,) into shape (1800000,)` in `save_traces_si` | **Recording segment shorter than the detection window.** `recording_window_ms=(0, 60000)` sizes braindance's on-disk traces buffer at 1.8 M samples, but an ~11 s trigger segment only yields 330 k samples (`get_traces` clamps to real length). Fix: set the detection window to the segment duration in `runRTSort.py` (`floor(dur_ms)`; originally `min(60000, floor(dur_ms))` — the 60 s cap was dropped 2026-07-03 and is now an optional `window_s` CLI arg). |
 
 ### Why "in-process" was the umbrella problem
 MATLAB loads its own `bin\win64\{libexpat,hdf5,...}.dll` into its process at
@@ -81,8 +81,16 @@ extractRAW_rtSort.m
   `runRTSort.py` dumps the needed fields to a plain `rtsort_fields.mat` so
   `extract_rtsort.m` never has to embed torch.
 - **Single-trigger specificity without touching the binary:** `read_spikeglx`
-  reads the whole imec folder; `_select_trigger` selects only the requested
-  `_tN` segment **in memory**. The raw `.ap.bin` is never moved/linked/copied.
+  reads the whole imec folder as one multi-segment recording; `_select_trigger`
+  selects only the requested segment **in memory** (raw `.ap.bin` never
+  moved/linked/copied). spikeinterface addresses segments only by **position**,
+  not by trigger name, so `_select_trigger` reconstructs neo's own ordering rule
+  (`spikeglxrawio.scan_files`: numeric-sorted `(gate_num, trigger_num)` integer
+  keys) and selects `recording.select_segments([keys.index((gate, trigger))])`.
+  The `(g,t)` tuple never reaches `select_segments` — `keys.index(...)` converts
+  it to the positional index; congruent-by-construction (same recipe + same
+  files ⇒ same list), verified-by-count (see assertion below). Plain-language
+  walkthrough lives in the coat-check comment above `_select_trigger`.
 - **Phase 3A probe patch:** monkeypatch `probeinterface.read_spikeglx` to
   `setdefault` the missing `probe_type`/`imDatPrb_type` annotation to `0`
   (NP1.0-family ADC layout, correct for Phase 3A). No-op for modern probes.
@@ -151,9 +159,26 @@ Verified end-to-end (real data, Kilosort4 subprocess, JOLT subj 10194, t12):
   `runKilosort4.py` unpacked 8 → `ValueError` (exit 1) *after* sorting finished.
   Fixed by not unpacking the return tuple (subprocess ignores it anyway).
 
+Multi-trigger segment selection (hardened 2026-07-02 — was previously flagged
+as a latent "assumes ascending order" bug):
+- **Not a bug for the standard layout.** `_select_trigger` reproduces neo's own
+  segment-ordering rule rather than assuming one. Confirmed against neo 0.13.3
+  source (`spikeglxrawio.scan_files`): each segment's index is the position of
+  its integer `(gate_num, trigger_num)` key in the numerically sorted key set —
+  triggers are parsed as `int`, so ordering is numeric (`t10` after `t2`, not
+  lexicographic), and non-contiguous triggers (`t0, t2, t5`) map correctly
+  because both sides index into the sorted set of *present* keys.
+- **Two hardening changes vs. the original:**
+  1. Match on `(gate, trigger)`, not trigger alone → correct when >1 gate is
+     present (trigger `t1` can exist under both `g0` and `g1`).
+  2. Assert `len(keys) == num_segments` before selecting → an `lf`-only trigger,
+     a stray nested `.meta`, or extra gates in the walked tree now **raise**
+     instead of silently mis-picking a segment.
+- **Still pending:** an actual end-to-end run on a real multi-trigger recording.
+  The ordering logic is verified against source and guarded, but not yet
+  exercised on multi-segment data.
+
 Not yet exercised:
-- **Multi-trigger** recordings: `_select_trigger` assumes ascending-trigger →
-  segment order for a single gate. Verify the correct segment is picked.
 - `.mat` round-trip orientation edge cases (ragged `seq_spike_trains` cell,
   `root_elecs` column) on recordings with different unit/channel counts.
 
@@ -197,6 +222,69 @@ saving `rt_sort.pickle`).
   pathway; would need the same subprocess treatment if used.
 - The `"Unable to load Python object ... Saving ... not supported"` MATLAB
   warnings are cosmetic (a `py` handle landing in a struct later saved to .mat).
+
+---
+
+## Session 2026-07-03 — extraction robustness, plots, detection performance audit
+
+Follow-up hardening plus a performance investigation. **No braindance code remains
+modified** (a batching patch was applied and fully reverted — see below).
+
+### Code changes
+| File | Change |
+|------|--------|
+| `runRTSort.py` | (1) Detection window: dropped the hardcoded 60 s cap → full segment by default (`floor(dur_ms)`), now an optional 3rd CLI arg `window_s` (seconds). (2) `(gate,trigger)` trigger selection + `len(keys)==num_segments` assertion (see Verification section). (3) Startup device self-report; braindance forces `device="cuda"` with no CPU fallback, so it errors rather than silently running on CPU. |
+| `runKilosort4.py` | Resolve device explicitly and pass it to `run_kilosort` (was relying on KS4's silent `None→cuda`); print it. |
+| `extract_rtsort.m` | **Trace loader rewritten to a memory-map** (`openNPY_map` + `half2single`), replacing the whole-array `loadNPY`→`half2double`. Only per-spike N_WF windows are read → peak RAM ~hundreds of MB regardless of recording length (a full-array `single` load of a 1 h recording is ~166 GB, over the 128 GB box). Two new `try`-guarded validation plots: `rtsort_raster.png` (population rate + depth-ordered raster) and `rtsort_spatial.png` (probe map, depth-vs-rate/amp, rate/amp/depth distributions). |
+
+### `memmapfile` long-path gotcha (extract_rtsort.m)
+MATLAB `memmapfile` **cannot open >260-char paths and does not accept the `\\?\`
+prefix** (unlike `save`; and unlike `fopen`, which tolerates the long path — so
+`openNPY_map`'s header parse succeeds and only the lazy `mm.Data.x(...)` map fails
+with "The system cannot find the path specified"). Fix: `openNPY_map` converts
+`filepath` to its 8.3 short form (`for %~sI`) before mapping. Needs 8.3 generation
+enabled on the volume (it is on C:); if ever disabled, stage the `.npy` to a short
+path (e.g. `C:\npxlsTemp\`). Orientation verified numerically: `scaled_traces.npy`
+is C-order `(chans, samples)`, mapped column-major as `[nSamp, nChan]` so
+`x(sample, chan) == arr[chan, sample]`.
+
+### Detection performance audit (RT-Sort ~1 h for a 10-min recording)
+`extract_rtsort.m` is **not** the bottleneck (fast, GPU-idle MATLAB consumer). The
+time is in Python `detect_sequences`, and it is **CPU/disk bound, not GPU bound**
+(GPU sat ~13–38 %). Phases for a 10-min / 384-ch / 30 kHz recording (~12.77 GB
+float16 per intermediate):
+- `save_traces` → `scaled_traces.npy` (disk write).
+- **inference loop** (`run_detection_model`): ~7 min. I/O-bound — per-window mmap
+  reads + per-window writes into two 12.77 GB mmaps (`model_traces`,
+  `model_outputs`), ~38 GB traffic; GPU under-fed.
+- **`sort_offline` real-time replay (dominant):** replays `RTSort.running_sort`
+  over the whole recording in `buffer_size=100`-sample chunks (~180 k Python
+  iterations for 10 min), run **~twice** (once in `reassign_spikes_to_clusters` on
+  `model_outputs`, once at the end on `scaled_traces` for precise peak times).
+  Single-threaded, GPU idle → this is the hour.
+
+**GPU-batching patch (attempted, reverted).** Batched the inference loop
+(N windows/model call, re-traced conv for `B*num_chans` rows; `model_traces`
+bit-exact, `model_outputs` within fp16 cuDNN-algorithm noise). ~No speedup: the
+loop is I/O-bound and only ~12 % of runtime (Amdahl). Reverted fully.
+
+**Conclusion.** Cost is structural to RT-Sort's "offline = replay the real-time
+algorithm" design; `sort_offline` is inherently sequential (streaming state), so
+batching cannot help and there is no accidental O(n²)/redundant-reload loop to fix.
+Non-algorithmic levers only: a **shorter window** (`window_s`) or a **more
+stringent detection threshold** (fewer sequences → cheaper per-chunk replay).
+`buffer_size` (larger → fewer iterations) alters streaming granularity → not a
+free/safe change.
+
+### Recoverability (retention planning)
+From `rt_sort.pickle` alone you can regenerate everything in `rtsort_fields.mat`
+(spike trains, locs, root elecs, spatial `seqs_amps`, latencies, amp aggregates) —
+but **not** the empirical mean-waveform templates or per-spike amplitudes, which
+are cut from `scaled_traces.npy` (deleted post-extraction) → ultimately from the
+raw `.bin`. The durable, env-independent artifact to keep before offloading raw
+data is **`rtsort_results.mat`** (it bakes in the trace-derived products);
+`rtsort_fields.mat` is a cheap hedge against pickle/env rot. The pickle is neither
+sufficient (no waveforms) nor necessary (results.mat has more).
 
 ---
 
@@ -283,6 +371,36 @@ S_spk_units_quality   (sibling simple string column, not in the units DF group)
 (stored `single` — `uint8` raster compactness traded for the unified stack).
 **Event-aligned columns dropped** — alignment is on-demand via
 `nexOp_eventAlignDF` (canonical `_t` axis + stored scalar event indices).
+
+## Physical channel domain (full-probe scatter)
+
+`spk_spatial_profiles` / `spk_probe` were coming out `N×374` (not 384) because
+KS4 sorts only the channels it **keeps** — bad/unconnected channels are dropped,
+so `templates.npy` / `channel_positions.npy` span the kept subset and
+`N_CHANS = size(templates,3)` inherited it. The kept count varies per recording
+(probe health) and can differ between KS and RTSort, so a positional `1:N_CHANS`
+chans axis is **not comparable across sessions/sorters**.
+
+Fix (`loadKS4_spk`): load `channel_map.npy` (physical index of each kept channel)
+and **scatter** `unit_templates` / `spatial_profiles` / `channel_positions` onto
+the full physical probe (`N_CHANS_FULL`, default 384) — kept channels land in
+their physical slots, dropped channels stay `0` (data) / `NaN` (positions).
+`unit_root_elecs` now holds the **physical** channel index; `n_chans` is the full
+probe width. `loadRTSort_spk` detects on the whole probe, so it's already in the
+physical space — a guard warns if its width ever disagrees with the probe.
+`N_CHANS_PROBE = 384` is a per-loader constant (NP1.0 AP band); parameterize
+per-probe when a non-NP1.0 probe is introduced.
+
+## Design principle — physical domains, pool across sessions
+
+> **Always materialize DF axes in their physical domain, not a data-dependent
+> positional index.** Channels → full physical probe (fixed width, physical
+> indices); time → world-clock seconds; units → stable ids. Any sorter /
+> preprocessing step that drops or reorders elements must be scattered back to
+> the canonical domain *at load time*. This keeps DFs comparable and **poolable
+> across sessions and sorters** (the ideal case) instead of silently varying in
+> width or meaning. The same reasoning drives the seconds conversion and the
+> insert-anchored world-clock alignment above.
 
 ## Not yet verified / deferred
 

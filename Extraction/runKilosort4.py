@@ -1,10 +1,19 @@
 from kilosort import run_kilosort
 from pathlib import Path
 import os
+import torch
 def runKilosort4(data_dir, fileName, chanMap):
-    # Convert string paths to Path objects if they're not already        
-    data_dir_path = ('\\\\?\\'+data_dir)        
-    fileName = ('\\\\?\\'+fileName)    
+    # Convert string paths to Path objects if they're not already
+    data_dir_path = ('\\\\?\\'+data_dir)
+    fileName = ('\\\\?\\'+fileName)
+    # Resolve and report the compute device explicitly instead of relying on
+    # run_kilosort's silent None->cuda auto-select, so the run both forces GPU
+    # when available and logs which device it used (subprocess stdout is captured
+    # by extractRAW_NPXLS.m).
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+    print(f"[runKilosort4] device={device} ({dev_name}); torch {torch.__version__}",
+          flush=True)
     # Prepare settings based on the function inputs
     settings = {
         #'data_dir': data_dir_path,  # Assuming Kilosort uses this to find data
@@ -20,7 +29,8 @@ def runKilosort4(data_dir, fileName, chanMap):
     results = run_kilosort(
         settings=settings,
         probe_name=chanMap,  # Assuming this is the name/path of the channel map file
-        filename=fileName
+        filename=fileName,
+        device=device       # explicit GPU/CPU selection (see above)
         #results_dir=os.path.join(data_dir_path,'kilosort4')
     )
     # Return the results or handle them as needed
