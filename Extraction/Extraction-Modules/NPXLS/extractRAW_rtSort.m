@@ -11,7 +11,11 @@ function extractRAW_rtSort(streamID, inter_path, detection_model, args)
     % scaled_traces.npy into inter_path, which extract_rtsort reads below.
     pyVersion = "C:\Users\Primus\miniconda3\envs\nexus\python.EXE";
     rtScript  = fullfile(fileparts(mfilename('fullpath')), "runRTSort.py");
-    rtCmd     = sprintf('"%s" "%s" "%s" "%s"', pyVersion, rtScript, streamID, inter_path);
+    % Cap the detection window at 5 min (300 s) to bound extraction time on long
+    % recordings. runRTSort.py takes min(window_s, segment duration), so shorter
+    % triggers (e.g. 11 s, 30 s) still sort in full.
+    rtWindowS = 300;
+    rtCmd     = sprintf('"%s" "%s" "%s" "%s" %g', pyVersion, rtScript, streamID, inter_path, rtWindowS);
     [rtStatus, rtOut] = system(rtCmd);
     if rtStatus ~= 0
         error("extractRAW_rtSort:detectFailed", ...

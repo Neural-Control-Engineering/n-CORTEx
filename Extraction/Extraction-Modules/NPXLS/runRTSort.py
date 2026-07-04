@@ -192,6 +192,8 @@ if __name__ == "__main__":
     # Optional 3rd arg = detection window in seconds (caps the sort length);
     # omit for the full segment. extractRAW_rtSort.m passes only file_path +
     # inter_path, so the default stays full-length.
+    # extractRAW_rtSort.m passes a 300 s (5 min) cap as the 3rd arg to bound the
+    # sort length on long recordings; omit it to sort the full segment.
     win_s = float(sys.argv[3]) if len(sys.argv) > 3 else None
     runRTSort(sys.argv[1], sys.argv[2], window_s=win_s)
     print("RTSORT_DONE")
