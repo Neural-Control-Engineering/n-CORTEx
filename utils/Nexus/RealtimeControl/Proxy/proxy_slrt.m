@@ -70,7 +70,7 @@ classdef proxy_slrt < handle
             % get command list
             CMD_sel = find(CMD~=0);
             % cmdIDs = arrayfun(@(cmd) ctxCtrl_decodeCommand(cmdSel), CMD, "UniformOutput",false);
-            cmdIDs = arrayfun(@(cmd_sel) ctrlKey.getCmd(cmd_sel), CMD_sel, "UniformOutput",false)
+            cmdIDs = arrayfun(@(cmd_sel) ctrlKey.getCmd(cmd_sel), CMD_sel, "UniformOutput",false);
             pyds = (arrayfun(@(cmd_sel) axon_rx.PYD(cmd_sel,:),CMD_sel, "UniformOutput",false));
             szes = (arrayfun(@(cmd_sel) axon_rx.SZE(cmd_sel,:),CMD_sel,"UniformOutput",false));
             cellfun(@(cmdID, pyd, sze) proxObj.(cmdID)(pyd, sze), cmdIDs, pyds, szes, "UniformOutput", false);
@@ -120,12 +120,12 @@ classdef proxy_slrt < handle
         function startDataStream(proxObj)
         end
 
-        function startCapture(proxObj) % initiate capture protocol that stores a running datastream to associated DTS
-            % retrieve target data (whatever's left in the transmission)
-            targetCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");
-            targetID = targetKey.getTargetID(targetCode);
-            % initialize target capStream
+        function startCapture(proxObj, pyd, sze) % begin ad-hoc capture: fan out to target proxies (npxls marks the ring-buffer head)
+            relayToTargetProxies(proxObj, "startCapture", pyd, sze);
+        end
 
+        function stopCapture(proxObj, pyd, sze) % end ad-hoc capture: target proxies fetch the window, build DFs, store to the Nexus DTS
+            relayToTargetProxies(proxObj, "stopCapture", pyd, sze);
         end
 
         function endCapture(proxObj) % end capture protocol

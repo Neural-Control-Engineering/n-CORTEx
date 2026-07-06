@@ -34,6 +34,18 @@ classdef proxon < handle
             proxObj.proxon = proxon;
         end
 
+        function p = primaryProxy(proxon, proxyID)
+            % Fetch a type-1 (primary) proxy by its proxyID (e.g. "slrt", "nexus").
+            % Returns [] if not present. Lets a target proxy reach an orchestrator
+            % proxy — e.g. npxls handing a streamed feature to slrt for TX.
+            p = [];
+            fns = fieldnames(proxon.index_type1);
+            for i = 1:numel(fns)
+                cand = proxon.index_type1.(fns{i});
+                if strcmp(cand.proxyID, proxyID), p = cand; return; end
+            end
+        end
+
         function proxObjID = generateProxyID(proxon, proxObj)
             type = proxObj.type;
             indexTypeID = sprintf("index_type%d",type);

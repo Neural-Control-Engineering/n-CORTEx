@@ -233,7 +233,7 @@ modified** (a batching patch was applied and fully reverted — see below).
 ### Code changes
 | File | Change |
 |------|--------|
-| `runRTSort.py` | (1) Detection window: dropped the hardcoded 60 s cap → full segment by default (`floor(dur_ms)`), now an optional 3rd CLI arg `window_s` (seconds). (2) `(gate,trigger)` trigger selection + `len(keys)==num_segments` assertion (see Verification section). (3) Startup device self-report; braindance forces `device="cuda"` with no CPU fallback, so it errors rather than silently running on CPU. |
+| `runRTSort.py` | (1) Detection window: dropped the hardcoded 60 s cap → full segment by default (`floor(dur_ms)`), now an optional 3rd CLI arg `window_s` (seconds), which `extractRAW_rtSort.m` sets to 300 s (5 min) to cap extraction time on long recordings — `min(window_s, segment)` leaves shorter triggers full-length. (2) `(gate,trigger)` trigger selection + `len(keys)==num_segments` assertion (see Verification section). (3) Startup device self-report; braindance forces `device="cuda"` with no CPU fallback, so it errors rather than silently running on CPU. |
 | `runKilosort4.py` | Resolve device explicitly and pass it to `run_kilosort` (was relying on KS4's silent `None→cuda`); print it. |
 | `extract_rtsort.m` | **Trace loader rewritten to a memory-map** (`openNPY_map` + `half2single`), replacing the whole-array `loadNPY`→`half2double`. Only per-spike N_WF windows are read → peak RAM ~hundreds of MB regardless of recording length (a full-array `single` load of a 1 h recording is ~166 GB, over the 128 GB box). Two new `try`-guarded validation plots: `rtsort_raster.png` (population rate + depth-ordered raster) and `rtsort_spatial.png` (probe map, depth-vs-rate/amp, rate/amp/depth distributions). |
 

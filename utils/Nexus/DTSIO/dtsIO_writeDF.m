@@ -1,7 +1,11 @@
 function dtsIO_writeDF(nexon, DF, DFID, dtsIdx)
     % general purpose data-frame writing from nexus datastore
     DTS = nexon.console.BASE.DTS;
-    if ismember('h5_path', DTS.Properties.VariableNames)
+    % An uninitialized DTS is [] (not a table) — a fresh in-memory nexon before
+    % its first write. Only probe for the disk-backed h5_path column once DTS is
+    % actually a table; otherwise fall through to the in-memory new-row path
+    % (nex_searchRowAddress + appendToDTS both handle an empty base).
+    if istable(DTS) && ismember('h5_path', DTS.Properties.VariableNames)
         dtsIO_writeHDF5(nexon, DF, char(DFID), dtsIdx);
         return;
     end

@@ -1,4 +1,4 @@
-% function nexon = startNexus(params, DTS)    
+ function nexon = startNexus(params, DTS)    
     nexon = Nexon();
     % COLOR SETTINGS
     nexon.settings.Colors.cyberGreen   = [0.24, 0.94, 0.46];
