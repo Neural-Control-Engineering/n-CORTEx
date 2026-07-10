@@ -195,6 +195,15 @@ classdef proxy_ncortex < handle
         function closeAllRealtimeThreads(proxObj, rxArgs)
             relayToTargetProxies(proxObj, "closeAllRealtimeThreads", rxArgs, []);
         end
+
+        function heartbeat(proxObj, rxArgs)
+            % No-op liveness ping. The host sends this on a timer to keep the
+            % idle-sensitive host->target link warm (NAT conntrack at the
+            % routing gateway, campus ARP, Wi-Fi power save all age out on
+            % idle — see startNcortexHeartbeat). relayTransmission acks success
+            % automatically; nothing to do here but exist so the relay resolves
+            % a real method instead of falling into its failure/timeout path.
+        end
     end
 
 end

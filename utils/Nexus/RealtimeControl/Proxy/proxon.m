@@ -48,12 +48,12 @@ classdef proxon < handle
 
         function proxObjID = generateProxyID(proxon, proxObj)
             type = proxObj.type;
-            indexTypeID = sprintf("index_type%d",type);
-            proxyID = proxObj.proxyID;
+            indexTypeID = sprintf("index_type%d",type);            
             proxyFieldNames = convertCharsToStrings(fieldnames(proxon.(indexTypeID)));
             proxyNumber_class = size(proxyFieldNames,1)+1; 
             % proxyIDMatches = proxyFieldNames(ismember(proxyFieldNames,proxyClassCount));
-            proxObjID = sprintf("%s_%d",proxObj.proxyID,proxyNumber_class);
+            % proxObjID = sprintf("%s_%d",proxObj.proxyID,proxyNumber_class);
+            proxObjID = sprintf("%s",proxObj.proxyID);
         end
     
     end

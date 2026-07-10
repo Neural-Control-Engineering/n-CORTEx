@@ -23,6 +23,13 @@ Next: confirm the DTS rows + render LFP/SPK with existing Nexus panels.
   infinite drain loop when SpikeGLX isn't acquiring).
 - **Debuggability** (`rtSortLaunch`): visible `cmd /k` console + `rtSortAutoLaunch`
   flag to attach to a manually-run sidecar.
+- **Proxy socket teardown** (`closeProxies`): was `srv = proxObj.Server; clear("srv")`
+  — a no-op on a handle (clears the local ref, never runs the `tcpserver`
+  destructor), so the ncortex/slrt listen sockets (8002/8001) were never released
+  and reopening `cortex("target")` hit `WSAEADDRINUSE`. Now `delete(proxObj.Server)`,
+  guarded by `isa(proxObj.Server,"tcpserver")` so it skips `proxy_npxls.Server`
+  (a `SpikeGL` handle, not a tcpserver — a blanket `delete` misdispatches to the
+  filesystem `delete` → "Name must be a text scalar").
 
 ### Known open items
 - **Wire `proxon.nexon`** to a live Nexon before capture (`nCORTEx.proxon.nexon =
@@ -34,6 +41,21 @@ Next: confirm the DTS rows + render LFP/SPK with existing Nexus panels.
   (`ChkConn` recovers) — watch if it worsens.
 - INIT_DETECT still uses NumpyRecording + hand-built NP1.0 probe (worked on
   hardware; GEOM override still deferred).
+- **Orphaned listen socket on unclean MATLAB exit** → `WSAEADDRINUSE` at
+  `proxy_slrt`/`proxy_ncortex` construction that *survives a MATLAB restart* (only a
+  reboot clears it). Root cause: `system('start ... cmd /k ...')` in `rtSortLaunch`
+  spawns children with `bInheritHandles=TRUE`, so they inherit the open `tcpserver`
+  listen sockets (8001/8002); if MATLAB is then killed/crashes (no destructors), the
+  inherited copy keeps the port bound after MATLAB dies. Confirmed once via a dead
+  PID still owning `169.254.126.16:8001` in `Listen` two days on. The `closeProxies`
+  fix above covers *clean* exits; the inheritance path is not yet fixed.
+  - Non-reboot clear: bounce the bound NIC — `Disable-NetAdapter -Name "Ethernet"`
+    then `Enable-NetAdapter` (admin); the socket is bound to that specific local IP,
+    so dropping the address tears down the orphaned TCB. Verify the link-local IP
+    returns as `MAC_slrt` after re-enable.
+  - Deferred root fix: launch the sidecar without handle inheritance (e.g. .NET
+    `Process.Start` w/ `UseShellExecute=true` instead of MATLAB `system`), and/or
+    track+kill spawned sidecar PIDs on close.
 
 ---
 

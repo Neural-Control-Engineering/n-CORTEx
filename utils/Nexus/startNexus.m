@@ -58,14 +58,21 @@
     % router Panel   
     
     % ACTIVATE PYENV
+    if ispc
+        homeDir           = getenv("USERPROFILE");
+        pyVersion         = fullfile(homeDir, "miniconda3", "envs", "nexus", "python.exe");
+        site_packages_path = fullfile(homeDir, "miniconda3", "envs", "nexus", "Lib", "site-packages");
+    else
+        homeDir           = getenv("HOME");
+        pyVersion         = fullfile(homeDir, "miniconda3", "envs", "nexus", "bin", "python");
+        site_packages_path = fullfile(homeDir, "miniconda3", "envs", "nexus", "lib", "python3.10", "site-packages");
+    end
     try
-        pyVersion = "/home/user/miniconda3/envs/nexus/bin/python";
-        pyenv(Version=pyVersion,ExecutionMode="OutOfProcess");    
+        pyenv(Version=pyVersion,ExecutionMode="OutOfProcess");
     catch e
         disp(getReport(e));
     end
 
-    site_packages_path="~/miniconda3/envs/nexus/lib/python3.10/site-packages";
     if count(py.sys.path, site_packages_path) == 0
         insert(py.sys.path, int32(0), site_packages_path);
     end

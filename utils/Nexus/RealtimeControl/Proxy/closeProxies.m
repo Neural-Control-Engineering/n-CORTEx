@@ -6,14 +6,10 @@ function closeProxies(proxon)
     for i = 1:length(prxObjFields)
         proxObjName = prxObjFields{i};
         proxObj = proxObjs.(proxObjName);
-        if isprop(proxObj,"Server")
+        if isprop(proxObj,"Server") && isa(proxObj.Server,"tcpserver")
             try
-                srv = proxObj.Server;
-                % fclose(srv);
-                % delete("srv")
-                clear("srv")
-                % delete(srv);
-                % clear("srv")
+                delete(proxObj.Server);   % releases the OS socket/port
+                proxObj.Server = [];
                 fprintf("closing %s\n", proxObjName);
             catch e
                 disp(getReport(e));
