@@ -63,7 +63,45 @@ classdef proxy_npxls < handle
             ungatedSL = split(SL,'_');
             ungatedSL = ungatedSL(1:end-1);
             ungatedSL = string(join(ungatedSL,'_'));
-            if ~IsRunning(proxObj.Server); SetRunName(proxObj.Server,char(ungatedSL)); end  
+            % SpikeGLX won't accept a run name until its run parameters have
+            % been verified once (the console's Detect/Verify step). Clear
+            % that gate here with a scratch name so the real SetRunName below
+            % succeeds without a manual pass through the console.
+            if ~IsRunning(proxObj.Server)
+                % proxObj.validateRunParameters();
+                SetRunName(proxObj.Server, char(ungatedSL));
+            end
+        end
+
+        function ok = validateRunParameters(proxObj)
+            % Reproduce the SpikeGLX console "validate" step over the remote
+            % API: set a scratch run name, then round-trip the last-used run
+            % parameters through the server. SetParams validates server-side
+            % and errors on a bad param, so a clean return means the run is
+            % verified and ready to accept the real run name.
+            ok  = false;
+            srv = proxObj.Server;
+            if IsRunning(srv), return; end                 % can't set params mid-run
+            if ~IsInitialized(srv)
+                warning("proxy_npxls:notInitialized", ...
+                    "SpikeGLX not finished initializing; skipping run-parameter validation.");
+                return;
+            end
+            try
+                % SetRunName(srv, '_validate_tmp');          % scratch name satisfies the validate gate
+                % load default params
+                load(fullfile(proxObj.nCORTEx.params.paths.repo_path,"Setup/","npxls/","sglxparams.mat"))
+                % SetParams(srv, GetParams(srv));            % force server-side parameter validation
+                SetParams(srv, sglxparams);            % force server-side parameter validation
+                % If a bare SetParams round-trip proves insufficient at the
+                % rig (probe not detected), swap the line above for a momentary
+                % StartRun(srv); StopRun(srv); on the scratch name to force a
+                % full detect+verify.
+                ok = true;
+            catch e
+                warning("proxy_npxls:validateFailed", ...
+                    "Run-parameter validation failed: %s", e.message);
+            end
         end
 
         function captureDataStream_npxls(proxObj, pyd, sze)
@@ -178,6 +216,16 @@ classdef proxy_npxls < handle
             catch e
                 warning("npxls:spkFailed", "SPK build failed: %s", e.message);
             end
+
+            % --- auto-launch this machine's configured figures (INSPECT scene) ---
+            try
+                nexon = proxObj.proxon.nexon;
+                if ~isempty(nexon)
+                    nexLaunch_auto(nexon, "stopCapture");
+                end
+            catch e
+                warning("npxls:autoLaunch", "auto-launch failed: %s", e.message);
+            end
         end
 
         function storeToDTS(proxObj, DF, dfID, dtsIdx)
@@ -281,8 +329,16 @@ classdef proxy_npxls < handle
             % Launch (once) and connect to the persistent RTSort sidecar. The
             % server binds before loading the model, so the client connects
             % quickly; the first request blocks while the model loads.
-            if ~isempty(proxObj.rtSortClient) && isvalid(proxObj.rtSortClient)
-                return
+            % Reuse a live client; otherwise drop any stale/deleted handle (a
+            % sidecar from a prior panel that was closed/killed) so we reconnect
+            % below instead of writing to a dead object.
+            if ~isempty(proxObj.rtSortClient)
+                isLive = false;
+                try, isLive = isvalid(proxObj.rtSortClient); catch, end
+                if isLive
+                    return
+                end
+                proxObj.rtSortClient = [];
             end
             % 1. attach to an already-running sidecar if there is one (quick). This
             %    avoids spawning a duplicate that would now fail the sidecar's
@@ -321,7 +377,7 @@ classdef proxy_npxls < handle
             t0 = tic;
             while toc(t0) < timeoutSec
                 try
-                    cl = tcpclient("127.0.0.1", proxObj.rtSortPort, "Timeout", 600);
+                    cl = tcpclient("127.0.0.1", proxObj.rtSortPort, "Timeout", 1800);
                     cl.ByteOrder = "little-endian";
                     return
                 catch

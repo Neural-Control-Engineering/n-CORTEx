@@ -40,20 +40,32 @@ classdef npxls_shank < handle
             % start user with one timeCourse
             % % dataFrame = grabDataFrame(nexon,"lfp",[]);
             % % df_t = grabDataFrame(nexon,"t_lfp",[]);
-            %% rename lfp columns into convention
-            try
-                nexObj.nexon.console.BASE.DTS.Properties.VariableNames{'lfp'}='lfp_df';
-                nexObj.nexon.console.BASE.DTS.Properties.VariableNames{'t_lfp'}='lfp_t';
-            catch e
-                disp(getReport(e))
+            %% rename legacy lfp columns into convention. Offline DTS stored bare
+            %% 'lfp'/'t_lfp'; the realtime capture already writes lfp_df/lfp_t, so
+            %% guard the rename (the old unconditional form threw on the capture DTS).
+            DTS = nexObj.nexon.console.BASE.DTS;
+            if ismember('lfp', DTS.Properties.VariableNames)
+                DTS = renamevars(DTS, 'lfp', 'lfp_df');
             end
+            if ismember('t_lfp', DTS.Properties.VariableNames)
+                DTS = renamevars(DTS, 't_lfp', 'lfp_t');
+            end
+            nexObj.nexon.console.BASE.DTS = DTS;
             % 
             % if isempty(dataFrame)
             %     dataFrame = grabDataFrame(nexon,"lfp_df",[]);
             % end
             % nexObj.DF = lfp2DF(dataFrame, df_t);            
             % nexObj.DF = dtsIO_readDF(nexObj.nexon, "lfp_df",[]);
-            nexObj.DF = dtsIO_readHDF5(nexObj.nexon, 'lfp',[]);
+            % dtsIO_composeDF handles both in-memory (realtime capture: flat
+            % lfp_df/lfp_t/lfp_chans columns) and disk-backed (offline: h5_path)
+            % DTS. dtsIO_readHDF5 assumed disk-backed and threw "Unrecognized table
+            % variable name 'h5_path'" on the in-memory capture DTS.
+            capDTS = nexObj.nexon.console.BASE.DTS;
+            ridx   = [];
+            try, ridx = find(nex_getRouterIdx(nexObj.nexon), 1); catch, end
+            if isempty(ridx), ridx = height(capDTS); end   % fallback: most-recent row
+            nexObj.DF = dtsIO_composeDF(capDTS, 'lfp', ridx);
             nexObj.DF_postOp = nexObj.DF;            
             % nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, dataFrame, "lfp");
             nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, nexObj.DF, "lfp");

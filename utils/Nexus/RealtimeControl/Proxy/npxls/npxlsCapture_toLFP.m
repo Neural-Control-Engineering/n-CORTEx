@@ -48,7 +48,7 @@ function DF = npxlsCapture_toLFP(lfMat, fsStream, fsTarget)
         fsOut = fsStream;
     end
 
-    DF.df    = lf.';                          % nChan x nT
-    DF.t     = (0:nT-1) / fsOut;              % seconds from window start
-    DF.chans = 1:size(DF.df,1);               % physical channel index
+    DF.df    = lf.';                            % nChan x nT
+    DF.t     = (0:nT-1) / fsOut;                % seconds from window start
+    DF.chans = 1:size(lf.',1);                 % physical channel index
 end

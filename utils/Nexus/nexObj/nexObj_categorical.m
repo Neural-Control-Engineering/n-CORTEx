@@ -239,7 +239,7 @@ classdef nexObj_categorical < nexObject
             try
                 nexObj.DF_postOp = nexObj.cfg.compCfg.fcn(DF, compArgs);
             catch e
-                disp(getReport(e));
+                % disp(getReport(e));
                 nexObj.DF_postOp = nexObj.DF;
             end
             operate(nexObj);

@@ -35,6 +35,8 @@ function writeDataframe(nexon, dfID, df, dtsIdx)
     %     error('No matching row found in the DTS for the specified parameters.');
     % end
     
-    % Write the new data entry to the specified column in the matching row
+    % Write the new data entry to the specified column in the matching row.
+    % Formatters emit raw DF fields (matrix/vector), so a single brace-assign into
+    % the cell column is exactly one wrap — matching dtsIO_compileDTS's new-row path.
     base.DTS.(dfID){dtsIdx} = df;  % Assign the data to the correct cell
 end

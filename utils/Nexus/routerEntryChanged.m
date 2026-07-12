@@ -129,6 +129,13 @@ function routerEntryChanged(nexon,entryPanel,entryfield)
             disp(getReport(e))
         end
     end
+    % LAUNCHED FIGURES UPDATE (nexLaunch registry — augments the scoped walks above)
+    try
+        nexRefresh_launchedFigures(nexon);
+    catch e
+        disp(getReport(e));
+    end
+
     % BASE UPDATE
     nexon.console.BASE.UserData.prevRouter.entryParams=nexon.console.BASE.router.entryParams; % keep track of most recent entryParams
     % grabDataFrame(nexon,"lfp");

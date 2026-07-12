@@ -1,0 +1,4 @@
+[
+  { "dfID": "lfp",                 "figType": "polyGraph", "trigger": "stopCapture" },
+  { "dfID": "RTS_spk_activity",    "figType": "polyGraph", "trigger": "stopCapture" }
+]

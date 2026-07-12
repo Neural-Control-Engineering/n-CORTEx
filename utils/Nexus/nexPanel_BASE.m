@@ -38,9 +38,9 @@ classdef nexPanel_BASE < handle
 
         function updateControlPanel(obj)
             % update nexus control panel to reflect current DTS
-            if isempty(controlPanel)
+            % if isempty(controlPanel)
                 % initiate if doesnt exist
-            end
+            % end
             % update controlPanel selections
             
         end

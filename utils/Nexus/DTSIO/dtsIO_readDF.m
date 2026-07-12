@@ -12,7 +12,15 @@ function DF = dtsIO_readDF(nexon, DFID, dtsIdx, ptr)
     if nargin < 4, ptr = []; end
 
     dtsCols = nexon.console.BASE.DTS.Properties.VariableNames;
-    if ~ismember(DFID, dtsCols)
+    % Only route to the HDF5 reader when the DTS is actually disk-backed — a base
+    % manifest (h5_path) or a per-dfID override (h5_path_<DFID>). A pure in-memory
+    % DTS (no manifest) has its DFs foliated into <DFID>_<stub> columns; those are
+    % reassembled by dtsIO_composeDF below via dtsIO_resolveDFID (the shared
+    % resolver), so never send them to readHDF5 (which fails on the absent
+    % h5_path column).
+    diskBacked = ismember('h5_path', dtsCols) || ...
+                 ismember(char("h5_path_" + string(DFID)), dtsCols);
+    if ~ismember(DFID, dtsCols) && diskBacked
         if isempty(dtsIdx)
             % Empty index uses nexon for router-based row selection; override
             % cannot be injected here without restructuring readHDF5.

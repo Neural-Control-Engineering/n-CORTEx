@@ -6,7 +6,7 @@ function closeProxies(proxon)
     for i = 1:length(prxObjFields)
         proxObjName = prxObjFields{i};
         proxObj = proxObjs.(proxObjName);
-        if isprop(proxObj,"Server") && isa(proxObj.Server,"tcpserver")
+        if isprop(proxObj,"Server") && isa(proxObj.Server,"tcpserver.internal.TCPServer")
             try
                 delete(proxObj.Server);   % releases the OS socket/port
                 proxObj.Server = [];

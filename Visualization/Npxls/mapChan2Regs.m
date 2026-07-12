@@ -4,7 +4,15 @@ function regMap = mapChan2Regs(probe_areas)
     try
         meta = ReadMeta(metaFile,metaFldr);
     catch
-        meta = ReadMeta(strcat("\\?\",metaFile),metaFldr);
+        % When the true path exceeds Windows MAX_PATH (260), the file dialog returns
+        % 8.3 short names (e.g. DATE--~2.MET). ReadMeta then rebuilds "name + .meta",
+        % but 8.3 truncates the extension to 3 chars, so the rebuilt name doesn't
+        % exist. The short path itself IS openable, so copy the exact selected file
+        % (whatever its 8.3 name) to a clean temp path and read it there.
+        tmpDir = tempname; mkdir(tmpDir);
+        clean  = onCleanup(@() rmdir(tmpDir, 's'));         %#ok<NASGU>
+        copyfile(fullfile(char(metaFldr), char(metaFile)), fullfile(tmpDir, 'staged.meta'));
+        meta = ReadMeta('staged.meta', tmpDir);
     end
     geomap = meta.snsGeomMap;
     geom = split(geomap,')');

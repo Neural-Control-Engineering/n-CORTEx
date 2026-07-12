@@ -53,6 +53,19 @@ classdef proxy_slrt < handle
             proxObj.slTarget = slTarget;
         end
 
+        % DESTRUCTOR — release the TCP server/client so the bound port is
+        % freed on teardown. Without this the Server<->proxy callback cycle
+        % keeps a stale tcpserver alive after the app closes, and the next
+        % cortex("target") fails to re-bind (WSAEADDRINUSE on the same port).
+        function delete(proxObj)
+            if ~isempty(proxObj.Server)
+                try, delete(proxObj.Server); catch, end
+            end
+            if ~isempty(proxObj.Client)
+                try, delete(proxObj.Client); catch, end
+            end
+        end
+
         function relayTransmission(proxObj)            
             %% read command code (simple for now)
             % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");       

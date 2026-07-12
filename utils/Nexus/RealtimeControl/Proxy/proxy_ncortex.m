@@ -12,19 +12,109 @@ classdef proxy_ncortex < handle
         cmdLUT
         Targets; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)
         DTS
+        % --- server lifecycle (recreate-on-drop / clean-teardown-on-disconnect) ---
+        serverIP            % stored so a dropped listener can be rebuilt on the same bind
+        serverPort
+        appConnFcn          % app-level connection-changed callback (invoked with nCORTEx)
+        userDisconnect = false % host set this via 'disconnect' cmd → tear down, do NOT recreate
+        resetTimer          % one-shot timer; rebuilds/tears down the server outside its own callback
     end
     
     methods
         
         % CONSTRUCTOR
         function proxObj = proxy_ncortex(nCORTEx, serverIP, serverPort, clientIP, clientPort, tgProxies, DTS, connectionChangedFcn)
-            proxObj.Server = tcpserver(serverIP, serverPort,"ConnectionChangedFcn",@(src,event)connectionChangedFcn(nCORTEx));
-            configureCallback(proxObj.Server,"terminator",@(~,~)proxObj.relayTransmission());
-            configureTerminator(proxObj.Server, "CR/LF");
-            proxObj.Targets = tgProxies;
-            proxObj.DTS = DTS;
+            proxObj.nCORTEx    = nCORTEx;
+            proxObj.serverIP   = serverIP;
+            proxObj.serverPort = serverPort;
+            proxObj.appConnFcn = connectionChangedFcn;
+            proxObj.Targets    = tgProxies;
+            proxObj.DTS        = DTS;
             % proxObj.ctxKey = ctxKey;
-            proxObj.nCORTEx = nCORTEx;
+            proxObj.buildServer();
+        end
+
+        % DESTRUCTOR — release the TCP server/client so the bound port is
+        % freed on teardown. Without this the Server<->proxy callback cycle
+        % keeps a stale tcpserver alive after the app closes, and the next
+        % cortex("target") fails to re-bind (WSAEADDRINUSE on the same port).
+        function delete(proxObj)
+            proxObj.cancelResetTimer();
+            if ~isempty(proxObj.Server)
+                try, delete(proxObj.Server); catch, end
+            end
+            if ~isempty(proxObj.Client)
+                try, delete(proxObj.Client); catch, end
+            end
+        end
+
+        % (Re)create the tcpserver on the stored bind and wire its callbacks.
+        % Safe to call after delete(Server) to recover a dropped link without
+        % relaunching the app.
+        function buildServer(proxObj)
+            if ~isempty(proxObj.Server)   % idempotent: drop a prior bind before re-binding
+                try, delete(proxObj.Server); catch, end
+            end
+            proxObj.Server = tcpserver(proxObj.serverIP, proxObj.serverPort, ...
+                "ConnectionChangedFcn", @(src,event)proxObj.onServerConnChanged(src,event));
+            configureCallback(proxObj.Server, "terminator", @(~,~)proxObj.relayTransmission());
+            configureTerminator(proxObj.Server, "CR/LF");
+        end
+
+        % Server connection changed. Preserve the app-level UI callback, then
+        % decide recovery: a fresh client connection needs nothing; a drop is
+        % either an intentional host disconnect (userDisconnect → clean
+        % teardown already armed) or an unexpected loss (→ rebuild a fresh
+        % listener). Rebuild/teardown is deferred so we never delete the
+        % tcpserver from inside its own callback.
+        function onServerConnChanged(proxObj, src, ~)
+            try, proxObj.appConnFcn(proxObj.nCORTEx); catch e, disp(getReport(e)); end
+            if src.Connected, return; end          % a client just connected — nothing to recover
+            if proxObj.userDisconnect
+                proxObj.userDisconnect = false;    % consume the intent; teardown is already armed
+                return;
+            end
+            proxObj.armOneShot(@()proxObj.resetServer());   % unexpected drop → recreate listener
+        end
+
+        % Host-initiated clean disconnect (relayed as a 'disconnect' command):
+        % tear the listener down and do NOT recreate it. Deferred so we don't
+        % delete the server from inside the relay/callback context.
+        function disconnect(proxObj, ~)
+            proxObj.userDisconnect = true;
+            proxObj.armOneShot(@()proxObj.teardownServer());
+        end
+
+        function resetServer(proxObj)
+            if ~isempty(proxObj.Server)
+                try, delete(proxObj.Server); catch, end
+            end
+            proxObj.buildServer();
+        end
+
+        function teardownServer(proxObj)
+            if ~isempty(proxObj.Server)
+                try, delete(proxObj.Server); catch, end
+            end
+            proxObj.Server = [];
+        end
+
+        % Arm a single-shot timer that runs fcn shortly after the current
+        % callback returns (so server delete/rebuild happens off the callback
+        % stack). Replaces any previously armed timer.
+        function armOneShot(proxObj, fcn)
+            proxObj.cancelResetTimer();
+            proxObj.resetTimer = timer("StartDelay",0.2,"ExecutionMode","singleShot", ...
+                "TimerFcn",@(~,~)fcn());
+            start(proxObj.resetTimer);
+        end
+
+        function cancelResetTimer(proxObj)
+            if ~isempty(proxObj.resetTimer) && isvalid(proxObj.resetTimer)
+                try, stop(proxObj.resetTimer);   catch, end
+                try, delete(proxObj.resetTimer); catch, end
+            end
+            proxObj.resetTimer = [];
         end
 
         function configureSubject(proxObj)

@@ -21,6 +21,7 @@ function nexFigure_controlPanel_npxls(nexObj)
     end
 
     nexObj.Figure.fh = uifigure("Name","npxls control","Position",[100,500,900,620],"Color",BLACK);
+    nexObj.Figure.fh.CloseRequestFcn = @(fh,~)onClose(fh);
     nexObj.Figure.panel1.ph = uipanel(nexObj.Figure.fh,"Position",[5,5,700,580],"BackgroundColor",BLACK);
     ctrl = uipanel(nexObj.Figure.fh,"Position",[710,5,185,580],"BackgroundColor",BLACK);
     nexObj.Figure.panel2.ph = ctrl;
@@ -55,6 +56,7 @@ function nexFigure_controlPanel_npxls(nexObj)
         try
             px.detectSequences(durField.Value);
         catch e
+            disp(getReport(e, "extended", "hyperlinks", "on"));
             uialert(nexObj.Figure.fh, e.message, "Build failed");
         end
         sortStatus.Text = sorterText(px);
@@ -65,6 +67,7 @@ function nexFigure_controlPanel_npxls(nexObj)
         try
             px.loadSorter([]);
         catch e
+            disp(getReport(e, "extended", "hyperlinks", "on"));
             uialert(nexObj.Figure.fh, e.message, "Load failed");
         end
         sortStatus.Text = sorterText(px);
@@ -74,6 +77,7 @@ function nexFigure_controlPanel_npxls(nexObj)
         try
             px.startCapture(uint8(trialField.Value), []);   % same entry as the slrt relay
         catch e
+            disp(getReport(e, "extended", "hyperlinks", "on"));
             uialert(nexObj.Figure.fh, e.message, "Capture failed");
         end
     end
@@ -82,8 +86,22 @@ function nexFigure_controlPanel_npxls(nexObj)
         try
             px.stopCapture([], []);
         catch e
+            disp(getReport(e, "extended", "hyperlinks", "on"));
             uialert(nexObj.Figure.fh, e.message, "Stop failed");
         end
+    end
+
+    function onClose(fh)
+        % The proxy outlives this panel (it lives on the proxon), so its sidecar
+        % client + sorter cache would leak into the next panel. Tear them down so
+        % a new panel opens fresh: QUIT the sidecar, drop rtSortClient, and clear
+        % the sorter cache so Build rebuilds against a new warm sidecar.
+        if ~isempty(px)
+            try, px.rtSortClose(); catch, end   % sends QUIT, sets rtSortClient = []
+            px.sorterReady = false;
+            px.spkStatic   = [];
+        end
+        delete(fh);
     end
 end
 

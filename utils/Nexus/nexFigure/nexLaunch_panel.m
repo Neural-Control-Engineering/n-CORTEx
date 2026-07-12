@@ -35,9 +35,7 @@ function nexLaunch_panel(parent, nexon, dfIDFilter)
         dfID = string(srcDD.Value);
         if dfID == "" || dfID == "(no sources)", return; end
         try
-            ctg = nexLaunch_getCategorical(nexon, dfID);
-            reg = nexLaunch_registry();
-            reg.(typeDD.Value)(ctg);
+            nexLaunch(nexon, dfID, typeDD.Value);
             status.Text = sprintf("%s <- %s", typeDD.Value, dfID);
         catch e
             status.Text = e.message;
@@ -54,7 +52,7 @@ function items = listSources(nexon, filt)
 % the optional prefix filter.
     items = "(no sources)";
     try
-        ids = dtsIO_readDFIDs(nexon.console.BASE.DTS);
+        ids = dtsIO_listDFIDs(nexon.console.BASE.DTS);
     catch
         return;
     end
