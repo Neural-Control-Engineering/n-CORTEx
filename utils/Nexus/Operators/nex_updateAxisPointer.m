@@ -23,14 +23,16 @@ function nex_updateAxisPointer(ptr, DF)
         ax    = char(axFields(i));
         axLen = length(DF.ax.(ax));
 
-        % Recompute dim — same logic as nex_initAxisPointer_v2
-        dim = find(axLen == size(df));
-        if numel(dim) > 1
-            for j = 1:numel(dim)
-                if ~ismember(dim(j), dimsTaken)
-                    dim = dim(j);
-                    break;
-                end
+        % Recompute dim — claim the first array dimension of matching length not
+        % already taken by an earlier axis. A co-indexed metadata axis (e.g. a
+        % per-unit 'chans' label sharing the unit length) finds no free dim and
+        % resolves to [] — same as nexInit_axisPointer, so both builders agree.
+        dims = find(axLen == size(df));
+        dim  = [];
+        for j = 1:numel(dims)
+            if ~ismember(dims(j), dimsTaken)
+                dim = dims(j);
+                break;
             end
         end
         dimsTaken = [dimsTaken, dim];

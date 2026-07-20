@@ -12,16 +12,27 @@ function [traces, sems, xAxis] = nexVis_extractD1D2(DF, xKey, stackKey, ~)
     hasStack = ~isempty(stackKey) && ~isequal(string(stackKey), "");
 
     xDim   = DF.ptr.(char(xKey)).dim;
+    if isempty(xDim)
+        % x-axis is a co-indexed metadata axis (no array dimension of its own,
+        % e.g. per-unit 'chans') — nothing to sweep along. Return empty.
+        traces = {}; sems = {}; xAxis = [];
+        return;
+    end
     xIdx   = nexVis_ptrIdx(DF.ptr.(char(xKey)), numel(DF.ax.(char(xKey))), true);
     xAxis  = DF.ax.(char(xKey))(xIdx);
     nT     = numel(xIdx);
 
+    stackDim = -1;
     if hasStack
         stackDim = DF.ptr.(char(stackKey)).dim;
-        stackIdx = nexVis_ptrIdx(DF.ptr.(char(stackKey)), numel(DF.ax.(char(stackKey))), true);
-        nStack   = numel(stackIdx);
-    else
-        stackDim = -1;
+        if isempty(stackDim)
+            % Metadata axis can't define stacked traces — collapse to no-stack.
+            hasStack = false;
+            stackDim = -1;
+        else
+            stackIdx = nexVis_ptrIdx(DF.ptr.(char(stackKey)), numel(DF.ax.(char(stackKey))), true);
+            nStack   = numel(stackIdx);
+        end
     end
 
     idx          = repmat({':'}, 1, nDims);
@@ -33,7 +44,7 @@ function [traces, sems, xAxis] = nexVis_extractD1D2(DF, xKey, stackKey, ~)
     for fi = 1:numel(ptrFields)
         f = ptrFields{fi};
         p = DF.ptr.(f);
-        if ~isfield(p, 'dim') || p.dim > nDims, continue; end
+        if ~isfield(p, 'dim') || isempty(p.dim) || p.dim > nDims, continue; end   % skip co-indexed metadata axes (dim=[])
         d = p.dim;
         if d == xDim || d == stackDim, continue; end
         rIdx = nexVis_ptrIdx(p, numel(DF.ax.(f)), false);

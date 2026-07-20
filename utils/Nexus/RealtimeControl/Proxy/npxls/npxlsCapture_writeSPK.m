@@ -15,9 +15,13 @@ function npxlsCapture_writeSPK(proxObj, dts, dtsIdx)
 
     p = "RTS_spk_";
 
-    % activity  (unit x t x measure)
+    % activity  (unit x t x measure) + per-unit 'chans' label (root channel each
+    % unit sits on). 'chans' is length n_units (co-indexed with unit, no array
+    % dimension of its own) so polyGraph can color unit-traces by channel through
+    % the same chans registry the LFP/probe DFs use (CLR key "ax--chans").
     proxObj.storeToDTS( ...
-        struct('df', dts.activity, 'unit', dts.ax_unit, 't', dts.ax_t, 'measure', dts.ax_measure), ...
+        struct('df', dts.activity, 'unit', dts.ax_unit, 't', dts.ax_t, ...
+               'measure', dts.ax_measure, 'chans', dts.ax_unitChans), ...
         p + "activity", dtsIdx);
 
     % spatial  (unit x chan)

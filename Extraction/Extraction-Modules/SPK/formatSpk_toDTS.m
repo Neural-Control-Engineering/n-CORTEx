@@ -22,6 +22,10 @@ function row = formatSpk_toDTS(spk, t_start_s, t_stop_s, bin_s, sigma_s)
 %   .ax_wf        (1 x n_wf double)     — sample within waveform window
 %   .ax_measure   (1 x 3 string)        — ["raster","rate","amp"]
 %   .ax_factor    (1 x 3 string)        — ["root_elec","loc_x","loc_y"] (units cols)
+%   .ax_unitChans (1 x n_units double)  — root channel per unit; the activity DF's
+%                                         'chans' label (co-indexed with unit, so it
+%                                         colors units by channel via the same chans
+%                                         registry the LFP/probe DFs use)
 %   .unit_quality (n_units x 1 cellstr) — per-unit quality label
 
     if nargin < 4 || isempty(bin_s),   bin_s   = 0.005; end
@@ -100,6 +104,7 @@ function row = formatSpk_toDTS(spk, t_start_s, t_stop_s, bin_s, sigma_s)
     row.ax_wf      = 1:N_WF;                      % sample within waveform window
     row.ax_measure = ["raster","rate","amp"];    % string measure axis
     row.ax_factor  = ["root_elec","loc_x","loc_y"];  % string factor axis (units DF cols)
+    row.ax_unitChans = double(spk.unit_root_elecs(:))';  % activity 'chans' axis: root channel per unit (co-indexed with unit)
 
     row.unit_quality = spk.unit_quality;         % N_UNITS × 1 cellstr
 end

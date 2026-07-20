@@ -12,12 +12,17 @@ classdef proxy_ncortex < handle
         cmdLUT
         Targets; % handles to proxies associated with peripheral  target devices (spikeGl, prairielink, etc.)
         DTS
-        % --- server lifecycle (recreate-on-drop / clean-teardown-on-disconnect) ---
-        serverIP            % stored so a dropped listener can be rebuilt on the same bind
+        % --- persistent command listener (adopt-on-relaunch) ---
+        %   MATLAB's tcpserver cannot force-close a stale accepted connection,
+        %   and delete() does not reliably free the bound port while a
+        %   CLOSE_WAIT'd peer socket still occupies IP:port. So we bind this
+        %   port exactly ONCE per MATLAB process and re-adopt the same listener
+        %   on every relaunch, rather than delete+rebind (which fails with
+        %   WSAEADDRINUSE). The listener keeps LISTENing across client
+        %   disconnects, so a dropped host just reconnects.
+        serverIP            % stored so the listener can be re-adopted on the same bind
         serverPort
         appConnFcn          % app-level connection-changed callback (invoked with nCORTEx)
-        userDisconnect = false % host set this via 'disconnect' cmd → tear down, do NOT recreate
-        resetTimer          % one-shot timer; rebuilds/tears down the server outside its own callback
     end
     
     methods
@@ -34,87 +39,58 @@ classdef proxy_ncortex < handle
             proxObj.buildServer();
         end
 
-        % DESTRUCTOR — release the TCP server/client so the bound port is
-        % freed on teardown. Without this the Server<->proxy callback cycle
-        % keeps a stale tcpserver alive after the app closes, and the next
-        % cortex("target") fails to re-bind (WSAEADDRINUSE on the same port).
+        % DESTRUCTOR — release the outbound client only. The command LISTENER
+        % is deliberately LEFT ALIVE (and left registered on groot) so the next
+        % cortex("target") re-adopts it instead of rebinding. Deleting it here
+        % would neither free the port (MATLAB won't release it while a dropped
+        % peer socket lingers in CLOSE_WAIT) nor permit a clean re-bind next
+        % launch — reuse is the only reliable path.
         function delete(proxObj)
-            proxObj.cancelResetTimer();
-            if ~isempty(proxObj.Server)
-                try, delete(proxObj.Server); catch, end
-            end
             if ~isempty(proxObj.Client)
                 try, delete(proxObj.Client); catch, end
             end
         end
 
-        % (Re)create the tcpserver on the stored bind and wire its callbacks.
-        % Safe to call after delete(Server) to recover a dropped link without
-        % relaunching the app.
+        % ── Persistent command listener: adopt-or-bind ──────────────────────
+        % Bind serverPort exactly once per MATLAB process; on every subsequent
+        % relaunch re-adopt the live listener stashed on groot (groot appdata
+        % survives app close and `clear all`) and just rewire its callbacks to
+        % this proxy. We never delete+rebind: a tcpserver whose peer dropped
+        % leaves an accepted socket in CLOSE_WAIT that MATLAB cannot force-close,
+        % and that socket keeps IP:port occupied — so a fresh bind on the same
+        % port fails with WSAEADDRINUSE no matter how long we back off. Reusing
+        % the listener sidesteps the rebind entirely; the host simply reconnects.
         function buildServer(proxObj)
-            if ~isempty(proxObj.Server)   % idempotent: drop a prior bind before re-binding
-                try, delete(proxObj.Server); catch, end
+            key = proxObj.serverRegistryKey();
+            existing = getappdata(groot, key);
+            if ~isempty(existing) && isvalid(existing)
+                proxObj.Server = existing;                 % re-adopt the live listener
+            else
+                proxObj.Server = tcpserver(proxObj.serverIP, proxObj.serverPort, ...
+                    "ConnectionChangedFcn", @(src,event)proxObj.onServerConnChanged(src,event));
+                setappdata(groot, key, proxObj.Server);    % durable handle for the next relaunch
             end
-            proxObj.Server = tcpserver(proxObj.serverIP, proxObj.serverPort, ...
-                "ConnectionChangedFcn", @(src,event)proxObj.onServerConnChanged(src,event));
+            % (Re)wire callbacks to THIS proxy — any prior owner is being torn down.
+            proxObj.Server.ConnectionChangedFcn = @(src,event)proxObj.onServerConnChanged(src,event);
             configureCallback(proxObj.Server, "terminator", @(~,~)proxObj.relayTransmission());
             configureTerminator(proxObj.Server, "CR/LF");
         end
 
-        % Server connection changed. Preserve the app-level UI callback, then
-        % decide recovery: a fresh client connection needs nothing; a drop is
-        % either an intentional host disconnect (userDisconnect → clean
-        % teardown already armed) or an unexpected loss (→ rebuild a fresh
-        % listener). Rebuild/teardown is deferred so we never delete the
-        % tcpserver from inside its own callback.
-        function onServerConnChanged(proxObj, src, ~)
+        % Process-durable registry key for this proxy's bound port. The listener
+        % is stashed on groot under this key so a relaunch can find and re-adopt
+        % it instead of rebinding (see buildServer).
+        function key = serverRegistryKey(proxObj)
+            key = sprintf("ncortexTcpServer_ncortex_%d", proxObj.serverPort);
+        end
+
+        % Server connection changed. Fire the app-level UI callback; no socket
+        % recovery is needed either way — the persistent listener keeps
+        % LISTENing across client disconnects and accepts the host's next
+        % connection on its own. We deliberately do NOT delete/rebind on a drop
+        % (see buildServer: rebinding this port is impossible while the dropped
+        % peer socket lingers in CLOSE_WAIT).
+        function onServerConnChanged(proxObj, ~, ~)
             try, proxObj.appConnFcn(proxObj.nCORTEx); catch e, disp(getReport(e)); end
-            if src.Connected, return; end          % a client just connected — nothing to recover
-            if proxObj.userDisconnect
-                proxObj.userDisconnect = false;    % consume the intent; teardown is already armed
-                return;
-            end
-            proxObj.armOneShot(@()proxObj.resetServer());   % unexpected drop → recreate listener
-        end
-
-        % Host-initiated clean disconnect (relayed as a 'disconnect' command):
-        % tear the listener down and do NOT recreate it. Deferred so we don't
-        % delete the server from inside the relay/callback context.
-        function disconnect(proxObj, ~)
-            proxObj.userDisconnect = true;
-            proxObj.armOneShot(@()proxObj.teardownServer());
-        end
-
-        function resetServer(proxObj)
-            if ~isempty(proxObj.Server)
-                try, delete(proxObj.Server); catch, end
-            end
-            proxObj.buildServer();
-        end
-
-        function teardownServer(proxObj)
-            if ~isempty(proxObj.Server)
-                try, delete(proxObj.Server); catch, end
-            end
-            proxObj.Server = [];
-        end
-
-        % Arm a single-shot timer that runs fcn shortly after the current
-        % callback returns (so server delete/rebuild happens off the callback
-        % stack). Replaces any previously armed timer.
-        function armOneShot(proxObj, fcn)
-            proxObj.cancelResetTimer();
-            proxObj.resetTimer = timer("StartDelay",0.2,"ExecutionMode","singleShot", ...
-                "TimerFcn",@(~,~)fcn());
-            start(proxObj.resetTimer);
-        end
-
-        function cancelResetTimer(proxObj)
-            if ~isempty(proxObj.resetTimer) && isvalid(proxObj.resetTimer)
-                try, stop(proxObj.resetTimer);   catch, end
-                try, delete(proxObj.resetTimer); catch, end
-            end
-            proxObj.resetTimer = [];
         end
 
         function configureSubject(proxObj)
@@ -282,8 +258,14 @@ classdef proxy_ncortex < handle
             % end
         end
 
-        function closeAllRealtimeThreads(proxObj, rxArgs)
-            relayToTargetProxies(proxObj, "closeAllRealtimeThreads", rxArgs, []);
+        % Fan the shutdown to every target proxy. Reached two ways with
+        % different arity: closeProxies calls it as (pyd,sze) = ([],[]), while
+        % the host command relay (relayTransmission) calls it as (rxArgs) — so
+        % accept both. Targets' closeAllRealtimeThreads(pyd,sze) ignore the args.
+        function closeAllRealtimeThreads(proxObj, pyd, sze)
+            if nargin < 2, pyd = []; end
+            if nargin < 3, sze = []; end
+            relayToTargetProxies(proxObj, "closeAllRealtimeThreads", pyd, sze);
         end
 
         function heartbeat(proxObj, rxArgs)

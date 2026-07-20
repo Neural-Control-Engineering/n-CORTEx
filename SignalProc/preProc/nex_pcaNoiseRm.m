@@ -23,10 +23,24 @@ function DF_out = nex_pcaNoiseRm(DF_in, args)
     noise = score(:, 1:n_components) * coeff(:, 1:n_components)'; 
     df_out = df_in - noise'; 
     df_out_trim = df_out(:,5:end); % remove sharp edge
+
+    % Mirror the input DF schema. Real-time capture feeds a FLAT DF (DF.t) built
+    % by npxlsCapture_toLFP (flat is required so the DTS foliates as lfp_t/lfp_chans,
+    % not ax_t/ax_chans); the offline path feeds a NESTED DF (DF.ax.t) read back
+    % via dtsIO_composeDF. Read t from wherever it lives and emit the same shape.
+    nested = isfield(DF_in, 'ax') && isfield(DF_in.ax, 't');
+    if nested, t_full = DF_in.ax.t; else, t_full = DF_in.t; end
+    t_trim = t_full(5:end); % align ax
+    chans  = 1:size(df_in,1);
+
     DF_out.df = df_out_trim;
-    t_trim = DF_in.ax.t; t_trim = t_trim(5:end); % align ax
-    DF_out.ax.t = t_trim;
-    DF_out.ax.chans = [1:size(df_in,1)];
+    if nested
+        DF_out.ax.t = t_trim;
+        DF_out.ax.chans = chans;
+    else
+        DF_out.t = t_trim;
+        DF_out.chans = chans;
+    end
 
     % Plot explained variance (eigenvalues)
     % figure;

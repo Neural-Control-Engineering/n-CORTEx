@@ -36,6 +36,7 @@ classdef proxy_npxls < handle
         spkSigma_s = 0.025  % SPK rate-smoothing sigma (s)
         spkStatic           % cached static spk_struct (templates/spatial/locs/... — built once)
         sorterReady = false % true once a sorter is built (detectSequences) or loaded (loadSorter)
+        sorterDir           % on-disk dir of the active sorter (rt_sort.pickle + rtsort_results.mat)
         detectDurSec = 60   % training window duration (s) accumulated for detectSequences
     end
     
@@ -132,10 +133,41 @@ classdef proxy_npxls < handle
         end
 
         % --- ad-hoc capture: SLRT relays startCapture/stopCapture (ctrlKey 3/4) ---
+        function n = nextTrialNum(proxObj)
+            % Host-owned trial counter: next index for the active session =
+            % max existing trialNumber for this sessionLabel + 1 (1 if none).
+            % Derived from the DTS (not a proxy counter) so it survives proxy
+            % reconstruction and stays aligned with offline-written trial rows.
+            n = 1;
+            try
+                nexon = proxObj.proxon.nexon;
+                SL    = string(proxObj.nCORTEx.params.sessionLabel);
+                DTS   = nexon.console.BASE.DTS;
+                if istable(DTS) ...
+                        && ismember('sessionLabel', DTS.Properties.VariableNames) ...
+                        && ismember('trialNumber',  DTS.Properties.VariableNames)
+                    m = DTS.trialNumber(string(DTS.sessionLabel) == SL);
+                    m = m(~isnan(m));
+                    if ~isempty(m), n = double(max(m)) + 1; end
+                end
+            catch e
+                disp(getReport(e));
+            end
+        end
+
         function startCapture(proxObj, pyd, sze)
             % Mark the imec ring-buffer head (minus pre-buffer) as the capture
-            % window start and arm the drain safety timer. pyd(1) = trial number.
-            if nargin < 2 || isempty(pyd), trialNum = 1; else, trialNum = double(pyd(1)); end
+            % window start and arm the drain safety timer. pyd(1) = trial number
+            % from the speedgoat — honored when it carries a valid (>0) index;
+            % otherwise the host auto-assigns the next trial for the active
+            % session so back-to-back captures advance the DTS row instead of
+            % overwriting trial 0.
+            if nargin < 2, pyd = []; end
+            trialNum = 0;
+            if ~isempty(pyd), trialNum = double(pyd(1)); end
+            if ~(isscalar(trialNum) && isfinite(trialNum) && trialNum > 0)
+                trialNum = proxObj.nextTrialNum();
+            end
             ip = proxObj.probeIndex;
             Fs   = GetStreamSampleRate(proxObj.Server, 2, ip);
             head = GetStreamSampleCount(proxObj.Server, 2, ip);
@@ -208,6 +240,8 @@ classdef proxy_npxls < handle
 
             % --- LFP DF ---
             DF_lfp = npxlsCapture_toLFP(lfMat, proxObj.capFs, proxObj.lfTargetFs);
+            noiseRmArgs = extractMethodCfg('nex_pcaNoiseRm');
+            DF_lfp = nex_pcaNoiseRm(DF_lfp, noiseRmArgs);
             proxObj.storeToDTS(DF_lfp, "lfp", dtsIdx);
 
             % --- SPK DFs (RTSort sidecar → formatSpk_toDTS schema) ---
@@ -217,14 +251,17 @@ classdef proxy_npxls < handle
                 warning("npxls:spkFailed", "SPK build failed: %s", e.message);
             end
 
-            % --- auto-launch this machine's configured figures (INSPECT scene) ---
+            % --- route the scene to the just-written trial, then launch figures ---
+            % Re-route first so any figure launched this call reads the new trial
+            % at construction; nex_routeToTrial also refreshes already-open ones.
             try
                 nexon = proxObj.proxon.nexon;
                 if ~isempty(nexon)
+                    nex_routeToTrial(nexon, SL, proxObj.capTrialNum);
                     nexLaunch_auto(nexon, "stopCapture");
                 end
             catch e
-                warning("npxls:autoLaunch", "auto-launch failed: %s", e.message);
+                warning("npxls:autoLaunch", "auto-launch/route failed: %s", e.message);
             end
         end
 
@@ -245,6 +282,30 @@ classdef proxy_npxls < handle
             end
         end
 
+        function closeAllRealtimeThreads(proxObj, pyd, sze)
+            % Host relays this on shutdown (proxy_ncortex.closeAllRealtimeThreads
+            % → relayToTargetProxies fans it to every target proxy). Tear down
+            % everything this proxy runs off the main thread so nothing keeps
+            % firing on a torn-down Server / leaked socket:
+            %   - writeBuffer timer (fixedRate readData → FetchLatest); this is
+            %     the timer that otherwise errors "socket address in use" once
+            %     the Server is gone.
+            %   - capTimer (capture drain) + capture state, if a capture is live.
+            %   - rtSort sidecar client socket.
+            if ~isempty(proxObj.writeBuffer) && isvalid(proxObj.writeBuffer)
+                try, stop(proxObj.writeBuffer);   catch, end
+                try, delete(proxObj.writeBuffer); catch, end
+            end
+            proxObj.writeBuffer = [];
+            if ~isempty(proxObj.capTimer) && isvalid(proxObj.capTimer)
+                try, stop(proxObj.capTimer);   catch, end
+                try, delete(proxObj.capTimer); catch, end
+            end
+            proxObj.capTimer     = [];
+            proxObj.EN_capStream = false;
+            proxObj.rtSortClose();
+        end
+
         % ================= RTSort sidecar (Phase 2) =================
         % Build the sorter ONCE (detectSequences or loadSorter), then run_sort
         % each captured trial IN MEMORY over the socket — no per-trial disk, no
@@ -261,28 +322,78 @@ classdef proxy_npxls < handle
             sessDir = proxObj.rtSortInitDetect(apTrain);      % builds + warms the sorter
             extract_rtsort(char(sessDir));                    % → rtsort_results.mat (native, no py)
             proxObj.spkStatic  = loadRTSort_spk(fullfile(char(sessDir), "rtsort_results.mat"));
+            proxObj.sorterDir  = string(sessDir);
             proxObj.sorterReady = true;
             fprintf("RTSort sorter built: %d units\n", numel(proxObj.spkStatic.unit_ids));
         end
 
-        function loadSorter(proxObj, sorterDir)
-            % Load a pre-built sorter directory: rt_sort.pickle (warms the sidecar
-            % for running_sort) + rtsort_results.mat (static DF fields for MATLAB).
-            if nargin < 2 || isempty(sorterDir)
-                [f, p] = uigetfile("*.pickle", "Select rt_sort.pickle");
+        function loadSorter(proxObj, picklePath)
+            % Load a pre-built sorter: <picklePath> (the rt_sort.pickle) warms the
+            % sidecar for running_sort; the rtsort_results.mat sitting alongside it
+            % supplies the static per-unit DF fields for MATLAB (matched pair — see
+            % saveSorter, which archives the pair in a dated subfolder). With no arg,
+            % prompt for the pickle; results is always the sibling fixed name, so
+            % pointing at any save subfolder's rt_sort.pickle pulls its own results.
+            if nargin < 2 || isempty(picklePath)
+                [f, p] = uigetfile("*.pickle", "Select rt_sort pickle");
                 if isequal(f, 0), return; end
-                sorterDir = p;
+                picklePath = fullfile(p, f);
             end
-            proxObj.rtSortInitLoad(fullfile(char(sorterDir), "rt_sort.pickle"));
-            resultsPath = fullfile(char(sorterDir), "rtsort_results.mat");
+            picklePath = char(picklePath);
+            sorterDir = fileparts(picklePath);
+            proxObj.rtSortInitLoad(picklePath);
+            resultsPath = char(fullfile(sorterDir, "rtsort_results.mat"));
             if isfile(resultsPath)
                 proxObj.spkStatic = loadRTSort_spk(resultsPath);
             else
                 warning("npxls:noResults", ...
-                    "rtsort_results.mat not found in %s — templates/amps unavailable in SPK DFs", sorterDir);
+                    "%s not found — templates/amps unavailable in SPK DFs", resultsPath);
                 proxObj.spkStatic = [];
             end
+            proxObj.sorterDir  = string(sorterDir);
             proxObj.sorterReady = true;
+        end
+
+        function saveDir = saveSorter(proxObj, baseDir)
+            % Persist the active sorter into a DATE-STAMPED SUBFOLDER of the
+            % experiment's npxls module folder, tied to the subject:
+            %   <experimentModules>/<experiment>/npxls/<subject>/<Y_M_D>/
+            %       rt_sort.pickle  +  rtsort_results.mat   (plain, matched pair)
+            % The pickle+results are a matched pair from one detection (cluster ids
+            % index the results' unit metadata), so they're archived TOGETHER per
+            % save — never sharing one results across differently-detected pickles.
+            % loadSorter points at the subfolder's pickle and reads its sibling
+            % rtsort_results.mat. Base is derived from nCORTEx.params (experiment
+            % module path + experiment) and the subj tag parsed from sessionLabel.
+            if ~isequal(proxObj.sorterReady, true) || isempty(proxObj.sorterDir)
+                error("npxls:noSorter", "no active sorter to save — build or load one first");
+            end
+            if nargin < 2 || isempty(baseDir)
+                params  = proxObj.nCORTEx.params;
+                subject = parseSessionLabel(string(params.sessionLabel), "subj");
+                if strlength(subject) == 0
+                    error("npxls:noSubject", "no subj tag in sessionLabel '%s'", params.sessionLabel);
+                end
+                baseDir = fullfile(params.paths.experimentModules, params.experiment, "npxls", subject);
+            end
+            t = datetime("now");
+            stamp = sprintf("%d_%d_%d", year(t), month(t), day(t));
+            saveDir = fullfile(baseDir, stamp);
+            if ~isfolder(saveDir), mkdir(saveDir); end
+            srcDir = char(proxObj.sorterDir);
+            % Source filenames are plain for a freshly-built sorter, or plain inside
+            % a prior dated subfolder — match by prefix and take the first.
+            pk = dir(fullfile(srcDir, "rt_sort*.pickle"));
+            if isempty(pk)
+                error("npxls:noPickle", "no rt_sort*.pickle in %s", srcDir);
+            end
+            copyfile(fullfile(srcDir, pk(1).name), fullfile(char(saveDir), "rt_sort.pickle"));
+            rs = dir(fullfile(srcDir, "rtsort_results*.mat"));
+            if ~isempty(rs)
+                copyfile(fullfile(srcDir, rs(1).name), fullfile(char(saveDir), "rtsort_results.mat"));
+            end
+            proxObj.sorterDir = string(saveDir);   % subfolder holds the plain pair
+            fprintf("RTSort sorter saved to %s\n", saveDir);
         end
 
         function apTrain = accumulateAP(proxObj, durSec)

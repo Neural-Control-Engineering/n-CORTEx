@@ -14,7 +14,8 @@ function SPK = extSPK(SLRT, npxls_path, trigNum, bin_s, sigma_s, doViz)
 %
 % Output table — one row per trial. Per sorter S in {KS, RTS}, five DFs named
 % <S>_<base>_<stub> (stub = df/unit/t/chans/wf/measure/factor, always the final token):
-%   S_spk_activity_df   (unit × t × measure)  + _unit, _t, _measure
+%   S_spk_activity_df   (unit × t × measure)  + _unit, _t, _measure, _chans
+%                        (_chans = per-unit root channel, co-indexed with unit)
 %   S_spk_spatial_df    (unit × chan)         + _unit, _chans
 %   S_spk_templates_df  (wf × unit)           + _wf, _unit
 %   S_spk_probe_df      (t × chan)            + _t, _chans
@@ -131,7 +132,7 @@ function row = addSorterCols(row, spk, t_start_s, t_stop_s, bin_s, sigma_s, sort
     p = [char(sorterTag), '_'];   % column prefix, e.g. 'KS_'
 
     cols = { ...
-        'spk_activity_df','spk_activity_unit','spk_activity_t','spk_activity_measure', ...
+        'spk_activity_df','spk_activity_unit','spk_activity_t','spk_activity_measure','spk_activity_chans', ...
         'spk_spatial_df','spk_spatial_unit','spk_spatial_chans', ...
         'spk_templates_df','spk_templates_wf','spk_templates_unit', ...
         'spk_probe_df','spk_probe_t','spk_probe_chans', ...
@@ -146,11 +147,13 @@ function row = addSorterCols(row, spk, t_start_s, t_stop_s, bin_s, sigma_s, sort
 
     dts = formatSpk_toDTS(spk, t_start_s, t_stop_s, bin_s, sigma_s);
 
-    % activity DF  (unit × t × measure)
+    % activity DF  (unit × t × measure) + per-unit 'chans' label (root channel
+    % each unit sits on; co-indexed with unit for color-by-channel)
     row.([p 'spk_activity_df'])      = {dts.activity};
     row.([p 'spk_activity_unit'])    = {dts.ax_unit};
     row.([p 'spk_activity_t'])       = {dts.ax_t};
     row.([p 'spk_activity_measure']) = {dts.ax_measure};
+    row.([p 'spk_activity_chans'])   = {dts.ax_unitChans};
     % spatial DF  (unit × chan)
     row.([p 'spk_spatial_df'])       = {dts.spatial};
     row.([p 'spk_spatial_unit'])     = {dts.ax_unit};

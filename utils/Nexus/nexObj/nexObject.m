@@ -1073,7 +1073,25 @@ classdef nexObject < handle
                     if ~isfield(DF.ax, axField), continue; end
                     nAx  = numel(DF.ax.(axField));
                     sIdx = 1:nAx;
-                    if ~isempty(ptrBus) && isfield(ptrBus.selections, axField)
+                    % Co-indexed metadata axes (dim=[], e.g. per-unit 'chans')
+                    % are NOT independently selectable — their values line up
+                    % 1:1 with the traces. Subsetting them by their own Pointer
+                    % selection (defaults to a single index) would collapse every
+                    % trace to one colour and trip the unique() guard below, so
+                    % only subset axes that own an array dimension. DF may be a
+                    % nexObj_DF handle or a struct; DF.ptr likewise — guard both.
+                    isMeta = false;
+                    ptrObj = [];
+                    try, ptrObj = DF.ptr; catch, end
+                    if ~isempty(ptrObj)
+                        hasK = (isstruct(ptrObj) && isfield(ptrObj, axField)) ...
+                            || (~isstruct(ptrObj) && isprop(ptrObj, axField));
+                        if hasK
+                            pd = ptrObj.(axField);
+                            isMeta = isstruct(pd) && isfield(pd, 'dim') && isempty(pd.dim);
+                        end
+                    end
+                    if ~isMeta && ~isempty(ptrBus) && isfield(ptrBus.selections, axField)
                         s = ptrBus.selections.(axField);
                         s = sort(s(s >= 1 & s <= nAx));
                         if ~isempty(s), sIdx = s; end

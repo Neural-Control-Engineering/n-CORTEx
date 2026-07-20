@@ -39,7 +39,7 @@ function [df_out, ptr_out] = nexOp_collapseResidualDims(df_in, ptr_in, preserveA
         f = ptrFields{fi};
         if ismember(string(f), preserveAxes), continue; end
         p = ptr_out.(f);
-        if ~isfield(p, 'dim') || p.dim > nDims, continue; end
+        if ~isfield(p, 'dim') || isempty(p.dim) || p.dim > nDims, continue; end   % skip co-indexed metadata axes (dim=[])
         d = p.dim;
         if ~isfield(ptrBus.selections, f), continue; end
         dimSize = size(df_in, d);

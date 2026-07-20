@@ -12,13 +12,12 @@ function nexFigure_controlPanel_npxls(nexObj)
     nexon = nexObj.nexon;
     C = nexon.settings.Colors; GREEN = C.cyberGreen; BLACK = [0 0 0];
 
-    px = [];
-    try
-        if isfield(nexObj.proxon.index_type2, 'npxls')
-            px = nexObj.proxon.index_type2.npxls;
-        end
-    catch
-    end
+    % Resolve the device proxy LIVE from the proxon on every action (getPx),
+    % never cache it. configureTargetProxies rebuilds proxy_npxls and overwrites
+    % proxon.index_type2.npxls on every (re)configure/reconnect, so a handle
+    % cached at construction goes stale — Load would flip sorterReady on the
+    % orphaned proxy while the speedgoat-driven capture reads the live one.
+    px = getPx();
 
     nexObj.Figure.fh = uifigure("Name","npxls control","Position",[100,500,900,620],"Color",BLACK);
     nexObj.Figure.fh.CloseRequestFcn = @(fh,~)onClose(fh);
@@ -31,7 +30,8 @@ function nexFigure_controlPanel_npxls(nexObj)
     uilabel(pSort,"Text","train (s)","Position",[5,95,70,22],"FontColor",GREEN);
     durField = uieditfield(pSort,"numeric","Position",[78,95,87,22],"Value",getDefault(px,'detectDurSec',60));
     buildBtn = uibutton(pSort,"Text","Build Sorter","Position",[5,65,160,26],"BackgroundColor",GREEN,"FontColor",BLACK,"ButtonPushedFcn",@(~,~)onBuild());
-    loadBtn  = uibutton(pSort,"Text","Load Sorter...","Position",[5,37,160,24],"BackgroundColor",BLACK,"FontColor",GREEN,"ButtonPushedFcn",@(~,~)onLoad());
+    loadBtn  = uibutton(pSort,"Text","Load...","Position",[5,37,78,24],"BackgroundColor",BLACK,"FontColor",GREEN,"ButtonPushedFcn",@(~,~)onLoad());
+    saveBtn  = uibutton(pSort,"Text","Save...","Position",[87,37,78,24],"BackgroundColor",BLACK,"FontColor",GREEN,"ButtonPushedFcn",@(~,~)onSave());
     sortStatus = uilabel(pSort,"Text",sorterText(px),"Position",[5,8,165,22],"FontColor",GREEN);
 
     %% ---- CAPTURE ----
@@ -46,12 +46,25 @@ function nexFigure_controlPanel_npxls(nexObj)
     nexLaunch_panel(pInspect, nexon, ["lfp","RTS_spk"]);
 
     if isempty(px)
-        [buildBtn.Enable, loadBtn.Enable, startBtn.Enable, stopBtn.Enable] = deal("off");
+        [buildBtn.Enable, loadBtn.Enable, saveBtn.Enable, startBtn.Enable, stopBtn.Enable] = deal("off");
         sortStatus.Text = "no npxls proxy";
     end
 
     %% ---- callbacks ----
+    function p = getPx()
+        % Live lookup of the active npxls proxy — see the note at construction.
+        p = [];
+        try
+            if isfield(nexObj.proxon.index_type2, 'npxls')
+                p = nexObj.proxon.index_type2.npxls;
+            end
+        catch
+        end
+    end
+
     function onBuild()
+        px = getPx();
+        if isempty(px), uialert(nexObj.Figure.fh, "no npxls proxy", "Build failed"); return; end
         buildBtn.Enable = "off"; drawnow;
         try
             px.detectSequences(durField.Value);
@@ -64,6 +77,8 @@ function nexFigure_controlPanel_npxls(nexObj)
     end
 
     function onLoad()
+        px = getPx();
+        if isempty(px), uialert(nexObj.Figure.fh, "no npxls proxy", "Load failed"); return; end
         try
             px.loadSorter([]);
         catch e
@@ -73,7 +88,21 @@ function nexFigure_controlPanel_npxls(nexObj)
         sortStatus.Text = sorterText(px);
     end
 
+    function onSave()
+        px = getPx();
+        if isempty(px), uialert(nexObj.Figure.fh, "no npxls proxy", "Save failed"); return; end
+        try
+            dest = px.saveSorter([]);
+            uialert(nexObj.Figure.fh, "Saved to " + dest, "Sorter saved", "Icon", "success");
+        catch e
+            disp(getReport(e, "extended", "hyperlinks", "on"));
+            uialert(nexObj.Figure.fh, e.message, "Save failed");
+        end
+    end
+
     function onStart()
+        px = getPx();
+        if isempty(px), uialert(nexObj.Figure.fh, "no npxls proxy", "Capture failed"); return; end
         try
             px.startCapture(uint8(trialField.Value), []);   % same entry as the slrt relay
         catch e
@@ -83,6 +112,8 @@ function nexFigure_controlPanel_npxls(nexObj)
     end
 
     function onStop()
+        px = getPx();
+        if isempty(px), uialert(nexObj.Figure.fh, "no npxls proxy", "Stop failed"); return; end
         try
             px.stopCapture([], []);
         catch e
@@ -96,6 +127,7 @@ function nexFigure_controlPanel_npxls(nexObj)
         % client + sorter cache would leak into the next panel. Tear them down so
         % a new panel opens fresh: QUIT the sidecar, drop rtSortClient, and clear
         % the sorter cache so Build rebuilds against a new warm sidecar.
+        px = getPx();
         if ~isempty(px)
             try, px.rtSortClose(); catch, end   % sends QUIT, sets rtSortClient = []
             px.sorterReady = false;

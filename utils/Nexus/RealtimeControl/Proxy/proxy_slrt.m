@@ -30,51 +30,110 @@ classdef proxy_slrt < handle
         DTS
         axon
         Q % data queue for parallel interfacing (With other proxies)
+        % --- persistent command listener (adopt-on-relaunch) ---
+        %   MATLAB's tcpserver cannot force-close a stale accepted connection,
+        %   and delete() does not reliably free the bound port while a
+        %   CLOSE_WAIT'd peer socket still occupies IP:port. So we bind this
+        %   port exactly ONCE per MATLAB process and re-adopt the same listener
+        %   on every relaunch, rather than delete+rebind (which fails with
+        %   WSAEADDRINUSE and no backoff can win). The listener keeps LISTENing
+        %   across client disconnects, so a dropped speedgoat just reconnects.
+        serverIP            % stored so the listener can be re-adopted on the same bind
+        serverPort
+        appConnFcn          % optional app-level connection-changed callback
     end
     
     methods
         % CONSTRUCTOR
-        function proxObj = proxy_slrt(serverIP, serverPort, clientIP, clientPort, slTarget, tgProxies, connectionChangedFcn)            
-            proxObj.Server = tcpserver(serverIP, serverPort,"ConnectionChangedFcn",@(src,event)connectionChangedFcn(src, event));
+        function proxObj = proxy_slrt(serverIP, serverPort, clientIP, clientPort, slTarget, tgProxies, connectionChangedFcn)
+            if nargin < 7, connectionChangedFcn = []; end
+            % Store the bind so a dropped speedgoat link can be rebuilt in place.
+            proxObj.serverIP   = serverIP;
+            proxObj.serverPort = serverPort;
+            proxObj.appConnFcn = connectionChangedFcn;
+            proxObj.Targets    = tgProxies;
+            proxObj.slTarget   = slTarget;
+            % instantiate axon (cmd)
+            [~, ax_struct] = axon_build("command");
+            proxObj.axon = ax_struct;
+            % optional outbound client
             if ~isempty(clientIP)
-                proxObj.Client = tcpclient(clientIP, clientPort, "ConnectionChangedFcn", @(src, event)connectionChangedFcn(src, event));                
+                proxObj.Client = tcpclient(clientIP, clientPort);
             else
                 proxObj.Client = [];
             end
-            % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(params,server,modalityServer.modSrv));    
-            % configureCallback(proxObj.Server,"byte",1,@(src, evnt)proxObj.relayTransmission(proxObj));    
-            % numBytes_cmd = numel(enumeration('ctrlKey'));
-            configureCallback(proxObj.Server,"byte",proxObj.numBytes_cmd,@(~,~)proxObj.relayTransmission());
-            % instantiate axon (cmd)
-            [ax, ax_struct] = axon_build("command");
-            proxObj.axon = ax_struct;
-            proxObj.Targets = tgProxies;            
-            % proxObj.ctrlKey = ctrlKey();
-            proxObj.slTarget = slTarget;
+            % adopt (or, first launch, bind) the persistent command listener
+            proxObj.buildServer();
         end
 
-        % DESTRUCTOR — release the TCP server/client so the bound port is
-        % freed on teardown. Without this the Server<->proxy callback cycle
-        % keeps a stale tcpserver alive after the app closes, and the next
-        % cortex("target") fails to re-bind (WSAEADDRINUSE on the same port).
+        % DESTRUCTOR — release the outbound client only. The command LISTENER
+        % is deliberately LEFT ALIVE (and left registered on groot) so the next
+        % cortex("target") re-adopts it instead of rebinding. Deleting it here
+        % would neither free the port (MATLAB won't release it while a dropped
+        % peer socket lingers in CLOSE_WAIT) nor permit a clean re-bind next
+        % launch — reuse is the only reliable path.
         function delete(proxObj)
-            if ~isempty(proxObj.Server)
-                try, delete(proxObj.Server); catch, end
-            end
             if ~isempty(proxObj.Client)
                 try, delete(proxObj.Client); catch, end
             end
         end
 
-        function relayTransmission(proxObj)            
+        % ── Persistent command listener: adopt-or-bind ──────────────────────
+        % Bind serverPort exactly once per MATLAB process; on every subsequent
+        % relaunch re-adopt the live listener stashed on groot (groot appdata
+        % survives app close and `clear all`) and just rewire its callbacks to
+        % this proxy. We never delete+rebind: a tcpserver whose peer dropped
+        % leaves an accepted socket in CLOSE_WAIT that MATLAB cannot force-close,
+        % and that socket keeps IP:port occupied — so a fresh bind on the same
+        % port fails with WSAEADDRINUSE no matter how long we back off. Reusing
+        % the listener sidesteps the rebind entirely; the speedgoat simply
+        % reconnects to the same socket.
+        function buildServer(proxObj)
+            key = proxObj.serverRegistryKey();
+            existing = getappdata(groot, key);
+            if ~isempty(existing) && isvalid(existing)
+                proxObj.Server = existing;                 % re-adopt the live listener
+            else
+                proxObj.Server = tcpserver(proxObj.serverIP, proxObj.serverPort, ...
+                    "ConnectionChangedFcn", @(src,~)proxObj.onServerConnChanged(src));
+                setappdata(groot, key, proxObj.Server);    % durable handle for the next relaunch
+            end
+            % (Re)wire callbacks to THIS proxy — any prior owner is being torn down.
+            proxObj.Server.ConnectionChangedFcn = @(src,~)proxObj.onServerConnChanged(src);
+            configureCallback(proxObj.Server, "byte", proxObj.numBytes_cmd, ...
+                @(~,~)proxObj.relayTransmission());
+        end
+
+        % Process-durable registry key for this proxy's bound port. The listener
+        % is stashed on groot under this key so a relaunch can find and re-adopt
+        % it instead of rebinding (see buildServer).
+        function key = serverRegistryKey(proxObj)
+            key = sprintf("ncortexTcpServer_slrt_%d", proxObj.serverPort);
+        end
+
+        % Speedgoat link connection changed. Fire the optional app-level UI
+        % callback; no socket recovery is needed either way — the persistent
+        % listener keeps LISTENing across client disconnects and accepts the
+        % speedgoat's next connection on its own. We deliberately do NOT
+        % delete/rebind on a drop (see buildServer: rebinding this port is
+        % impossible while the dropped peer socket lingers in CLOSE_WAIT).
+        function onServerConnChanged(proxObj, src)
+            if ~isempty(proxObj.appConnFcn)
+                try, proxObj.appConnFcn(src); catch e, disp(getReport(e)); end
+            end
+        end
+
+        function relayTransmission(proxObj)
             %% read command code (simple for now)
             % cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");       
             % proxObj.numBytes_cmd = numel(enumeration('ctrlKey'));
             % disp(proxObj.Server.NumBytesAvailable);
             try
                 cmdCode = read(proxObj.Server,proxObj.Server.NumBytesAvailable,"uint8");    
+                disp("command received");
             catch e
-                disp("read failed");
+                % disp("read failed");
+                % keyboard
                 % disp(getReport(e));
                 return
             end
@@ -84,6 +143,7 @@ classdef proxy_slrt < handle
             CMD_sel = find(CMD~=0);
             % cmdIDs = arrayfun(@(cmd) ctxCtrl_decodeCommand(cmdSel), CMD, "UniformOutput",false);
             cmdIDs = arrayfun(@(cmd_sel) ctrlKey.getCmd(cmd_sel), CMD_sel, "UniformOutput",false);
+            disp(cmdIDs{1});
             pyds = (arrayfun(@(cmd_sel) axon_rx.PYD(cmd_sel,:),CMD_sel, "UniformOutput",false));
             szes = (arrayfun(@(cmd_sel) axon_rx.SZE(cmd_sel,:),CMD_sel,"UniformOutput",false));
             cellfun(@(cmdID, pyd, sze) proxObj.(cmdID)(pyd, sze), cmdIDs, pyds, szes, "UniformOutput", false);
