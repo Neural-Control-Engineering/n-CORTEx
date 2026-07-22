@@ -5,6 +5,7 @@ function ctx_deSerial = ctxCtrl_deSerialize(ctx_rx, elemID)
     switch elemID
         case "CMD"
             ctx_deSerial = ctx_rx';
+            % ctx_deSerial = reshape(ctx_rx)
         case "PYD"
             % ctx_deSerial = [];
             % ctx_deSerial = uint8(zeros(numCmds,bufferSize));
