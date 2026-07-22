@@ -32,6 +32,10 @@ function extractEXT(params)
                     load(slrt_ext_path); % load previously extracted SLRT
                 else
                     slrtFile = fullfile(params.paths.Data.RAW.SLRT.cloud,session);
+                    if ~isfile(sprintf("%s.mat",slrtFile))
+                        fprintf("WARNING: Unable to locate %s; proceeding to next session \n",slrtFile);
+                        continue;
+                    end
                     [SLRT, slrtFile] = extractEXT_SLRT(slrtFile);
                     % BOOST FCN
                     if isfield(extractCfg.EXT,"SLRT")
@@ -71,6 +75,7 @@ function extractEXT(params)
                 % SYNC = extractEXT_SYNC(SLRT, params.paths.Data, session);
                 for j = 1:length(extModNames)
                     extMod = extModNames{j};
+                    % check if extMod data present
                     % extrctHndl = str2func(sprintf("extractEXT_%s", extrctModule));                        
                     extrctHndl = str2func(sprintf("extractEXT_%s", extMod));                        
                     try
@@ -93,14 +98,18 @@ function extractEXT(params)
                     catch e
                         disp(getReport(e));
                     end         
-                end                
+                end 
+                % LOG SESSION AS EXTRACTED
+                extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));                
+                extractionLog(contains(extractionLog.SessionName,session),:).Extracted = 1;       
+                writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
             end
     end
    
     % Final mark of completed extraction for ext layer
-    extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
-    extractionLog(contains(extractionLog.SessionName,(params.extrctItms.EXT.sessionsToExtract.sessions)),:).Extracted = ones(height(params.extrctItms.EXT.sessionsToExtract.sessions),1);       
-    writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+    % extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+    % extractionLog(contains(extractionLog.SessionName,(params.extrctItms.EXT.sessionsToExtract.sessions)),:).Extracted = ones(height(params.extrctItms.EXT.sessionsToExtract.sessions),1);       
+    % writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
 
 
 end
