@@ -32,7 +32,12 @@ function repairCache(nCORTEx)
         fprintf("Repairing %s \n",session);        
         sessionPath = fullfile(path_rawSLRT,sprintf("%s.mat",session));
         if isfile(sessionPath)
-            load(sessionPath);
+            try
+                load(sessionPath);
+            catch
+                fprintf("WARNING %s COULD NOT BE LOADED \n",session);
+                continue
+            end
             dataDir.directory = realtimeLog.metadata.paths.Data.RAW;
             dataDir.params = realtimeLog.metadata;
             newCacheRow.SessionName = session;
