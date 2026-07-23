@@ -18,6 +18,7 @@ function repairCache(nCORTEx)
     sessions_cache = cache.(nCORTEx.params.hostName).sessionCache.SessionName;
     % load extraction log
     extractionLog = readtable(fullfile(nCORTEx.params.paths.projDir_cloud,"Experiments",nCORTEx.params.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","RAW")));
+    sessions_rawLog = convertCharsToStrings(extractionLog.SessionName);
     % find un-cached sessions (RULE: EXISTS IN RAWDIR_local, DOESNT EXIST
     % IN CACHE AND DOESNT EXIST IN CLOUD (DEDUP))
     [inCloud, idx_inCloud] = ismember(sessions_rawSLRT, sessions_rawSLRT_cloud);
@@ -28,6 +29,7 @@ function repairCache(nCORTEx)
     for i = 1:length(sessions_unCached)
         % retrieve metaparameters
         session = sessions_unCached(i);
+        fprintf("Repairing %s \n",session);        
         sessionPath = fullfile(path_rawSLRT,sprintf("%s.mat",session));
         if isfile(sessionPath)
             load(sessionPath);
@@ -37,6 +39,21 @@ function repairCache(nCORTEx)
             newCacheRow.DataDir = dataDir;
             newCacheRow_table = struct2table(newCacheRow);
             newCache = [newCache; newCacheRow_table];
+            if ~isfield(realtimeLog.metadata,"TrialMask")
+                TrialMask='0-';
+            else
+                TrialMask = realtimeLog.metadata.TrialMask;
+            end
+            Extracted=0;
+            SessionName=session;
+            extractionRow = table(SessionName,Extracted,TrialMask);
+            % IF NOT CURRENTLY IN EXTRACTION LOG
+            sessionInLog = ismember(session,sessions_rawLog);
+            if ~sessionInLog
+                disp("Logging Session");
+                expmntPath = fullfile(realtimeLog.metadata.paths.projDir_cloud,"Experiments",experiment);
+                log4Extraction(expmntPath,extractionRow,'csv');
+            end
         end        
     end
     % append new cache items
