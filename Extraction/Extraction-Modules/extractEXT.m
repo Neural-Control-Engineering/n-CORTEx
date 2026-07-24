@@ -29,14 +29,19 @@ function extractEXT(params)
                 % CHECK IF SLRT ALREADY COMPLETE
                 slrt_ext_path = fullfile(params.paths.Data.EXT.SLRT.cloud,sprintf("%s.mat",session));
                 if 0 % isfile(slrt_ext_path)
-                    load(slrt_ext_path); % load previously extracted SLRT
+                    % load(slrt_ext_path); % load previously extracted SLRT
+                    continue
                 else
                     slrtFile = fullfile(params.paths.Data.RAW.SLRT.cloud,session);
                     if ~isfile(sprintf("%s.mat",slrtFile))
                         fprintf("WARNING: Unable to locate %s; proceeding to next session \n",slrtFile);
                         continue;
                     end
-                    [SLRT, slrtFile] = extractEXT_SLRT(slrtFile);
+                    try
+                        [SLRT, slrtFile] = extractEXT_SLRT(slrtFile);
+                    catch
+                        continue
+                    end
                     % BOOST FCN
                     if isfield(extractCfg.EXT,"SLRT")
                         try % signle boostFcn case
@@ -73,6 +78,7 @@ function extractEXT(params)
                 extData = struct;
                 % sync validation
                 % SYNC = extractEXT_SYNC(SLRT, params.paths.Data, session);
+                modPassed = [];
                 for j = 1:length(extModNames)
                     extMod = extModNames{j};
                     % check if extMod data present
@@ -80,6 +86,7 @@ function extractEXT(params)
                     extrctHndl = str2func(sprintf("extractEXT_%s", extMod));                        
                     try
                         extData.(extMod) = extrctHndl(SLRT, params.paths.Data, session);
+                        modPassed = [modPassed, 1];
                         % BOOST FCN
                         if isfield(extractCfg.EXT,(extMod))
                             try
@@ -96,13 +103,16 @@ function extractEXT(params)
                         save(extModPath,'-struct','extSave');   
                         clear('extSave');
                     catch e
+                        modPassed = [modPassed, 0];
                         disp(getReport(e));
                     end         
                 end 
-                % LOG SESSION AS EXTRACTED
-                extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));                
-                extractionLog(contains(extractionLog.SessionName,session),:).Extracted = 1;       
-                writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+                if all(modPassed)
+                    % LOG SESSION AS EXTRACTED
+                    extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));                
+                    extractionLog(contains(extractionLog.SessionName,session),:).Extracted = 1;       
+                    writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+                end
             end
     end
    

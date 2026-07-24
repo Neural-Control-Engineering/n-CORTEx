@@ -29,7 +29,7 @@ function SPK = extSPK(SLRT, npxls_path, trigNum, bin_s, sigma_s, doViz)
     if nargin < 6 || isempty(doViz),   doViz   = false; end
 
     ks4_dir   = fullfile(npxls_path, 'kilosort4');
-    rts_mat   = fullfile(npxls_path, 'rt_sort', 'rtsort_results.mat');
+    rts_mat   = fullfile(npxls_path, 'rtsort', 'rtsort_results.mat');
 
     have_ks4 = isfolder(ks4_dir);
     have_rts = isfile(rts_mat);
@@ -70,6 +70,9 @@ function SPK = extSPK(SLRT, npxls_path, trigNum, bin_s, sigma_s, doViz)
         load(fullfile(npxls_path, "sync.mat"), 'sync');
         load(fullfile(npxls_path, "ap.mat"),   'ap');
         load(fullfile(npxls_path, "lfp.mat"),  'lfp');
+        if ~isempty(sync.lines.sync_1Hz_nidq.t_insert)
+            keyboard
+        end
         t_start_meta = str2double(lfp.meta.firstSample) / str2double(lfp.meta.imSampRate); % seconds before gate start
         nSamples = (str2double(ap.meta.fileSizeBytes) / str2double(ap.meta.nSavedChans)) / 2; % 2 bytes/sample
         ap.dataArray = ones([1, nSamples]);
