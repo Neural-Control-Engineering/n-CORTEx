@@ -37,7 +37,7 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
     % into the DF group as a string axis instead of spilling out as a simple
     % column. String columns whose stub is NOT an axis key (e.g. *_quality) stay
     % simple. Keep this list synchronized with the other DTSIO axisKeyWords.
-    axisKeyWords = ["f","t","chans","factor","dropout","latent","peak","param","unit","wf","measure"];
+    axisKeyWords = nex_axisKeyWords();
     isArrayDF = false(1, numel(h5Cols));
     for j = 1:numel(h5Cols)
         col = DTS.(char(h5Cols(j)));
@@ -101,9 +101,7 @@ function DTS_manifest = nexus_exportDTS(DTS, h5File)
         sl   = string(DTS.sessionLabel(i));
         tNum = DTS.trialNumber(i);
 
-        parts  = strsplit(sl, "--");
-        parts  = strtrim(parts(~cellfun('isempty', parts)));
-        h5Root = "/" + strjoin([parts(:)', {sprintf("trial_%04d", tNum)}], "/");
+        h5Root = nex_buildH5Root(sl, tNum);
         h5Roots(i) = h5Root;
 
         % DF-group columns → reconstruct DF struct per dfID → dtsIO_writeDF_toHDF5

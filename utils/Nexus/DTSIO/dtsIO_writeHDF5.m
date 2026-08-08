@@ -15,12 +15,9 @@ function dtsIO_writeHDF5(nexon, DF, DFID, dtsIdx)
 
     elseif isstruct(dtsIdx)
         % ── New row: write data + append manifest row ───────────────────
-        sl   = string(dtsIdx.sessionLabel);
-        tNum = dtsIdx.trialNumber;
-
-        parts  = strsplit(sl, "--");
-        parts  = parts(~cellfun('isempty', parts));
-        h5Root = "/" + strjoin([parts(:)', {sprintf("trial_%04d", tNum)}], "/");
+        sl     = string(dtsIdx.sessionLabel);
+        tNum   = dtsIdx.trialNumber;
+        h5Root = nex_buildH5Root(sl, tNum);
 
         writeDF_toHDF5(h5File, h5Root, DFID, DF);
 

@@ -274,7 +274,7 @@ classdef proxy_npxls < handle
                 warning("npxls:noNexon", "no nexon bound to proxon; DF not stored");
                 return
             end
-            dtsIO_writeDF(nexon, DF, dfID, dtsIdx);
+            dtsIO_writeDF(nexon, DF, dfID, dtsIdx, true);  % forceMem: stay in-memory until explicit sink
             try
                 nexon.console.BASE.updateControlPanel();
             catch e

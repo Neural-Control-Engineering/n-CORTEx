@@ -38,6 +38,12 @@
             disp(getReport(e));
             disp("UNABLE TO GENERATE SLRT PANEL")
         end
+        try
+            nexPanel_launcher(nexon);
+        catch e
+            disp(getReport(e));
+            disp("UNABLE TO GENERATE LAUNCHER PANEL")
+        end
     end
     % Auto-load nexTract manifest patches so derived dfColumns written in any
     % session are available immediately on startup.
@@ -75,5 +81,12 @@
 
     if count(py.sys.path, site_packages_path) == 0
         insert(py.sys.path, int32(0), site_packages_path);
+    end
+
+    % Auto-launch configured figures for this host (panelStartup hook).
+    try
+        nexLaunch_auto(nexon, "panelStartup");
+    catch e
+        disp(getReport(e));
     end
 end

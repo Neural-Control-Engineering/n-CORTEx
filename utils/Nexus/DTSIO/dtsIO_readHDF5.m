@@ -10,7 +10,7 @@ function DF = dtsIO_readHDF5(DTS, DFID, dtsIdx, ptr)
 %            Falls back to full read for legacy datasets without dim_order.
 
     if nargin < 4, ptr = []; end
-    axisKeyWords = ["f","t","chans","factor","dropout","latent","peak","param","unit","wf","measure"];
+    axisKeyWords = nex_axisKeyWords();
 
     % Convert nexObj_ptr handle to plain struct once, at the boundary.
     ptr = ptrToStruct(ptr);
@@ -153,6 +153,15 @@ function DF = readOneTrialHDF5(h5File, h5Root, DFID, axisKeyWords, ptr)
 
     if isfield(DF, 'df') && ~isfield(DF, 'ax')
         DF.ax = nexOp_generateAx(DF);
+    end
+
+    % Compatibility patch: lfp trials written before lfp_chans was added
+    % lack a chans axis on disk. Reconstruct it from df row count so
+    % downstream operators that expect DF.ax.chans don't break.
+    if strcmp(DFID, 'lfp') && isfield(DF, 'df') && ~isempty(DF.df)
+        if ~isfield(DF, 'ax') || ~isfield(DF.ax, 'chans') || isempty(DF.ax.chans)
+            DF.ax.chans = (1:size(DF.df, 1))';
+        end
     end
 end
 

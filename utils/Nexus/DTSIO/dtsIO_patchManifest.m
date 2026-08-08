@@ -1,18 +1,33 @@
 function dtsIO_patchManifest(nexon, dfColName, h5FileOut)
 % Register a dfColumn-specific HDF5 file in the DTS manifest.
 %
-% After nexTract writes dfColName to h5FileOut, this function adds the column
-% "h5_path_<dfColName>" to nexon.console.BASE.DTS so that dtsIO_readDF can
-% route reads for that dfID to the correct file.
+% Two modes:
 %
-% For parallel multi-session nexTract runs, each session calls this after its
-% own run completes. Because sessions have independent nexon objects, the
-% patches need to be merged into the shared manifest afterward:
+%   dtsIO_patchManifest(nexon, dfColName, h5FileOut)
+%     Normal mode: nexTract has already written to h5FileOut. Adds the
+%     "h5_path_<dfColName>" column to the live DTS and saves a
+%     _manifest_patch.mat alongside h5FileOut for parallel-session merging.
 %
-%   dtsIO_loadManifestPatches(nexon, patchDir)
-%
-% The patch .mat file is saved alongside h5FileOut automatically.
+%   dtsIO_patchManifest(nexon, dfColName, [])
+%     Pending mode: nexTract wrote to the in-memory DTS but no file exists
+%     yet. Registers dfColName in nexon.UserData.patchRegistry so that
+%     nexDTS_sinkPatchCols creates a dedicated patch HDF5 at sink time
+%     instead of folding these columns into the main nexDTS.h5.
 
+    dfColName = char(dfColName);
+
+    if isempty(h5FileOut)
+        % ── Pending registration ──────────────────────────────────────────
+        if ~isfield(nexon.UserData, 'patchRegistry') || ...
+                isempty(nexon.UserData.patchRegistry)
+            nexon.UserData.patchRegistry = {dfColName};
+        elseif ~ismember(dfColName, nexon.UserData.patchRegistry)
+            nexon.UserData.patchRegistry{end+1} = dfColName;
+        end
+        return;
+    end
+
+    % ── Normal mode: file already exists ─────────────────────────────────
     colName  = char("h5_path_" + string(dfColName));
     nRows    = height(nexon.console.BASE.DTS);
     pathCol  = repmat(string(h5FileOut), nRows, 1);
@@ -24,14 +39,14 @@ function dtsIO_patchManifest(nexon, dfColName, h5FileOut)
         nexon.console.BASE.DTS = [nexon.console.BASE.DTS, newCol];
     end
 
-    % Save a patch file alongside the output HDF5 so parallel sessions can be
-    % merged without needing a live nexon reference.
+    % Save a patch file alongside the output HDF5 so parallel sessions can
+    % be merged without a live nexon reference.
     patchFile = strrep(h5FileOut, '.h5', '_manifest_patch.mat');
     try
-        patch.dfColName = char(dfColName);  %#ok<STRNU>
-        patch.h5FileOut = char(h5FileOut);  %#ok<STRNU>
-        patch.colName   = colName;          %#ok<STRNU>
-        patch.pathCol   = pathCol;          %#ok<STRNU>
+        patch.dfColName = dfColName;   %#ok<STRNU>
+        patch.h5FileOut = char(h5FileOut); %#ok<STRNU>
+        patch.colName   = colName;     %#ok<STRNU>
+        patch.pathCol   = pathCol;     %#ok<STRNU>
         save(patchFile, '-struct', 'patch');
     catch
     end

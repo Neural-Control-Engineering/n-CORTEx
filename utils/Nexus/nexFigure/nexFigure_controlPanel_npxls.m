@@ -1,13 +1,16 @@
 function nexFigure_controlPanel_npxls(nexObj)
-% Neuropixels realtime control panel. Three stacked sections in the right strip:
+% Neuropixels realtime control panel. Two stacked sections in the right strip:
 %   SORTER  — build (detectSequences) or load (loadSorter) the RTSort sorter
 %   CAPTURE — start/stopCapture for a trial (direct proxy call == the same entry
 %             the speedgoat path lands on via proxy_slrt.relayTransmission)
-%   INSPECT — embedded figure launcher (nexLaunch_panel) for lfp / RTS_spk_* DFs
+% plus a SINK button to flush the in-memory capture DTS to disk.
 %
 % Sorter/Capture reach the device proxy via nexObj.proxon.index_type2.npxls
 % (already wired by nexObj_controlPanel_npxls). If no proxy is bound (offline),
-% those controls disable and only INSPECT is live.
+% those controls disable.
+%
+% Figure launching is handled by nexPanel_launcher (started from startNexus)
+% and is no longer embedded here.
 
     nexon = nexObj.nexon;
     C = nexon.settings.Colors; GREEN = C.cyberGreen; BLACK = [0 0 0];
@@ -22,11 +25,11 @@ function nexFigure_controlPanel_npxls(nexObj)
     nexObj.Figure.fh = uifigure("Name","npxls control","Position",[100,500,900,620],"Color",BLACK);
     nexObj.Figure.fh.CloseRequestFcn = @(fh,~)onClose(fh);
     nexObj.Figure.panel1.ph = uipanel(nexObj.Figure.fh,"Position",[5,5,700,580],"BackgroundColor",BLACK);
-    ctrl = uipanel(nexObj.Figure.fh,"Position",[710,5,185,580],"BackgroundColor",BLACK);
+    ctrl = uipanel(nexObj.Figure.fh,"Position",[710,255,185,330],"BackgroundColor",BLACK);
     nexObj.Figure.panel2.ph = ctrl;
 
     %% ---- SORTER ----
-    pSort = uipanel(ctrl,"Position",[5,430,175,145],"BackgroundColor",BLACK,"ForegroundColor",GREEN,"Title","SORTER");
+    pSort = uipanel(ctrl,"Position",[5,175,175,145],"BackgroundColor",BLACK,"ForegroundColor",GREEN,"Title","SORTER");
     uilabel(pSort,"Text","train (s)","Position",[5,95,70,22],"FontColor",GREEN);
     durField = uieditfield(pSort,"numeric","Position",[78,95,87,22],"Value",getDefault(px,'detectDurSec',60));
     buildBtn = uibutton(pSort,"Text","Build Sorter","Position",[5,65,160,26],"BackgroundColor",GREEN,"FontColor",BLACK,"ButtonPushedFcn",@(~,~)onBuild());
@@ -35,15 +38,16 @@ function nexFigure_controlPanel_npxls(nexObj)
     sortStatus = uilabel(pSort,"Text",sorterText(px),"Position",[5,8,165,22],"FontColor",GREEN);
 
     %% ---- CAPTURE ----
-    pCap = uipanel(ctrl,"Position",[5,300,175,120],"BackgroundColor",BLACK,"ForegroundColor",GREEN,"Title","CAPTURE");
+    pCap = uipanel(ctrl,"Position",[5,45,175,120],"BackgroundColor",BLACK,"ForegroundColor",GREEN,"Title","CAPTURE");
     uilabel(pCap,"Text","trial #","Position",[5,68,55,22],"FontColor",GREEN);
     trialField = uieditfield(pCap,"numeric","Position",[62,68,103,22],"Value",1,"Limits",[1 255],"RoundFractionalValues","on");
     startBtn = uibutton(pCap,"Text","Start Capture","Position",[5,38,160,26],"BackgroundColor",GREEN,"FontColor",BLACK,"ButtonPushedFcn",@(~,~)onStart());
     stopBtn  = uibutton(pCap,"Text","Stop Capture","Position",[5,10,160,24],"BackgroundColor",BLACK,"FontColor",GREEN,"ButtonPushedFcn",@(~,~)onStop());
 
-    %% ---- INSPECT (figure launcher) ----
-    pInspect = uipanel(ctrl,"Position",[5,5,175,285],"BackgroundColor",BLACK,"ForegroundColor",GREEN,"Title","INSPECT");
-    nexLaunch_panel(pInspect, nexon, ["lfp","RTS_spk"]);
+    %% ---- SINK ----
+    sinkBtn = uibutton(ctrl,"Text","Sink to Disk","Position",[5,8,175,30], ...
+        "BackgroundColor",BLACK,"FontColor",GREEN, ...
+        "ButtonPushedFcn",@(~,~)onSinkToDisk());
 
     if isempty(px)
         [buildBtn.Enable, loadBtn.Enable, saveBtn.Enable, startBtn.Enable, stopBtn.Enable] = deal("off");
@@ -120,6 +124,44 @@ function nexFigure_controlPanel_npxls(nexObj)
             disp(getReport(e, "extended", "hyperlinks", "on"));
             uialert(nexObj.Figure.fh, e.message, "Stop failed");
         end
+    end
+
+    function onSinkToDisk()
+        DTS_inmem = nexon.console.BASE.DTS;
+
+        if isempty(DTS_inmem) || ~istable(DTS_inmem) || height(DTS_inmem) == 0
+            uialert(nexObj.Figure.fh, "No in-memory DTS to sink.", "Sink skipped"); return;
+        end
+        if ismember('h5_path', DTS_inmem.Properties.VariableNames)
+            uialert(nexObj.Figure.fh, "DTS is already disk-backed.", "Sink skipped"); return;
+        end
+
+        % Resolve DTS output path — prefer params, fall back to folder picker.
+        dtsPath = [];
+        try
+            dtsPath = nexObj.nCORTEx.params.paths.Data.DTS.local;
+        catch
+        end
+        if isempty(dtsPath)
+            dtsPath = uigetdir(pwd, "Select DTS output folder");
+            if isequal(dtsPath, 0), return; end   % user cancelled
+        end
+
+        sinkBtn.Enable = "off"; drawnow;
+        try
+            [h5File, manifest] = nexDTS_openOrCreate(dtsPath);
+            manifest = nexDTS_appendRows(DTS_inmem, h5File, manifest, nexon, dtsPath);
+            save(fullfile(dtsPath, 'nexDTS_manifest.mat'), 'manifest');
+            nexon.console.BASE.DTS = manifest;
+            try, nexon.console.BASE.updateControlPanel(); catch, end
+            uialert(nexObj.Figure.fh, ...
+                sprintf("Sinked %d rows to %s", height(DTS_inmem), dtsPath), ...
+                "Sink complete", "Icon", "success");
+        catch e
+            disp(getReport(e, "extended", "hyperlinks", "on"));
+            uialert(nexObj.Figure.fh, e.message, "Sink failed");
+        end
+        sinkBtn.Enable = "on";
     end
 
     function onClose(fh)

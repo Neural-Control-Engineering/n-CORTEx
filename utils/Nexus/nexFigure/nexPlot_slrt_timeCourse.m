@@ -2,13 +2,13 @@ function nexObj = nexPlot_slrt_timeCourse(nexon, nexObj)
     params    = nexon.console.BASE.params;
     DF        = nexObj.DF;
 
-    nexObj.Figure.fh = uifigure("Position", [25, 560, 600, 250], "Color", [0,0,0]);
+    nexObj.Figure.fh = uifigure("Position", [25, 560, 500, 250], "Color", [0,0,0]);
     load(fullfile(params.paths.repo_path, "Visualization/RealtimeVis/cmap-cyberGreen.mat"));
 
     nexObj.Figure.panel1.ph = uipanel(nexObj.Figure.fh, ...
-        "Position", [5,5,280,240], "BackgroundColor", [0,0,0], "Scrollable", "on");
+        "Position", [5,5,275,240], "BackgroundColor", [0,0,0], "Scrollable", "on");
     panel2.ph = uipanel(nexObj.Figure.fh, ...
-        "Position", [285,5,310,240], "BackgroundColor", [0,0,0], "Scrollable", "on");
+        "Position", [285,5,520,240], "BackgroundColor", [0,0,0], "Scrollable", "on");
     nexObj.Figure.panel2 = nexObj_listCfgPanel(nexObj.nexon, panel2, ...
         nexObj.eventAlignmentSelection, 1);
 

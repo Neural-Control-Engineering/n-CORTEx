@@ -1,0 +1,7 @@
+[
+  { "dfID": "lfp",                          "figType": "polyGraph", "trigger": "*" },
+  { "dfID": "RTS_spk_activity",             "figType": "polyGraph", "trigger": "*" },
+  { "dfID": "KS_spk_activity",              "figType": "polyGraph", "trigger": "*" },
+  { "dfID": "nexDTS_rtPMTM_win250stride50", "figType": "monoGraph", "trigger": "*" },
+  { "dfID": "nexDTS_rtPMTM_win250stride50", "figType": "monoGram",  "trigger": "*" }
+]

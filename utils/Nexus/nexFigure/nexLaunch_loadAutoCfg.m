@@ -1,21 +1,29 @@
-function cfg = nexLaunch_loadAutoCfg()
-% nexLaunch_loadAutoCfg  Load this machine's figure auto-launch config.
+function cfg = nexLaunch_loadAutoCfg(nexon)
+% nexLaunch_loadAutoCfg  Load this host's figure auto-launch config.
 %
-%   cfg = nexLaunch_loadAutoCfg()
+%   cfg = nexLaunch_loadAutoCfg(nexon)
 %
-% Reads Nexus/Startup/Cache/autoLaunch_<COMPUTERNAME>.json — a JSON array of
+% Reads Nexus/Startup/Cache/autoLaunch_<hostName>.json — a JSON array of
 %   {"dfID": ..., "figType": ..., "trigger": ...}
 % objects. `trigger` names the pipeline hook the entry fires at (e.g.
 % "stopCapture", "panelStartup") or "*" for every hook; it may be omitted
-% (defaults to "*"). Auto-launch is opt-in per machine: a missing file returns
+% (defaults to "*"). Auto-launch is opt-in per host: a missing file returns
 % an empty struct array (no figures auto-launch).
+%
+% hostName is read from nexon.console.BASE.params.hostName — set at startup
+% by setHostParams and shared across the whole nCORTEx session.
 %
 % Returns a struct array with string fields dfID / figType / trigger.
 
     cfg = struct('dfID', {}, 'figType', {}, 'trigger', {});
 
-    machine = getenv('COMPUTERNAME');   % raw name (hyphens are path-safe); file
-                                        % is autoLaunch_<COMPUTERNAME>.json exactly
+    try
+        machine = char(nexon.console.BASE.params.hostName);
+    catch
+        return;
+    end
+    if isempty(machine), return; end
+
     p = fullfile(fileparts(which('Nexon')), 'Startup', 'Cache', ...
                  sprintf('autoLaunch_%s.json', machine));
     if ~isfile(p), return; end
