@@ -1,4 +1,4 @@
-function configureTargetProxies(proxon, expmntCfg)
+         function configureTargetProxies(proxon, expmntCfg)
     % proxyFieldNames_type1 = fieldnames(proxon.index_type1);
     % for i = 1:length(proxyFieldNames_typeI)
     %     proxyFieldName = proxyFieldNames_type1{i};    

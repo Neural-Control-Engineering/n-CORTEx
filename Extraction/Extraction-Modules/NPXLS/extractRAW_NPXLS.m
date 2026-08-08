@@ -49,7 +49,11 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                         params.paths.raw_neuropixel_data = params.paths.Data.RAW.(modality).cloud; 
                     end
                     % Process each imec
+                    % try
                     params.paths.rawData.(modality).nidq = fullfile(nidq_dir(1).folder);
+                    % catch
+                        % keyboard
+                    % end
                     numImecs = length(imec_dir);                       
                     % Process each imec
                     for j = 1:numImecs
