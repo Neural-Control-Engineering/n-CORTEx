@@ -1,9 +1,14 @@
 function DF = dtsIO_composeDF(DTS, DFID, dtsIdx, ptr)
     if nargin < 4, ptr = []; end
-    % Disk-backed path: manifest has h5_path column — delegate to HDF5 reader.
+    % Hybrid DTS: h5_path column may exist but some rows are still in memory
+    % (h5_path == ""). Check the specific row, not just the column's presence.
     if ismember('h5_path', DTS.Properties.VariableNames)
-        DF = dtsIO_readHDF5(DTS, DFID, dtsIdx, ptr);
-        return;
+        h5path = string(DTS.h5_path(dtsIdx));
+        if strlength(h5path) > 0
+            DF = dtsIO_readHDF5(DTS, DFID, dtsIdx, ptr);
+            return;
+        end
+        % else: in-memory row inside a hybrid DTS — fall through to column read
     end
     % ptr is not applied to in-memory DTS (no hyperslab concept for arrays in RAM).
 
@@ -15,7 +20,7 @@ function DF = dtsIO_composeDF(DTS, DFID, dtsIdx, ptr)
         return;
     end
 
-    axisKeyWords = ["f";"t";"chans";"factor";"dropout";"latent";"peak";"param";"unit";"wf";"measure"];
+    axisKeyWords = nex_axisKeyWords();
     DF = struct;
     for i = 1:numel(vars)
         var      = char(vars(i));

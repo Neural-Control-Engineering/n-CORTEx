@@ -81,7 +81,9 @@ function LFP = extLFP(SLRT, lfpPath, trigNum)
             % row = table(trial,{session_label},'VariableNames',{'trial_num','session_label'});        
             row = table(trialGate,{session_label},'VariableNames',{'trial_num','session_label'});        
             % trial_sync_inds = find(syncTime >= (start_time-preBuffLen) & syncTime <= (fin_time+postBuffLen));           
-            row = [row, table({lfpSeg}, {trial_lfpTimes},'VariableNames',{'lfp', 't_lfp'})];
+            lfp_chans = (1:size(lfpSeg,1))';
+            row = [row, table({lfpSeg}, {trial_lfpTimes}, {lfp_chans}, ...
+                              'VariableNames', {'lfp_df','lfp_t','lfp_chans'})];
             % store offset
             row = [row, table({sync},'VariableNames',{'sync_SGL'})];
     

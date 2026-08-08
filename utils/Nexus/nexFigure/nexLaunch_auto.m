@@ -22,7 +22,7 @@ function launched = nexLaunch_auto(nexon, trigger)
     trigger  = string(trigger);
     launched = strings(0,1);
 
-    cfg = nexLaunch_loadAutoCfg();
+    cfg = nexLaunch_loadAutoCfg(nexon);
     if isempty(cfg), return; end
 
     reg   = nexLaunch_registry();

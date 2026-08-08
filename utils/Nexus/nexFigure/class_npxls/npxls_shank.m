@@ -68,50 +68,50 @@ classdef npxls_shank < handle
             nexObj.DF = dtsIO_composeDF(capDTS, 'lfp', ridx);
             nexObj.DF_postOp = nexObj.DF;            
             % nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, dataFrame, "lfp");
-            nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, nexObj.DF, "lfp");
+            % nexObj.scope.timeCourse1 = nexObj_npxlsTimeCourse(nexon, nexObj, nexObj.DF, "lfp");
             % nexObj.scope.timeCourse.DF = nexObj.DF;
             %% PIXELGRAM
-            nexObj_pixelGram(nexObj.scope.timeCourse1, nexObj.nexon);
+            % nexObj_pixelGram(nexObj.scope.timeCourse1, nexObj.nexon);
             %% add STFT (PMTM method spectrogram)
-            try
-                df_lfp = grabDataFrame(nexon,"lfp",[]);
+            % try
+                % df_lfp = grabDataFrame(nexon,"lfp",[]);
                 % parfeval(@() nexnexObj_channelGram(nexon, nexObj, rtSpectrogram,"lfp","mag"),0);
                 % nexObj.scope.channelgram1 = nexnexObj_channelGram(nexon, nexObj, rtSpectrogram, "lfp", "mag");
-                opFcn = str2func("rtPMTM_magnitude");
-                visFcn = str2func("nexVisualization_channelGram");
-                aniFcn = str2func("nexAnimate_channelGram");
-                nexObj.scope.channelGram1 = nexObj_channelGram(nexon, nexObj, df_lfp, "lfp", opFcn, visFcn, aniFcn);
-            catch e
-                disp(getReport(e));
-            end
-            try
+                % opFcn = str2func("rtPMTM_magnitude");
+                % visFcn = str2func("nexVisualization_channelGram");
+                % aniFcn = str2func("nexAnimate_channelGram");
+                % nexObj.scope.channelGram1 = nexObj_channelGram(nexon, nexObj, df_lfp, "lfp", opFcn, visFcn, aniFcn);
+            % catch e
+                % disp(getReport(e));
+            % end
+            % try
                 % spg1 = grabSpectrogram(nexon, "pmtm",[]);
-                spg1.dataFrame=[];
-                spg1.dfID = [];
-                spg1.f = [];
-                spg1.t = [];
-                spg1.opFcn = [];
-                spg1.visFcn = str2func("nexVisualization_spectroGram");
-                spg1.isOnline = 1;
-                nexObj.scope.channelGram1.Children.spectroGram1 = nexnexObj_spectroGram(nexon, nexObj.scope.channelGram1, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, spg1.opFcn, spg1.visFcn);
-                spectroGram1 = nexObj.scope.channelGram1.Children.spectroGram1;
-            catch e
-                disp(getReport(e));
-            end
-            try
-                nexObj.scope.channelGram1.Children.spectroGram1.Children.spectroGraph1 = nexnexObj_spectroGraph(nexon, spectroGram1, [], [], [], []);
-            catch e
-                disp(getReport(e));
-            end
-            try
-                opFcn = str2func("spectralParameterization");
+                % spg1.dataFrame=[];
+                % spg1.dfID = [];
+                % spg1.f = [];
+                % spg1.t = [];
+                % spg1.opFcn = [];
+                % spg1.visFcn = str2func("nexVisualization_spectroGram");
+                % spg1.isOnline = 1;
+                % nexObj.scope.channelGram1.Children.spectroGram1 = nexnexObj_spectroGram(nexon, nexObj.scope.channelGram1, spg1.dataFrame, spg1.dfID, spg1.f, spg1.t, spg1.opFcn, spg1.visFcn);
+                % spectroGram1 = nexObj.scope.channelGram1.Children.spectroGram1;
+            % catch e
+                % disp(getReport(e));
+            % end
+            % try
+                % nexObj.scope.channelGram1.Children.spectroGram1.Children.spectroGraph1 = nexnexObj_spectroGraph(nexon, spectroGram1, [], [], [], []);
+            % catch e
+                % disp(getReport(e));
+            % end
+            % try
+                % opFcn = str2func("spectralParameterization");
                 % nexObj.scope.channelGram1.Children.spectroScope1 = nexnexObj_spectroScope(nexon, nexObj.scope.channelGram1, opFcn);
-            catch  e
-                disp(getReport(e))
-            end
+            % catch  e
+                % disp(getReport(e))
+            % end
             % Embedding figure
-            opFcn = str2func("embedUMAP");
-            dfID = "rtPMTM_magnitude_temporal";
+            % opFcn = str2func("embedUMAP");
+            % dfID = "rtPMTM_magnitude_temporal";
             % nexObj.Children.embedding1 = nexnexObj_embedding(nexon, nexObj, opFcn, dfID);
             
             % add CWT spectrogram (wavelet transform)

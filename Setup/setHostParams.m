@@ -13,17 +13,17 @@ function params = setHostParams(opts)
     if ispc
         hostName = getenv('COMPUTERNAME');
         userName = getenv('USERNAME');
-        if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('C:\\Users\\%s',userName); end 
+        if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('C:\\Users\\%s',userName); end
         % if ~isfield(opts.paths,'projDir_local'), opts.paths.projDir_local = fullfile(opts.paths.stem, "nCORTEx_local", opts.projectName); end
         % if ~exist(opts.paths.projDir_local, 'dir'), mkdir(opts.paths.projDir_local); end
         % if ~isfolder(opts.paths.projDir_local, 'dir'); replicateDirStructure(opts.paths.projDir_cloud, opts.paths.projDir_local); end
-        if ~isfield(opts,'hostName'), opts.hostName=userName; end
+        if ~isfield(opts,'hostName'), opts.hostName = userName; end
     elseif isunix
         hostName = getenv('USER');
         if ~isfield(opts.paths,'stem'), opts.paths.stem=sprintf('/home/%s',hostName); end
         % if ~isfield(opts.paths,'projDir_local'), opts.paths.projDir_local = fullfile(opts.paths.stem, "nCORTEx_local", opts.projectName); end
-        % if ~isfolder(opts.paths.projDir_local, 'dir'); replicateDirStructure(opts.paths.projDir_cloud, opts.paths.projDir_local); end    
-        if ~isfield(opts,'hostName'), opts.hostName=hostName; end        
+        % if ~isfolder(opts.paths.projDir_local, 'dir'); replicateDirStructure(opts.paths.projDir_cloud, opts.paths.projDir_local); end
+        if ~isfield(opts,'hostName'), opts.hostName = hostName; end
     end       
 
     if ~isfield(opts.paths,'projDir_local'), opts.paths.projDir_local = fullfile(opts.paths.stem, "nCORTEx_local", opts.projectName); end    

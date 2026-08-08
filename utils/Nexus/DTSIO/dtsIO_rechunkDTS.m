@@ -148,7 +148,7 @@ end
 % ── Serial write (one trial) ───────────────────────────────────────────────
 
 function writeTrialRechunked(dstFile, h5Root, td)
-    axisKeyWords = ["f","t","chans","factor","dropout","latent","peak","param","unit","wf","measure"];
+    axisKeyWords = nex_axisKeyWords();
 
     % ── DF groups ─────────────────────────────────────────────────────────
     for g = 1:numel(td.groups)

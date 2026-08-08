@@ -15,7 +15,7 @@ function dtsIO_writeDF_toHDF5(h5File, h5Root, DFID, DF)
 % This prevents the fd leak from h5create/h5write each opening the file
 % independently (which hits Linux ulimit after ~1000 accumulated opens).
 
-    axisKeyWords = ["f","t","chans","factor","dropout","latent","peak","param","unit","wf","measure"];
+    axisKeyWords = nex_axisKeyWords();
     [chunkSz, dimOrder] = dfChunkSpec(DF);
 
     fapl = H5P.create('H5P_FILE_ACCESS');
@@ -107,6 +107,7 @@ function [chunkSz, dimOrder] = dfChunkSpec(DF, chunkTargetBytes)
     axSizes = [];
     for i = 1:numel(pFields)
         ax  = pFields{i};
+        if ~isstruct(ptr.(ax)) || ~isfield(ptr.(ax), 'dim'), continue; end
         dim = ptr.(ax).dim;
         if ~isscalar(dim) || dim < 1 || dim > ndim, continue; end
         axDims(end+1)  = dim;   %#ok<AGROW>
