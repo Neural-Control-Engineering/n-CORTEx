@@ -117,57 +117,47 @@ classdef proxy_ncortex < handle
         function relayTransmission(proxObj)
             try
                 methodID = readline(proxObj.Server);
-                write(proxObj.Server,uint8(0));   % ack the methodID
-                % ACCUMULATE the serialized payload across TCP reads. A large
-                % arg (e.g. a von Frey row) spans several segments, so we append
-                % each read into one buffer and only deserialize once the FULL
-                % stream is present. Partial buffers error in getArrayFromByteStream
-                % — we treat that as "not complete yet" and keep reading; we do
-                % NOT nack partials, because nacking made the sender resend and
-                % pile a second copy onto the buffer, corrupting it so it could
-                % never assemble. Only an idle timeout is reported (code 3).
-                buffer  = uint8([]);
-                timer   = 0;
-                timeout = 5;      % seconds of IDLE (no new bytes) before giving up
-                delay   = 0.1;
-                done    = false;
-                while ~done
-                    if proxObj.Server.NumBytesAvailable > 0
-                        buffer = [buffer, ...
-                            read(proxObj.Server, proxObj.Server.NumBytesAvailable, "uint8")];
-                        timer = 0;   % progress — reset the idle timer
-                        rxArgs = [];
-                        hasFull = true;
+                write(proxObj.Server,uint8(0));
+                pause(0.5);
+                % waitForReturn(proxObj.Server, 0, 0);
+                % app-relative subassignment of transmitted values            
+                % decode command
+                % recover method arguments
+                timer = 0;
+                timeout = 5;
+                delay=0.1;
+                while true
+                    if timer > timeout
+                        disp("transmission timeout: please try again")
+                        write(proxObj.Server,3);
+                        flush(proxObj.Server);
+                        break
+                    end
+                    % if proxObj.Server.NumBytesAvailable <= 0                        
+                    %     % wait until data is recieved
+                    
+                    if proxObj.Server.NumBytesAvailable > 0                        
+                        dataRx = read(proxObj.Server, proxObj.Server.NumBytesAvailable,"uint8");
                         try
-                            rxArgs = getArrayFromByteStream(uint8(buffer));
-                        catch
-                            hasFull = false;   % incomplete stream — keep accumulating
-                        end
-                        if hasFull
-                            try
-                                proxObj.(methodID)(rxArgs);
-                                disp("command complete");
-                                write(proxObj.Server,uint8(1));   % success
-                            catch e
-                                disp("command failed");
-                                disp(getReport(e));
-                                write(proxObj.Server,uint8(2));   % method threw
-                            end
+                            rxArgs = getArrayFromByteStream(uint8(dataRx));
+                            % execute method
+                            proxObj.(methodID)(rxArgs);
+                            disp("command complete");
+                            write(proxObj.Server,uint8(1));                        
                             flush(proxObj.Server);
-                            done = true;
-                        end
-                    end
-                    if ~done
-                        pause(delay);
-                        timer = timer + delay;
-                        if timer > timeout
-                            disp("transmission timeout: please try again")
-                            write(proxObj.Server,uint8(3));       % idle timeout
-                            flush(proxObj.Server);
-                            done = true;
-                        end
-                    end
-                end
+                            break
+                        catch e
+                            % disp(getReport(e));
+                            disp("command failed");
+                            write(proxObj.Server,2);
+                            flush(proxObj.Server);                            
+                        end                        
+                    end                   
+                    pause(delay);
+                    timer = timer+delay;
+                    disp(timer);
+                end                
+                
             catch e
                disp(getReport(e));
             end
