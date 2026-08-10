@@ -43,7 +43,11 @@ function params = locateData(params)
     end
 
     % If the user previously ran locateDTS, their explicit path overrides the scan.
-    cacheFile = fullfile(params.paths.repo_path, 'Setup', 'nCORTExCache.mat');
+    if isfield(params.paths,"repo_path")
+        cacheFile = fullfile(params.paths.repo_path, 'Setup', 'nCORTExCache.mat');
+    elseif isfield(params.paths,"nCORTEx_repo")
+        cacheFile = fullfile(params.paths.nCORTEx_repo, 'Setup', 'nCORTExCache.mat');
+    end
     if isfile(cacheFile)
         load(cacheFile, 'cache');
         hn = getHostName();
