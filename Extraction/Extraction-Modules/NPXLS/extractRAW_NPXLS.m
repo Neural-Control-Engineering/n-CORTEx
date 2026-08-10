@@ -22,6 +22,15 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
         % numProbes = params.extractCfg.npxls.numProbes;
         sessions = sessions_to_extract.sessions;
         % subjects = sessions_to_extract.subjects;
+        % Keep the RTX 5070 out of deep idle for the whole extraction run: it sits
+        % in a chipset PCIe x4 slot and otherwise falls off the bus during the GPU-
+        % idle gaps between per-trigger subprocesses (zip/cloud-copy/LFP), causing a
+        % TDR / hard hang. Started here; onCleanup stops it on ANY exit (incl.
+        % error). See Extraction/GPUKeepAlive/README.md.
+        pacifierPy  = fullfile(params.paths.repo_path,"Extraction","GPUKeepAlive","gpu_pacifier.py");
+        pacifierLog = fullfile("C:\Users\Primus\gpu-tdr-diag","pacifier.out.log");
+        system(sprintf('start "gpu_pacifier" /B "%s" "%s" > "%s" 2>&1', pyVersion, pacifierPy, pacifierLog));
+        stopPacifier = onCleanup(@() system(sprintf('"%s" "%s" --stop', pyVersion, pacifierPy))); %#ok<NASGU>
         for i = 1 : length(sessions)
             try
                 % Find relevant sessions

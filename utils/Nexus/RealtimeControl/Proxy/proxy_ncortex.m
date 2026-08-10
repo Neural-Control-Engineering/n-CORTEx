@@ -185,9 +185,92 @@ classdef proxy_ncortex < handle
             partnerProxObj.DTS = proxObj.DTS;
         end
 
-        function discardSession(proxObj, rxArgs)            
+        function discardSession(proxObj, rxArgs)
             session2Discard = rxArgs;
             uploadRaw(proxObj.nCORTEx.params.paths.Data.RAW,session2Discard,1);
+        end
+
+        function transmitTrialRow(proxObj, rowStruct)
+            % Host-side counterpart to receiveTrialRow. Send a trial "row" to
+            % the target, where it merges into the DTS by (sessionLabel,
+            % trialNumber). rowStruct must carry those two address fields plus
+            % any data fields (field name -> DTS column name); build the trace
+            % as a DF struct (.df + axis fields) so it sinks to HDF5 as array
+            % data, and keep scalars (onset/withdrawal indices, scores) plain.
+            if isempty(proxObj.Client)
+                warning("ncortex:noClient", "no client connection; trial row not sent");
+                return
+            end
+            writeTransmission_helper(proxObj.Client, "receiveTrialRow", rowStruct);
+        end
+
+        function receiveTrialRow(proxObj, rxArgs)
+            % Merge a host-sent trial "row" (von Frey trace + meta) into the
+            % target DTS, keyed by (sessionLabel, trialNumber). Each field of
+            % rxArgs other than the address fields becomes its own dfID column
+            % on that trial's row — array fields (e.g. the trace DF struct) sink
+            % to HDF5 on export, scalar fields stay as manifest columns.
+            %
+            % rxArgs (struct) — required address fields + any data fields:
+            %   .sessionLabel   char/string
+            %   .trialNumber    numeric
+            %   .<field> ...     e.g. vonfrey_trace (DF struct), vonfrey_onset,
+            %                    vonfrey_withdrawal, withdrawalScore (scalars)
+            nexon = proxObj.proxon.nexon;        % populated by nexusCtrl_startNexus
+            if isempty(nexon)
+                warning("ncortex:noNexon", "no nexon bound to proxon; trial row not stored");
+                return
+            end
+            dtsIdx = struct('sessionLabel', rxArgs.sessionLabel, ...
+                            'trialNumber',  rxArgs.trialNumber);
+            dataFields = setdiff(fieldnames(rxArgs), {'sessionLabel','trialNumber'});
+            for i = 1:numel(dataFields)
+                f = dataFields{i};
+                % forceMem=true: land on the same in-memory hybrid row the
+                % neural capture created; disk flush happens on explicit sink.
+                dtsIO_writeDF(nexon, rxArgs.(f), f, dtsIdx, true);
+            end
+            try
+                nexon.console.BASE.updateControlPanel();
+            catch e
+                disp(getReport(e));
+            end
+        end
+
+        function transmitDiscard(proxObj, sessionLabel, trialNumber)
+            % Host-side: tell the target to drop a discarded trial's row.
+            if isempty(proxObj.Client)
+                warning("ncortex:noClient", "no client connection; discard not sent");
+                return
+            end
+            rxArgs = struct('sessionLabel', sessionLabel, 'trialNumber', trialNumber);
+            writeTransmission_helper(proxObj.Client, "discardTrial", rxArgs);
+        end
+
+        function discardTrial(proxObj, rxArgs)
+            % Remove a discarded trial's row from the target DTS, keyed by
+            % (sessionLabel, trialNumber), so it never clutters analysis.
+            % Operates on the in-memory (pre disk-sink) row; a row already
+            % flushed to HDF5 would also need its group pruned (later step).
+            nexon = proxObj.proxon.nexon;
+            if isempty(nexon)
+                warning("ncortex:noNexon", "no nexon bound to proxon; discard skipped");
+                return
+            end
+            dtsIdx = struct('sessionLabel', rxArgs.sessionLabel, ...
+                            'trialNumber',  rxArgs.trialNumber);
+            rowIdx = nex_searchRowAddress(nexon.console.BASE.DTS, dtsIdx);
+            if isempty(rowIdx)
+                fprintf("[proxy_ncortex] discardTrial: no row for %s trial %d\n", ...
+                        string(rxArgs.sessionLabel), rxArgs.trialNumber);
+                return
+            end
+            nexon.console.BASE.DTS(rowIdx,:) = [];
+            try
+                nexon.console.BASE.updateControlPanel();
+            catch e
+                disp(getReport(e));
+            end
         end
 
         function migrateTmp(proxObj, rxArgs)

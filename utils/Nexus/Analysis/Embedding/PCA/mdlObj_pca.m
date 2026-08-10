@@ -16,9 +16,28 @@ classdef mdlObj_pca < mdlObject
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing');             
             mdlObj.Scaler.model = sklearnPreProc.StandardScaler();
             mdlObj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_pca"));
+            % Headless construction skips nexFigure_pca (which calls setupDomain
+            % to build the Domain bus), so do it here in that case. Interactive
+            % builds run inside nexFigure_pca during the base constructor.
+            isHeadless = isfield(mdlObj.nexon, 'settings') && ...
+                         isfield(mdlObj.nexon.settings, 'headless') && ...
+                         mdlObj.nexon.settings.headless;
+            if isHeadless
+                mdlObj.setupDomain();
+            end
             % classID = "ssm";
             % mdlObj.model = model_ssm();                        
             % network, etc.
+        end
+
+        function setupDomain(mdlObj)
+            % Narrow FTR to a single feature axis (D2(1), e.g. 'unit'); the
+            % residual axis (e.g. 'measure') is then governed by the Domain MSR
+            % selector (default 'rate'). Builds collector.Domain via initDomainBus.
+            if isfield(mdlObj.domain, 'D2') && numel(mdlObj.domain.D2) >= 1
+                mdlObj.domain.FTR = mdlObj.domain.D2(1);
+            end
+            mdlObj.initDomainBus();
         end
 
         function locateDataset(mdlObj)
@@ -34,11 +53,17 @@ classdef mdlObj_pca < mdlObject
         function formatSample(X, Y)
         end
 
-        % function getDesignMatrix(mdlObj)
-        %     % d1Sel = "t";
-        %     d1Sel=mdlObj.domain.D1(1);
-        %     mdlObj.DM = stat2dm_stack(mdlObj, d1Sel);
-        % end
+        function getDesignMatrix(mdlObj)
+            % Build the base (stack) design matrix, then drop the singleton
+            % residual axis left by an MSR single-value collapse (e.g.
+            % measure -> 'rate') so the fit sees a 2D (samples x feature)
+            % matrix. A multi-value MSR selection keeps the residual dim for
+            % future slice-looping (dormant).
+            getDesignMatrix@mdlObject(mdlObj);
+            if ~isempty(mdlObj.DM)
+                mdlObj.DM = squeeze(mdlObj.DM);
+            end
+        end
 
         function DF_Z = transform(mdlObj, DF_X)
             % Use learned weights to project emission into state-space            

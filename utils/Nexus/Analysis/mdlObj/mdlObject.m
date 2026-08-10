@@ -150,6 +150,7 @@ classdef mdlObject < handle
             sel = nex_returnSelectionMask(mdlObj.collector.Domain);
             if isfield(sel, 'D1')  && ~isempty(sel.D1),  mdlObj.domain.D1  = string(sel.D1);  end
             if isfield(sel, 'FTR') && ~isempty(sel.FTR), mdlObj.domain.FTR = string(sel.FTR); end
+            if isfield(sel, 'MSR') && ~isempty(sel.MSR), mdlObj.domain.MSR = string(sel.MSR); end
         end
 
         function initPointerBus(mdlObj)
@@ -344,6 +345,7 @@ classdef mdlObject < handle
                 if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
                     DF_X = mdlObj.applyPointerDF(DF_X);
                 end
+                DF_X = mdlObj.applyDomainMSRDF(DF_X);
                 DF_X = nexOp_permute2First(DF_X, d1Sel, DF_X.ptr);
                 try
                     DF_Z = mdlObj.transform(DF_X);
@@ -402,6 +404,9 @@ classdef mdlObject < handle
             if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
                 STAT = mdlObj.applyPointer(STAT);
             end
+
+            % Collapse the residual (MSR) axis per the Domain bus selection
+            STAT = mdlObj.applyDomainMSR(STAT);
 
             mdlObj.STAT=STAT;
         end
@@ -706,6 +711,109 @@ classdef mdlObject < handle
             end
         end
 
+        function initDomainBus(mdlObj)
+        % Build collector.Domain: the D1 / FTR axis-role selectors plus, when a
+        % residual axis remains (not D1 / FTR / 'factor'), an MSR value-selector
+        % over that axis's values. Mirrors the inline construction in the model
+        % figures so the bus exists headlessly (fit path) and interactively.
+        %
+        % MSR is folded INTO Domain (no separate bus): a subset selection
+        % (including a single value) COLLAPSES the residual axis; a full
+        % selection loops over it (dormant until the fit path iterates slices).
+        % Default = the "rate" value when present, else all-selected.
+            if ~isstruct(mdlObj.collector), mdlObj.collector = struct(); end
+            % Resolve source axes (names + values)
+            srcAx = struct();
+            try, srcAx = mdlObj.Origin.DF_postOp.ax; catch, end
+            if isempty(fieldnames(srcAx))
+                try
+                    srcDF = dtsIO_readDF(mdlObj.nexon, mdlObj.dfID_source, []);
+                    if ~isempty(srcDF) && isfield(srcDF, 'ax'), srcAx = srcDF.ax; end
+                catch
+                end
+            end
+            axNames = string(fieldnames(srcAx))';
+            if isempty(axNames), axNames = "t"; end
+
+            % Default role assignments (t -> D1; the narrowed FTR axis -> FTR)
+            d1Init = find(axNames == mdlObj.domain.D1, 1);
+            if isempty(d1Init), d1Init = 1; end
+            ftrInit = find(ismember(axNames, string(mdlObj.domain.FTR)));
+            if isempty(ftrInit), ftrInit = find(axNames ~= axNames(d1Init), 1); end
+            if isempty(ftrInit), ftrInit = 1; end
+
+            domainDict.D1  = axNames;
+            domainDict.FTR = axNames;
+
+            % Residual axis -> MSR value selector (single residual axis for now)
+            mdlObj.domain.MSRaxis = "";
+            mdlObj.domain.MSR     = string.empty;
+            msrInit  = [];
+            claimed  = [axNames(d1Init), axNames(ftrInit), "factor"];
+            residual = axNames(~ismember(axNames, claimed));
+            if ~isempty(residual)
+                rax   = residual(1);
+                rvals = srcAx.(rax);
+                if ~isempty(rvals)
+                    domainDict.MSR        = rvals;
+                    mdlObj.domain.MSRaxis = rax;
+                    rIdx = find(string(rvals) == "rate", 1);
+                    if isempty(rIdx), msrInit = 1:numel(rvals); else, msrInit = rIdx; end
+                    mdlObj.domain.MSR = string(rvals(msrInit));
+                end
+            end
+
+            mdlObj.collector.Domain = buildSelection(mdlObj, domainDict);
+            mdlObj.collector.Domain.selections.D1  = d1Init;
+            mdlObj.collector.Domain.selections.FTR = ftrInit;
+            if ~isempty(msrInit)
+                mdlObj.collector.Domain.selections.MSR = msrInit;
+            end
+            % Sync domain fields directly — the selection listboxes may not
+            % exist yet at init time (headless, or pre-panel figure build).
+            mdlObj.domain.D1  = axNames(d1Init);
+            mdlObj.domain.FTR = axNames(ftrInit);
+        end
+
+        function STAT = applyDomainMSR(mdlObj, STAT)
+        % Collapse the residual (MSR) axis of every STAT.df to domain.MSR
+        % values. Fit-side counterpart of applyDomainMSRDF; both share the
+        % domainSliceAxis core. No-op when no MSR axis is configured.
+            if ~isfield(mdlObj.domain,'MSRaxis') || mdlObj.domain.MSRaxis == "", return; end
+            f = mdlObj.domain.MSRaxis;
+            if ~isfield(mdlObj.domain,'MSR') || isempty(mdlObj.domain.MSR), return; end
+            if ~isfield(STAT.ax(1), f) || ~isprop(STAT.ptr(1), f), return; end
+            axVals = STAT.ax(1).(f);
+            dim    = STAT.ptr(1).(f).dim;
+            [~, keepIdx] = domainSliceAxis(STAT.df{1}, axVals, dim, mdlObj.domain.MSR);
+            if numel(keepIdx) == numel(axVals), return; end   % pass-through
+            STAT.df = cellfun(@(df) ptrSliceDim(df, dim, keepIdx), ...
+                              STAT.df, 'UniformOutput', false);
+            newAx = STAT.ax(1); newAx.(f) = axVals(keepIdx);
+            STAT.ax = repmat(newAx, height(STAT), 1);
+            fprintf('[mdlObject] applyDomainMSR: %s  [%d -> %d]\n', ...
+                    f, numel(axVals), numel(keepIdx));
+            DF_ptr = table2struct(STAT(1,:)); DF_ptr = rmfield(DF_ptr,'ptr');
+            DF_ptr = nex_initAxisPointer_v2(DF_ptr);
+            STAT.ptr = repmat(DF_ptr.ptr, height(STAT), 1);
+        end
+
+        function DF = applyDomainMSRDF(mdlObj, DF)
+        % Single-DF counterpart (transform / scaleApply path). Shares the
+        % domainSliceAxis core with applyDomainMSR.
+            if ~isfield(mdlObj.domain,'MSRaxis') || mdlObj.domain.MSRaxis == "", return; end
+            f = mdlObj.domain.MSRaxis;
+            if ~isfield(mdlObj.domain,'MSR') || isempty(mdlObj.domain.MSR), return; end
+            if ~isfield(DF,'ptr') || isempty(DF.ptr), DF = nex_initAxisPointer_v2(DF); end
+            if ~isfield(DF.ax, f) || ~isprop(DF.ptr, f), return; end
+            axVals = DF.ax.(f);
+            dim    = DF.ptr.(f).dim;
+            [DF.df, keepIdx] = domainSliceAxis(DF.df, axVals, dim, mdlObj.domain.MSR);
+            if numel(keepIdx) == numel(axVals), return; end   % pass-through
+            DF.ax.(f) = axVals(keepIdx);
+            DF = nex_initAxisPointer_v2(DF);
+        end
+
     end
 end
 
@@ -759,4 +867,25 @@ function X = ptrSliceDim(A, dim, idx)
     S      = repmat({':'}, 1, ndims(A));
     S{dim} = idx;
     X      = A(S{:});
+end
+
+function [df, keepIdx] = domainSliceAxis(df, axVals, dim, keepVals)
+% Shared Domain/MSR slice core. Returns the indices of axVals whose values
+% are in keepVals (numeric → tolerant match; else exact membership) and
+% slices df along `dim` to them. Empty or full match ⇒ pass-through: df is
+% returned unchanged and keepIdx spans the whole axis.
+    if isnumeric(keepVals) && isnumeric(axVals)
+        sc = max(abs(double(axVals(:)))); if sc==0, sc=1; end
+        [tf,loc] = ismembertol(double(keepVals(:)), double(axVals(:)), 1e-3, 'DataScale', sc);
+        keepIdx  = sort(loc(tf));
+    else
+        [~,keepIdx] = ismember(keepVals, axVals);
+        keepIdx     = sort(keepIdx(keepIdx>0));
+    end
+    if isempty(keepIdx) || numel(keepIdx) == numel(axVals)
+        keepIdx = (1:numel(axVals))';
+        return;                       % pass-through: df unchanged
+    end
+    S = repmat({':'}, 1, ndims(df)); S{dim} = keepIdx;
+    df = df(S{:});
 end
