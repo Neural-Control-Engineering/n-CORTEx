@@ -50,7 +50,7 @@ function dtsIO_writeDF(nexon, DF, DFID, dtsIdx, forceMem)
                 case 'DF'
                     writeDF(nexon, DFID, DF, rowIdx);
                 case 'df'
-                    writeDataframe(nexon, dfColName, DF, rowIdx);
+                    writeDataframe(nexon, DFID, DF, rowIdx);
             end
         end
         
