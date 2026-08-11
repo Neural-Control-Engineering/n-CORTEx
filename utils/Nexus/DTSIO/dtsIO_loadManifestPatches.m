@@ -23,15 +23,23 @@ function dtsIO_loadManifestPatches(nexon, patchDir)
     for k = 1:numel(patchFiles)
         p = load(fullfile(patchFiles(k).folder, patchFiles(k).name));
         if ~isfield(p, 'colName') || ~isfield(p, 'pathCol'), continue; end
-        if numel(p.pathCol) ~= nRows
+        if numel(p.pathCol) > nRows
             warning('dtsIO_loadManifestPatches: patch "%s" has %d rows, DTS has %d — skipping.', ...
                 p.colName, numel(p.pathCol), nRows);
             continue
         end
+        % Patch covers fewer trials than the DTS: pad unanalyzed rows with ""
+        % so previously written data is accessible while new trials stay empty.
+        pathColFull = strings(nRows, 1);
+        pathColFull(1:numel(p.pathCol)) = string(p.pathCol(:));
+        if numel(p.pathCol) < nRows
+            fprintf('  note: patch "%s" covers %d/%d trials — %d rows left empty.\n', ...
+                p.colName, numel(p.pathCol), nRows, nRows - numel(p.pathCol));
+        end
         if ismember(p.colName, nexon.console.BASE.DTS.Properties.VariableNames)
-            nexon.console.BASE.DTS.(p.colName) = string(p.pathCol);
+            nexon.console.BASE.DTS.(p.colName) = pathColFull;
         else
-            newCol = table(string(p.pathCol), 'VariableNames', {p.colName});
+            newCol = table(pathColFull, 'VariableNames', {p.colName});
             nexon.console.BASE.DTS = [nexon.console.BASE.DTS, newCol];
         end
         fprintf('  registered: %s → %s\n', p.colName, p.h5FileOut);

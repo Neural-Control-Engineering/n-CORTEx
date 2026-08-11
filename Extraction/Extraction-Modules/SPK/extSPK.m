@@ -59,6 +59,10 @@ function SPK = extSPK(SLRT, npxls_path, trigNum, bin_s, sigma_s, doViz)
         end
     end
 
+    % --- trial-window parameters (mirror extLFP) ---
+    preBuffLen = 3.5;   % s before trial gate start to include (matching extLFP)
+    ap_dur_s   = Inf;   % AP recording duration — computed below; Inf = no cap (fallback)
+
     % --- cross-device drift correction (mirror extAP / extLFP) ---
     % The 1 Hz sync pulse fed into SLRT drifts slowly relative to the imec
     % acquisition clock over long recordings. loadKS4_spk / loadRTSort_spk
@@ -75,6 +79,7 @@ function SPK = extSPK(SLRT, npxls_path, trigNum, bin_s, sigma_s, doViz)
         % end
         t_start_meta = str2double(lfp.meta.firstSample) / str2double(lfp.meta.imSampRate); % seconds before gate start
         nSamples = (str2double(ap.meta.fileSizeBytes) / str2double(ap.meta.nSavedChans)) / 2; % 2 bytes/sample
+        ap_dur_s = nSamples / str2double(ap.meta.imSampRate);
         ap.dataArray = ones([1, nSamples]);
         ap.meta.Fs   = str2double(ap.meta.imSampRate);
         [sync_ref, sessionDetails] = constructSync_slrt(SLRT, trigNum);
@@ -102,8 +107,9 @@ function SPK = extSPK(SLRT, npxls_path, trigNum, bin_s, sigma_s, doViz)
         if trialGate ~= trigNum, continue; end
 
         session_label = SLRT(trial,:).session_label{1};
-        t_start_s     = SLRT(trial,:).("trial-gate_clock_time"){1}(1);
-        t_stop_s      = SLRT(trial,:).("trial-gate_clock_time"){1}(end);
+        gate_ct   = SLRT(trial,:).("trial-gate_clock_time"){1};
+        t_start_s = gate_ct(1) - preBuffLen;
+        t_stop_s  = min(gate_ct(end), t_start_s + ap_dur_s);
 
         row = table(trigNum, {session_label}, ...
             'VariableNames', {'trial_num', 'session_label'});

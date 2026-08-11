@@ -249,6 +249,7 @@ classdef nexObj_categorical < nexObject
             try
                 nexObj.DF_postOp = nexObj.cfg.opCfg.fcn(nexObj.DF_postOp);
             catch e
+                % keyboard
                 disp(getReport(e));
             end
         end

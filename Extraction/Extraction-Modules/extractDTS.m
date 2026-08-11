@@ -8,6 +8,8 @@ function extractDTS(params)
                             params.extractCfg.experiment, "Extraction-Logs", ...
                             "DTS_extraction_log.csv");
 
+    OVERWRITE=1;
+
     [h5File, manifest] = nexDTS_openOrCreate(dtsPath);
 
     extFields = fieldnames(extData);
@@ -66,16 +68,25 @@ function extractDTS(params)
         end
 
         rowsBefore = height(manifest);
-        manifest   = nexDTS_appendRows(dts, h5File, manifest);
+        manifest   = nexDTS_appendRows(dts, h5File, manifest, [], [], OVERWRITE);
 
         % Log session as extracted only if rows were actually written
         if height(manifest) <= rowsBefore
             fprintf("WARNING: no new rows written for session %s (already present or empty)\n", session);
         end
         if isfile(logPath) && height(manifest) > rowsBefore && all(modPassed)
-            extractionLog = readtable(logPath);
-            extractionLog(contains(extractionLog.SessionName, session), :).Extracted = 1;
-            writetable(extractionLog, logPath);
+            try
+                extractionLog = readtable(logPath);
+                if ~ismember('SessionName', extractionLog.Properties.VariableNames) || ...
+                   ~ismember('Extracted',   extractionLog.Properties.VariableNames)
+                    fprintf("WARNING: DTS_extraction_log has unexpected columns (header missing?) — skipping log update for %s\n", session);
+                else
+                    extractionLog(contains(extractionLog.SessionName, session), :).Extracted = 1;
+                    writetable(extractionLog, logPath);
+                end
+            catch e
+                fprintf("WARNING: could not update extraction log for %s — %s\n", session, e.message);
+            end
         end
         save(fullfile(dtsPath, 'nexDTS_manifest.mat'), 'manifest');
         % assignin("base", "DTS", manifest);
