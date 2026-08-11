@@ -12,16 +12,30 @@ function items = nexOp_enumerateCategory(nexObj, category)
     catch
     end
 
-    % Search 2: HDF5 flat dfID — read all values and return unique set
-    if prefix == "h5"
-        DTS      = nexObj.nexon.console.BASE.DTS;
-        raw      = dtsIO_readTFH5(DTS, char(bareKey), [], 'simple');
-        nonEmpty = raw(~cellfun('isempty', raw));
-        if ~isempty(nonEmpty) && (ischar(nonEmpty{1}) || isstring(nonEmpty{1}))
-            items = unique(string(cellfun(@string, nonEmpty, 'UniformOutput', false)));
+    % Search 2: HDF5 dfID OR direct manifest ("var") column — read all values
+    % and return the unique set. dtsIO_readTFH5 returns a {N×1} cell for HDF5
+    % dfIDs, and the raw column (numeric / string / cell) for a direct manifest
+    % column, so handle both shapes.
+    if prefix == "h5" || prefix == "var"
+        DTS = nexObj.nexon.console.BASE.DTS;
+        raw = dtsIO_readTFH5(DTS, char(bareKey), [], 'simple');
+        if prefix == "var"
+            % Hybrid DTS: a manifest "var" column may be empty for disk-backed
+            % rows whose value lives in HDF5 — fill so those values are listed.
+            raw = dtsIO_hybridFillVar(DTS, char(bareKey), ':', raw);
+        end
+        if iscell(raw)
+            nonEmpty = raw(~cellfun('isempty', raw));
+            if ~isempty(nonEmpty) && (ischar(nonEmpty{1}) || isstring(nonEmpty{1}))
+                items = unique(string(cellfun(@string, nonEmpty, 'UniformOutput', false)));
+            else
+                vals  = cellfun(@(c) scalarOrNaN(c), raw);
+                items = unique(vals(~isnan(vals)));
+            end
+        elseif isnumeric(raw)
+            items = unique(raw(~isnan(raw)));
         else
-            vals  = cellfun(@(c) scalarOrNaN(c), raw);
-            items = unique(vals(~isnan(vals)));
+            items = unique(string(raw));
         end
         return;
     end

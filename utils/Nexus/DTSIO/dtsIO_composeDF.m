@@ -5,10 +5,20 @@ function DF = dtsIO_composeDF(DTS, DFID, dtsIdx, ptr)
     if ismember('h5_path', DTS.Properties.VariableNames)
         h5path = string(DTS.h5_path(dtsIdx));
         if strlength(h5path) > 0
-            DF = dtsIO_readHDF5(DTS, DFID, dtsIdx, ptr);
-            return;
+            % Disk-backed row: try HDF5. If the file can't be opened — e.g. a
+            % hybrid in-memory row that kept a stale/invalid h5_path, or a moved
+            % file — fall through to the in-memory columns instead of erroring
+            % the whole read.
+            try
+                DF = dtsIO_readHDF5(DTS, char(DFID), dtsIdx, ptr);
+                if isstruct(DF) && ~isempty(fieldnames(DF))
+                    return;
+                end
+            catch
+            end
         end
-        % else: in-memory row inside a hybrid DTS — fall through to column read
+        % else (or a failed/empty HDF5 read): in-memory row inside a hybrid
+        % DTS — fall through to the column read.
     end
     % ptr is not applied to in-memory DTS (no hyperslab concept for arrays in RAM).
 

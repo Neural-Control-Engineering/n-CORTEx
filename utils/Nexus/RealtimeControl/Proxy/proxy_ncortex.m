@@ -258,10 +258,30 @@ classdef proxy_ncortex < handle
         end
 
         function discardTrial(proxObj, rxArgs)
-            % Remove a discarded trial's row from the target DTS, keyed by
-            % (sessionLabel, trialNumber), so it never clutters analysis.
-            % Operates on the in-memory (pre disk-sink) row; a row already
-            % flushed to HDF5 would also need its group pruned (later step).
+            % Discard a trial, keyed by (sessionLabel, trialNumber):
+            %   (1) flag the target capture proxies so an in-flight / not-yet-run
+            %       neural sink for this trial is skipped — the operator can
+            %       discard faster than a capture sinks, so the row may not exist
+            %       yet; and
+            %   (2) remove the trial's row from the DTS if it has already landed.
+            % In-memory (pre disk-sink) row; a row already flushed to HDF5 would
+            % also need its group pruned (later step).
+
+            % (1) cancel any pending capture sink for this trial
+            try
+                tgProx = proxObj.proxon.index_type2;
+                fns    = fieldnames(tgProx);
+                for i = 1:numel(fns)
+                    p = tgProx.(fns{i});
+                    if ismethod(p, 'flagDiscardTrial')
+                        p.flagDiscardTrial(rxArgs.trialNumber);
+                    end
+                end
+            catch e
+                disp(getReport(e));
+            end
+
+            % (2) remove the row if it already exists
             nexon = proxObj.proxon.nexon;
             if isempty(nexon)
                 warning("ncortex:noNexon", "no nexon bound to proxon; discard skipped");
@@ -271,8 +291,8 @@ classdef proxy_ncortex < handle
                             'trialNumber',  rxArgs.trialNumber);
             rowIdx = nex_searchRowAddress(nexon.console.BASE.DTS, dtsIdx);
             if isempty(rowIdx)
-                fprintf("[proxy_ncortex] discardTrial: no row for %s trial %d\n", ...
-                        string(rxArgs.sessionLabel), rxArgs.trialNumber);
+                fprintf("[proxy_ncortex] discardTrial: trial %d not yet in DTS (flagged for skip)\n", ...
+                        rxArgs.trialNumber);
                 return
             end
             nexon.console.BASE.DTS(rowIdx,:) = [];

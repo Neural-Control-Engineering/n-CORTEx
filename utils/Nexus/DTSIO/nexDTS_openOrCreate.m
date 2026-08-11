@@ -9,11 +9,20 @@ function [h5File, manifest] = nexDTS_openOrCreate(dtsPath)
         mkdir(dtsPath);
     end
     h5File       = fullfile(dtsPath, 'nexDTS.h5');
-    manifestFile = fullfile(dtsPath, 'DTS_manifest.mat');
+    manifestFile = fullfile(dtsPath, 'nexDTS_manifest.mat');
     if isfile(manifestFile)
-        S  = load(manifestFile);
-        % load(manifestFile);
-        manifest = S.DTS_manifest;
+        S = load(manifestFile);
+        % Writers are inconsistent about the variable name (manifest / DTS /
+        % DTS_manifest) — accept whichever is present.
+        if isfield(S, 'manifest')
+            manifest = S.manifest;
+        elseif isfield(S, 'DTS_manifest')
+            manifest = S.DTS_manifest;
+        elseif isfield(S, 'DTS')
+            manifest = S.DTS;
+        else
+            manifest = [];
+        end
     else
         manifest = [];
     end

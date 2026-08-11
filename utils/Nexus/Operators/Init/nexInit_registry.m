@@ -69,7 +69,8 @@ function  nexInit_registry(nexon)
             try
                 load(regMapDir_cloud);
             catch
-                return
+                continue   % no region map for this subject (e.g. a new cohort) —
+                           % skip it, don't abort the whole registry build
             end
         end
         subjectID = sprintf("subj_%s",subject);

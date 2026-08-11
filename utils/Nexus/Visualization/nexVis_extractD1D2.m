@@ -100,6 +100,15 @@ function sel = nexVis_ptrIdx(p, nTotal, isDisplay)
     if isDisplay
         sel = 1:nTotal;
     else
-        sel = p.value;
+        % Residual-dim lock. Guard against an uninitialized / out-of-range
+        % value (e.g. a freshly captured trial whose pointer bus hasn't
+        % populated this axis yet) so it never indexes out of bounds —
+        % default to the first element.
+        v = p.value;
+        if ~isnumeric(v) || ~isscalar(v) || ~isfinite(v) || ...
+                v < 1 || v > nTotal || mod(v,1) ~= 0
+            v = 1;
+        end
+        sel = v;
     end
 end

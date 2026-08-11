@@ -21,29 +21,19 @@ function DF = dtsIO_readDF(nexon, DFID, dtsIdx, ptr)
     diskBacked = ismember('h5_path', dtsCols) || ...
                  ismember(char("h5_path_" + string(DFID)), dtsCols);
     if ~ismember(DFID, dtsCols) && diskBacked
-        % Hybrid DTS: route through composeDF (per-row hybrid-aware) instead of
-        % readHDF5 directly. composeDF reads HDF5 only for rows whose h5_path is
-        % set, and falls through to the in-memory foliated <DFID>_<stub> columns
-        % for forceMem capture rows (h5_path == ""). Going straight to readHDF5
-        % tried to H5Fopen an empty path for those in-memory rows.
-        DTS_route   = nexon.console.BASE.DTS;
-        overrideCol = char("h5_path_" + string(DFID));
-        if ismember(overrideCol, DTS_route.Properties.VariableNames)
-            DTS_route.h5_path = DTS_route.(overrideCol);   % dfID-specific file
-        end
         if isempty(dtsIdx)
-            ridx = nex_getRouterIdx(nexon);                % current router trial
-            if islogical(ridx), ridx = find(ridx); end     % mask → row indices
-            if isempty(ridx), DF = []; return; end
-            dtsIdx = ridx(1);                              % single row (mirror readHDF5)
-        end
-        if isscalar(dtsIdx)
-            DF = dtsIO_composeDF(DTS_route, DFID, dtsIdx, ptr);
+            % Empty index uses nexon for router-based row selection; override
+            % cannot be injected here without restructuring readHDF5.
+            DF = dtsIO_readHDF5(nexon, char(DFID), dtsIdx, ptr);
         else
-            DF = {};
-            for i = 1:numel(dtsIdx)
-                DF = [DF; dtsIO_composeDF(DTS_route, DFID, dtsIdx(i), ptr)]; %#ok<AGROW>
+            % Route to the dfID-specific file if one has been registered by
+            % nexTract (via dtsIO_patchManifest), otherwise fall back to h5_path.
+            DTS_route    = nexon.console.BASE.DTS;
+            overrideCol  = "h5_path_" + string(DFID);
+            if ismember(overrideCol, DTS_route.Properties.VariableNames)
+                DTS_route.h5_path = DTS_route.(char(overrideCol));
             end
+            DF = dtsIO_readHDF5(DTS_route, char(DFID), dtsIdx, ptr);
         end
     else
         if isscalar(dtsIdx)

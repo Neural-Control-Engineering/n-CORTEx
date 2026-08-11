@@ -31,6 +31,7 @@ function selCond = nex_applySelectionMask(DTS, S)
             continue
         end
         matchingRows = dtsIO_findMatchingRows(keySel, TF);
+        % matchingRows'
         
         % selCond = (selCond &  matchingRows);   
 

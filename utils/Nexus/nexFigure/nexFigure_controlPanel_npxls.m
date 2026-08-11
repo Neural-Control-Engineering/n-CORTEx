@@ -132,8 +132,17 @@ function nexFigure_controlPanel_npxls(nexObj)
         if isempty(DTS_inmem) || ~istable(DTS_inmem) || height(DTS_inmem) == 0
             uialert(nexObj.Figure.fh, "No in-memory DTS to sink.", "Sink skipped"); return;
         end
+        % Hybrid DTS: sink only the in-memory rows (h5_path=="") into the
+        % existing store — nexDTS_appendRows extracts them. Refuse only when
+        % there are no in-memory rows left to flush.
+        nSink = height(DTS_inmem);
         if ismember('h5_path', DTS_inmem.Properties.VariableNames)
-            uialert(nexObj.Figure.fh, "DTS is already disk-backed.", "Sink skipped"); return;
+            nSink = nnz(strlength(string(DTS_inmem.h5_path)) == 0);
+            if nSink == 0
+                uialert(nexObj.Figure.fh, ...
+                    "DTS is fully disk-backed — no in-memory rows to sink.", "Sink skipped");
+                return;
+            end
         end
 
         % Resolve DTS output path — prefer params, fall back to folder picker.
@@ -150,12 +159,23 @@ function nexFigure_controlPanel_npxls(nexObj)
         sinkBtn.Enable = "off"; drawnow;
         try
             [h5File, manifest] = nexDTS_openOrCreate(dtsPath);
+            % Data-loss guard: sinking a hybrid DTS relies on the existing
+            % manifest being found so the already-disk rows are preserved in the
+            % combine. Abort rather than drop them.
+            if ismember('h5_path', DTS_inmem.Properties.VariableNames) && ...
+                    (isempty(manifest) || ~istable(manifest))
+                sinkBtn.Enable = "on";
+                uialert(nexObj.Figure.fh, sprintf( ...
+                    "Existing manifest not found at %s — aborting to avoid dropping disk rows.", ...
+                    dtsPath), "Sink aborted");
+                return;
+            end
             manifest = nexDTS_appendRows(DTS_inmem, h5File, manifest, nexon, dtsPath);
             save(fullfile(dtsPath, 'nexDTS_manifest.mat'), 'manifest');
             nexon.console.BASE.DTS = manifest;
             try, nexon.console.BASE.updateControlPanel(); catch, end
             uialert(nexObj.Figure.fh, ...
-                sprintf("Sinked %d rows to %s", height(DTS_inmem), dtsPath), ...
+                sprintf("Sinked %d rows to %s", nSink, dtsPath), ...
                 "Sink complete", "Icon", "success");
         catch e
             disp(getReport(e, "extended", "hyperlinks", "on"));

@@ -24,6 +24,9 @@ classdef proxy_npxls < handle
         capChanCounts       % [nAP, nLF, nSY] from GetStreamAcqChans at capture start
         capFs               % imec stream sample rate at capture start
         capTrialNum         % trial number for the active capture (DTS row address)
+        maxTrialAssigned = 0 % monotonic floor: highest trial index handed out this session
+        maxTrialSL = ""      % sessionLabel that maxTrialAssigned belongs to
+        discardedTrials = [] % trial numbers whose capture sink must be skipped (discard-before-sink race)
         capTimer            % drain safety timer (fires only for long captures)
         ringBufferSec = 8   % conservative estimate of SpikeGLX stream buffer depth (s)
         capDrainSafety = 0.5 % drain interval = ringBufferSec*this (keep buffer < half full)
@@ -134,25 +137,35 @@ classdef proxy_npxls < handle
 
         % --- ad-hoc capture: SLRT relays startCapture/stopCapture (ctrlKey 3/4) ---
         function n = nextTrialNum(proxObj)
-            % Host-owned trial counter: next index for the active session =
-            % max existing trialNumber for this sessionLabel + 1 (1 if none).
-            % Derived from the DTS (not a proxy counter) so it survives proxy
-            % reconstruction and stays aligned with offline-written trial rows.
-            n = 1;
+            % Host-owned trial counter: next index for the active session.
+            % Base = max existing trialNumber for this sessionLabel in the DTS
+            % (survives proxy reconstruction, stays aligned with offline rows),
+            % but FLOORED by maxTrialAssigned — the highest index handed out this
+            % session — so a discard that deletes the top row (dropping the DTS
+            % max) does NOT roll the counter back and reuse a number the host has
+            % already advanced past. The floor applies only within the same
+            % sessionLabel; a new session starts fresh from the DTS.
+            SL = "";
+            try, SL = string(proxObj.nCORTEx.params.sessionLabel); catch, end
+            dtsMax = 0;
             try
                 nexon = proxObj.proxon.nexon;
-                SL    = string(proxObj.nCORTEx.params.sessionLabel);
                 DTS   = nexon.console.BASE.DTS;
                 if istable(DTS) ...
                         && ismember('sessionLabel', DTS.Properties.VariableNames) ...
                         && ismember('trialNumber',  DTS.Properties.VariableNames)
                     m = DTS.trialNumber(string(DTS.sessionLabel) == SL);
                     m = m(~isnan(m));
-                    if ~isempty(m), n = double(max(m)) + 1; end
+                    if ~isempty(m), dtsMax = double(max(m)); end
                 end
             catch e
                 disp(getReport(e));
             end
+            floorVal = 0;
+            if strlength(SL) > 0 && SL == proxObj.maxTrialSL
+                floorVal = proxObj.maxTrialAssigned;
+            end
+            n = max(dtsMax, floorVal) + 1;
         end
 
         function startCapture(proxObj, pyd, sze)
@@ -177,6 +190,17 @@ classdef proxy_npxls < handle
             proxObj.capChanCounts = GetStreamAcqChans(proxObj.Server, 2, ip);   % [nAP, nLF, nSY]
             proxObj.capFs         = Fs;
             proxObj.capTrialNum   = trialNum;
+            % Advance the monotonic per-session floor so a later discard of the
+            % top row can't make nextTrialNum reuse this index (covers both the
+            % speedgoat-pyd and auto-assigned paths).
+            capSL = "";
+            try, capSL = string(proxObj.nCORTEx.params.sessionLabel); catch, end
+            if capSL ~= proxObj.maxTrialSL
+                proxObj.maxTrialSL       = capSL;
+                proxObj.maxTrialAssigned = 0;
+                proxObj.discardedTrials  = [];   % new session — clear stale discard flags
+            end
+            proxObj.maxTrialAssigned = max(proxObj.maxTrialAssigned, trialNum);
             proxObj.EN_capStream  = true;
             % Drain safety timer. It fires only if the capture outlives one drain
             % interval (kept below the ring-buffer depth), so short trial-scale
@@ -265,10 +289,26 @@ classdef proxy_npxls < handle
             end
         end
 
+        function flagDiscardTrial(proxObj, trialNum)
+            % Mark a trial so its capture sink is skipped (storeToDTS checks
+            % this). Set by proxy_ncortex.discardTrial when the operator discards
+            % before the neural data has finished sinking. Flags persist for the
+            % session (trial numbers are monotonic, never reused) and are cleared
+            % on session change in startCapture.
+            proxObj.discardedTrials = union(proxObj.discardedTrials, double(trialNum));
+        end
+
         function storeToDTS(proxObj, DF, dfID, dtsIdx)
             % Sink stage (capture mode): write a DF into the Nexus DTS at the
             % trial row address. Kept sink-agnostic so start/stopDataStream can
             % swap this for an axon-TX sink (REALTIME_CAPTURE_STREAM_DESIGN.md, C).
+            % Skip if this trial was discarded before the sink ran — the operator
+            % can discard faster than a capture sinks, so discardTrial flags the
+            % trial and every DF of it is dropped here.
+            if isstruct(dtsIdx) && isfield(dtsIdx, 'trialNumber') ...
+                    && ismember(double(dtsIdx.trialNumber), proxObj.discardedTrials)
+                return
+            end
             nexon = proxObj.proxon.nexon;        % populated by nexusCtrl_startNexus
             if isempty(nexon)
                 warning("npxls:noNexon", "no nexon bound to proxon; DF not stored");

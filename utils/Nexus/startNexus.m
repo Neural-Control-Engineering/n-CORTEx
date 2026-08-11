@@ -54,9 +54,14 @@
     catch
     end
 
-    % Registry — load from experiment-scoped cache; build + cache on first run
+    % Registry — load from experiment-scoped cache; build + cache on first run.
+    % On a cache hit, reconcile against the current DTS so newly added subjects /
+    % categories appear (existing colors + region maps are preserved), then
+    % re-cache the reconciled registry.
     if isfile(nexon.nexCachePath('registry'))
         nexon.loadRegistry();
+        nexOp_mergeRegistry(nexon);
+        nexon.saveRegistry();
     else
         nexInit_registry(nexon);
         nexon.saveRegistry();

@@ -8,6 +8,13 @@ function TF = dtsIO_readTF_category(dataObj, category, idxSel)
             TF = cellfun(@(var) parseSessionLabel(convertCharsToStrings(var), categoryID), TF, "UniformOutput", true);
         case "var"
             TF = dtsIO_readVar(dataObj, categoryID, idxSel);
+            % Hybrid-DTS fill: a task var can be an empty manifest cell for a
+            % disk-backed row (its value lives in HDF5 — e.g. yesterday's trials,
+            % where the manifest cell was only created when in-memory capture
+            % rows were merged in). Read those rows from HDF5 per-row so the
+            % selection mask sees them. In-memory rows (manifest value present)
+            % are left untouched.
+            TF = dtsIO_hybridFillVar(dataObj, char(categoryID), idxSel, TF);
         case "h5"
             % Read per-trial values from HDF5 — numeric or string.
             % dataObj may be a DTS table or a nexon handle — unwrap if needed.

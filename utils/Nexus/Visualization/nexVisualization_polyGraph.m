@@ -180,6 +180,7 @@ function h = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C, alphaVal, line
 
     xD = double(xAxis(:));
     L  = numel(xD);
+    if L == 0, return; end   % empty x-axis (degenerate/empty trace) — nothing to draw
     if size(C, 1) == 1, C = repmat(C, nTraces, 1); end
 
     % Build offset Y and SEM S matrices  (L × nTraces)

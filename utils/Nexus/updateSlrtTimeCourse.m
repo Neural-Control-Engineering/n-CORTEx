@@ -12,8 +12,25 @@ function updateSlrtTimeCourse(timeCourse, colorMap)
         signalID_hyph = strrep(signalID,"_","-");
         % retrieve corresponding df
         dfID_tileID = split(tileID,"_"); dfID = convertCharsToStrings(dfID_tileID(end));
-        % df_idx = find(dfID==signalID);       
+        % df_idx = find(dfID==signalID);
         % df_i = dataFrame{df_idx};
+        % Guard: this trial may lack a signal the figure has a tile for — e.g. a
+        % neural-only capture trial has no SLRT signals (nexSLRT_compileDataFrames
+        % skips them), so DF.df has no such field. Blank the tile instead of
+        % erroring during the post-capture auto-route (nex_routeToTrial).
+        hasSig = false;
+        try
+            hasSig = isstruct(timeCourse.DF.df) && isfield(timeCourse.DF.df, signalID);
+        catch
+        end
+        if ~hasSig
+            try
+                timeCourse.Figure.panel1.tiles.graphics.(tileID).YData = [];
+                timeCourse.Figure.panel1.tiles.graphics.(tileID).XData = [];
+            catch
+            end
+            continue
+        end
         df_i = timeCourse.DF.df.(signalID)';
         t_df = [1:size(df_i,2)] ./ Fs - preBuffer;    
         traceColor = [1,1,1];
