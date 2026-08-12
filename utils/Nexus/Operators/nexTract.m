@@ -11,6 +11,9 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
 %   reclaim worker heap that MATLAB's allocator does not return to the OS
 %   between tasks. Default = Inf (never restart). Recommended: 20–50 for
 %   parfor-backed functions on large datasets.
+% opts.skipExisting  — when true, skip any row whose output already exists
+%   in the DTS (disk-backed: checks the output HDF5 group; in-memory:
+%   checks that the dfColName column is present and non-empty). Default false.
 
     if nargin < 5 || isempty(fcnName)
         fcnName = func2str(fcn);
@@ -21,6 +24,10 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
     poolRestartInterval = inf;
     if isfield(opts, 'poolRestartInterval')
         poolRestartInterval = opts.poolRestartInterval;
+    end
+    skipExisting = false;
+    if isfield(opts, 'skipExisting')
+        skipExisting = opts.skipExisting;
     end
 
     rowStart = 1;
@@ -94,23 +101,35 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
         % Skip check — independent per output k.
         % If ALL outputs already exist for this row, skip the fcn call entirely.
         skip = false(1, nOut);
-        if isDiskBacked
-            for k = 1:nOut
-                if exist(h5FileOut{k}, 'file')
-                    grp     = char(nexon.console.BASE.DTS.h5_root(i) + "/" + dfColName(k));
-                    fapl_sk = H5P.create('H5P_FILE_ACCESS');
-                    H5P.set_fclose_degree(fapl_sk, 'H5F_CLOSE_STRONG');
-                    fid_sk  = H5F.open(h5FileOut{k}, 'H5F_ACC_RDONLY', fapl_sk);
-                    H5P.close(fapl_sk);
-                    try
-                        skip(k) = H5L.exists(fid_sk, [grp '/df'],    'H5P_DEFAULT') || ...
-                                  H5L.exists(fid_sk, [grp '/df_im'], 'H5P_DEFAULT');
-                    catch
+        if skipExisting
+            if isDiskBacked
+                for k = 1:nOut
+                    if exist(h5FileOut{k}, 'file')
+                        grp     = char(nexon.console.BASE.DTS.h5_root(i) + "/" + dfColName(k));
+                        fapl_sk = H5P.create('H5P_FILE_ACCESS');
+                        H5P.set_fclose_degree(fapl_sk, 'H5F_CLOSE_STRONG');
+                        fid_sk  = H5F.open(h5FileOut{k}, 'H5F_ACC_RDONLY', fapl_sk);
+                        H5P.close(fapl_sk);
+                        try
+                            skip(k) = H5L.exists(fid_sk, [grp '/df'],    'H5P_DEFAULT') || ...
+                                      H5L.exists(fid_sk, [grp '/df_im'], 'H5P_DEFAULT');
+                        catch
+                        end
+                        H5F.close(fid_sk);
                     end
-                    H5F.close(fid_sk);
                 end
+                if all(skip), continue; end
+            else
+                allPresent = true;
+                for k = 1:nOut
+                    if ~ismember(dfColName(k), nexon.console.BASE.DTS.Properties.VariableNames) || ...
+                       isempty(nexon.console.BASE.DTS.(dfColName(k)){i})
+                        allPresent = false;
+                        break;
+                    end
+                end
+                if allPresent, continue; end
             end
-            if all(skip), continue; end
         end
 
         % Periodic pool restart — reclaims worker heap accumulated over prior rows.
