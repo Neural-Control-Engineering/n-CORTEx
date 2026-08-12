@@ -10,20 +10,28 @@ function ptr = nexInit_axisPointer(df, ax)
     dimsTaken = [];
     sPtr      = struct();
 
+    % Co-indexed labels (e.g. per-unit 'chans') yield a shared dimension to their
+    % sibling axis (e.g. 'unit') instead of claiming it by field order.
+    coIndexLabels = nex_coIndexAxisLabels();
+    axLens        = cellfun(@(f) numel(ax.(f)), axFields);
+
     for i = 1:numel(axFields)
         f     = axFields{i};
         axLen = numel(ax.(f));
-        dims  = find(axLen == size(df));
 
-        dim = [];
-        for j = 1:numel(dims)
-            if ~ismember(dims(j), dimsTaken)
-                dim = dims(j);
-                break;
+        if ismember(string(f), coIndexLabels) && sum(axLens == axLen) > 1
+            dim = [];   % co-indexed label with a sibling of the same length — yield the dim
+        else
+            dims = find(axLen == size(df));
+            dim  = [];
+            for j = 1:numel(dims)
+                if ~ismember(dims(j), dimsTaken)
+                    dim = dims(j);
+                    break;
+                end
             end
+            if ~isempty(dim), dimsTaken = [dimsTaken, dim]; end
         end
-        if isempty(dim), dim = []; end   % fallback
-        dimsTaken = [dimsTaken, dim];
 
         sPtr.(f).dim    = dim;
         sPtr.(f).value  = 1;

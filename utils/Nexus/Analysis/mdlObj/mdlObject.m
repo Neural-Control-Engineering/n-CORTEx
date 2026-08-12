@@ -328,6 +328,29 @@ classdef mdlObject < handle
                     idxSel = nex_applySelectionMask(mdlObj.nexon.console.BASE.DTS, S_merge);                    
             end
             rowIdxs = find(idxSel==1);
+
+            % Output routing. The transform output always lands on dfID_target —
+            % never back on the source. For a disk-backed DTS it is written to a
+            % DEDICATED sibling HDF5 (patch) file — one file per dfID_target,
+            % named like the source h5 — and registered in the manifest
+            % (h5_path_<dfID_target>), exactly like nexTract. This keeps the
+            % transform artifact out of the main nexDTS.h5, and gives a clean
+            % OVERWRITE: each row's group is unlinked before the write so re-running
+            % Transform REPLACES the prior pca output in the existing patch file
+            % rather than leaving stale axis datasets (e.g. an old 'chans'/'measure')
+            % beside the fresh 'latent' — the low-level writer only overwrites the
+            % datasets it re-writes, not ones the new DF dropped.
+            isDiskBacked = ismember('h5_path', ...
+                mdlObj.nexon.console.BASE.DTS.Properties.VariableNames);
+            usePatch = isDiskBacked;
+            if usePatch
+                dfID_out  = char(mdlObj.dfID_target);
+                h5FileIn  = char(mdlObj.nexon.console.BASE.DTS.h5_path(1));
+                [pd, pb, pe] = fileparts(h5FileIn);
+                h5FileOut = fullfile(pd, [pb '_' dfID_out pe]);
+                dtsIO_patchManifest(mdlObj.nexon, dfID_out, h5FileOut);
+            end
+
             % for i = 1:dtsRows
             for r=1:length(rowIdxs)
                 i=rowIdxs(r);
@@ -341,7 +364,8 @@ classdef mdlObject < handle
                 if isempty(DF_X) || isempty(DF_X.df)
                     continue
                 end
-                DF_X = nex_initAxisPointer_v2(DF_X);
+                % DF_X = nex_initAxisPointer_v2(DF_X);
+                DF_X.ptr = nexInit_axisPointer(DF_X.df, DF_X.ax);
                 if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
                     DF_X = mdlObj.applyPointerDF(DF_X);
                 end
@@ -356,12 +380,19 @@ classdef mdlObject < handle
                 if isempty(DF_Z) || isempty(DF_Z.df)
                     continue
                 end
-                switch isOverwrite
-                    case 0 
-                        fprintf("writing to: %s", mdlObj.dfID_target);
-                        dtsIO_writeDF(mdlObj.nexon, DF_Z, mdlObj.dfID_target, i);
-                    case 1
-                        dtsIO_writeDF(mdlObj.nexon, DF_Z, dfID_entry, i);
+                if usePatch
+                    % Overwrite in place: unlink this row's group in the target's
+                    % patch file first so re-running Transform REPLACES the prior
+                    % pca output cleanly — no stale axis datasets (an old
+                    % 'chans'/'measure') left beside the fresh 'latent', since the
+                    % low-level writer only overwrites datasets it re-writes.
+                    h5Root = char(mdlObj.nexon.console.BASE.DTS.h5_root(i));
+                    mdlObj_h5ClearGroup(h5FileOut, [h5Root '/' dfID_out]);
+                    fprintf("patching %s -> %s\n", dfID_out, h5FileOut);
+                    dtsIO_writeDF_toHDF5(h5FileOut, h5Root, dfID_out, DF_Z);
+                else
+                    fprintf("writing to: %s", mdlObj.dfID_target);
+                    dtsIO_writeDF(mdlObj.nexon, DF_Z, mdlObj.dfID_target, i);
                 end
 
             end
@@ -652,7 +683,10 @@ classdef mdlObject < handle
                                   STAT.df, 'UniformOutput', false);
 
                 newAx   = STAT.ax(1);
+                preLen  = numel(statVals);
                 newAx.(f) = statVals(dimIdx);
+                % Keep co-indexed labels (e.g. per-unit 'chans') aligned.
+                newAx   = sliceCoIndexLabels(newAx, f, preLen, dimIdx);
                 STAT.ax = repmat(newAx, height(STAT), 1);
 
                 fprintf('[mdlObject] applyPointer: %s  [%d → %d]\n', ...
@@ -676,7 +710,8 @@ classdef mdlObject < handle
             axFields = fieldnames(bus.selections);
             if isempty(axFields), return; end
             if ~isfield(DF,'ptr') || isempty(DF.ptr)
-                DF = nex_initAxisPointer_v2(DF);
+                % DF = nex_initAxisPointer_v2(DF);
+                DF.ptr = nexInit_axisPointer(DF.df, DF.ax);
             end
             anyChanged = false;
             for ai = 1:numel(axFields)
@@ -701,7 +736,10 @@ classdef mdlObject < handle
                 dim = DF.ptr.(f).dim;
                 S = repmat({':'}, 1, ndims(DF.df)); S{dim} = dimIdx;
                 DF.df      = DF.df(S{:});
+                preLen     = numel(axVals);
                 DF.ax.(f)  = axVals(dimIdx);
+                % Keep co-indexed labels (e.g. per-unit 'chans') aligned.
+                DF.ax      = sliceCoIndexLabels(DF.ax, f, preLen, dimIdx);
                 fprintf('[mdlObject] applyPointerDF: %s  [%d → %d]\n', ...
                         f, numel(axVals), numel(dimIdx));
                 anyChanged = true;
@@ -869,6 +907,21 @@ function X = ptrSliceDim(A, dim, idx)
     X      = A(S{:});
 end
 
+function ax = sliceCoIndexLabels(ax, siblingField, siblingLen, idx)
+% When a sibling axis (e.g. 'unit') is windowed to idx, slice any co-indexed
+% label (dim=[], same length) that rides along it (e.g. per-unit 'chans') to the
+% same indices, so the label stays aligned with its sibling.
+    coLabels = nex_coIndexAxisLabels();
+    lf = fieldnames(ax);
+    for i = 1:numel(lf)
+        f = lf{i};
+        if strcmp(f, siblingField) || ~ismember(string(f), coLabels), continue; end
+        if numel(ax.(f)) == siblingLen
+            ax.(f) = ax.(f)(idx);
+        end
+    end
+end
+
 function [df, keepIdx] = domainSliceAxis(df, axVals, dim, keepVals)
 % Shared Domain/MSR slice core. Returns the indices of axVals whose values
 % are in keepVals (numeric → tolerant match; else exact membership) and
@@ -888,4 +941,23 @@ function [df, keepIdx] = domainSliceAxis(df, axVals, dim, keepVals)
     end
     S = repmat({':'}, 1, ndims(df)); S{dim} = keepIdx;
     df = df(S{:});
+end
+
+function mdlObj_h5ClearGroup(h5File, groupPath)
+% Unlink groupPath (and everything under it) from h5File if present. Used by
+% scaleApply_transform to clear a row's prior transform output before a fresh
+% write, so re-runs don't leave stale datasets from an earlier (differently
+% shaped) DF. No-op if the file or group doesn't exist yet.
+    if ~exist(h5File, 'file'), return; end
+    fapl = H5P.create('H5P_FILE_ACCESS');
+    H5P.set_fclose_degree(fapl, 'H5F_CLOSE_STRONG');
+    fid = H5F.open(h5File, 'H5F_ACC_RDWR', fapl);
+    H5P.close(fapl);
+    try
+        if H5L.exists(fid, groupPath, 'H5P_DEFAULT')
+            H5L.delete(fid, groupPath, 'H5P_DEFAULT');
+        end
+    catch
+    end
+    H5F.close(fid);
 end

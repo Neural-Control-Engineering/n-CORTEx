@@ -267,6 +267,7 @@ classdef nexObj_stateSpace < nexObject
         % ── STATE construction ────────────────────────────────────────────
         function buildSTATE(nexObj)
             % Compile STAT / AVG / DF into nexObj.STATE and initialize ptr.
+            nexObj.compileSTAT();
             % Expensive — called explicitly via UI button, not on every update.
             STATE = struct();
 
@@ -300,7 +301,12 @@ classdef nexObj_stateSpace < nexObject
                             f    = axFields{k};
                             vals = nexObj.DF_postOp.ax.(f)';   % transpose to Nx1
                             idx  = min((1:T_DF)', numel(vals));
-                            G_DF.(f) = vals(idx);
+                            try
+                                G_DF.(f) = vals(idx);
+                            catch e
+                                disp(getReport(e));
+                                keyboard
+                            end
                         end
                     end
                 catch e

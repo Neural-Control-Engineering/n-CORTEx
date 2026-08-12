@@ -15,7 +15,8 @@ function DF_out = nexOp_eventAlignDF(DF_in, sample_event, Fs, t_preBuff, isShift
     try
         ax_t = ax_t - (sample_event / Fs - t_preBuff);    
     catch
-        keyboard
+        ax_t = ax_t - (sample_event / Fs);            
+        disp("WARNING: check preBuffer settings (missing t_preBuff");
     end
    
     [~, idx_origin_new] = (min(abs(ax_t)));    

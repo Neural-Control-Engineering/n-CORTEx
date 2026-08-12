@@ -65,19 +65,105 @@ classdef mdlObj_pca < mdlObject
             end
         end
 
+        function [STAT, idxSel, drop] = compileSTAT(mdlObj)
+            % Compile STAT, then remap each trial's ragged per-unit features onto
+            % the fixed canonical channel axis so the PCA feature dimension is
+            % stable across sessions/subjects (nexOp_unitsToChannels).
+            [STAT, idxSel, drop] = compileSTAT@mdlObject(mdlObj);
+            mdlObj.STAT = mdlObj.mapSTAT_unitsToChannels(mdlObj.STAT);
+            STAT = mdlObj.STAT;
+        end
+
+        function STAT = mapSTAT_unitsToChannels(mdlObj, STAT)
+            % Map every STAT trial (t x unit x measure) onto the canonical
+            % channel axis. After compileSTAT the ax/ptr are shared across rows,
+            % so map a reference DF once for the new channel-space ax/ptr, then
+            % remap each row's df with the original per-unit ax.
+            if isempty(STAT) || ~all(ismember({'df','ax','ptr'}, ...
+                    STAT.Properties.VariableNames))
+                return;
+            end
+            ax0 = STAT.ax(1);
+            if ~isstruct(ax0) || ~isfield(ax0, 'unit') || ~isfield(ax0, 'chans')
+                return;   % not per-unit spk data — leave unchanged
+            end
+            canon = mdlObj.resolveCanonicalChans(ax0.chans);
+            agg   = mdlObj.chanAggMode();
+            ptr0  = STAT.ptr(1);
+
+            DF0m = nexOp_unitsToChannels(struct('df', STAT.df{1}, 'ax', ax0, ...
+                                                'ptr', ptr0), canon, agg);
+            STAT.df  = cellfun(@(df) mdlObj.mapDF_df(df, ax0, ptr0, canon, agg), ...
+                               STAT.df, 'UniformOutput', false);
+            STAT.ax  = repmat(DF0m.ax,  height(STAT), 1);
+            STAT.ptr = repmat(DF0m.ptr, height(STAT), 1);
+        end
+
+        function DF = mapUnitsToChannels_DF(mdlObj, DF)
+            % Single-DF map (transform path). No-op if already channel-space.
+            if ~isstruct(DF) || ~isfield(DF, 'ax') || ...
+                    ~isfield(DF.ax, 'unit') || ~isfield(DF.ax, 'chans')
+                return;
+            end
+            canon = mdlObj.resolveCanonicalChans(DF.ax.chans);
+            DF = nexOp_unitsToChannels(DF, canon, mdlObj.chanAggMode());
+        end
+
+        function dfc = mapDF_df(~, df, ax, ptr, canon, agg)
+            % Map one df array (given its per-unit ax/ptr) -> channel-space df.
+            DFm = nexOp_unitsToChannels(struct('df', df, 'ax', ax, 'ptr', ptr), ...
+                                        canon, agg);
+            dfc = DFm.df;
+        end
+
+        function canon = resolveCanonicalChans(mdlObj, chansPerUnit)
+            % Fixed canonical channel axis, resolved ONCE (at first fit) and
+            % reused for every transform so widths always match. Defaults to a
+            % contiguous 1:max(observed channel); set
+            % mdlObj.UserData.canonicalChans = (1:nProbeChan)' before fitting for
+            % full-probe invariance across subjects.
+            if ~isstruct(mdlObj.UserData), mdlObj.UserData = struct(); end
+            canon = [];
+            if isfield(mdlObj.UserData, 'canonicalChans')
+                canon = mdlObj.UserData.canonicalChans;
+            end
+            if isempty(canon)
+                m = max(double(chansPerUnit(:)));
+                if isempty(m) || ~isfinite(m)
+                    canon = unique(double(chansPerUnit(:)));
+                else
+                    canon = (1:m)';
+                end
+                mdlObj.UserData.canonicalChans = canon;
+            end
+        end
+
+        function m = chanAggMode(mdlObj)
+            % Aggregation for units sharing a channel — default "sum".
+            m = "sum";
+            if isstruct(mdlObj.UserData) && isfield(mdlObj.UserData, 'chanAgg') ...
+                    && ~isempty(mdlObj.UserData.chanAgg)
+                m = string(mdlObj.UserData.chanAgg);
+            end
+        end
+
         function DF_Z = transform(mdlObj, DF_X)
-            % Use learned weights to project emission into state-space            
+            % Use learned weights to project emission into state-space
             disp("transforming pca...");
+            % Map ragged per-unit features onto the fixed canonical channel axis
+            % established at fit, so the feature width matches the scaler/PCA.
+            DF_X = mdlObj.mapUnitsToChannels_DF(DF_X);
             X = DF_X.df;
             % chanCond = [1:10]; % TEMP            
             % tCond = [1600:2250]; % TEMP
             if ~isempty(X)
                 % X = X(:,chanCond);
-                origSize = size(X);
-                isBatch  = ndims(X) == 3;
-    
-                % Loop over 3rd dimension, transform each 2D slice independently
-                nSlices = origSize(3);
+                % Loop over the 3rd dimension (e.g. spk 'measure'), transforming
+                % each 2D (samples x feature) slice independently. size(X,3)
+                % returns 1 for a 2D DF, so this degenerates to a single slice
+                % and cat(3, ...) below leaves the result 2D — no phantom
+                % trailing dimension when fewer than 3 dims exist.
+                nSlices  = size(X, 3);
                 Z_slices = cell(1, nSlices);
                 for k = 1:nSlices
                     X_k      = X(:, :, k);
@@ -88,13 +174,25 @@ classdef mdlObj_pca < mdlObject
                 end
                 Z = cat(3, Z_slices{:});
                 % DF_Z=DF_X;
-                DF_Z.df=Z;
-                % DF_Z.ax=struct;
-                DF_Z.ax=DF_X.ax;
-                DF_Z.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
-                % DF_Z.ax.t=DF_Z.ax.t(tCond); % TEMP
-                DF_Z.ax.factor=[1:size(Z,2)];
-                DF_Z = nex_initAxisPointer_v2(DF_Z);            
+                DF_Z.df = Z;
+                % PCA replaced the feature axis with 'latent', so emit a CLEAN
+                % output ax: keep only axes that remain real dimensions of Z —
+                % time (dim 1) and latent (dim 2), plus the looped residual
+                % (e.g. measure, dim 3) when present. Dropping the reduced feature
+                % axis (unit / chans) stops it lingering as a stale axis; 'latent'
+                % is also the reserved DR keyword buildSTATE's G_DF loop skips.
+                D1 = char(mdlObj.domain.D1);
+                DF_Z.ax = struct();
+                DF_Z.ax.(D1)   = DF_X.ax.(D1);
+                DF_Z.ax.latent = [1:size(Z,2)];
+                if ndims(Z) >= 3
+                    ra = "";
+                    try, ra = char(mdlObj.domain.MSRaxis); catch, end
+                    if strlength(ra) > 0 && isfield(DF_X.ax, ra)
+                        DF_Z.ax.(ra) = DF_X.ax.(ra);
+                    end
+                end
+                DF_Z = nex_initAxisPointer_v2(DF_Z);
             else
                 DF_Z = [];
             end
