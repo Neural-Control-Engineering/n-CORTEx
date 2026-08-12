@@ -1,4 +1,4 @@
-function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon, patchDir)
+function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon, patchDir, overwrite)
 % Write new rows from DTS_inmem into the nexDTS HDF5, return updated manifest.
 %
 %   DTS_inmem    : in-memory table of rows to sink (no h5_path column).
@@ -8,6 +8,9 @@ function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon,
 %   nexon        : (optional) live Nexon handle — required for patch routing.
 %   patchDir     : (optional) directory for newly-created patch HDF5 files.
 %                  Defaults to the directory containing h5File.
+%   overwrite    : (optional, default false) when true, skip deduplication and
+%                  replace existing manifest rows for matching trials so that
+%                  re-extraction updates already-written HDF5 data in place.
 %
 % Patch routing (when nexon is supplied):
 %   Columns registered as pending patches or already having h5_path_<dfID>
@@ -15,10 +18,11 @@ function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon,
 %   The remaining columns go into the main h5File via nexus_exportDTS.
 %
 % Deduplication key: sessionLabel + trialNumber.
-% Returns combined manifest (old rows + new rows).
+% Returns combined manifest (old rows + new rows, or replaced rows if overwrite).
 
-    if nargin < 4, nexon    = []; end
-    if nargin < 5, patchDir = fileparts(h5File); end
+    if nargin < 4, nexon     = []; end
+    if nargin < 5, patchDir  = fileparts(h5File); end
+    if nargin < 6, overwrite = false; end
 
     manifest_out = manifest_in;
     if isempty(DTS_inmem) || ~istable(DTS_inmem), return; end
@@ -32,7 +36,7 @@ function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon,
     end
 
     % ── Deduplicate: skip rows already in manifest ────────────────────────
-    if ~isempty(manifest_in) && istable(manifest_in) && ...
+    if ~overwrite && ~isempty(manifest_in) && istable(manifest_in) && ...
             ismember('sessionLabel', manifest_in.Properties.VariableNames)
         existKeys = string(manifest_in.sessionLabel) + "_" + ...
                     string(manifest_in.trialNumber);
@@ -57,6 +61,10 @@ function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon,
 
     if isempty(manifest_in)
         manifest_out = manifest_new;
+    elseif overwrite && ~isempty(manifest_new)
+        existKeys = string(manifest_in.sessionLabel) + "_" + string(manifest_in.trialNumber);
+        newKeys   = string(manifest_new.sessionLabel) + "_" + string(manifest_new.trialNumber);
+        manifest_out = [manifest_in(~ismember(existKeys, newKeys), :); manifest_new];
     else
         manifest_out = [manifest_in; manifest_new];
     end
