@@ -25,8 +25,12 @@ classdef nexObj_controlPanel < handle
         end
 
         function appendToDTS(nexObj)
-            % add more data to the datastore
-            % update control Panel selection items
+            % Update control Panel selection items to reflect newly added
+            % trials. Called from Nexon.appendToDTS alongside the router
+            % refresh so the averaging bus tracks new subjects/phases/dates/
+            % signal tags as they stream in during online/in-memory capture.
+            if isempty(nexObj.averagingSelection), return; end
+            nexRefresh_averaging(nexObj);
         end
     end
 end

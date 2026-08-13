@@ -327,7 +327,13 @@ classdef Nexon < handle
                 routerCfgParams = initializeRouterCfg(nexon.console.BASE.DTS);
                 panelObj = nexon.console.BASE.controlPanel.Figure.panel1;
                 updateEntryDropDownFields(panelObj, routerCfgParams);
-
+                % update averaging-bus selection items alongside the router so
+                % new trials' subjects/phases/dates/signal tags stay selectable
+                try
+                    nexon.console.BASE.controlPanel.appendToDTS();
+                catch e
+                    disp(getReport(e));
+                end
             end
 
 

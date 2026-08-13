@@ -38,10 +38,18 @@ function dtsIO_writeDF(nexon, DF, DFID, dtsIdx, forceMem)
             rowStruct.(DFID) = DF;
             row_dts = dtsIO_compileDTS(rowStruct, []);
             % Pad h5 routing columns so this row is concat-compatible with any
-            % manifest rows already in the DTS (hybrid mode).
+            % manifest rows already in the DTS (hybrid mode). This must cover
+            % EVERY routing column — h5_path, h5_root, and any per-dfID patch
+            % columns (h5_path_<dfID>) registered by dtsIO_patchManifest — all
+            % as "" (string). Missing any one lets mergeT_vertical fill it as a
+            % cell, and [string; cell] throws VertcatMethodFailed (which its
+            % recovery loop can't handle → spins forever on the capture sink).
             if istable(DTS) && ismember('h5_path', DTS.Properties.VariableNames)
-                row_dts.h5_path = "";
-                row_dts.h5_root = "";
+                vnames   = string(DTS.Properties.VariableNames);
+                routeCol = vnames(startsWith(vnames, "h5_path") | vnames == "h5_root");
+                for c = 1:numel(routeCol)
+                    row_dts.(char(routeCol(c))) = "";
+                end
             end
             nexon.appendToDTS(row_dts);
         else

@@ -26,9 +26,16 @@ function dfIDs = dtsIO_readDFIDs(DTS)
     % Remove raw routing column names from the visible list and add resolved dfIDs.
     dfIDs = [cols(~startsWith(cols, "h5_path_")), patchDfIDs];
 
-    % Sample the last row for the main-HDF5 group scan — it has the most
-    % complete set of groups compared to row 10 which may predate new dfIDs.
-    sampleRow = height(DTS);
+    % Sample the last DISK-BACKED row for the main-HDF5 group scan. In hybrid
+    % mode the trailing rows can be in-memory capture rows (h5_path == "");
+    % sampling one of those would h5info("","") → throw → hide the real HDF5
+    % dfIDs. Pick the last row whose h5_path is non-empty; if none exist the
+    % DTS is purely in-memory-hybrid and there is nothing to scan.
+    diskRows = find(strlength(string(DTS.h5_path)) > 0);
+    if isempty(diskRows)
+        return;
+    end
+    sampleRow = diskRows(end);
     h5File = char(DTS.h5_path(sampleRow));
     h5Root = char(DTS.h5_root(sampleRow));
 

@@ -15,7 +15,15 @@ function nex_updateAxisPointer(ptr, DF)
     % New axes (in DF.ax but not yet in ptr): added with defaults via addprop.
     % Dropped axes (in ptr but not in DF.ax): left in ptr (harmless; not read).
 
-    axFields  = string(fieldnames(DF.ax))';
+    % Nothing to update from an empty read (e.g. a figure reloading a dfID the
+    % newly-routed trial doesn't carry — a PCA output on a fresh capture trial).
+    % Bail rather than dot-index an empty DF_postOp.
+    if isempty(DF), return; end
+    try
+        axFields = string(fieldnames(DF.ax))';
+    catch
+        return;
+    end
     df        = DF.df;
     dimsTaken = [];
 
