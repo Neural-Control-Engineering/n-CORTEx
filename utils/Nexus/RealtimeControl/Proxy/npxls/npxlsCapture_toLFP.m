@@ -1,7 +1,7 @@
-function DF = npxlsCapture_toLFP(lfMat, fsStream, fsTarget)
+function DF = npxlsCapture_toLFP(lfMat, fsStream, fsTarget, preBuffLen)
 % npxlsCapture_toLFP  Build an ad-hoc LFP dataframe from a captured imec LF band.
 %
-% DF = npxlsCapture_toLFP(lfMat, fsStream, fsTarget)
+% DF = npxlsCapture_toLFP(lfMat, fsStream, fsTarget, preBuffLen)
 %
 % Inputs:
 %   lfMat    — (nSamp x nChan) int16 LF-band slice from a SpikeGL Fetch on the
@@ -19,10 +19,16 @@ function DF = npxlsCapture_toLFP(lfMat, fsStream, fsTarget)
 % DF.df + DF.ax.t / DF.ax.chans.
 %   .df    — (nChan x nT) single, LF band decimated to fsTarget, channel-major
 %            (matches extLFP's chan x time orientation)
-%   .t     — (1 x nT) double, seconds from the capture-window start
+%   .t     — (1 x nT) double, seconds relative to the trigger. The window is
+%            captured with preBuffLen of pre-trigger lead and re-aligned so the
+%            insert sits exactly preBuffLen from the start, so subtracting
+%            preBuffLen makes t=0 the trigger and the pre-context negative —
+%            matching offline event-aligned LFP. preBuffLen omitted/0 → t stays
+%            relative to the window start (0…T).
 %   .chans — (1 x nChan) double, physical channel index (1:nChan)
 
-    if nargin < 3 || isempty(fsTarget), fsTarget = 500; end
+    if nargin < 3 || isempty(fsTarget),   fsTarget   = 500; end
+    if nargin < 4 || isempty(preBuffLen), preBuffLen = 0;   end
 
     % NP2.0 (or LF not acquired) → no LF band; return an empty-but-shaped DF.
     if isempty(lfMat)
@@ -49,6 +55,6 @@ function DF = npxlsCapture_toLFP(lfMat, fsStream, fsTarget)
     end
 
     DF.df    = lf.';                            % nChan x nT
-    DF.t     = (0:nT-1) / fsOut;                % seconds from window start
+    DF.t     = (0:nT-1) / fsOut - preBuffLen;   % seconds relative to the trigger (0 = insert)
     DF.chans = 1:size(lf.',1);                 % physical channel index
 end

@@ -17,6 +17,12 @@ classdef proxy_npxls < handle
         % --- capture state (bracket + single-fetch; see REALTIME_CAPTURE_STREAM_DESIGN.md) ---
         probeIndex = 0      % imec probe index (js=2)
         preBuffLen = 3.5    % seconds of pre-trial lead-in to include (mirrors extLFP)
+        niInsertChan = 2    % NI channel carrying the speedgoat insert (trigger mark); mirrors nidq.dataArray(2,:) offline
+        niSyncChan   = 9    % NI channel carrying the 1Hz pulser (NI↔imec calibration); mirrors nidq.dataArray(9,:)
+        capAlignGuard = 0.5 % extra pre-buffer (s) grabbed so the insert can be cropped back to preBuffLen despite latency
+        capNiFs             % NI stream sample rate at capture start
+        capInsertOffset = NaN % insert time (s) from the window start, measured at arm time; consumed by the stopCapture crop
+        capAlignLog = []    % per-trial [trialNum, insertOffset_s, latency_ms] from the NI insert edge
         lfTargetFs = 500    % LFP decimation target (Hz), matches offline extLFP
         streamWindowLen = 15000 % FetchLatest window (samples) for readData
         capStartSamp        % ring-buffer sample index marked at startCapture
@@ -184,12 +190,34 @@ classdef proxy_npxls < handle
             ip = proxObj.probeIndex;
             Fs   = GetStreamSampleRate(proxObj.Server, 2, ip);
             head = GetStreamSampleCount(proxObj.Server, 2, ip);
-            proxObj.capStartSamp  = max(0, head - round(proxObj.preBuffLen * Fs));
+            % Grab preBuffLen + capAlignGuard of lead. The guard is cropped back
+            % out in stopCapture once the NI insert pin-points the true trigger,
+            % leaving exactly preBuffLen of pre-trigger context regardless of the
+            % LAN/scheduling latency between the host trigger and this call.
+            proxObj.capStartSamp  = max(0, head - round((proxObj.preBuffLen + proxObj.capAlignGuard) * Fs));
             proxObj.capReadHead   = proxObj.capStartSamp;
             proxObj.captureBuffer = [];                                         % samples x channels (int16)
             proxObj.capChanCounts = GetStreamAcqChans(proxObj.Server, 2, ip);   % [nAP, nLF, nSY]
             proxObj.capFs         = Fs;
             proxObj.capTrialNum   = trialNum;
+            % Insert-based alignment (the speedgoat insert lives on NIDQ, not
+            % imec). Locate it NOW from the freshest NI samples — the insert fired
+            % just before this call — and store its offset for the stopCapture
+            % crop. NI absent → capInsertOffset stays NaN and alignment is skipped
+            % (nominal guard-only crop).
+            proxObj.capNiFs         = [];
+            proxObj.capInsertOffset = NaN;
+            try
+                niFs   = GetStreamSampleRate(proxObj.Server, 0, 0);
+                niHead = GetStreamSampleCount(proxObj.Server, 0, 0);
+                proxObj.capNiFs = niFs;
+                % Locate the insert NOW, from the freshest NI samples (it fired
+                % just before this call). Doing it here — not at stopCapture —
+                % avoids reaching back past the NI ring depth ("FETCH: Too late").
+                proxObj.detectInsertOffset(niHead);
+            catch e
+                disp(getReport(e));
+            end
             % Advance the monotonic per-session floor so a later discard of the
             % top row can't make nextTrialNum reuse this index (covers both the
             % speedgoat-pyd and auto-assigned paths).
@@ -251,6 +279,11 @@ classdef proxy_npxls < handle
                 disp("stopCapture: empty capture window");
                 return
             end
+            % Re-align the window to the speedgoat insert (NIDQ) BEFORE splitting
+            % AP/LF, so LFP and SPK inherit the same corrected window. Crops the
+            % guard so the trigger sits at exactly preBuffLen; logs latency.
+            mat = proxObj.alignCaptureToInsert(mat);
+
             % imec stream columns are ordered [AP, LF, SY]
             cc  = proxObj.capChanCounts;
             nAP = cc(1); nLF = cc(2);
@@ -263,7 +296,8 @@ classdef proxy_npxls < handle
             dtsIdx = struct('sessionLabel', SL, 'trialNumber', proxObj.capTrialNum);
 
             % --- LFP DF ---
-            DF_lfp = npxlsCapture_toLFP(lfMat, proxObj.capFs, proxObj.lfTargetFs);
+            % preBuffLen shifts t so 0 = the (re-aligned) trigger, pre-context negative.
+            DF_lfp = npxlsCapture_toLFP(lfMat, proxObj.capFs, proxObj.lfTargetFs, proxObj.preBuffLen);
             noiseRmArgs = extractMethodCfg('nex_pcaNoiseRm');
             DF_lfp = nex_pcaNoiseRm(DF_lfp, noiseRmArgs);
             proxObj.storeToDTS(DF_lfp, "lfp", dtsIdx);
@@ -286,6 +320,110 @@ classdef proxy_npxls < handle
                 end
             catch e
                 warning("npxls:autoLaunch", "auto-launch/route failed: %s", e.message);
+            end
+        end
+
+        function detectInsertOffset(proxObj, niHead)
+            % Locate the speedgoat insert pulse in the NIDQ stream AT capture-arm
+            % time, from a short window ending at the current stream head (niHead).
+            %
+            % WHY HERE (not stopCapture): the insert fired just BEFORE this call —
+            % it's what triggered the capture — so it sits within ~latency of the
+            % head, i.e. the freshest samples in the ring buffer. Fetching it now
+            % never reaches past the NI ring depth, so it can't hit SpikeGLX
+            % "FETCH: Too late" the way a retrospective stopCapture fetch does.
+            %
+            % Result → capInsertOffset: the insert's time (s) from the (extended)
+            % window start, consumed later by alignCaptureToInsert to crop the imec
+            % window. NaN if not found. Also logs [trialNum, offset_s, latency_ms].
+            proxObj.capInsertOffset = NaN;
+            niFs = proxObj.capNiFs;
+
+            % Head-anchored window: capAlignGuard (the max latency we can correct)
+            % plus a small margin so a slightly-over-guard latency is still seen
+            % (and reported) rather than silently missed.
+            nFetch = round((proxObj.capAlignGuard + 0.25) * niFs);
+            fStart = max(0, niHead - nFetch);
+            nFetch = niHead - fStart;                        % clamp near stream start
+            if nFetch <= 0, return; end
+
+            % Pull the insert channel (all channels, then column niInsertChan —
+            % mirrors the offline nidq.dataArray(2,:) indexing).
+            insert = [];
+            try
+                [niChunk, ~] = Fetch(proxObj.Server, 0, 0, fStart, nFetch, [-1]);
+                if ~isempty(niChunk) && size(niChunk,2) >= proxObj.niInsertChan
+                    insert = double(niChunk(:, proxObj.niInsertChan));
+                end
+            catch e
+                disp(getReport(e));
+                return
+            end
+            if isempty(insert), return; end
+
+            % First rising edge, thresholded at the channel's mid-level so it works
+            % regardless of the pulse's absolute amplitude/units.
+            lo = min(insert); hi = max(insert);
+            if hi - lo < eps, return; end                    % flat → no pulse in window
+            above  = insert > (lo + 0.5*(hi - lo));
+            eLocal = find(above(2:end) & ~above(1:end-1), 1, 'first') + 1;  % low→high
+            if isempty(eLocal), return; end
+
+            % Latency L = distance from the insert edge to the head. eLocal is a
+            % 1-based index; the edge is (eLocal-1) samples after fStart, and the
+            % head is nFetch samples after fStart, so the gap is nFetch-(eLocal-1)
+            % samples. That is exactly how "late" this call ran vs the true trigger.
+            L = (nFetch - (eLocal - 1)) / niFs;              % seconds
+
+            % Express as offset from the extended window start so the imec crop can
+            % place it at preBuffLen: the window start is (preBuffLen+guard) before
+            % the head, the insert is L before the head → (preBuffLen+guard - L) in.
+            proxObj.capInsertOffset = (proxObj.preBuffLen + proxObj.capAlignGuard) - L;
+            proxObj.capAlignLog = [proxObj.capAlignLog; ...
+                                   proxObj.capTrialNum, proxObj.capInsertOffset, L*1000];
+            fprintf("capAlign trial %d: insert %.1f ms before head (%.4fs into window)\n", ...
+                    proxObj.capTrialNum, L*1000, proxObj.capInsertOffset);
+        end
+
+        function mat = alignCaptureToInsert(proxObj, mat)
+            % Crop the captured imec window so the speedgoat insert lands at
+            % EXACTLY preBuffLen from the start, using the offset detectInsertOffset
+            % measured at capture-arm time. This removes the per-trial LAN/
+            % scheduling latency AND the extra capAlignGuard lead, leaving the fixed
+            % pre-trigger context the LFP/SPK DFs (and offline extLFP) assume, so
+            % realtime + offline trials pool. Runs BEFORE the AP/LF split in
+            % stopCapture, so LFP and SPK share one aligned window.
+            Fs        = proxObj.capFs;                        % imec stream rate (Hz)
+            guardSamp = round(proxObj.capAlignGuard * Fs);    % guard length in imec samples
+
+            % Default when the insert wasn't found (NI off, flat, no edge): just
+            % drop the guard we added, leaving a nominal (unaligned) preBuffLen
+            % window rather than one carrying the extra lead. `lead` = front trim.
+            lead    = guardSamp;
+            tInsert = proxObj.capInsertOffset;
+
+            if ~isnan(tInsert)
+                % #samples between the window start and where we want the insert
+                % (preBuffLen). Positive → trim that many off the front so the
+                % insert moves back to preBuffLen. Negative means the insert is
+                % earlier than preBuffLen even with the guard (latency > guard) —
+                % we can't manufacture pre-context, so keep the guard-only crop.
+                leadAligned = round((tInsert - proxObj.preBuffLen) * Fs);
+                if leadAligned >= 0
+                    lead = leadAligned;
+                else
+                    warning("npxls:capAlign", ...
+                        "trial %d: latency exceeds guard %.0f ms — not fully aligned (raise capAlignGuard)", ...
+                        proxObj.capTrialNum, proxObj.capAlignGuard*1000);
+                end
+            else
+                warning("npxls:capAlign", ...
+                    "trial %d: insert not found at arm time — window not re-aligned", proxObj.capTrialNum);
+            end
+
+            % Apply the front trim. Guarded so a degenerate lead never empties it.
+            if lead > 0 && lead < size(mat,1)
+                mat = mat(lead+1:end, :);
             end
         end
 
@@ -472,6 +610,10 @@ classdef proxy_npxls < handle
             spk.spike_clusters   = dyn.clusters(:);
             spk.spike_amplitudes = dyn.amps(:);
             dts = formatSpk_toDTS(spk, 0, T, proxObj.spkBin_s, proxObj.spkSigma_s);
+            % Match the LFP axis: shift bin-centre times so 0 = the re-aligned
+            % trigger (insert at preBuffLen from the window start), pre-context
+            % negative. Binning is unchanged — this only relabels ax_t.
+            dts.ax_t = dts.ax_t - proxObj.preBuffLen;
             npxlsCapture_writeSPK(proxObj, dts, dtsIdx);
         end
 
