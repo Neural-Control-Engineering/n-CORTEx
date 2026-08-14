@@ -1,4 +1,4 @@
-function T = nexOp_loadResult(nexObj_or_dir, resultID)
+function [T, displayLabel] = nexOp_loadResult(nexObj_or_dir, resultID)
 % Load a RESULTS table from nexRESULTS.h5.
 %
 %   T = nexOp_loadResult(nexObj, resultID)
@@ -19,12 +19,12 @@ function T = nexOp_loadResult(nexObj_or_dir, resultID)
         error('nexOp_loadResult: no results file found at %s', h5File);
     end
 
-    T = readResultsHDF5(h5File, char(resultID));
+    [T, displayLabel] = readResultsHDF5(h5File, char(resultID));
 end
 
 % ── HDF5 read ─────────────────────────────────────────────────────────────
 
-function T = readResultsHDF5(h5File, resultID)
+function [T, displayLabel] = readResultsHDF5(h5File, resultID)
     % resultID is guaranteed char — all path concatenations stay char.
     root = ['/' resultID];
 
@@ -42,6 +42,17 @@ function T = readResultsHDF5(h5File, resultID)
         end
 
         nRows = double(h5readNumLL(fid, [root '/nRows']));
+
+        % Display label (written by nexOp_saveResult; absent in older files)
+        displayLabel = '';
+        try
+            hasLabel = false;
+            try, hasLabel = H5L.exists(fid, [root '/meta/displayLabel'], 'H5P_DEFAULT'); catch, end
+            if hasLabel
+                displayLabel = char(h5readStrLL(fid, [root '/meta/displayLabel']));
+            end
+        catch
+        end
 
         % Grouping column metadata
         grpCols = {};

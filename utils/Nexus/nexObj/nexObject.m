@@ -21,6 +21,8 @@ classdef nexObject < handle
         UserData
         cfg=struct
         player
+        Listeners    = struct()
+        resultLabels = struct()   % structKey → human-readable display label
     end
 
     methods
@@ -327,6 +329,71 @@ classdef nexObject < handle
             viewDict.VW  = nexObj.getCTGGroupKeys();
             viewDict.CLR = clrKeys;
             nexObj.collector.View = nexInit_collectorView(nexObj, viewDict);
+
+            % Wire dynamic CTG refresh: when the parent categorical changes
+            % which categories are selected, update this figure's CTG listbox.
+            if ~isempty(nexObj.Parent) && isvalid(nexObj.Parent) && ...
+                    strcmp(nexObj.Parent.classID, 'ctg') && ...
+                    isfield(nexObj.Parent.selectionBus, 'categories')
+                nexObj.Listeners.ctgCategories = addlistener(...
+                    nexObj.Parent.selectionBus.categories, 'selections', 'PostSet', ...
+                    @(~,~) nexObj.refreshCTG());
+            end
+        end
+
+        function resID = buildResultID(nexObj, resType, nBins)
+            % Build canonical result ID from the active CTG selection + params.
+            % Format: res--<type>_ctg--<k1>-x-<k2>..._nBins--<n>
+            % Continuous grouping columns that will be quantile-binned carry ~g.
+            if nargin < 2 || isempty(resType), resType = "AVG"; end
+            if nargin < 3 || isempty(nBins),   nBins   = 4;     end
+            try
+                viewSel = nex_returnSelectionMask(nexObj.collector.View);
+                active  = string(viewSel.CTG);
+                active  = active(active ~= "" & ~strcmp(active, "None"));
+            catch
+                active = string.empty;
+            end
+            if ~isempty(nexObj.STAT) && istable(nexObj.STAT) && ~isempty(active)
+                for k = 1:numel(active)
+                    col = char(active(k));
+                    if ismember(col, nexObj.STAT.Properties.VariableNames)
+                        raw = nexObj.STAT.(col);
+                        if isnumeric(raw) && nexOp_isContinuousVar(raw) && ...
+                                numel(unique(raw(~isnan(raw)))) > nBins
+                            active(k) = active(k) + "~g";
+                        end
+                    end
+                end
+            end
+            if isempty(active)
+                ctgStr = "none";
+            else
+                ctgStr = strjoin(active, "-x-");
+            end
+            resID = sprintf("res--%s_ctg--%s_nBins--%d", resType, ctgStr, nBins);
+        end
+
+        function broadcastResult(nexObj, resID)
+            % Copy result to all categorical siblings with matching dfID_source
+            % and refresh their SRC bus so they see the new result immediately.
+            if isempty(nexObj.Parent) || ~isvalid(nexObj.Parent) || ...
+               ~strcmp(nexObj.Parent.classID, 'ctg') || ...
+               ~isstruct(nexObj.Parent.Children) || ...
+               ~isfield(nexObj.RESULTS, resID)
+                return;
+            end
+            sibFields = fieldnames(nexObj.Parent.Children);
+            for k = 1:numel(sibFields)
+                sib = nexObj.Parent.Children.(sibFields{k});
+                try
+                    if ~isvalid(sib) || isequal(sib, nexObj), continue; end
+                    if ~strcmp(sib.dfID_source, nexObj.dfID_source), continue; end
+                    sib.RESULTS.(resID) = nexObj.RESULTS.(resID);
+                    sib.refreshSRC();
+                catch
+                end
+            end
         end
 
         function reportAverage(nexObj, resultID, nBins, STAT)
@@ -420,22 +487,16 @@ classdef nexObject < handle
 
             nexObj.RESULTS.(resultID) = RESULT;
 
-            % Update SRC bus before refreshVW so getCurrentSRC() returns the
-            % new resultID and getAVGGroupKeys can read the correct RESULTS entry.
-            if isfield(nexObj.collector, 'View')
-                bus     = nexObj.collector.View;
-                baseKey = bus.selKeys.SRC(1);  % preserve DF or DTS — don't hardcode
-                keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
-                bus.selKeys.SRC    = keys;
-                bus.selections.SRC = numel(keys);
-                if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
-                    bus.listBoxes.SRC.String = keys;
-                    bus.listBoxes.SRC.Max    = 1;
-                    bus.listBoxes.SRC.Value  = numel(keys);
-                end
-            end
-
+            nexObj.refreshSRC();
             nexObj.refreshVW();
+
+            try
+                if ismember('h5_path', nexObj.nexon.console.BASE.DTS.Properties.VariableNames)
+                    nexOp_saveResult(nexObj, resultID);
+                end
+            catch ME
+                warning('[%s.reportAverage] auto-save failed: %s', class(nexObj), ME.message);
+            end
 
             fprintf('[%s.reportAverage] %d groups → RESULTS.%s\n', class(nexObj), sum(valid), resultID);
         end
@@ -646,19 +707,7 @@ classdef nexObject < handle
             end
             nexObj.RESULTS.(resultID) = RESULT;
 
-            % Update SRC bus
-            if isfield(nexObj.collector,'View')
-                bus     = nexObj.collector.View;
-                baseKey = bus.selKeys.SRC(1);
-                keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
-                bus.selKeys.SRC    = keys;
-                bus.selections.SRC = numel(keys);
-                if isfield(bus.listBoxes,'SRC') && ~isempty(bus.listBoxes.SRC)
-                    bus.listBoxes.SRC.String = keys;
-                    bus.listBoxes.SRC.Max    = 1;
-                    bus.listBoxes.SRC.Value  = numel(keys);
-                end
-            end
+            nexObj.refreshSRC();
             nexObj.refreshVW();
             fprintf('[%s.reportAverage_batched] %d groups → RESULTS.%s\n', ...
                     class(nexObj), numel(df_out), resultID);
@@ -678,22 +727,50 @@ classdef nexObject < handle
             % and update the SRC bus.
             %
             %   nexObj.loadResult('avg1')
-            T = nexOp_loadResult(nexObj, resultID);
+            [T, displayLabel] = nexOp_loadResult(nexObj, resultID);
             nexObj.RESULTS.(resultID) = T;
-            if isfield(nexObj.collector, 'View')
-                bus     = nexObj.collector.View;
-                baseKey = bus.selKeys.SRC(1);
-                keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
-                bus.selKeys.SRC    = keys;
-                bus.selections.SRC = numel(keys);
-                if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
-                    bus.listBoxes.SRC.String = keys;
-                    bus.listBoxes.SRC.Max    = 1;
-                    bus.listBoxes.SRC.Value  = numel(keys);
-                end
+            if ~isempty(displayLabel)
+                nexObj.resultLabels.(resultID) = displayLabel;
             end
+            nexObj.refreshSRC();
             nexObj.refreshVW();
             fprintf('[%s.loadResult] %d rows ← RESULTS.%s\n', class(nexObj), height(T), resultID);
+        end
+
+        function discoverResults(nexObj)
+            % Scan nexRESULTS.h5 for saved result groups and load any not
+            % already in memory. Populates the SRC bus with all found results.
+            try
+                h5Dir  = fileparts(char(nexObj.nexon.console.BASE.DTS.h5_path(1)));
+                h5File = fullfile(h5Dir, 'nexRESULTS.h5');
+                if ~isfile(h5File), return; end
+                fapl = H5P.create('H5P_FILE_ACCESS');
+                H5P.set_fclose_degree(fapl, 'H5F_CLOSE_STRONG');
+                fid  = H5F.open(h5File, 'H5F_ACC_RDONLY', fapl);
+                H5P.close(fapl);
+                info = H5G.get_info(fid);
+                nGroups = double(info.nlinks);
+                resultIDs = cell(1, nGroups);
+                for gi = 0:nGroups-1
+                    resultIDs{gi+1} = H5L.get_name_by_idx(fid, '/', ...
+                        'H5_INDEX_NAME', 'H5_ITER_INC', gi, 'H5P_DEFAULT');
+                end
+                H5F.close(fid);
+            catch ME
+                warning('[%s.discoverResults] scan failed: %s', class(nexObj), ME.message);
+                return;
+            end
+            for gi = 1:numel(resultIDs)
+                rID = resultIDs{gi};
+                if ~isfield(nexObj.RESULTS, rID)
+                    try
+                        nexObj.loadResult(rID);
+                    catch ME
+                        warning('[%s.discoverResults] skipping %s: %s', class(nexObj), rID, ME.message);
+                    end
+                end
+            end
+            nexObj.refreshSRC();
         end
 
         function importRESULTS(nexObj, srcRESULTS, resultID)
@@ -743,21 +820,8 @@ classdef nexObject < handle
             fprintf('[%s.importRESULTS] imported {%s}\n', ...
                 class(nexObj), strjoin(string(importedKeys)', ', '));
 
-            % Rebuild SRC bus with the full key set and select last imported key
-            if isfield(nexObj.collector, 'View')
-                bus     = nexObj.collector.View;
-                baseKey = bus.selKeys.SRC(1);
-                keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
-                selIdx  = find(keys == string(lastKey), 1);
-                if isempty(selIdx), selIdx = numel(keys); end
-                bus.selKeys.SRC    = keys;
-                bus.selections.SRC = selIdx;
-                if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
-                    bus.listBoxes.SRC.String = keys;
-                    bus.listBoxes.SRC.Max    = 1;
-                    bus.listBoxes.SRC.Value  = selIdx;
-                end
-            end
+            % Rebuild SRC bus (display labels from resultLabels, struct keys in selKeys)
+            nexObj.refreshSRC();
 
             nexObj.refreshCLR();
             nexObj.refreshVW();
@@ -915,13 +979,92 @@ classdef nexObject < handle
             end
         end
 
+        function refreshCTG(nexObj)
+            % Update CTG selectionBus from current parent categorical's categories.
+            % Preserves previously selected labels that still exist in the new key set.
+            % Parallel to refreshVW — called automatically via PostSet listener on
+            % Parent.selectionBus.categories.selections.
+            if ~isfield(nexObj.collector, 'View'), return; end
+            if isempty(nexObj.Parent) || ~isvalid(nexObj.Parent) || ...
+               ~strcmp(nexObj.Parent.classID, 'ctg') || ...
+               ~isfield(nexObj.Parent.selectionBus, 'categories')
+                return;
+            end
+            try
+                S_cat   = nex_returnSelectionMask(nexObj.Parent.selectionBus.categories);
+                catVals = string(struct2cell(S_cat))';
+                catVals = catVals(catVals ~= "" & ~strcmp(catVals,"None") & ~startsWith(catVals,"ax--"));
+                newKeys = strrep(catVals, "--", "_");
+                if isempty(newKeys), newKeys = ""; end
+            catch
+                return;
+            end
+            bus  = nexObj.collector.View;
+            nCTG = numel(newKeys);
+            oldKeys = bus.selKeys.CTG;
+            oldSel  = bus.selections.CTG;
+            if ~isempty(oldKeys) && ~isempty(oldSel) && ~isequal(oldKeys, "")
+                validOld   = oldSel(oldSel >= 1 & oldSel <= numel(oldKeys));
+                prevLabels = string(oldKeys(validOld));
+                newSel     = find(ismember(newKeys, prevLabels))';
+                if isempty(newSel), newSel = 1:nCTG; end
+            else
+                newSel = 1:nCTG;
+            end
+            bus.selKeys.CTG    = newKeys;
+            bus.selections.CTG = newSel;
+            if isfield(bus.listBoxes, 'CTG') && ~isempty(bus.listBoxes.CTG)
+                bus.listBoxes.CTG.String = newKeys;
+                bus.listBoxes.CTG.Max    = nCTG;
+                bus.listBoxes.CTG.Value  = newSel;
+            end
+        end
+
+        function refreshSRC(nexObj)
+            % Rebuild SRC selKeys from base key + all RESULTS keys; select last.
+            % selKeys.SRC holds struct keys (for RESULTS access); the listbox
+            % shows display labels from resultLabels when available.
+            if ~isfield(nexObj.collector, 'View'), return; end
+            bus     = nexObj.collector.View;
+            baseKey = bus.selKeys.SRC(1);
+            keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
+            labels  = keys;
+            for ki = 2:numel(keys)
+                k = char(keys(ki));
+                if isfield(nexObj.resultLabels, k)
+                    labels(ki) = string(nexObj.resultLabels.(k));
+                end
+            end
+            bus.selKeys.SRC    = keys;
+            bus.selections.SRC = numel(keys);
+            if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
+                bus.listBoxes.SRC.String = labels;
+                bus.listBoxes.SRC.Max    = 1;
+                bus.listBoxes.SRC.Value  = numel(keys);
+            end
+        end
+
+        function structKey = getResultKey(nexObj, displayLabel)
+            % Deterministically derive the RESULTS struct key from a display label.
+            structKey = matlab.lang.makeValidName(char(displayLabel));
+        end
+
+        function displayLabel = getResultLabel(nexObj, structKey)
+            % Look up the human-readable label for a RESULTS struct key.
+            % Falls back to the struct key itself when no label is stored.
+            structKey = char(structKey);
+            if isfield(nexObj.resultLabels, structKey)
+                displayLabel = nexObj.resultLabels.(structKey);
+            else
+                displayLabel = structKey;
+            end
+        end
+
         function onSRCChanged(nexObj, lb)
             nexObj.collector.View.selections.SRC = lb.Value;
-            if iscell(lb.String)
-                srcKey = lb.String{lb.Value(end)};
-            else
-                srcKey = char(lb.String(lb.Value(end)));
-            end
+            % Read struct key from selKeys (not from lb.String which shows labels)
+            idx    = lb.Value(end);
+            srcKey = char(nexObj.collector.View.selKeys.SRC(idx));
             nexObj.applySRC(srcKey);
             if ismethod(nexObj, 'visualize')
                 nexObj.visualize();

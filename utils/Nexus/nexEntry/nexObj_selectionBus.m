@@ -1,13 +1,15 @@
-classdef nexObj_selectionBus < handle 
+classdef nexObj_selectionBus < handle
     properties
         classID
         Parent
         Children
         listBoxes
-        selections
         selKeys
         listCfgPanel
         Listeners=struct;
+    end
+    properties (SetObservable)
+        selections
     end
     methods
         % Constructor
