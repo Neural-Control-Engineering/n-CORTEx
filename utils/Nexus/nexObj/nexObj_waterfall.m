@@ -139,12 +139,6 @@ classdef nexObj_waterfall < nexObject
             nexObj.visualize();
         end
 
-        function reportAverage(nexObj, resultID, nBins)
-            if nargin < 2, resultID = []; end
-            if nargin < 3, nBins = 4; end
-            nexObj.compileSTAT();
-            reportAverage@nexObject(nexObj, resultID, nBins);
-        end
 
     end
 end

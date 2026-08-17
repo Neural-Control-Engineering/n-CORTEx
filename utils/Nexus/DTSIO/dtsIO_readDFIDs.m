@@ -26,31 +26,33 @@ function dfIDs = dtsIO_readDFIDs(DTS)
     % Remove raw routing column names from the visible list and add resolved dfIDs.
     dfIDs = [cols(~startsWith(cols, "h5_path_")), patchDfIDs];
 
-    % Sample the last DISK-BACKED row for the main-HDF5 group scan. In hybrid
-    % mode the trailing rows can be in-memory capture rows (h5_path == "");
-    % sampling one of those would h5info("","") → throw → hide the real HDF5
-    % dfIDs. Pick the last row whose h5_path is non-empty; if none exist the
-    % DTS is purely in-memory-hybrid and there is nothing to scan.
+    % Sample several spread rows for the main-HDF5 group scan. A single row
+    % misses dfIDs that are sparse (e.g. spiking extracted for only some
+    % sessions). Up to 5 rows spread evenly across disk-backed rows; union of
+    % group names gives the full dfID set. Each h5info call is metadata-only
+    % (no data read) so the cost is negligible.
     diskRows = find(strlength(string(DTS.h5_path)) > 0);
     if isempty(diskRows)
         return;
     end
-    sampleRow = diskRows(end);
-    h5File = char(DTS.h5_path(sampleRow));
-    h5Root = char(DTS.h5_root(sampleRow));
-
-    try
-        info    = h5info(h5File, h5Root);
-        leafFcn = @(fullPath) fullPath(find(fullPath == '/', 1, 'last') + 1 : end);
-        h5IDs = string({});
-        if ~isempty(info.Groups)
-            h5IDs = [h5IDs, string(cellfun(leafFcn, {info.Groups.Name}, 'UniformOutput', false))];
+    nSample    = min(5, numel(diskRows));
+    sampleIdxs = unique(round(linspace(1, numel(diskRows), nSample)));
+    leafFcn    = @(p) p(find(p == '/', 1, 'last') + 1 : end);
+    h5IDs      = string({});
+    for si = 1:numel(sampleIdxs)
+        sRow   = diskRows(sampleIdxs(si));
+        h5File = char(DTS.h5_path(sRow));
+        h5Root = char(DTS.h5_root(sRow));
+        try
+            info = h5info(h5File, h5Root);
+            if ~isempty(info.Groups)
+                h5IDs = [h5IDs, string(cellfun(leafFcn, {info.Groups.Name}, 'UniformOutput', false))]; %#ok<AGROW>
+            end
+            if ~isempty(info.Datasets)
+                h5IDs = [h5IDs, string({info.Datasets.Name})]; %#ok<AGROW>
+            end
+        catch
         end
-        if ~isempty(info.Datasets)
-            h5IDs = [h5IDs, string({info.Datasets.Name})];
-        end
-        dfIDs = unique([dfIDs, h5IDs], "stable");
-    catch
-        warning('[dtsIO_readDFIDs] Could not read HDF5 from %s%s', h5File, h5Root);
     end
+    dfIDs = unique([dfIDs, h5IDs], "stable");
 end

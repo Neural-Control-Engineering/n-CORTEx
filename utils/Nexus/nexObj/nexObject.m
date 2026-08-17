@@ -343,8 +343,9 @@ classdef nexObject < handle
 
         function resID = buildResultID(nexObj, resType, nBins)
             % Build canonical result ID from the active CTG selection + params.
-            % Format: res--<type>_ctg--<k1>-x-<k2>..._nBins--<n>
+            % Format: res--<type>_ctg--<k1>-x-<k2>..._nBins--<n>_event--<ev>
             % Continuous grouping columns that will be quantile-binned carry ~g.
+            % _event-- segment is appended when SLRT event alignment is active.
             if nargin < 2 || isempty(resType), resType = "AVG"; end
             if nargin < 3 || isempty(nBins),   nBins   = 4;     end
             try
@@ -372,6 +373,16 @@ classdef nexObject < handle
                 ctgStr = strjoin(active, "-x-");
             end
             resID = sprintf("res--%s_ctg--%s_nBins--%d", resType, ctgStr, nBins);
+            try
+                S_slrt       = nex_returnSelectionMask( ...
+                    nexObj.nexon.console.SLRT.signals.eventAlignmentSelection);
+                alignColTags = split(string(S_slrt.events), "_");
+                eventTag     = string(alignColTags(1));
+                if ~isempty(eventTag) && eventTag ~= ""
+                    resID = resID + sprintf("_event--%s", eventTag);
+                end
+            catch
+            end
         end
 
         function broadcastResult(nexObj, resID)
@@ -397,16 +408,24 @@ classdef nexObject < handle
         end
 
         function reportAverage(nexObj, resultID, nBins, STAT)
-            % Group STAT by AVG bus selection, average per group, store in RESULTS.
-            % resultID auto-generated when omitted.  nBins controls quantile
-            % binning for continuous grouping columns (default 4).
-            if nargin < 2 || isempty(resultID)
-                resultID = sprintf('avg%d', numel(fieldnames(nexObj.RESULTS)) + 1);
+            % Group STAT by CTG bus selection, average per group, store in RESULTS.
+            % Auto-compiles STAT when parent is a categorical and none is supplied.
+            % resultID auto-generated via buildResultID when omitted.
+            % nBins controls quantile binning for continuous columns (default 4).
+            if nargin < 3 || isempty(nBins), nBins = 4; end
+            if nargin < 4 || isempty(STAT)
+                if ~isempty(nexObj.Parent) && isvalid(nexObj.Parent) && ...
+                        strcmp(nexObj.Parent.classID, 'ctg')
+                    nexObj.compileSTAT();
+                end
+                STAT = nexObj.STAT;
             end
-            if nargin < 3, nBins = 4; end
-            if nargin < 4; STAT = nexObj.STAT; end
+            if nargin < 2 || isempty(resultID)
+                displayLabel = nexObj.buildResultID("AVG", nBins);
+                resultID     = nexObj.getResultKey(displayLabel);
+                nexObj.resultLabels.(resultID) = char(displayLabel);
+            end
 
-            % STAT = nexObj.STAT;
             if isempty(STAT) || ~istable(STAT)
                 fprintf('[%s.reportAverage] STAT is empty — call compileSTAT() first.\n', class(nexObj));
                 return;
@@ -489,6 +508,7 @@ classdef nexObject < handle
 
             nexObj.refreshSRC();
             nexObj.refreshVW();
+            nexObj.broadcastResult(resultID);
 
             try
                 if ismember('h5_path', nexObj.nexon.console.BASE.DTS.Properties.VariableNames)
@@ -499,6 +519,10 @@ classdef nexObject < handle
             end
 
             fprintf('[%s.reportAverage] %d groups → RESULTS.%s\n', class(nexObj), sum(valid), resultID);
+
+            if ismethod(nexObj, 'visualize')
+                nexObj.visualize();
+            end
         end
 
         function reportAverage_batched(nexObj, resultID, nBins)
@@ -515,11 +539,11 @@ classdef nexObject < handle
             %   nexObj.reportAverage_batched()
             %   nexObj.reportAverage_batched('avg1')
             %   nexObj.reportAverage_batched('avg1', nBins)
+            if nargin < 3 || isempty(nBins), nBins = 4; end
             if nargin < 2 || isempty(resultID)
-                resultID = sprintf('avg%d', numel(fieldnames(nexObj.RESULTS)) + 1);
-            end
-            if nargin < 3
-                nBins = 4;
+                displayLabel = nexObj.buildResultID("AVG", nBins);
+                resultID     = nexObj.getResultKey(displayLabel);
+                nexObj.resultLabels.(resultID) = char(displayLabel);
             end
 
             nexon = nexObj.nexon;
@@ -709,16 +733,20 @@ classdef nexObject < handle
 
             nexObj.refreshSRC();
             nexObj.refreshVW();
+            nexObj.broadcastResult(resultID);
             fprintf('[%s.reportAverage_batched] %d groups → RESULTS.%s\n', ...
                     class(nexObj), numel(df_out), resultID);
 
-            % Auto-save when DTS is disk-backed
             try
                 if ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames)
                     nexOp_saveResult(nexObj, resultID);
                 end
             catch ME
                 warning('[%s.reportAverage_batched] auto-save failed: %s', class(nexObj), ME.message);
+            end
+
+            if ismethod(nexObj, 'visualize')
+                nexObj.visualize();
             end
         end
 
@@ -738,8 +766,10 @@ classdef nexObject < handle
         end
 
         function discoverResults(nexObj)
-            % Scan nexRESULTS.h5 for saved result groups and load any not
-            % already in memory. Populates the SRC bus with all found results.
+            % Scan nexRESULTS.h5 and register stubs for results not yet known.
+            % Stubs (RESULTS.(id) = []) populate the SRC dropdown immediately
+            % without loading data — actual rows are loaded lazily on first
+            % selection via applySRC.
             try
                 h5Dir  = fileparts(char(nexObj.nexon.console.BASE.DTS.h5_path(1)));
                 h5File = fullfile(h5Dir, 'nexRESULTS.h5');
@@ -748,7 +778,7 @@ classdef nexObject < handle
                 H5P.set_fclose_degree(fapl, 'H5F_CLOSE_STRONG');
                 fid  = H5F.open(h5File, 'H5F_ACC_RDONLY', fapl);
                 H5P.close(fapl);
-                info = H5G.get_info(fid);
+                info    = H5G.get_info(fid);
                 nGroups = double(info.nlinks);
                 resultIDs = cell(1, nGroups);
                 for gi = 0:nGroups-1
@@ -760,17 +790,25 @@ classdef nexObject < handle
                 warning('[%s.discoverResults] scan failed: %s', class(nexObj), ME.message);
                 return;
             end
+            anyNew = false;
             for gi = 1:numel(resultIDs)
                 rID = resultIDs{gi};
-                if ~isfield(nexObj.RESULTS, rID)
-                    try
-                        nexObj.loadResult(rID);
-                    catch ME
-                        warning('[%s.discoverResults] skipping %s: %s', class(nexObj), rID, ME.message);
-                    end
+                if isfield(nexObj.RESULTS, rID), continue; end
+                % Register stub — data loaded on demand
+                nexObj.RESULTS.(rID) = [];
+                % Read display label cheaply (single string dataset, no row data)
+                try
+                    labelPath = ['/' rID '/meta/displayLabel'];
+                    dlabel = h5read(h5File, labelPath);
+                    if iscell(dlabel), dlabel = dlabel{1}; end
+                    nexObj.resultLabels.(rID) = char(dlabel);
+                catch
                 end
+                anyNew = true;
             end
-            nexObj.refreshSRC();
+            if anyNew
+                nexObj.refreshSRC();
+            end
         end
 
         function importRESULTS(nexObj, srcRESULTS, resultID)
@@ -1045,8 +1083,18 @@ classdef nexObject < handle
         end
 
         function structKey = getResultKey(nexObj, displayLabel)
-            % Deterministically derive the RESULTS struct key from a display label.
-            structKey = matlab.lang.makeValidName(char(displayLabel));
+            % Derive a short, valid, deterministic struct key from a display label.
+            % Format: res_<TYPE>_<8hexhash>  (always <= 20 chars, always valid).
+            % The full human-readable label lives in resultLabels and the listbox.
+            raw = char(displayLabel);
+            tok = regexp(raw, '^res--(\w+)_', 'tokens', 'once');
+            if ~isempty(tok)
+                prefix = ['res_' tok{1} '_'];
+            else
+                prefix = 'res_';
+            end
+            hashVal   = mod(sum(double(raw) .* (1:numel(raw))), 2^32);
+            structKey = sprintf('%s%08x', prefix, hashVal);
         end
 
         function displayLabel = getResultLabel(nexObj, structKey)
@@ -1073,12 +1121,24 @@ classdef nexObject < handle
 
         function applySRC(nexObj, srcKey)
             % Update the SRC bus selection and refresh the VW bus.
+            % Stubs (RESULTS.(key) = []) are lazily loaded on first selection.
             if ~isfield(nexObj.collector, 'View')
                 return;
             end
             if ~strcmp(srcKey, 'DF') && ~strcmp(srcKey, 'DTS') ...
                     && ~isfield(nexObj.RESULTS, srcKey)
                 return;
+            end
+            % Lazy-load stub on first selection
+            if isfield(nexObj.RESULTS, srcKey) && isempty(nexObj.RESULTS.(srcKey))
+                fprintf('[%s] loading %s ...\n', class(nexObj), nexObj.getResultLabel(srcKey));
+                try
+                    nexObj.loadResult(srcKey);
+                catch ME
+                    warning('[%s.applySRC] lazy load failed for %s: %s', ...
+                        class(nexObj), srcKey, ME.message);
+                    return;
+                end
             end
             bus  = nexObj.collector.View;
             idx  = find(string(bus.selKeys.SRC) == string(srcKey), 1);

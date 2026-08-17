@@ -396,10 +396,15 @@ classdef nexObj_stateSpace < nexObject
 
         function reportAverage(nexObj, resultID, nBins)
             % Average STAT trials grouped by the columns currently selected in
-            % the AVG bus.  Continuous columns are quantile-binned into nBins
+            % the CTG bus.  Continuous columns are quantile-binned into nBins
             % pseudo-categories.  Results go into RESULTS.(resultID) and are
             % exposed in the VW and SRC buses for display.
-            if nargin < 3, nBins = 4; end
+            if nargin < 3 || isempty(nBins), nBins = 4; end
+            if nargin < 2 || isempty(resultID)
+                displayLabel = nexObj.buildResultID("AVG", nBins);
+                resultID     = nexObj.getResultKey(displayLabel);
+                nexObj.resultLabels.(resultID) = char(displayLabel);
+            end
 
             STAT = nexObj.STAT;
             if isempty(STAT) || ~istable(STAT), return; end
@@ -536,23 +541,16 @@ classdef nexObj_stateSpace < nexObject
             % AVG is the legacy source consumed by buildSTATE → nexOp_stackSTAT
             nexObj.AVG = RESULT;
 
-            % VW bus: refreshVW calls getAVGGroupKeys which now gathers unique
-            % values from ALL group columns, so the user sees one selectable
-            % entry per category value across every dimension.  Selecting one
-            % value from each dimension ANDs them in the visualizer.
             nexObj.refreshVW();
+            nexObj.refreshSRC();
+            nexObj.broadcastResult(resultID);
 
-            % SRC bus: append the new resultID so the user can switch to it
-            if isfield(nexObj.collector, 'View')
-                bus  = nexObj.collector.View;
-                keys = ["DF"; string(fieldnames(nexObj.RESULTS))];
-                bus.selKeys.SRC    = keys;
-                bus.selections.SRC = numel(keys);
-                if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
-                    bus.listBoxes.SRC.String = keys;
-                    bus.listBoxes.SRC.Max    = 1;
-                    bus.listBoxes.SRC.Value  = numel(keys);
+            try
+                if ismember('h5_path', nexObj.nexon.console.BASE.DTS.Properties.VariableNames)
+                    nexOp_saveResult(nexObj, resultID);
                 end
+            catch ME
+                warning('[%s.reportAverage] auto-save failed: %s', class(nexObj), ME.message);
             end
         end
 

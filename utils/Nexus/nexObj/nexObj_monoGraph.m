@@ -87,6 +87,14 @@ classdef nexObj_monoGraph < nexObject
             nexObj.initCollectorView();
 
             nexObj.buildFigure();
+
+            % Load any results already saved for this dfID from disk
+            try
+                if ismember('h5_path', nexObj.nexon.console.BASE.DTS.Properties.VariableNames)
+                    nexObj.discoverResults();
+                end
+            catch
+            end
         end
 
         % ── Core ──────────────────────────────────────────────────────────
@@ -117,25 +125,6 @@ classdef nexObj_monoGraph < nexObject
                 nexObj.DF = nexObj.Parent.DF_postOp;
             end
             nexObj.operate();
-            nexObj.visualize();
-        end
-
-        % ── Overrides: call base then visualize immediately ────────────────
-
-        function reportAverage(nexObj, resultID, nBins, STAT)
-            nexObj.compileSTAT;
-            if nargin < 3 || isempty(nBins), nBins = 4; end
-            if nargin < 2 || isempty(resultID)
-                displayLabel = nexObj.buildResultID("AVG", nBins);
-                resultID     = nexObj.getResultKey(displayLabel);
-                nexObj.resultLabels.(resultID) = char(displayLabel);
-            end
-            if nargin < 4
-                reportAverage@nexObject(nexObj, resultID, nBins);
-            else
-                reportAverage@nexObject(nexObj, resultID, nBins, STAT);
-            end
-            nexObj.broadcastResult(resultID);
             nexObj.visualize();
         end
 

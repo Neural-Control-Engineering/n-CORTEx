@@ -38,6 +38,14 @@
             disp(getReport(e));
             disp("UNABLE TO GENERATE SLRT PANEL")
         end
+        % Auto-load nexTract manifest patches so derived dfColumns written in any
+        % session are available immediately on startup.
+        try
+            if ~isempty(DTS) && ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames)
+                dtsIO_loadManifestPatches(nexon);
+            end
+        catch
+        end
         try
             nexPanel_launcher(nexon);
         catch e
@@ -45,14 +53,7 @@
             disp("UNABLE TO GENERATE LAUNCHER PANEL")
         end
     end
-    % Auto-load nexTract manifest patches so derived dfColumns written in any
-    % session are available immediately on startup.
-    try
-        if ~isempty(DTS) && ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames)
-            dtsIO_loadManifestPatches(nexon);
-        end
-    catch
-    end
+
 
     % Registry — load from experiment-scoped cache; build + cache on first run.
     % On a cache hit, reconcile against the current DTS so newly added subjects /

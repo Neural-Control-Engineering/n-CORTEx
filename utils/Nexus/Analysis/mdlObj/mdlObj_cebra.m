@@ -68,19 +68,19 @@ classdef mdlObj_cebra < mdlObject
         % end
 
         function DF_Z = transform(mdlObj, DF_X)
-            % Use learned weights to project emission into state-space            
+            % Use learned weights to project emission into state-space
             disp("transforming cebra...");
             DF_Z = DF_X;
             DF_Z = rmfield(DF_Z,"ptr");
             DF_Z = rmfield(DF_Z,"ax");
             X = DF_X.df;
-            % chanCond = [1:10]; % TEMP            
+            % chanCond = [1:10]; % TEMP
             % tCond = [1600:2250]; % TEMP
             if ~isempty(X)
                 % X = X(:,chanCond);
                 np = py.importlib.import_module('numpy');
-                % X_py = mdlObj.py.np.array(X); 
-                X_py = np.array(X); 
+                % X_py = mdlObj.py.np.array(X);
+                X_py = np.array(X);
                 X_scaled = mdlObj.py.stdScaler.transform(X_py);
                 % Z_py = mdlObj.model.fit_transform(X_scaled);
                 Z_py = mdlObj.model.transform(X_scaled);
@@ -88,13 +88,34 @@ classdef mdlObj_cebra < mdlObject
                 % DF_Z=DF_X;
                 DF_Z.df=Z;
                 % DF_Z.ax=struct;
-                DF_Z.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);                
+                DF_Z.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
                 % DF_Z.ax.t=DF_Z.ax.t(tCond); % TEMP
                 DF_Z.ax.factor=[1:size(Z,2)];
-                DF_Z = nex_initAxisPointer_v2(DF_Z);            
+                DF_Z = nex_initAxisPointer_v2(DF_Z);
             else
                 DF_Z = [];
             end
+        end
+
+        function saveFit(mdlObj, uniqueID)
+            [h5Dir, ~, ~] = fileparts(char(mdlObj.nexon.console.BASE.DTS.h5_path(1)));
+            fitDir = fullfile(h5Dir, sprintf('mdlObj_cebra_%s', uniqueID));
+            if ~exist(fitDir, 'dir'), mkdir(fitDir); end
+            mdlObj.fitPath = fitDir;
+            pickle = py.importlib.import_module('pickle');
+            fid = py.open(fullfile(fitDir, 'model.pkl'), 'wb');
+            pickle.dump(mdlObj.model, fid); fid.close();
+            fid = py.open(fullfile(fitDir, 'scaler.pkl'), 'wb');
+            pickle.dump(mdlObj.py.stdScaler, fid); fid.close();
+        end
+
+        function loadFit(mdlObj, fitDir)
+            mdlObj.fitPath = fitDir;
+            pickle = py.importlib.import_module('pickle');
+            fid    = py.open(fullfile(fitDir, 'model.pkl'), 'rb');
+            mdlObj.model = pickle.load(fid); fid.close();
+            fid    = py.open(fullfile(fitDir, 'scaler.pkl'), 'rb');
+            mdlObj.py.stdScaler = pickle.load(fid); fid.close();
         end
     end
 end

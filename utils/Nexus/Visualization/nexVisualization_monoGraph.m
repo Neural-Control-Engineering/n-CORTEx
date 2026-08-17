@@ -49,7 +49,9 @@ function nexVisualization_monoGraph(nexObj, args)
             parts = arrayfun(@(c) string(RESULT.(char(groupCols(c)))(r)), ...
                 1:numel(groupCols), 'UniformOutput', false);
             rowLabels(ri)  = strjoin([parts{:}], ' | ');
-            activeFlds(ri) = string(matlab.lang.makeValidName(char(rowLabels(ri))));
+            raw = char(rowLabels(ri));
+            hashVal = mod(sum(double(raw) .* (1:numel(raw))), 2^32);
+            activeFlds(ri) = string(sprintf('g_%08x', hashVal));
         end
 
         if ~isempty(clrCols)
