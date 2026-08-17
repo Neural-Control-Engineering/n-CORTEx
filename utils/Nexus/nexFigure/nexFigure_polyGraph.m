@@ -125,6 +125,8 @@ function nexFigure_polyGraph(nexObj)
         'Value',           char(nexObj.dfID_source), ...
         'ValueChangedFcn', @(src,event) nexUpdate_dfID(src, event, nexObj.nexon, nexObj));
 
+    nexFigure_addAvgControls(nexObj, nexObj.Figure.fh, 240, 650, 25);
+
     %% Apply headline and initial visualize
     nexObj.applyHeadline();
 

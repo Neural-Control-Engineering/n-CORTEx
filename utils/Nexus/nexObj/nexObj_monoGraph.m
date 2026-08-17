@@ -124,14 +124,18 @@ classdef nexObj_monoGraph < nexObject
 
         function reportAverage(nexObj, resultID, nBins, STAT)
             nexObj.compileSTAT;
-            if nargin < 2, resultID = []; end
-            if nargin < 3, nBins = 4; end
-            if nargin < 4 
-                reportAverage@nexObject(nexObj, resultID, nBins); 
-            else
-                reportAverage@nexObject(nexObj, resultID, nBins, STAT); 
+            if nargin < 3 || isempty(nBins), nBins = 4; end
+            if nargin < 2 || isempty(resultID)
+                displayLabel = nexObj.buildResultID("AVG", nBins);
+                resultID     = nexObj.getResultKey(displayLabel);
+                nexObj.resultLabels.(resultID) = char(displayLabel);
             end
-            % reportAverage@nexObject(nexObj, resultID, nBins);
+            if nargin < 4
+                reportAverage@nexObject(nexObj, resultID, nBins);
+            else
+                reportAverage@nexObject(nexObj, resultID, nBins, STAT);
+            end
+            nexObj.broadcastResult(resultID);
             nexObj.visualize();
         end
 

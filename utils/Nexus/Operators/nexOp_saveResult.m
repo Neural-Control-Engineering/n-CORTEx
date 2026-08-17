@@ -26,13 +26,20 @@ function h5File = nexOp_saveResult(nexObj, resultID)
     h5File = fullfile(h5Dir, 'nexRESULTS.h5');
 
     T = nexObj.RESULTS.(resultID);
-    writeResultsHDF5(h5File, char(resultID), T);
+    displayLabel = '';
+    try
+        if isfield(nexObj.resultLabels, resultID)
+            displayLabel = char(nexObj.resultLabels.(resultID));
+        end
+    catch
+    end
+    writeResultsHDF5(h5File, char(resultID), T, displayLabel);
     fprintf('nexOp_saveResult: %d rows → %s [/%s]\n', height(T), h5File, resultID);
 end
 
 % ── HDF5 write ────────────────────────────────────────────────────────────
 
-function writeResultsHDF5(h5File, resultID, T)
+function writeResultsHDF5(h5File, resultID, T, displayLabel)
     % resultID is guaranteed char here — all path concatenations stay char.
     structCols = {'df','ax','ptr','sem'};
     grpCols    = setdiff(T.Properties.VariableNames, structCols, 'stable');
@@ -59,6 +66,11 @@ function writeResultsHDF5(h5File, resultID, T)
 
         % nRows scalar — LCPL creates the /{resultID}/ group automatically.
         h5writeLL(fid, [root '/nRows'], double(nRows), []);
+
+        % Display label (human-readable, survives save/load cycle).
+        if nargin >= 4 && ~isempty(displayLabel)
+            h5writeStrLL(fid, [root '/meta/displayLabel'], string(displayLabel));
+        end
 
         % Grouping column metadata (all pure low-level, no h5create/h5write).
         if ~isempty(grpCols)
