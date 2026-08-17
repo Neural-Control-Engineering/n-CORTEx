@@ -8,11 +8,14 @@ function nexPanel_launcher(nexon)
 
     C = nexon.settings.Colors; GREEN = C.cyberGreen; BLACK = [0 0 0];
 
-    fh = uifigure("Name","figure launcher","Position",[900,500,195,285],"Color",BLACK);
+    fh = uifigure("Name","figure launcher","Position",[900,500,390,285],"Color",BLACK);
     ph = uipanel(fh,"Position",[5,5,185,275], ...
         "BackgroundColor",BLACK,"ForegroundColor",GREEN,"Title","INSPECT");
-
     nexLaunch_panel(ph, nexon, []);
 
-    nexon.console.launcher = struct("fh", fh, "ph", ph);
+    phExt = uipanel(fh,"Position",[200,5,185,275], ...
+        "BackgroundColor",BLACK,"ForegroundColor",GREEN,"Title","EXTRACT");
+    nexLaunch_extractPanel(phExt, nexon);
+
+    nexon.console.launcher = struct("fh", fh, "ph", ph, "phExt", phExt);
 end

@@ -17,7 +17,7 @@ function nexLaunch_panel(parent, nexon, dfIDFilter)
 
     uilabel(parent, "Text", "source", "Position", [5,235,160,20], "FontColor", GREEN);
     srcDD = uidropdown(parent, "Position", [5,213,160,22], ...
-        "Items", listSources(nexon, dfIDFilter));
+        "Items", nexLaunch_listSources(nexon, dfIDFilter));
 
     uilabel(parent, "Text", "figure", "Position", [5,185,160,20], "FontColor", GREEN);
     typeDD = uidropdown(parent, "Position", [5,163,160,22], ...
@@ -43,27 +43,6 @@ function nexLaunch_panel(parent, nexon, dfIDFilter)
     end
 
     function onRefresh()
-        srcDD.Items = listSources(nexon, dfIDFilter);
+        srcDD.Items = nexLaunch_listSources(nexon, dfIDFilter);
     end
-end
-
-function items = listSources(nexon, filt)
-% Enumerate DF sources in the DTS, dropping address/meta columns and applying
-% the optional prefix filter.
-    items = "(no sources)";
-    try
-        ids = dtsIO_listDFIDs(nexon.console.BASE.DTS);
-    catch
-        return;
-    end
-    ids  = ids(:).';
-    meta = ["h5_path","h5_root","sessionLabel","trialNumber","Time"];
-    ids  = ids(~ismember(ids, meta));
-    if ~isempty(filt)
-        pref = erase(string(filt), "*");
-        keep = arrayfun(@(id) any(startsWith(id, pref)), ids);
-        ids  = ids(keep);
-    end
-    if isempty(ids), return; end
-    items = cellstr(ids);
 end

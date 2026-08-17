@@ -94,8 +94,20 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
         end
     end
 
+    % Row selection: honor an explicit mask (logical vector or numeric row
+    % indices) so callers can extract just the routed trial; empty/absent →
+    % all rows. minLength above still spans the whole column so a single
+    % re-extracted trial stays length-consistent with the rest.
+    if nargin < 4 || isempty(mask)
+        rowList = rowStart:dtsRows;
+    elseif islogical(mask)
+        rowList = find(mask(:)).';
+    else
+        rowList = double(mask(:)).';
+    end
+
     DFOUT = {}; %#ok<NASGU>
-    for i = rowStart:dtsRows
+    for i = rowList
         disp(i);
 
         % Skip check — independent per output k.

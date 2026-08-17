@@ -15,8 +15,39 @@ function extractRAW_rtSort(streamID, inter_path, detection_model, args)
     % recordings. runRTSort.py takes min(window_s, segment duration), so shorter
     % triggers (e.g. 11 s, 30 s) still sort in full.
     rtWindowS = 300;
-    rtCmd     = sprintf('"%s" "%s" "%s" "%s" %g', pyVersion, rtScript, streamID, inter_path, rtWindowS);
+    % Optional pre-trained sorter: if args.sorterPickle points at an existing
+    % rt_sort.pickle, runRTSort.py sorts this trigger WITH it (LOAD mode) instead
+    % of learning a fresh sorter from the (short) trigger; it falls back to
+    % detection if the pickle is missing or LOAD fails. Passed as the 4th CLI arg.
+    sorterPickle = "";
+    if isfield(args, 'sorterPickle') && strlength(string(args.sorterPickle)) > 0
+        sorterPickle = string(args.sorterPickle);
+    end
+    if strlength(sorterPickle) > 0
+        fprintf("extractRAW_rtSort: using pre-trained sorter %s\n", sorterPickle);
+        rtCmd = sprintf('"%s" "%s" "%s" "%s" %g "%s"', ...
+            pyVersion, rtScript, streamID, inter_path, rtWindowS, sorterPickle);
+    else
+        rtCmd = sprintf('"%s" "%s" "%s" "%s" %g', pyVersion, rtScript, streamID, inter_path, rtWindowS);
+    end
     [rtStatus, rtOut] = system(rtCmd);
+    % Echo the subprocess stdout so the [runRTSort] mode/log lines (LOAD vs
+    % detect, sequence/spike counts, any fallback) are visible on SUCCESS too —
+    % otherwise they were only surfaced on error.
+    fprintf("%s\n", rtOut);
+    % Also persist it next to the outputs, so the LOAD-vs-detect record is
+    % checkable after the fact (and when extraction runs on a parpool worker,
+    % where console fprintf may not reach the main window).
+    try
+        logFile = fullfile(inter_path, "rtsort", "runRTSort.log");
+        if ~isfolder(fullfile(inter_path, "rtsort")), mkdir(fullfile(inter_path, "rtsort")); end
+        fid = fopen(logFile, "w");
+        if fid > 0
+            fprintf(fid, "CMD: %s\n\n%s\n", rtCmd, rtOut);
+            fclose(fid);
+        end
+    catch
+    end
     if rtStatus ~= 0
         error("extractRAW_rtSort:detectFailed", ...
             "RT-Sort subprocess failed (exit %d):\n%s", rtStatus, rtOut);

@@ -1327,6 +1327,16 @@ classdef nexObject < handle
         % ─────────────────────────────────────────────────────────────────
         function reloadFromRouter(nexObj)
             nexObj.DF = dtsIO_readDF(nexObj.nexon, nexObj.dfID_source, []);
+            % Display-time event alignment: relabel the (trigger-relative) time
+            % axis so 0 lands on the event chosen in the SLRT eventAlignment
+            % selection (e.g. stimOnsetAdvance). Non-destructive; no-op when
+            % there's no selection or the DF has no t axis. Applied before
+            % operate() so the pointer/axis pick up the aligned ax_t.
+            try
+                nexObj.DF = nexOp_eventAlignBySelection(nexObj.nexon, nexObj.DF, []);
+            catch e
+                disp(getReport(e));
+            end
             nexObj.operate();
             nexObj.visualize();
         end

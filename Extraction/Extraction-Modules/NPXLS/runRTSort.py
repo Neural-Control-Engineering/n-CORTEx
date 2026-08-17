@@ -99,16 +99,26 @@ def _select_trigger(recording, bin_path):
     return recording.select_segments([keys.index(target_key)])
 
 
-def export_fields(out_dir):
-    """Load rt_sort.pickle and export the fields extract_rtsort.m needs as a
-    plain .mat (ragged spike trains become a MATLAB cell via an object array)."""
-    import pickle
-    pickle_path = os.path.join(out_dir, "rt_sort.pickle")
-    with open(pickle_path, "rb") as fh:
-        obj = pickle.load(fh)
+def export_fields(out_dir, obj=None, spike_trains_override=None):
+    """Export the fields extract_rtsort.m needs as a plain .mat (ragged spike
+    trains become a MATLAB cell via an object array).
 
-    spike_trains = np.empty((len(obj.seq_spike_trains),), dtype=object)
-    for i, st in enumerate(obj.seq_spike_trains):
+    obj                   : the RTSort sorter. None → load out_dir/rt_sort.pickle
+                            (DETECT mode, where the just-detected pickle lives there).
+    spike_trains_override : per-sequence spike-time arrays (ms) to use instead of
+                            obj.seq_spike_trains. LOAD mode passes the trains from
+                            sort_offline on the trigger so the unit DESCRIPTIONS come
+                            from the pre-trained sorter but the SPIKES are the trial's.
+    """
+    if obj is None:
+        import pickle
+        pickle_path = os.path.join(out_dir, "rt_sort.pickle")
+        with open(pickle_path, "rb") as fh:
+            obj = pickle.load(fh)
+
+    src_trains = obj.seq_spike_trains if spike_trains_override is None else spike_trains_override
+    spike_trains = np.empty((len(src_trains),), dtype=object)
+    for i, st in enumerate(src_trains):
         spike_trains[i] = _to_numpy(st).ravel()
 
     fields = {
@@ -188,12 +198,89 @@ def runRTSort(file_path, inter_path, window_s=None):
             os.remove(fpath)
 
 
+def _detection_conv(model):
+    """The conv submodule RTSort uses as sorter.model for sort_offline. The pickle
+    sets sorter.model = None, so it must be re-attached before sorting. Mirrors
+    rtSortServer._detection_net (braindance rt_sort.py:460, non-TensorRT path):
+    sort_chunk calls self.model(x)[:, 0, :] expecting a 3-D conv output."""
+    net = getattr(getattr(model, "model", None), "conv", None)
+    if net is None or not callable(net):
+        raise RuntimeError("could not resolve detection conv (model.model.conv)")
+    return net
+
+
+def runRTSort_load(file_path, inter_path, pickle_path, window_s=None):
+    """LOAD mode: sort the trigger with a PRE-TRAINED sorter instead of detecting a
+    new one from the (short) trigger. Unit descriptions (locs / root_elecs / amps /
+    latencies / n_before-after) come from the pickle -- e.g. a 30 s-context model --
+    while the spike trains come from sort_offline on THIS trigger. Emits the same
+    two artifacts extract_rtsort.m consumes: scaled_traces.npy (this trigger, raw
+    scaled) + rtsort_fields.mat (pickle descriptions + this trigger's spike trains).
+    Mirrors the realtime sidecar's INIT_LOAD + RUN path (rtSortServer.py)."""
+    import pickle
+    import torch
+    rtsort_dir = os.path.join(inter_path, "rtsort")
+    os.makedirs(rtsort_dir, exist_ok=True)
+
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[runRTSort] LOAD mode: {pickle_path} (device={dev}, torch {torch.__version__})", flush=True)
+
+    # Re-attach the detection conv the pickle dropped (sorter.model = None on load).
+    model = ModelSpikeSorter.load_neuropixels()
+    with open(pickle_path, "rb") as fh:
+        sorter = pickle.load(fh)
+    sorter.model = _detection_conv(model).to(getattr(sorter, "device", dev))
+    print(f"[runRTSort] loaded sorter: {int(getattr(sorter, 'num_seqs', -1))} sequences", flush=True)
+
+    # This trigger's recording + segment.
+    folder = os.path.dirname(os.path.abspath(file_path))
+    recording = read_spikeglx(folder, stream_id="imec0.ap")
+    recording = _select_trigger(recording, file_path)
+    fs = recording.get_sampling_frequency()
+    n_total = recording.get_total_samples()
+    n_use = n_total if window_s is None else min(int(round(window_s * fs)), n_total)
+
+    # Scaled AP traces (uV), (n_samp, n_chan) -- the same raw scaled content
+    # detect_sequences writes as scaled_traces.npy, used only to cut waveforms.
+    traces = np.ascontiguousarray(
+        recording.get_traces(start_frame=0, end_frame=n_use, return_scaled=True))
+
+    # Sort with the pre-trained sorter. sort_offline takes (n_chan, n_samp) and
+    # returns a (num_seqs,) array of per-sequence spike times in MS. reset=True
+    # keeps this trigger independent; inter_path=None -> no persistent files.
+    spike_trains = sorter.sort_offline(traces.T, inter_path=None, reset=True, verbose=False)
+    n_spk = int(sum(np.asarray(st).size for st in spike_trains))
+    print(f"[runRTSort] sort_offline -> {n_spk} spikes over {len(spike_trains)} sequences", flush=True)
+
+    # scaled_traces.npy: (n_chan, n_samp) float16, C-order -- the layout
+    # extract_rtsort.m's openNPY_map expects (shape = (chans, samples)).
+    np.save(os.path.join(rtsort_dir, "scaled_traces.npy"),
+            np.ascontiguousarray(traces.T, dtype=np.float16))
+
+    # rtsort_fields.mat: pickle's unit descriptions + this trigger's spike trains.
+    export_fields(rtsort_dir, obj=sorter, spike_trains_override=spike_trains)
+
+
 if __name__ == "__main__":
     # Optional 3rd arg = detection window in seconds (caps the sort length);
     # omit for the full segment. extractRAW_rtSort.m passes only file_path +
     # inter_path, so the default stays full-length.
     # extractRAW_rtSort.m passes a 300 s (5 min) cap as the 3rd arg to bound the
     # sort length on long recordings; omit it to sort the full segment.
-    win_s = float(sys.argv[3]) if len(sys.argv) > 3 else None
-    runRTSort(sys.argv[1], sys.argv[2], window_s=win_s)
+    # Optional 4th arg = a pre-trained rt_sort.pickle path -> LOAD mode (sort the
+    # trigger with that sorter). Missing/not-found/failed -> DETECT mode fallback.
+    win_s = float(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else None
+    pickle_path = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
+    if pickle_path and os.path.isfile(pickle_path):
+        try:
+            runRTSort_load(sys.argv[1], sys.argv[2], pickle_path, window_s=win_s)
+        except Exception as e:  # noqa: BLE001 — LOAD is best-effort; detect is the safety net
+            import traceback
+            traceback.print_exc()
+            print(f"[runRTSort] LOAD mode failed ({e}); falling back to detect_sequences", flush=True)
+            runRTSort(sys.argv[1], sys.argv[2], window_s=win_s)
+    else:
+        if pickle_path:
+            print(f"[runRTSort] sorter pickle not found ({pickle_path}); detecting", flush=True)
+        runRTSort(sys.argv[1], sys.argv[2], window_s=win_s)
     print("RTSORT_DONE")

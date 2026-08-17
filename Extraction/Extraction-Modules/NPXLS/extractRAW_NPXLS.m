@@ -128,7 +128,12 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                     end
                                 end    
                                 %% RTSORT OPTIONAL
-                                rtsArgs = extractMethodCfg('extractRAW_rtSort');                                
+                                rtsArgs = extractMethodCfg('extractRAW_rtSort');
+                                % Prefer a pre-trained sorter for this session (e.g. a
+                                % 30 s-context model saved under the experiment's npxls
+                                % module folder) over learning one from this short
+                                % trigger; "" → runRTSort.py detects as before.
+                                rtsArgs.sorterPickle = resolveRTSortPickle(params, sessionLabel);
                                 extractRAW_rtSort(fileName, kSortOutPath, [], rtsArgs);
                                 %% LFP
                                 % Load LFP data
