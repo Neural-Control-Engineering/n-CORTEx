@@ -24,8 +24,8 @@ function nexLaunch_extractPanel(parent, nexon)
     colField = uieditfield(parent, "text", "Position", [5,121,160,22], ...
         "Placeholder", "<source>_<function>");
 
-    skipChk = uicheckbox(parent, "Text", "skip existing", "Position", [5,98,160,20], ...
-        "FontColor", GREEN, "Value", true);
+    overwriteChk = uicheckbox(parent, "Text", "overwrite", "Position", [5,98,160,20], ...
+        "FontColor", GREEN, "Value", false);
     trialChk = uicheckbox(parent, "Text", "current trial only", "Position", [5,77,160,20], ...
         "FontColor", GREEN, "Value", false);
 
@@ -49,7 +49,9 @@ function nexLaunch_extractPanel(parent, nexon)
         colName   = strtrim(string(colField.Value));
         dfColName = [];
         if colName ~= "", dfColName = colName; end
-        opts = struct("skipExisting", logical(skipChk.Value));
+        % overwrite=false (default) → skip trials whose output already exists
+        % (in-memory or on disk); overwrite=true → recompute & rewrite regardless.
+        opts = struct("overwrite", logical(overwriteChk.Value));
 
         % "current trial only" → restrict nexTract to the routed row(s). Empty
         % mask = all rows (nexTract's default). If the router resolves nothing,

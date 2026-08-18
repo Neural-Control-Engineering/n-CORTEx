@@ -33,4 +33,5 @@ function DF_out = rtPMTM_magnitude_roll(DF, args)
     DF_out.ax.t = t;
     DF_out.ax.chans = chanSel;
     DF_out.args = args;
+    disp("rtPMTM complete");
 end

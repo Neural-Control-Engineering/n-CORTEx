@@ -29,8 +29,19 @@ function dtsIO_patchManifest(nexon, dfColName, h5FileOut)
 
     % ── Normal mode: file already exists ─────────────────────────────────
     colName  = char("h5_path_" + string(dfColName));
-    nRows    = height(nexon.console.BASE.DTS);
+    DTS      = nexon.console.BASE.DTS;
+    nRows    = height(DTS);
     pathCol  = repmat(string(h5FileOut), nRows, 1);
+
+    % Hybrid routing: in-memory source rows (h5_path == "") don't get their
+    % output written to the patch file (they have no per-trial h5_root, so
+    % nexTract writes their output into the in-memory row instead). Leave their
+    % h5_path_<dfID> == "" so dtsIO_composeDF routes the read to the foliated
+    % in-memory columns rather than the shared "/<dfID>" patch group.
+    if ismember('h5_path', DTS.Properties.VariableNames)
+        inMem = strlength(string(DTS.h5_path)) == 0;
+        pathCol(inMem) = "";
+    end
 
     if ismember(colName, nexon.console.BASE.DTS.Properties.VariableNames)
         nexon.console.BASE.DTS.(colName) = pathCol;

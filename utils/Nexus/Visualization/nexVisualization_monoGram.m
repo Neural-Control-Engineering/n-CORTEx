@@ -7,6 +7,7 @@ function nexVisualization_monoGram(nexObj, args)
     cLim_high = args.cLim_high;  % default = -9.5
     component = args.component;  % default = 'radial'
     scale     = args.scale;      % default = 'linear'
+    fScale    = args.fScale;     % default = 'linear'
 
     % Guard
     if isempty(nexObj.DF_postOp) || isempty(nexObj.DF_postOp.df), return; end
@@ -63,8 +64,23 @@ function nexVisualization_monoGram(nexObj, args)
     %% Axis limits and labels
     ax = nexObj.Figure.panel0.tiles.ax;
     ax.ZLim = [zLim_low, zLim_high];
-    ax.YLim = [Y(1), Y(end)];
-    ax.XLim = [X(1), X(end)];
+
+    % Frequency-axis scale (log/linear) — applied only to whichever DISPLAYED
+    % axis is 'f' (rowKey→Y, colKey→X); the other axis stays linear. No-op when
+    % 'f' isn't displayed.
+    ax.XScale = 'linear';  ax.YScale = 'linear';
+    if     strcmp(rowKey, "f"), ax.YScale = char(fScale);
+    elseif strcmp(colKey, "f"), ax.XScale = char(fScale);
+    end
+
+    % Guard degenerate axes: a display axis that is genuinely single-valued (e.g.
+    % one channel) makes [v v] an invalid limit. For a LOG axis, drop non-positive
+    % values first so a DC/0 frequency bin doesn't invalidate the limit. Only set
+    % the limit when the axis actually spans; else leave it auto so it still draws.
+    Yl = Y; if strcmp(ax.YScale, 'log'), Yl = Yl(Yl > 0); end
+    Xl = X; if strcmp(ax.XScale, 'log'), Xl = Xl(Xl > 0); end
+    if numel(Yl) >= 2 && max(Yl) > min(Yl), ax.YLim = [min(Yl), max(Yl)]; end
+    if numel(Xl) >= 2 && max(Xl) > min(Xl), ax.XLim = [min(Xl), max(Xl)]; end
     clim(ax, [cLim_low, cLim_high]);
 
     xlabel(ax, char(colKey), 'Color', GREEN);

@@ -25,10 +25,14 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
     if isfield(opts, 'poolRestartInterval')
         poolRestartInterval = opts.poolRestartInterval;
     end
-    skipExisting = false;
-    if isfield(opts, 'skipExisting')
-        skipExisting = opts.skipExisting;
-    end
+    % Rewrite policy. overwrite=false (default): skip a trial that already carries
+    % this output — location-agnostic (disk patch group OR in-memory foliated
+    % column). overwrite=true: recompute and rewrite regardless of where it lives.
+    % Legacy 'skipExisting' is honored as the inverse alias (skipExisting=true ==
+    % overwrite=false) so older calls keep working.
+    overwrite = false;
+    if isfield(opts, 'skipExisting'), overwrite = ~logical(opts.skipExisting); end
+    if isfield(opts, 'overwrite'),    overwrite = logical(opts.overwrite);    end
 
     rowStart = 1;
     rowsSinceRestart = 0;
@@ -110,38 +114,18 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
     for i = rowList
         disp(i);
 
-        % Skip check — independent per output k.
-        % If ALL outputs already exist for this row, skip the fcn call entirely.
+        % Skip check — independent per output k. When NOT overwriting, skip a
+        % trial whose output ALL exist already, wherever they live (disk patch
+        % group for a disk row, foliated <dfID>_df column for an in-memory row).
+        % overwrite=true bypasses this and always recomputes.
         skip = false(1, nOut);
-        if skipExisting
-            if isDiskBacked
-                for k = 1:nOut
-                    if exist(h5FileOut{k}, 'file')
-                        grp     = char(nexon.console.BASE.DTS.h5_root(i) + "/" + dfColName(k));
-                        fapl_sk = H5P.create('H5P_FILE_ACCESS');
-                        H5P.set_fclose_degree(fapl_sk, 'H5F_CLOSE_STRONG');
-                        fid_sk  = H5F.open(h5FileOut{k}, 'H5F_ACC_RDONLY', fapl_sk);
-                        H5P.close(fapl_sk);
-                        try
-                            skip(k) = H5L.exists(fid_sk, [grp '/df'],    'H5P_DEFAULT') || ...
-                                      H5L.exists(fid_sk, [grp '/df_im'], 'H5P_DEFAULT');
-                        catch
-                        end
-                        H5F.close(fid_sk);
-                    end
-                end
-                if all(skip), continue; end
-            else
-                allPresent = true;
-                for k = 1:nOut
-                    if ~ismember(dfColName(k), nexon.console.BASE.DTS.Properties.VariableNames) || ...
-                       isempty(nexon.console.BASE.DTS.(dfColName(k)){i})
-                        allPresent = false;
-                        break;
-                    end
-                end
-                if allPresent, continue; end
+        if ~overwrite
+            for k = 1:nOut
+                hf = '';
+                if isDiskBacked, hf = h5FileOut{k}; end
+                skip(k) = nexTract_outputExists(nexon, dfColName(k), i, isDiskBacked, hf);
             end
+            if all(skip), continue; end
         end
 
         % Periodic pool restart — reclaims worker heap accumulated over prior rows.
@@ -202,7 +186,20 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
             try
                 if isDiskBacked
                     h5Root = char(nexon.console.BASE.DTS.h5_root(i));
-                    dtsIO_writeDF_toHDF5(h5FileOut{k}, h5Root, char(dfColName(k)), varout{k});
+                    if isempty(h5Root)
+                        % Hybrid in-memory source row (h5_path/h5_root == ""): it
+                        % has no per-trial h5_root to key a unique patch group, so
+                        % all such rows would collide at "/<dfID>" in the patch
+                        % file. Write the output into the IN-MEMORY row instead
+                        % (forceMem foliates it into <dfID>_* columns); dtsIO_composeDF
+                        % reads it back from those columns for rows whose h5_path
+                        % is "". dtsIO_patchManifest leaves h5_path_<dfID> = "" for
+                        % these rows so the read routes to memory, not the patch.
+                        dtsIO_writeDF(nexon, varout{k}, dfColName(k), i, true);
+                    else
+                        % Disk-backed row: per-trial patch group, as before.
+                        dtsIO_writeDF_toHDF5(h5FileOut{k}, h5Root, char(dfColName(k)), varout{k});
+                    end
                 else
                     dtsIO_writeDF(nexon, varout{k}, dfColName(k), i);
                 end
@@ -213,4 +210,39 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
         end
     end
 
+end
+
+% ── helpers ──────────────────────────────────────────────────────────────────
+
+function tf = nexTract_outputExists(nexon, dfColName, rowIdx, isDiskBacked, h5FileOut)
+% Does this trial already carry the extraction output? Location-agnostic, matching
+% where nexTract writes it: a DISK row -> the patch file's h5_root/<dfID>/df group;
+% an IN-MEMORY row (or a pure in-memory DTS) -> the foliated <dfID>_df column that
+% writeDF lays down on the row.
+    tf  = false;
+    DTS = nexon.console.BASE.DTS;
+    dfc = char(dfColName);
+
+    rowRoot = '';
+    if isDiskBacked, rowRoot = char(DTS.h5_root(rowIdx)); end
+
+    if isDiskBacked && ~isempty(rowRoot)
+        if isempty(h5FileOut) || ~exist(h5FileOut, 'file'), return; end
+        fapl = H5P.create('H5P_FILE_ACCESS');
+        H5P.set_fclose_degree(fapl, 'H5F_CLOSE_STRONG');
+        fid  = H5F.open(h5FileOut, 'H5F_ACC_RDONLY', fapl);
+        H5P.close(fapl);
+        grp = [rowRoot '/' dfc];
+        try
+            tf = H5L.exists(fid, [grp '/df'],    'H5P_DEFAULT') || ...
+                 H5L.exists(fid, [grp '/df_im'], 'H5P_DEFAULT');
+        catch
+        end
+        H5F.close(fid);
+    else
+        % in-memory row (hybrid) or pure in-memory DTS: foliated <dfID>_df column
+        col = [dfc '_df'];
+        tf  = ismember(col, DTS.Properties.VariableNames) && ...
+              rowIdx <= height(DTS) && iscell(DTS.(col)) && ~isempty(DTS.(col){rowIdx});
+    end
 end

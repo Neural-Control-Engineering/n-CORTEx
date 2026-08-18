@@ -46,7 +46,13 @@ function [df_out, ax_out] = nexOp_sliceAndCollapse(DF, displayAxes)
             sel = [];
         end
 
-        if ~isempty(sel)
+        % A display axis must keep spanning — honor its Pointer `indices` only as a
+        % multi-value WINDOW (>1). A lone index would collapse it to a 1-wide slice
+        % (degenerate image / invalid axis limits), which only makes sense for a
+        % residual axis. So a single index on a display axis falls through to
+        % range/full below instead of collapsing it.
+        useSel = ~isempty(sel) && (~isDisp || numel(sel) > 1);
+        if useSel
             axSels{end+1} = f;
             axVals{end+1} = axArr(sel);
             if ~isDisp && numel(sel) > 1
