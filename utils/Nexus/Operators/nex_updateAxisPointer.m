@@ -27,23 +27,34 @@ function nex_updateAxisPointer(ptr, DF)
     df        = DF.df;
     dimsTaken = [];
 
+    % Co-indexed labels (e.g. per-unit 'chans') yield a shared dimension to their
+    % sibling (e.g. 'unit') EXPLICITLY, not by field order. The old order-only
+    % rule ("chans comes after unit so unit grabs the dim first") holds in memory
+    % (insertion order: unit…chans) but NOT on a disk round-trip, where HDF5
+    % returns axes alphabetically (chans…unit) — there chans would grab the dim
+    % and unit would resolve to []. This explicit yield keeps the dim owner stable
+    % across memory/disk, matching nexInit_axisPointer / nex_initAxisPointer_v2.
+    coIndexLabels = nex_coIndexAxisLabels();
+    axLens        = arrayfun(@(f) numel(DF.ax.(char(f))), axFields);
+
     for i = 1:numel(axFields)
         ax    = char(axFields(i));
         axLen = length(DF.ax.(ax));
 
-        % Recompute dim — claim the first array dimension of matching length not
-        % already taken by an earlier axis. A co-indexed metadata axis (e.g. a
-        % per-unit 'chans' label sharing the unit length) finds no free dim and
-        % resolves to [] — same as nexInit_axisPointer, so both builders agree.
-        dims = find(axLen == size(df));
-        dim  = [];
-        for j = 1:numel(dims)
-            if ~ismember(dims(j), dimsTaken)
-                dim = dims(j);
-                break;
+        if ismember(string(ax), coIndexLabels) && sum(axLens == axLen) > 1
+            dim = [];   % co-indexed label with a same-length sibling — yield the dim
+        else
+            % Claim the first array dimension of matching length not already taken.
+            dims = find(axLen == size(df));
+            dim  = [];
+            for j = 1:numel(dims)
+                if ~ismember(dims(j), dimsTaken)
+                    dim = dims(j);
+                    break;
+                end
             end
+            if ~isempty(dim), dimsTaken = [dimsTaken, dim]; end
         end
-        dimsTaken = [dimsTaken, dim];
 
         if isprop(ptr, ax)
             % Existing axis: update dim, clamp value and range to new length
