@@ -9,6 +9,7 @@ classdef mdlObject < handle
         predictorID
         model
         Reducer
+        PoolReducer
         Scaler
         Predictor
         W % fit weights
@@ -370,7 +371,9 @@ classdef mdlObject < handle
                     DF_X = mdlObj.applyPointerDF(DF_X);
                 end
                 DF_X = mdlObj.applyDomainMSRDF(DF_X);
-                DF_X = nexOp_permute2First(DF_X, d1Sel, DF_X.ptr);
+                if d1Sel ~= "None"
+                    DF_X = nexOp_permute2First(DF_X, d1Sel, DF_X.ptr);
+                end
                 try
                     DF_Z = mdlObj.transform(DF_X);
                 catch e
@@ -424,8 +427,10 @@ classdef mdlObject < handle
             STAT.df=df_trim;
             STAT.ax=arrayfun(@(ax) ax_trim, STAT.ax);
             ptr = STAT.ptr(1);
-            % place primary dim first
-            STAT.df = cellfun(@(df) nexOp_permute2First(df, d1Sel, ptr), STAT.df, "UniformOutput", false);        
+            % place primary dim first (skip when D1="None" — trial is the sample)
+            if d1Sel ~= "None"
+                STAT.df = cellfun(@(df) nexOp_permute2First(df, d1Sel, ptr), STAT.df, "UniformOutput", false);
+            end        
             % broadcast new pointer after permute
             DF_ptr = table2struct(STAT(1,:)); DF_ptr = rmfield(DF_ptr,"ptr");
             DF_ptr =nex_initAxisPointer_v2(DF_ptr);
@@ -773,24 +778,27 @@ classdef mdlObject < handle
             axNames = string(fieldnames(srcAx))';
             if isempty(axNames), axNames = "t"; end
 
-            % Default role assignments (t -> D1; the narrowed FTR axis -> FTR)
-            d1Init = find(axNames == mdlObj.domain.D1, 1);
-            if isempty(d1Init), d1Init = 1; end
+            % D1 options include "None" (trial-as-sample; D1 permute skipped)
+            d1Options = ["None", axNames];
+            d1Init    = find(d1Options == mdlObj.domain.D1(1), 1);
+            if isempty(d1Init), d1Init = 2; end   % default to first real axis
+            d1Name    = d1Options(d1Init);
+
             ftrInit = find(ismember(axNames, string(mdlObj.domain.FTR)));
-            if isempty(ftrInit), ftrInit = find(axNames ~= axNames(d1Init), 1); end
+            if isempty(ftrInit), ftrInit = find(axNames ~= d1Name, 1); end
             if isempty(ftrInit), ftrInit = 1; end
 
-            domainDict.D1  = axNames;
+            domainDict.D1  = d1Options;
             domainDict.FTR = axNames;
 
-            % Residual axis -> MSR value selector (single residual axis for now)
+            % MSR value selector — only when "measure" is explicitly a residual axis
             mdlObj.domain.MSRaxis = "";
             mdlObj.domain.MSR     = string.empty;
             msrInit  = [];
-            claimed  = [axNames(d1Init), axNames(ftrInit), "factor"];
+            claimed  = [d1Name, axNames(ftrInit), "factor"];
             residual = axNames(~ismember(axNames, claimed));
-            if ~isempty(residual)
-                rax   = residual(1);
+            if ismember("measure", residual)
+                rax   = "measure";
                 rvals = srcAx.(rax);
                 if ~isempty(rvals)
                     domainDict.MSR        = rvals;
@@ -809,7 +817,7 @@ classdef mdlObject < handle
             end
             % Sync domain fields directly — the selection listboxes may not
             % exist yet at init time (headless, or pre-panel figure build).
-            mdlObj.domain.D1  = axNames(d1Init);
+            mdlObj.domain.D1  = d1Name;
             mdlObj.domain.FTR = axNames(ftrInit);
         end
 

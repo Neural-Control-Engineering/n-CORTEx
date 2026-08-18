@@ -5,6 +5,7 @@ classdef nexObj_poolMap < handle
         axID
         mapID
         divsPerBin=1;
+        reducerDim=1;
         binType
         binTypes
         Map
