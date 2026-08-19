@@ -70,6 +70,12 @@ function nexVisualization_polyGraph(nexObj, args)
     T_extract = 0;  T_color     = 0;  T_draw    = 0;
 
     if ~isResultSRC
+        % Sync ptrBus → ptr.indices (skip during animation so stepAnimate's
+        % ptr.value drives the frame rather than the pinned bus index)
+        if strcmp(nexObj.player.Running, 'off')
+            nexOp_syncPtrFromBus(nexObj.DF_postOp.ptr, ptrBus);
+        end
+
         t_ = tic;
         [traces, sems, xAxis] = nexVis_extractD1D2( ...
             nexVis_transformDF(nexObj.DF_postOp, component, scale), xKey, stackKey, ptrBus);

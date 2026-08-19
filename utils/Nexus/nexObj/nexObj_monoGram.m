@@ -94,6 +94,11 @@ classdef nexObj_monoGram < nexObject
 
             %% Collector — Pointer (one key per DF.ax field)
             nexObj.initPointerBus();
+            % Free the default animate axis's Pointer selection so its frame is
+            % driven by ptr.value (stepAnimate) rather than pinned to the default
+            % single index — otherwise the player advances an ignored value and
+            % the frame never changes.
+            nexObj.clearAnimatePointer();
 
             %% Figure
             nexObj.buildFigure();
@@ -109,11 +114,15 @@ classdef nexObj_monoGram < nexObject
         function operate(nexObj)
             % Apply opCfg (or identity), preserving the ptr handle reference
             % so UI callbacks bound at figure-build time remain valid.
-            if isstruct(nexObj.DF_postOp) && isfield(nexObj.DF_postOp, 'ptr') ...
-                    && isa(nexObj.DF_postOp.ptr, 'nexObj_ptr')
-                savedPtr = nexObj.DF_postOp.ptr;
-            else
-                savedPtr = [];
+            % isstruct() is intentionally avoided: DF_postOp can be a nexObj_DF
+            % handle when the parent assigns its DF_postOp directly, making
+            % isstruct() return false and triggering a new ptr — severing all
+            % Window/Pointer UI closures that captured the original handle.
+            savedPtr = [];
+            try
+                p = nexObj.DF_postOp.ptr;
+                if isa(p, 'nexObj_ptr'), savedPtr = p; end
+            catch
             end
 
             if ~isempty(nexObj.cfg.opCfg)
@@ -121,6 +130,19 @@ classdef nexObj_monoGram < nexObject
                 nexObj.DF_postOp = nexObj.cfg.opCfg.opFcn(nexObj.DF, opArgs);
             else
                 nexObj.DF_postOp = nexObj.DF;
+            end
+
+            % If DF_postOp is still a handle (e.g. Parent.DF_postOp is a
+            % nexObj_DF), extract df+ax into a plain struct so we own our
+            % own copy.  Without this, the Parent's next operate() would
+            % overwrite .ptr on the shared handle, severing our UI closures.
+            if ~isstruct(nexObj.DF_postOp)
+                try
+                    s.df = nexObj.DF_postOp.df;
+                    s.ax = nexObj.DF_postOp.ax;
+                    nexObj.DF_postOp = s;
+                catch
+                end
             end
 
             if ~isempty(savedPtr)

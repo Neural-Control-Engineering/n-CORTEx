@@ -40,8 +40,9 @@ function nexVisualization_waterfall(nexObj, args)
     clrCols = string(viewSel.CLR);
     clrCols = clrCols(clrCols ~= "");
 
-    % Sync ptrBus → ptr.indices once before extraction
-    if ~isResultSRC
+    % Sync ptrBus → ptr.indices once before extraction (skip during animation
+    % so stepAnimate's ptr.value drives the frame, not the pinned bus index)
+    if ~isResultSRC && strcmp(nexObj.player.Running, 'off')
         nexOp_syncPtrFromBus(nexObj.DF_postOp.ptr, ptrBus);
     end
 

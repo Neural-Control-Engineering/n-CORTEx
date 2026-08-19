@@ -98,12 +98,11 @@ classdef nexObj_waterfall < nexObject
         % ── Core methods ──────────────────────────────────────────────────
 
         function operate(nexObj)
-            if ~isempty(nexObj.DF_postOp) && isstruct(nexObj.DF_postOp) ...
-                    && isfield(nexObj.DF_postOp, 'ptr') ...
-                    && isa(nexObj.DF_postOp.ptr, 'nexObj_ptr')
-                savedPtr = nexObj.DF_postOp.ptr;
-            else
-                savedPtr = [];
+            savedPtr = [];
+            try
+                p = nexObj.DF_postOp.ptr;
+                if isa(p, 'nexObj_ptr'), savedPtr = p; end
+            catch
             end
 
             if ~isempty(nexObj.cfg.opCfg)
@@ -111,6 +110,16 @@ classdef nexObj_waterfall < nexObject
                 nexObj.DF_postOp = nexObj.cfg.opCfg.opFcn(nexObj.DF, opArgs);
             else
                 nexObj.DF_postOp = nexObj.DF;
+            end
+
+            % Break aliasing if DF_postOp ended up as a handle
+            if ~isstruct(nexObj.DF_postOp)
+                try
+                    s.df = nexObj.DF_postOp.df;
+                    s.ax = nexObj.DF_postOp.ax;
+                    nexObj.DF_postOp = s;
+                catch
+                end
             end
 
             if ~isempty(savedPtr)

@@ -47,8 +47,10 @@ function nexVisualization_monoGram(nexObj, args)
     end
 
     %% Sync ptrBus → ptr.indices, then slice
-    ptr = DF_src.ptr;
-    ptr = nexOp_syncPtrFromBus(ptr, nexObj.collector.Pointer);
+    ptr = DF_src.ptr; 
+    if strcmp(nexObj.player.Running, 'off')
+        ptr = nexOp_syncPtrFromBus(ptr, nexObj.collector.Pointer);
+    end
     [Z, ax_slice] = nexOp_sliceAndCollapse(DF_src, {rowKey, colKey});
     Y = double(ax_slice.(rowKey)(:));
     X = double(ax_slice.(colKey)(:)');
