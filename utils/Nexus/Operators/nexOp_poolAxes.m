@@ -4,7 +4,9 @@ function DF_pooled = nexOp_poolAxes(pMap, DF, ptr)
     if ~isempty(DF_pooled.df)
         for i = 1:length(fields_pMap)
             field_pMap = fields_pMap{i};
-            pm = pMap.(field_pMap);        
+            pm = pMap.(field_pMap);
+            % negative divsPerBin = block-PCA (handled by initReducer, not here)
+            if pm.divsPerBin <= 0, continue; end
             % dereference 'axis'
             switch field_pMap
                 case "time"

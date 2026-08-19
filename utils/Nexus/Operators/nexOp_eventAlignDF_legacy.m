@@ -29,9 +29,8 @@ function DF_out = nexOp_eventAlignDF(DF_in, sample_event, Fs, t_preBuff, isShift
         df=df_shift;
         % control ax edge effects by expanding         
         dx = mean(diff(ax_t));   % spacing (robust if uniform)
-        n_extend = abs(s_shift);         % how many points to add on each side
-        N_ext = numel(ax_t) + 2*n_extend;
-        ax_t_extended = linspace(ax_t(1) - n_extend*dx, ax_t(end) + n_extend*dx, N_ext);
+        n_extend = abs(s_shift);         % how many points to add on each side        
+        ax_t_extended = (ax_t(1) - n_extend*dx) : dx : (ax_t(end) + n_extend*dx);
         ax_t_shift = circshift(ax_t_extended, s_shift);
         % cutoff to length (remove s_shift on each side)
         % N = numel(ax_t_extended) - 2*n_extend;   % original length

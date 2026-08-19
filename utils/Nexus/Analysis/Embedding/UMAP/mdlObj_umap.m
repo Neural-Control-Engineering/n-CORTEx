@@ -28,33 +28,26 @@ classdef mdlObj_umap < mdlObject
             mdlObj.initDomainBus();
         end
 
-        function getDesignMatrix(mdlObj)
-            getDesignMatrix@mdlObject(mdlObj);
-            if ~isempty(mdlObj.DM)
-                mdlObj.DM = squeeze(mdlObj.DM);
-            end
-        end
-
         function DF_Z = transform(mdlObj, DF_X)
             disp("transforming umap...");
-            X = DF_X.df;
-            if ~isempty(X)
-                X_py     = mdlObj.py.np.array(X);
-                X_scaled = mdlObj.Scaler.model.transform(X_py);
-                if isstruct(mdlObj.Reducer) && isfield(mdlObj.Reducer, 'model') && ...
-                        ~isempty(mdlObj.Reducer.model)
-                    X_scaled = mdlObj.Reducer.model.transform(X_scaled);
-                end
-                Z_py = mdlObj.model.transform(X_scaled);
-                Z    = double(Z_py);
-                DF_Z.df           = Z;
-                D1                = char(mdlObj.domain.D1);
-                DF_Z.ax.(D1)      = DF_X.ax.(D1);
-                DF_Z.ax.factor    = 1:size(Z, 2);
-                DF_Z = nex_initAxisPointer_v2(DF_Z);
-            else
+            if isempty(DF_X.df)
                 DF_Z = [];
+                return;
             end
+            X_flat   = mdlObj.flattenInput(DF_X);   % nexHR_transform or reshape → 2D
+            X_py     = mdlObj.py.np.array(X_flat);
+            X_scaled = mdlObj.Scaler.model.transform(X_py);
+            if isstruct(mdlObj.Reducer) && isfield(mdlObj.Reducer, 'model') && ...
+                    ~isempty(mdlObj.Reducer.model)
+                X_scaled = mdlObj.Reducer.model.transform(X_scaled);
+            end
+            Z_py = mdlObj.model.transform(X_scaled);
+            Z    = double(Z_py);
+            DF_Z.df        = Z;
+            D1             = char(mdlObj.domain.D1);
+            DF_Z.ax.(D1)   = DF_X.ax.(D1);
+            DF_Z.ax.factor = 1:size(Z, 2);
+            DF_Z           = nex_initAxisPointer_v2(DF_Z);
         end
 
         function saveFit(mdlObj, uniqueID)

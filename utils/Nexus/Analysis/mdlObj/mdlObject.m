@@ -10,6 +10,8 @@ classdef mdlObject < handle
         model
         Reducer
         PoolReducer
+        HR          % nexHR model tree — nested cell from nexHR_fit (empty when not used)
+        FTR_layout  % struct array [{axID,n},...] outermost-first, built by buildFTRLayout
         Scaler
         Predictor
         W % fit weights
@@ -225,23 +227,88 @@ classdef mdlObject < handle
         end
 
         function getDesignMatrix(mdlObj)
-            % train/test partition            
+            % train/test partition
             if ~isempty(mdlObj.trainMask)
                 STAT_train = mdlObj.STAT(mdlObj.trainMask==1,:);
-                STAT_test = mdlObj.STAT(mdlObj.trainMask==0,:);
+                STAT_test  = mdlObj.STAT(mdlObj.trainMask==0,:);
             else
-                STAT_train=mdlObj.STAT;
-                STAT_test=[];
+                STAT_train = mdlObj.STAT;
+                STAT_test  = [];
             end
-            mdlObj.TEST.STAT=STAT_test;
-            mdlObj.TRAIN.STAT=STAT_train;
-            % compile design matrix
-            dmFcn = str2func(sprintf("stat2dm_%s",mdlObj.cfg.dmCfg.format));
+            % Pool: apply positive-divsPerBin axes per trial before stacking
+            % (nexOp_poolAxes self-skips negative entries — handled by initReducer)
+            if ~isempty(mdlObj.pMap) && ~isempty(STAT_train)
+                ptr0   = STAT_train.ptr(1);
+                ax0    = STAT_train.ax(1);
+                pooled = cellfun( ...
+                    @(df) nexOp_poolAxes(mdlObj.pMap, struct('df', df, 'ax', ax0), ptr0), ...
+                    STAT_train.df, 'UniformOutput', false);
+                STAT_train.df = cellfun(@(s) s.df, pooled, 'UniformOutput', false);
+                new_ax   = pooled{1}.ax;
+                probe.df = pooled{1}.df;  probe.ax = new_ax;
+                probe    = nex_initAxisPointer_v2(probe);
+                STAT_train.ax  = repmat(new_ax,    height(STAT_train), 1);
+                STAT_train.ptr = repmat(probe.ptr, height(STAT_train), 1);
+            end
+            mdlObj.TEST.STAT  = STAT_test;
+            mdlObj.TRAIN.STAT = STAT_train;
+            % compile design matrix (ND: first dim = samples, rest = FTR axes)
+            dmFcn     = str2func(sprintf("stat2dm_%s", mdlObj.cfg.dmCfg.format));
             mdlObj.DM = dmFcn(mdlObj);
-            % mdlObj.DM = mdlObj.cfg.dmCfg.fcn(mdlObj, dmArgs);
+            % build layout then reduce (nexHR) or flatten to 2D
+            mdlObj.FTR_layout = mdlObj.buildFTRLayout();
+            mdlObj.initReducer();
         end
 
-        function fit(mdlObj)          
+        function layout = buildFTRLayout(mdlObj)
+        % Build the nexHR axis layout from TRAIN.STAT after the pool step.
+        % layout(i).axID = axis name, layout(i).n = post-pool size.
+        % Ordered outermost-first (= last dim in DM = highest ptr.dim value).
+            layout = struct('axID', {}, 'n', {});
+            if isempty(mdlObj.TRAIN.STAT), return; end
+            ptr   = mdlObj.TRAIN.STAT.ptr(1);
+            ax_s  = mdlObj.TRAIN.STAT.ax(1);
+            d1Sel = string(mdlObj.domain.D1(1));
+            axNames  = string(fieldnames(ax_s))';
+            ftrAxes  = axNames(axNames ~= d1Sel & axNames ~= "None");
+            if isempty(ftrAxes), return; end
+            dims = arrayfun(@(ax) ptr.(char(ax)).dim, ftrAxes);
+            ns   = arrayfun(@(ax) numel(ax_s.(char(ax))), ftrAxes);
+            [~, ord] = sort(dims, 'descend');   % outermost = last dim = highest
+            ftrAxes  = ftrAxes(ord);
+            ns       = ns(ord);
+            layout   = arrayfun(@(ax, n) struct('axID', char(ax), 'n', double(n)), ftrAxes, ns);
+        end
+
+        function initReducer(mdlObj)
+        % Base: fit nexHR when any FTR axis has negative divsPerBin.
+        % Otherwise flatten DM to 2D. Subclasses may override (SSM does).
+            if isempty(mdlObj.DM), return; end
+            layout   = mdlObj.FTR_layout;
+            needsHR  = ~isempty(layout) && ~isempty(mdlObj.pMap) && ...
+                any(arrayfun(@(e) isfield(mdlObj.pMap, e.axID) && ...
+                                  mdlObj.pMap.(e.axID).divsPerBin < 0, layout));
+            if needsHR
+                [mdlObj.DM, mdlObj.HR] = nexHR_fit(mdlObj.DM, layout, mdlObj.pMap);
+            else
+                mdlObj.DM = reshape(mdlObj.DM, size(mdlObj.DM, 1), []);
+            end
+        end
+
+        function X_flat = flattenInput(mdlObj, DF_X)
+        % Convert a raw (post-pool, D1-first) ND DF to a 2D feature matrix.
+        % Uses nexHR_transform when an HR model is fitted; otherwise plain reshape.
+        % Called at the top of every subclass transform — subclasses need not know
+        % whether nexHR was used.
+            X = DF_X.df;
+            if ~isempty(mdlObj.HR)
+                X_flat = nexHR_transform(X, mdlObj.FTR_layout, mdlObj.pMap, mdlObj.HR);
+            else
+                X_flat = reshape(X, size(X, 1), []);
+            end
+        end
+
+        function fit(mdlObj)
             % inherit STAT
             % if isempty(mdlObj.STAT)
             mdlObj.compileSTAT(); 
@@ -373,6 +440,10 @@ classdef mdlObject < handle
                 DF_X = mdlObj.applyDomainMSRDF(DF_X);
                 if d1Sel ~= "None"
                     DF_X = nexOp_permute2First(DF_X, d1Sel, DF_X.ptr);
+                end
+                % Pool: positive-divsPerBin axes (matches getDesignMatrix pool step)
+                if ~isempty(mdlObj.pMap)
+                    DF_X = nexOp_poolAxes(mdlObj.pMap, DF_X, DF_X.ptr);
                 end
                 try
                     DF_Z = mdlObj.transform(DF_X);
@@ -613,6 +684,12 @@ classdef mdlObject < handle
             mdlObj.Partners.mgph1.visualize();
             % structfun(@(s) nex_storeAverage(mdlObj.Partners.mgph1, s), AVG);
 
+        end
+
+        function updateScope(mdlObj) %#ok<MANU>
+            % No-op for mdlObject. Called by nexObj_poolCfgPanel Apply button;
+            % pool config is already stored in pMap via callbacks — refit is
+            % user-triggered via the Fit button.
         end
 
         function saveFit(mdlObj, uniqueID)

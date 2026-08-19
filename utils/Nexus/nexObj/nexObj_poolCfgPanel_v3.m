@@ -2,38 +2,36 @@ function poolCfgPanel = nexObj_poolCfgPanel_v3(nexObj, panel, poolCfgEntryChange
     nexon = nexObj.nexon;
     % dropdown/spinner combo
     W_panel = panel.ph.Position(3);
-    H_panel = panel.ph.Position(4); 
-    
-    h_button = 30;
+
+    h_button  = 30;
     h_uiField = 20;
-    padding = 5;
-    % padding = h_uiField;
-    
-    yPtr = H_panel - padding - h_uiField;
-    yStep = h_uiField + padding;
-    
+    padding   = 5;
+    yStep     = h_uiField + padding;
+
     w_dropdown   = W_panel * 0.5 - padding * 1.5;
     % right half split: divsPerBin | reducerDim
     w_spin_each  = (W_panel * 0.5 - padding * 1.5 - padding) / 2;
-    
-    % Collect fieldnames
-    % axFields = fieldnames(poolCfg.ax);    
-    % nexObjFields = convertCharsToStrings(properties(nexObj));      
-    % check Origin for master pMap
+
+    % Resolve pMap
     try
         pMap = nexObj.Origin.pMap;
-    catch % use in-place pMap otherwise
+    catch
         pMap = nexObj.pMap;
     end
-    % pMapFields = convertCharsToStrings(fieldnames(pMap));
     axFields = convertCharsToStrings(fieldnames(pMap));
-    % if isempty(pMapFields)
-    %     nexObjFields = convertCharsToStrings(fields(nexObj));        
-    % end
-    
-    % axFields = pMapFields(contains(pMapFields,"pMap_"));
-    % axFields = fieldnames()
-    
+
+    % Resize panel to fit all content so Apply button never falls off.
+    % Each axis needs 2 rows (label + controls); Add button + margins.
+    n_axes   = length(axFields);
+    needed_H = n_axes * 2 * yStep + h_button + 3 * padding;
+    pos      = panel.ph.Position;
+    pos(4)   = max(pos(4), needed_H);
+    panel.ph.Position   = pos;
+    panel.ph.Scrollable = "on";
+    H_panel  = pos(4);
+
+    yPtr = H_panel - padding - h_uiField;
+
     for i = 1:length(axFields)
         % axField = string(axFields{i});
         axField = axFields(i);
