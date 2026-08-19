@@ -27,7 +27,11 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
     
     % AXIS POOLING
     try
-        ptr = nexObj.DF_postOp.ptr;
+        try
+            ptr = nexObj.DF_postOp.ptr;
+        catch
+            ptr = nexObj.Origin.DF_postOp.ptr;
+        end
         pm = nexObj.pMap;
         if ~isempty(pm)
             try
@@ -36,10 +40,9 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
                 keyboard
             end
         else
-            TF_pooled =TF;
+            TF_pooled = TF;
         end
-    catch e
-        disp(getReport(e));
+    catch
         TF_pooled = TF;
     end
     % TF_pooled = nexOp_poolAxes(nexObj.pMap, TF, nexObj.DF_postOp.ptr);

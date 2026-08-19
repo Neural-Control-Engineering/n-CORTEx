@@ -17,6 +17,7 @@ function nexFigure_umap(mdlObj)
     hPtr     = 150;
     hDomain  = 180;
     hFitCfg  = 175;
+    hPool    = 165;
     hBtn     = 30;
     gap      = 5;
 
@@ -27,6 +28,7 @@ function nexFigure_umap(mdlObj)
     yFitCfg = yState  + hBtn    + gap;
     yDomain = yFitCfg + hFitCfg + gap;
     yPtr    = yDomain + hDomain + gap;
+    yPool   = yPtr    + hPtr    + gap;
 
     %% Figure
     mdlObj.Figure.fh = uifigure( ...
@@ -66,6 +68,14 @@ function nexFigure_umap(mdlObj)
     %% Pointer panel
     mdlObj.initPointerBus();
     mdlObj.buildPointerPanel(mdlObj.Figure.panel1.ph, [xInner, yPtr, wInner, hPtr]);
+
+    %% Pool panel
+    pan_pool.ph = uipanel(mdlObj.Figure.panel1.ph, ...
+        "Position",        [xInner, yPool, wInner, hPool], ...
+        "BackgroundColor", BLACK, ...
+        "Scrollable",      "on");
+    mdlObj.Figure.panel_pMap = nexObj_poolCfgPanel_v3( ...
+        mdlObj, pan_pool, @poolCfgEntryChanged_v3);
 
     %% Domain panel
     mdlObj.setupDomain();

@@ -5,9 +5,13 @@ function X_stack = nexOp_stackSamples(STAT, stackMode, d1Sel)
     nDims = cellfun(@(x) ndims(x), dfCol, "UniformOutput", false);
     nDims = max(cat(1,nDims{:}));
     catDim = nDims+1;    
-    % put time dimension into first slot    
-    permuteOrders_d1 = arrayfun(@(ptr) [ptr.(d1Sel).dim, setdiff([1:nDims], ptr.(d1Sel).dim)], STAT.ptr, "UniformOutput", false);
-    dfCol_d1 = cellfun(@(df, permOrder) permute(df, permOrder), dfCol, permuteOrders_d1, "UniformOutput", false);
+    % put time dimension into first slot
+    if d1Sel == "None"
+        dfCol_d1 = dfCol;
+    else
+        permuteOrders_d1 = arrayfun(@(ptr) [ptr.(d1Sel).dim, setdiff([1:nDims], ptr.(d1Sel).dim)], STAT.ptr, "UniformOutput", false);
+        dfCol_d1 = cellfun(@(df, permOrder) permute(df, permOrder), dfCol, permuteOrders_d1, "UniformOutput", false);
+    end
     switch stackMode
         case "batch"
             % permute batch dim  (last spot) into the first spot
