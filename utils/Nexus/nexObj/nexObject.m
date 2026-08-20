@@ -166,6 +166,10 @@ classdef nexObject < handle
             % selections and snaps to sel(1) on the first step. A single selection
             % (incl. every axis's default [1]) must NOT pin the animation: fall
             % through to full-range stepping so the frame actually advances.
+            % Authoritative axis length — used to validate/repair ptr.range.
+            nAx = numel(nexObj.DF_postOp.ax.(axSel));
+            if nAx < 1, return; end
+
             if isfield(nexObj.collector, 'Pointer') && ~isempty(nexObj.collector.Pointer) ...
                     && isfield(nexObj.collector.Pointer.selections, axSel)
                 sel = nexObj.collector.Pointer.selections.(axSel);
@@ -174,16 +178,23 @@ classdef nexObject < handle
                     if isempty(curPos), curPos = 1 - stride; end  % snaps to sel(1) on first step
                     axVal = sel(mod(curPos - 1 + stride, numel(sel)) + 1);
                 else
-                    r     = nexObj.DF_postOp.ptr.(axSel).range;
-                    span  = r(2) - r(1) + 1;
+                    r    = nexObj.DF_postOp.ptr.(axSel).range;
+                    span = r(2) - r(1) + 1;
+                    if span < 1 || r(1) < 1 || r(2) > nAx
+                        r = [1, nAx]; span = nAx;
+                    end
                     axVal = r(1) + mod(curVal - r(1) + stride, span);
                 end
             else
-                r     = nexObj.DF_postOp.ptr.(axSel).range;
-                span  = r(2) - r(1) + 1;
+                r    = nexObj.DF_postOp.ptr.(axSel).range;
+                span = r(2) - r(1) + 1;
+                if span < 1 || r(1) < 1 || r(2) > nAx
+                    r = [1, nAx]; span = nAx;
+                end
                 axVal = r(1) + mod(curVal - r(1) + stride, span);
             end
-            nexObj.DF_postOp.ptr.(axSel).value = axVal;
+            axVal = max(1, min(nAx, axVal));  % clamp: guarantees sliceAndCollapse gets valid index
+            nexObj.DF_postOp.ptr.(axSel).value   = axVal;
             nexObj.DF_postOp.ptr.(axSel).indices = axVal;
             nexObj.visualize();
         end

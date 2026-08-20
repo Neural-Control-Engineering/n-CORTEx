@@ -125,6 +125,18 @@ classdef nexObj_monoGram < nexObject
             catch
             end
 
+            % Snapshot valid df+ax before replacement so we can fall back
+            % if the incoming DF is transiently empty (e.g. a router update
+            % fires mid-capture before data has arrived).
+            prevDF = []; prevAX = [];
+            try
+                if ~isempty(nexObj.DF_postOp) && ~isempty(nexObj.DF_postOp.df)
+                    prevDF = nexObj.DF_postOp.df;
+                    prevAX = nexObj.DF_postOp.ax;
+                end
+            catch
+            end
+
             if ~isempty(nexObj.cfg.opCfg)
                 opArgs           = nexObj.cfg.opCfg.entryParams;
                 nexObj.DF_postOp = nexObj.cfg.opCfg.opFcn(nexObj.DF, opArgs);
@@ -143,6 +155,13 @@ classdef nexObj_monoGram < nexObject
                     nexObj.DF_postOp = s;
                 catch
                 end
+            end
+
+            % If the new DF is empty but we had valid data, restore the
+            % previous df+ax so the animation continues uninterrupted.
+            if ~isempty(prevDF) && isempty(nexObj.DF_postOp.df)
+                nexObj.DF_postOp.df = prevDF;
+                nexObj.DF_postOp.ax = prevAX;
             end
 
             if ~isempty(savedPtr)

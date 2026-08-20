@@ -72,8 +72,12 @@ function nexVisualization_polyGraph(nexObj, args)
     if ~isResultSRC
         % Sync ptrBus → ptr.indices (skip during animation so stepAnimate's
         % ptr.value drives the frame rather than the pinned bus index)
-        if strcmp(nexObj.player.Running, 'off')
-            nexOp_syncPtrFromBus(nexObj.DF_postOp.ptr, ptrBus);
+        if isprop(nexObj,'player')
+            if ~isempty(nexObj.player)
+                if strcmp(nexObj.player.Running, 'off')
+                    nexOp_syncPtrFromBus(nexObj.DF_postOp.ptr, ptrBus);
+                end
+            end
         end
 
         t_ = tic;

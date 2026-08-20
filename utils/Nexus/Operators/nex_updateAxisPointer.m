@@ -57,17 +57,25 @@ function nex_updateAxisPointer(ptr, DF)
         end
 
         if isprop(ptr, ax)
-            % Existing axis: update dim, clamp value and range to new length
-            tmp        = ptr.(ax);
-            tmp.dim    = dim;
-            tmp.value  = min(tmp.value,    axLen);
-            tmp.range  = [min(tmp.range(1), axLen), min(tmp.range(2), axLen)];
-            if isfield(tmp, 'window') && ~isempty(tmp.window)
-                tmp.window = min(tmp.window, axLen);
-            else
-                tmp.window = axLen;   % default to full range if missing
+            % Existing axis: update dim, clamp value and range to new length.
+            % When axLen == 0 the DF is transiently empty (e.g. a router update
+            % fired while realtime data was still arriving).  Clamping to 0
+            % would corrupt range → [0,0] and value → 0, stalling animation
+            % for every tick until the next updateScope with real data.
+            % Preserve all numeric fields and let the next non-empty update
+            % reconcile them.
+            tmp     = ptr.(ax);
+            tmp.dim = dim;
+            if axLen > 0
+                tmp.value  = min(tmp.value, axLen);
+                tmp.range  = [min(tmp.range(1), axLen), min(tmp.range(2), axLen)];
+                if isfield(tmp, 'window') && ~isempty(tmp.window)
+                    tmp.window = min(tmp.window, axLen);
+                else
+                    tmp.window = axLen;
+                end
             end
-            ptr.(ax)   = tmp;
+            ptr.(ax) = tmp;
         else
             % New axis: add dynamic property with defaults
             addprop(ptr, ax);

@@ -105,6 +105,15 @@ classdef nexObj_polyGraph < nexObject
             catch
             end
 
+            prevDF = []; prevAX = [];
+            try
+                if ~isempty(nexObj.DF_postOp) && ~isempty(nexObj.DF_postOp.df)
+                    prevDF = nexObj.DF_postOp.df;
+                    prevAX = nexObj.DF_postOp.ax;
+                end
+            catch
+            end
+
             if ~isempty(nexObj.cfg.opCfg)
                 opArgs           = nexObj.cfg.opCfg.entryParams;
                 nexObj.DF_postOp = nexObj.cfg.opCfg.opFcn(nexObj.DF, opArgs);
@@ -120,6 +129,11 @@ classdef nexObj_polyGraph < nexObject
                     nexObj.DF_postOp = s;
                 catch
                 end
+            end
+
+            if ~isempty(prevDF) && isempty(nexObj.DF_postOp.df)
+                nexObj.DF_postOp.df = prevDF;
+                nexObj.DF_postOp.ax = prevAX;
             end
 
             % Restore or initialise ptr — never create a new handle after construction
