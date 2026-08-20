@@ -1,0 +1,31 @@
+Three separate IPC crossings happen in one block iteration, and we'd been fixing the  
+  wrong one.                                                                            
+                                                                                        
+  Crossing 1 — MATLAB → Python (input):                                                 
+  np.array(inner_out) sends a MATLAB double array over the socket. This is where we     
+  spent most of the effort — the lazy reshape / permute strides made this fail at the   
+  outer recursion level. The out(:) fix (and all the + 0 attempts before it) were aimed
+  here.                                                                                 
+                  
+  Crossing 2 — inside Python (no IPC):
+  fit_transform(block_feat) runs entirely inside the Python process. block_feat is
+  already a Python object (returned by np.ascontiguousarray), so there's no crossing    
+  here. This is why block_feat.flags['C_CONTIGUOUS'] being True didn't help — we were
+  checking the right thing at the wrong crossing.                                       
+                  
+  Crossing 3 — Python → MATLAB (output):                                                
+  double(pym.fit_transform_traced(...)) receives the numpy result back over the socket.
+  This is what was actually failing.                                                    
+                  
+  sklearn's PCA returns U[:, :n_components] — a column slice of the SVD output. In      
+  numpy, slicing columns of a C-contiguous matrix produces a non-contiguous view: the
+  rows are separated by the full original column stride, not by n_components. The array 
+  looks fine inside Python (it has valid data), but its strides are (original_cols * 8, 
+  8) instead of (n_components * 8, 8). When MATLAB's IPC bridge tries to memcpy that
+  back, it rejects the non-unit strides.
+
+  The tracer's try/except never saw this because the exception fires after the Python   
+  function has already returned — the bridge error happens in MATLAB's receive logic,
+  not in Python execution. That's why adding np.ascontiguousarray(result) inside the    
+  Python function, before it returns, is the right fix: it forces the copy while still
+  inside the Python process, so the bridge only ever sees a packed buffer.

@@ -22,6 +22,14 @@ function X_stack = nexOp_stackSamples(STAT, stackMode, d1Sel)
         case "stack" % stack along primary dimension
             % dim_d1s = arrayfun(@(ptr) ptr.(d1Sel).dim, STAT.ptr, "UniformOutput", false);
             % dim_d1 = mean(cat(1,dim_d1s{:}));
-            X_stack = cat(1, dfCol_d1{:});
+            if d1Sel == "None"
+                % No D1 axis — all dims are FTR; stack trials into a new leading dim.
+                % Mirrors "batch": cat along dim nDims+1, then circshift N to position 1.
+                X_stack      = cat(catDim, dfCol_d1{:});
+                permuteOrder = circshift(1:ndims(X_stack), 1);
+                X_stack      = permute(X_stack, permuteOrder);
+            else
+                X_stack = cat(1, dfCol_d1{:});
+            end
     end
 end

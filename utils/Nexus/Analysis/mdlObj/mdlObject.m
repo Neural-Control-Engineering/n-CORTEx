@@ -302,6 +302,9 @@ classdef mdlObject < handle
         % whether nexHR was used.
             X = DF_X.df;
             if ~isempty(mdlObj.HR)
+                if mdlObj.domain.D1 == "None"
+                    X = reshape(X, [1, size(X)]);  % single-trial: add N_ctx=1 to match fit shape
+                end
                 X_flat = nexHR_transform(X, mdlObj.FTR_layout, mdlObj.pMap, mdlObj.HR);
             else
                 X_flat = reshape(X, size(X, 1), []);

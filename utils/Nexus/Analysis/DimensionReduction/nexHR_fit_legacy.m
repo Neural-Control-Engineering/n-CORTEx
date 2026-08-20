@@ -52,7 +52,6 @@ function [out, models] = nexHR_fit(data, layout, pMap)
     % Base case: no more feature axes — flatten everything into a feature row
     if isempty(layout)
         out    = reshape(data, size(data, 1), []);
-        out    = reshape(out(:), size(out, 1), []);  % force materialization: out(:) gathers non-contiguous strides into a new column vector; reshape back gives standard F-contiguous strides
         models = {};
         return;
     end
@@ -85,13 +84,7 @@ function [out, models] = nexHR_fit(data, layout, pMap)
     nBlocks = floor(actual_n / blockSize);
     nComp   = pm.reducerDim;
 
-    np  = py.importlib.import_module('numpy');
-    dr  = fileparts(mfilename('fullpath'));
-    if ~any(strcmp(cellfun(@char, cell(py.sys.path), 'UniformOutput', false), dr))
-        py.sys.path().insert(int32(0), dr);
-    end
-    pym = py.importlib.import_module('nexHR_tracer');
-    py.importlib.reload(pym);
+    np = py.importlib.import_module('numpy');
 
     block_outs   = cell(1, nBlocks);
     block_models = cell(1, nBlocks);
@@ -120,26 +113,18 @@ function [out, models] = nexHR_fit(data, layout, pMap)
         [inner_out, inner_m] = nexHR_fit(data_for_recurse, inner_layout, pMap);
 
         % 5. UNMERGE — restore N_ctx, expose block × inner_feat as flat features
-        % MATLAB reshape is lazy (returns a view). When inner_out originates from
-        % double(fit_transform), its underlying memory is Python C-order; MATLAB's
-        % lazy reshape produces non-standard strides that IPC cannot transfer as a
-        % contiguous array. Fix: reshape in Python with order='F' (column-major),
-        % then ascontiguousarray → guaranteed C-contiguous with no IPC stride issue.
-        n_inner_feat  = size(inner_out, 2);
-        n_feat        = blockSize * n_inner_feat;
-        try
-            block_feat = np.ascontiguousarray( ...
-                np.array(inner_out).reshape(int32(N_ctx), int32(n_feat), pyargs('order', 'F')));
-        catch ME
-            error('nexHR_fit:ipcContiguity', ...
-                'IPC failed serializing inner_out [block=%d size=%s class=%s numel=%d]\n%s', ...
-                b, mat2str(size(inner_out)), class(inner_out), numel(inner_out), ME.message);
-        end
+        n_inner_feat = size(inner_out, 2);
+        block_feat   = reshape(inner_out, N_ctx, blockSize * n_inner_feat);
 
-        % 6. COMPRESS — block_feat is already a C-contiguous Python array
-        nComp_actual  = min(nComp, min([N_ctx, n_feat]));
+        % 6. COMPRESS — PCA across all (blockSize × inner_feat) features per sample
+        nComp_actual  = min(nComp, min(size(block_feat)));
         reducer       = model_pca(nComp_actual);
-        block_outs{b} = double(pym.fit_transform_traced(reducer, block_feat));   % (N_ctx, nComp_actual)
+        X_py          = np.ascontiguousarray(np.array(block_feat));
+        try
+            block_outs{b} = double(reducer.fit_transform(X_py));   % (N_ctx, nComp_actual)
+        catch
+            keyboard
+        end
 
         block_models{b} = struct('reducer', reducer, 'inner_models', {inner_m});
     end

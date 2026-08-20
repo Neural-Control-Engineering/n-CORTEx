@@ -12,6 +12,11 @@ function DF_out = nexOp_eventAlignDF(DF_in, sample_event, Fs, t_preBuff, isShift
 
     idx_origin = round(length(ax_t) * ratio_origin);
     
+    if isempty(sample_event)
+        sample_event = t_preBuff*Fs;
+        disp("Missing Event Index: Skipping Alignment");
+    end
+
     try
         ax_t = ax_t - (sample_event / Fs - t_preBuff);    
     catch
