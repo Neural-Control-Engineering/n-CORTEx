@@ -48,7 +48,7 @@ classdef mdlObj_umap < mdlObject
             if D1 ~= "None"
                 DF_Z.ax.(D1) = DF_X.ax.(D1);
             end
-            DF_Z.ax.factor = 1:size(Z, 2);
+            DF_Z.ax.latent = 1:size(Z, 2);
             DF_Z           = nex_initAxisPointer_v2(DF_Z);
         end
 

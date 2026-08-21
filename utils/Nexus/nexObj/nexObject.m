@@ -49,7 +49,11 @@ classdef nexObject < handle
             % animate, recomputing only D1 as the complement.
             % Subclasses may override for non-standard axis layouts.
 
-            axFields = string(fieldnames(nexObj.DF_postOp.ax))';
+            try
+                axFields = string(fieldnames(nexObj.DF_postOp.ax))';
+            catch
+                keyboard
+            end
             domain.axes = axFields;
             domain.F    = string(nexObj.dfID_source);
 
@@ -97,30 +101,8 @@ classdef nexObject < handle
             aniKeys = nexObj.collector.Domain.selKeys.ANI;
             if ~isempty(lb.Value) && ~isempty(aniKeys)
                 nexObj.domain.animate = string(aniKeys(lb.Value(end)));
-                nexObj.clearAnimatePointer();
             end
             nexObj.visualize();
-        end
-
-        function clearAnimatePointer(nexObj)
-            % Free the animate axis's Pointer bus selection so its frame is driven
-            % by ptr.value (advanced by stepAnimate), not pinned by a single bus
-            % index. Slice consumers (nexOp_sliceAndCollapse) lock a residual axis
-            % to its bus index when one is set; every Pointer key defaults to [1],
-            % which would freeze the animation on frame 1. Clearing only the
-            % animate axis leaves every other axis's windowing/locking intact.
-            ax = char(string(nexObj.domain.animate));
-            if isempty(ax), return; end
-            try
-                P = nexObj.collector.Pointer;
-                if isempty(P) || ~isfield(P.selections, ax), return; end
-                P.selections.(ax) = [];
-                if isfield(P.listBoxes, ax) && ~isempty(P.listBoxes.(ax)) ...
-                        && isvalid(P.listBoxes.(ax))
-                    try, P.listBoxes.(ax).Value = []; catch, end   % deselect (multi-select boxes)
-                end
-            catch
-            end
         end
 
         % -- POOLING -------------------------------------------------------
@@ -130,15 +112,10 @@ classdef nexObject < handle
 
         % ── Player ────────────────────────────────────────────────────────
         function startPlayer(nexObj)
-            % Play button is a state toggle read AFTER the click: pressed
-            % (Value==1) = play, released (Value==0) = stop. (Was inverted, so the
-            % first click hit stop-on-a-stopped-timer and appeared to do nothing.)
-            % Guard the timer state so a re-click can't start an already-running
-            % timer ("already running" error) or stop is harmlessly re-issued.
-            if nexObj.Figure.playButton.Value
-                if strcmp(nexObj.player.Running, 'off'), nexObj.player.start; end
-            else
-                nexObj.player.stop;
+            isPlay = nexObj.Figure.playButton.Value;
+            switch isPlay
+                case 0, nexObj.player.start;
+                case 1, nexObj.player.stop;
             end
         end
 
@@ -151,51 +128,29 @@ classdef nexObject < handle
             % axis length. Inherited by all nexObject subclasses.
             % domain.animate is written by the UI axSelDropDown so that
             % the axis being stepped is dynamically selectable.
-            axSel = nexObj.domain.animate;
-            % Guard: no valid animate axis, or one with no real dimension to step
-            % (e.g. a co-indexed label), would error inside the timer and vanish.
-            if isempty(axSel) || strlength(string(axSel)) == 0, return; end
-            axSel = char(axSel);
-            ptrObj = nexObj.DF_postOp.ptr;
-            hasAx = (isobject(ptrObj) && isprop(ptrObj, axSel)) || ...
-                    (isstruct(ptrObj) && isfield(ptrObj, axSel));
-            if ~hasAx, return; end
+            axSel  = nexObj.domain.animate;
             curVal = nexObj.DF_postOp.ptr.(axSel).value;
-            % Step through the Pointer bus selection as a sequence ONLY when it is a
-            % real multi-value window (numel > 1) — it handles discontinuous
-            % selections and snaps to sel(1) on the first step. A single selection
-            % (incl. every axis's default [1]) must NOT pin the animation: fall
-            % through to full-range stepping so the frame actually advances.
-            % Authoritative axis length — used to validate/repair ptr.range.
-            nAx = numel(nexObj.DF_postOp.ax.(axSel));
-            if nAx < 1, return; end
-
+            % Step through Pointer bus selection as a sequence when available —
+            % handles discontinuous selections and snaps to sel(1) if curVal
+            % is not currently in sel (e.g. on first step after initialization).
             if isfield(nexObj.collector, 'Pointer') && ~isempty(nexObj.collector.Pointer) ...
                     && isfield(nexObj.collector.Pointer.selections, axSel)
                 sel = nexObj.collector.Pointer.selections.(axSel);
-                if numel(sel) > 1
+                if ~isempty(sel)
                     curPos = find(sel == curVal, 1);
                     if isempty(curPos), curPos = 1 - stride; end  % snaps to sel(1) on first step
                     axVal = sel(mod(curPos - 1 + stride, numel(sel)) + 1);
                 else
-                    r    = nexObj.DF_postOp.ptr.(axSel).range;
-                    span = r(2) - r(1) + 1;
-                    if span < 1 || r(1) < 1 || r(2) > nAx
-                        r = [1, nAx]; span = nAx;
-                    end
+                    r     = nexObj.DF_postOp.ptr.(axSel).range;
+                    span  = r(2) - r(1) + 1;
                     axVal = r(1) + mod(curVal - r(1) + stride, span);
                 end
             else
-                r    = nexObj.DF_postOp.ptr.(axSel).range;
-                span = r(2) - r(1) + 1;
-                if span < 1 || r(1) < 1 || r(2) > nAx
-                    r = [1, nAx]; span = nAx;
-                end
+                r     = nexObj.DF_postOp.ptr.(axSel).range;
+                span  = r(2) - r(1) + 1;
                 axVal = r(1) + mod(curVal - r(1) + stride, span);
             end
-            axVal = max(1, min(nAx, axVal));  % clamp: guarantees sliceAndCollapse gets valid index
-            nexObj.DF_postOp.ptr.(axSel).value   = axVal;
-            nexObj.DF_postOp.ptr.(axSel).indices = axVal;
+            nexObj.DF_postOp.ptr.(axSel).value = axVal;
             nexObj.visualize();
         end
 
@@ -840,9 +795,20 @@ classdef nexObject < handle
                 return;
             end
             anyNew = false;
+            myDFID = char(nexObj.dfID_source);
             for gi = 1:numel(resultIDs)
                 rID = resultIDs{gi};
                 if isfield(nexObj.RESULTS, rID), continue; end
+                % Filter by dfID_source — skip results with no tag or wrong tag.
+                try
+                    savedDFID = h5read(h5File, ['/' rID '/meta/dfID_source']);
+                    if iscell(savedDFID), savedDFID = savedDFID{1}; end
+                    if ~isempty(myDFID) && ~strcmp(char(savedDFID), myDFID)
+                        continue;
+                    end
+                catch
+                    continue;   % no dfID_source tag → skip
+                end
                 % Register stub — data loaded on demand
                 nexObj.RESULTS.(rID) = [];
                 % Read display label cheaply (single string dataset, no row data)
