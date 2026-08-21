@@ -1,4 +1,4 @@
-function [out, models] = nexHR_fit(data, layout, pMap)
+function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
 % nexHR_fit  Hierarchical recursive block-PCA across multiple feature axes.
 %
 % Mental model
@@ -49,6 +49,8 @@ function [out, models] = nexHR_fit(data, layout, pMap)
 %   out    : (N_ctx, total_compressed_features)   always 2-D
 %   models : cell of structs — {b}.mean_, {b}.V, {b}.inner_models
 
+    if nargin < 4, useGPU = false; end
+
     % Base case: no more feature axes — flatten everything into a feature row
     if isempty(layout)
         out    = reshape(data, size(data, 1), []);
@@ -64,7 +66,7 @@ function [out, models] = nexHR_fit(data, layout, pMap)
 
     % Pass-through: axis has no pMap entry, or was already mean-pooled upstream
     if ~isfield(pMap, current.axID) || pMap.(current.axID).divsPerBin >= 0
-        [out, models] = nexHR_fit(data, inner_layout, pMap);
+        [out, models] = nexHR_fit(data, inner_layout, pMap, useGPU);
         return;
     end
     pm = pMap.(current.axID);
@@ -75,7 +77,7 @@ function [out, models] = nexHR_fit(data, layout, pMap)
     % (Also avoids MATLAB [N,1] → numpy 1D conversion that breaks sklearn.)
     actual_n = size(data, nd);
     if actual_n <= 1
-        [out, models] = nexHR_fit(data, inner_layout, pMap);
+        [out, models] = nexHR_fit(data, inner_layout, pMap, useGPU);
         return;
     end
     blockSize = round(abs(pm.divsPerBin));
@@ -117,7 +119,7 @@ function [out, models] = nexHR_fit(data, layout, pMap)
         end
 
         % 4. RECURSE — compress inner axes; inner_out: (N_ctx*blockSize, n_inner_feat)
-        [inner_out, inner_m] = nexHR_fit(data_for_recurse, inner_layout, pMap);
+        [inner_out, inner_m] = nexHR_fit(data_for_recurse, inner_layout, pMap, useGPU);
 
         % 5. UNMERGE — restore N_ctx, expose block × inner_feat as flat features
         % MATLAB reshape is lazy (returns a view). When inner_out originates from
@@ -138,7 +140,7 @@ function [out, models] = nexHR_fit(data, layout, pMap)
 
         % 6. COMPRESS — block_feat is already a C-contiguous Python array
         nComp_actual  = min(nComp, min([N_ctx, n_feat]));
-        reducer       = model_pca(nComp_actual);
+        reducer       = model_pca(nComp_actual, useGPU);
         block_outs{b} = double(pym.fit_transform_traced(reducer, block_feat));   % (N_ctx, nComp_actual)
 
         block_models{b} = struct('reducer', reducer, 'inner_models', {inner_m});

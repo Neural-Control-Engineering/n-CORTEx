@@ -37,7 +37,7 @@ function [btn, cbOver, cbTrial] = nexFigure_addTransformControls(parent, mdlObj,
         "FontColor", fgColor, ...
         "FontSize",  9);
 
-    function onTransform()
+    function onTransform(~, ~)
         mdlObj.scaleApply_transform([], cbOver.Value, cbTrial.Value);
     end
 end

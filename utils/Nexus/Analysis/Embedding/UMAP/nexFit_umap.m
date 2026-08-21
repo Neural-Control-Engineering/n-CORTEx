@@ -5,6 +5,8 @@ function nexFit_umap(mdlObj, args)
     n_neighbors    = args.n_neighbors;    % default = 15
     min_dist       = args.min_dist;       % default = 0.1
     nPCAComponents = args.nPCAComponents; % default = 0
+    useGPU         = args.useGPU;         % default = 0
+    useGPU         = logical(useGPU);
 
     disp("fitting umap...");
     np    = py.importlib.import_module("numpy");
@@ -15,8 +17,13 @@ function nexFit_umap(mdlObj, args)
 
     % Optional internal PCA reducer (PCA -> UMAP)
     if nPCAComponents > 0
-        decomp = py.importlib.import_module('sklearn.decomposition');
-        pca    = decomp.PCA(int32(nPCAComponents));
+        if useGPU
+            decomp = py.importlib.import_module('cuml.decomposition');
+            pca    = decomp.PCA(int32(nPCAComponents), pyargs('output_type', 'numpy'));
+        else
+            decomp = py.importlib.import_module('sklearn.decomposition');
+            pca    = decomp.PCA(int32(nPCAComponents));
+        end
         pca    = pca.fit(DM_scaled);
         if isempty(mdlObj.Reducer), mdlObj.Reducer = struct(); end
         mdlObj.Reducer.model = pca;

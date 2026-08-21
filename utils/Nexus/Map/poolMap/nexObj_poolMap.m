@@ -86,7 +86,11 @@ classdef nexObj_poolMap < handle
             axTicks = 1:length(ax);
             [binEdges, binIDs, binLabels] = poolMap.getBinEdges(ax);
             % bin the data
-            bins = discretize(axTicks, binEdges);
+            try
+                bins = discretize(axTicks, binEdges);
+            catch
+                keyboard
+            end
             bins(end) = bins(end)+1; % test - 'correct' included edge
             %% operate (splitapply within bins)
             % Ensure binIDs is a column vector

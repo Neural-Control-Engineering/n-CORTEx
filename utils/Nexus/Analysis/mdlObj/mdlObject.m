@@ -235,21 +235,7 @@ classdef mdlObject < handle
                 STAT_train = mdlObj.STAT;
                 STAT_test  = [];
             end
-            % Pool: apply positive-divsPerBin axes per trial before stacking
-            % (nexOp_poolAxes self-skips negative entries — handled by initReducer)
-            if ~isempty(mdlObj.pMap) && ~isempty(STAT_train)
-                ptr0   = STAT_train.ptr(1);
-                ax0    = STAT_train.ax(1);
-                pooled = cellfun( ...
-                    @(df) nexOp_poolAxes(mdlObj.pMap, struct('df', df, 'ax', ax0), ptr0), ...
-                    STAT_train.df, 'UniformOutput', false);
-                STAT_train.df = cellfun(@(s) s.df, pooled, 'UniformOutput', false);
-                new_ax   = pooled{1}.ax;
-                probe.df = pooled{1}.df;  probe.ax = new_ax;
-                probe    = nex_initAxisPointer_v2(probe);
-                STAT_train.ax  = repmat(new_ax,    height(STAT_train), 1);
-                STAT_train.ptr = repmat(probe.ptr, height(STAT_train), 1);
-            end
+            % Pooling is handled by nexOp_compileSTAT before getDesignMatrix is called.
             mdlObj.TEST.STAT  = STAT_test;
             mdlObj.TRAIN.STAT = STAT_train;
             % compile design matrix (ND: first dim = samples, rest = FTR axes)
@@ -295,7 +281,11 @@ classdef mdlObject < handle
                 any(arrayfun(@(e) isfield(mdlObj.pMap, e.axID) && ...
                                   mdlObj.pMap.(e.axID).divsPerBin < 0, layout));
             if needsHR
-                [mdlObj.DM, mdlObj.HR] = nexHR_fit(mdlObj.DM, layout, mdlObj.pMap);
+                useGPU = isfield(mdlObj, 'cfg') && isfield(mdlObj.cfg, 'fitCfg') && ...
+                         isfield(mdlObj.cfg.fitCfg, 'entryParams') && ...
+                         isfield(mdlObj.cfg.fitCfg.entryParams, 'useGPU') && ...
+                         mdlObj.cfg.fitCfg.entryParams.useGPU;
+                [mdlObj.DM, mdlObj.HR] = nexHR_fit(mdlObj.DM, layout, mdlObj.pMap, useGPU);
             else
                 mdlObj.DM = reshape(mdlObj.DM, size(mdlObj.DM, 1), []);
             end
