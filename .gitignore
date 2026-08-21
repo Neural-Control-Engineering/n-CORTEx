@@ -23,7 +23,8 @@
 #      MATLAB     #
 ###################
 /Setup/nCORTExCache.mat
-/utils/Nexus/Setup/Cache/
+utils/Nexus/Startup/Cache/registry_JOLT.mat
+utils\Nexus\Startup\Cache\*
 utils/fieldtrip-20230522
 utils/neuropixels_trajectory_explorer-main
 utils/neuropixels_trajectory_explorer/
