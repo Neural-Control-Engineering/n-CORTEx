@@ -72,6 +72,15 @@ function writeResultsHDF5(h5File, resultID, T, displayLabel)
             h5writeStrLL(fid, [root '/meta/displayLabel'], string(displayLabel));
         end
 
+        % Source dfID — used by discoverResults to scope results to the right object.
+        try
+            dfid = char(nexObj.dfID_source);
+            if ~isempty(dfid)
+                h5writeStrLL(fid, [root '/meta/dfID_source'], string(dfid));
+            end
+        catch
+        end
+
         % Grouping column metadata (all pure low-level, no h5create/h5write).
         if ~isempty(grpCols)
             h5writeStrLL(fid, [root '/meta/groupCols'], string(grpCols(:)));

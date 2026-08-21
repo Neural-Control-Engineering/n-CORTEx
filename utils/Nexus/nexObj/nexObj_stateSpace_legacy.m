@@ -170,20 +170,23 @@ classdef nexObj_stateSpace < nexObject
 
             %% Figure
             nexFigure_stateSpace(nexObj);
-            nexObj.refreshSRC();    % populate SRC listbox with "DF" + "STAT" immediately
-
-            % Discover previously saved results on disk (stubs load lazily on selection)
-            try
-                if ismember('h5_path', nexObj.nexon.console.BASE.DTS.Properties.VariableNames)
-                    nexObj.discoverResults();
-                end
-            catch
-            end
 
             %% Player
             nexObj.player = timer('Period', 0.1, 'BusyMode', 'drop', ...
                 'ExecutionMode', 'fixedRate', ...
                 'TimerFcn', @(~,~) nexObj.stepAnimate(nexObj.cfg.aniCfg.entryParams));
+        end
+
+        function compileSTAT(nexObj)
+            %% STAT — inherit from categorical Parent if available
+            % nexOp_compileSTAT is too expensive to call at construction;
+            % categorical already holds a compiled STAT from reportStats().
+            if ~isempty(nexObj.Parent) && strcmp(nexObj.Parent.classID, 'ctg')
+                S_categories = nex_returnSelectionMask(nexObj.Parent.selectionBus.categories);
+                S_items = nex_returnSelectionMask(nexObj.Parent.selectionBus.items);
+                % nexObj.STAT = nexOp_compileSTAT(nexObj.Parent, nexObj.dfID_source, S_categories, S_items, []);
+                nexObj.STAT = nexOp_compileSTAT(nexObj, nexObj.dfID_source, S_categories, S_items, []);
+            end
         end
 
         % ── Player ────────────────────────────────────────────────────────
@@ -277,167 +280,120 @@ classdef nexObj_stateSpace < nexObject
 
         % ── STATE construction ────────────────────────────────────────────
         function buildSTATE(nexObj)
-            % Build STATE for every selected SRC and concatenate — supports overlay.
-            % Expensive — called explicitly via UI button or applySRC, not on every update.
-            bus     = nexObj.collector.View;
-            selIdx  = bus.selections.SRC;
-            srcKeys = string(bus.selKeys.SRC(selIdx));
+            % Compile STAT / AVG / DF into nexObj.STATE and initialize ptr.
+            % nexObj.compileSTAT();
+            % Expensive — called explicitly via UI button, not on every update.
+            STATE = struct();
 
-            Z_all = {}; S_all = {}; G_all = {};
-            for ki = 1:numel(srcKeys)
-                src = char(srcKeys(ki));
-                % Lazy-load disk stubs on first selection.
-                if isfield(nexObj.RESULTS, src) && isempty(nexObj.RESULTS.(src))
-                    try, nexObj.loadResult(src); catch, continue; end
-                end
-                switch src
-                    case 'DF',   ST = nexObj.buildSTATE_fromDF();
-                    case 'STAT', ST = nexObj.buildSTATE_fromSTAT();
-                    otherwise
-                        if isfield(nexObj.RESULTS, src)
-                            ST = nexObj.buildSTATE_fromRESULT(src);
-                        else, continue; end
-                end
-                if isempty(ST) || ~isfield(ST,'Z') || isempty(ST.Z), continue; end
-                G_src = ST.G;
-                if numel(srcKeys) > 1
-                    G_src.SRC = repmat(string(src), height(G_src), 1);
-                end
-                Z_all{end+1} = ST.Z; %#ok<AGROW>
-                S_all{end+1} = ST.S; %#ok<AGROW>
-                G_all{end+1} = G_src; %#ok<AGROW>
+            %% AVG — pool then stack
+            ptr = [];
+            if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ptr')
+                ptr = nexObj.DF_postOp.ptr;
+            end
+            try
+                AVG_pool = nexOp_poolDF(nexObj.pMap, nexObj.AVG, ptr);
+                [Z_AVG, G_AVG, S_AVG] = nexOp_stackSTAT(AVG_pool);
+            catch e
+                disp(getReport(e));
+                Z_AVG = []; G_AVG = []; S_AVG = [];
             end
 
-            if isempty(Z_all), nexObj.STATE = struct(); return; end
+            %% DF (raw / realtime source)
+            % G_DF mirrors the nexOp_stackSTAT output shape: sampleNumber +
+            % one column per DF_postOp.ax field (excluding 'latent').
+            % No grouping columns — DF rows are a single unlabelled trajectory.
+            if ~isempty(nexObj.DF_postOp)
+                try
+                    Z_DF  = nexObj.DF_postOp.df;
+                    T_DF  = size(Z_DF, 1);
+                    S_DF  = zeros(size(Z_DF));
+                    G_DF  = table((1:T_DF)', 'VariableNames', {'sampleNumber'});
+                    if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ax')
+                        axFields = fieldnames(nexObj.DF_postOp.ax);
+                        axFields = axFields(~strcmp(axFields, 'latent'));
+                        for k = 1:numel(axFields)
+                            f    = axFields{k};
+                            vals = nexObj.DF_postOp.ax.(f)';   % transpose to Nx1
+                            idx  = min((1:T_DF)', numel(vals));
+                            try
+                                G_DF.(f) = vals(idx);
+                            catch e
+                                disp(getReport(e));
+                                keyboard
+                            end
+                        end
+                    end
+                catch e
+                    disp(getReport(e));
+                    Z_DF = []; G_DF = []; S_DF = [];
+                end
+            else
+                Z_DF = []; G_DF = []; S_DF = [];
+            end
 
-            % Align G column sets before vertcat (sources may have different metadata).
-            if numel(G_all) > 1
-                colSets = cellfun(@(t) string(t.Properties.VariableNames), G_all, 'UniformOutput', false);
-                allCols = unique(horzcat(colSets{:}), 'stable');
-                for ki = 1:numel(G_all)
-                    miss = allCols(~ismember(allCols, string(G_all{ki}.Properties.VariableNames)));
-                    for ci = 1:numel(miss)
-                        G_all{ki}.(char(miss(ci))) = repmat("", height(G_all{ki}), 1);
+            %% STAT — use STAT's own ptr column, independent of AVG
+            % try
+            %     ptr_stat = [];
+            %     if ~isempty(nexObj.STAT) && istable(nexObj.STAT) ...
+            %             && ismember('ptr', nexObj.STAT.Properties.VariableNames) ...
+            %             && ~isempty(nexObj.STAT.ptr(1))
+            %         ptr_stat = nexObj.STAT.ptr(1);
+            %     end
+            %     STAT_pool = nexOp_poolDF(nexObj.pMap, nexObj.STAT, ptr_stat);
+            %     [Z_STAT, G_STAT, S_STAT] = nexOp_stackSTAT(STAT_pool);
+            % catch e
+            %     disp(getReport(e));
+            %     Z_STAT = []; G_STAT = []; S_STAT = [];
+            % end
+            % 
+            % STATE.Z = [Z_AVG; Z_DF];
+            % STATE.S = [S_AVG; S_DF];
+            STATE.Z = [Z_AVG];
+            STATE.S = [S_AVG];
+
+            % Impute missing columns in G_DF before vertical concat.
+            % G_AVG has grouping columns (e.g. sessionLabel_phase) that G_DF lacks;
+            % fill them with NaN (numeric) or {''} (cell/string) so heights match.
+            if istable(G_AVG) && istable(G_DF) && ~isempty(G_DF)
+                missingCols = setdiff(G_AVG.Properties.VariableNames, ...
+                                      G_DF.Properties.VariableNames);
+                for c = 1:numel(missingCols)
+                    col = missingCols{c};
+                    ref = G_AVG.(col);
+                    if isnumeric(ref) || islogical(ref)
+                        G_DF.(col) = NaN(height(G_DF), 1);
+                    else
+                        G_DF.(col) = repmat({''}, height(G_DF), 1);
                     end
                 end
+                G_DF = G_DF(:, G_AVG.Properties.VariableNames);  % match column order
+            end
+            STATE.G = [G_AVG; G_DF];
+
+            %% STATE ptr — within-group trajectory frame (1..T), not global row.
+            % sampleNumber in STATE.G is the per-group row index; the ptr
+            % range covers [1, T] so stepAnimate advances all groups in
+            % lockstep.  The full stack remains visible on the canvas; the
+            % tracker windows on this value per group independently.
+            if ~isempty(STATE.G) && height(STATE.G) > 0
+                T = max(STATE.G.sampleNumber);
+                sPtr.sampleNumber.dim    = 1;
+                sPtr.sampleNumber.value  = 1;
+                sPtr.sampleNumber.range  = [1, T];
+                sPtr.sampleNumber.window = T;   % default: show full trajectory
+                STATE.ptr = nexObj_ptr(sPtr);
             end
 
-            STATE.Z = cat(1, Z_all{:});
-            STATE.S = cat(1, S_all{:});
-            STATE.G = vertcat(G_all{:});
-            STATE   = nexObj.finalizeSTATEptr(STATE);
             nexObj.STATE = STATE;
-            if isfield(STATE,'Z') && ~isempty(STATE.Z)
-                nexObj.visualize();
-            end
-        end
 
-        function STATE = buildSTATE_fromDF(nexObj)
-            % Single router trial — lightweight, good for online/in-situ exploration.
-            STATE = struct();
-            DF = dtsIO_readDF(nexObj.nexon, nexObj.dfID_source, []);
-            if isempty(DF) || ~isfield(DF, 'df') || isempty(DF.df)
-                if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'df')
-                    DF = struct('df', nexObj.DF_postOp.df);
-                else
-                    return;
-                end
-            end
-            Z       = DF.df;
-            T       = size(Z, 1);
-            STATE.Z = Z;
-            STATE.S = zeros(size(Z));
-            STATE.G = table((1:T)', 'VariableNames', {'sampleNumber'});
-            STATE   = nexObj.finalizeSTATEptr(STATE);
-        end
-
-        function STATE = buildSTATE_fromSTAT(nexObj)
-            % All selected trials — multi-trial scatter / trajectory overlay.
-            STATE = struct();
-            STAT = nexObj.STAT;
-            if isempty(STAT) || ~istable(STAT) || ~ismember('df', STAT.Properties.VariableNames)
-                return;
-            end
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","cov","labels"];
-            metaCols = setdiff(string(STAT.Properties.VariableNames), DF_STRUCT_FIELDS);
-
-            Z_parts = {}; G_parts = {};
-            for r = 1:height(STAT)
-                df_r = STAT.df{r};
-                if isempty(df_r), continue; end
-                if isstruct(df_r) && isfield(df_r, 'df'), df_r = df_r.df; end
-                T_r = size(df_r, 1);
-                G_r = table((1:T_r)', 'VariableNames', {'sampleNumber'});
-                for ci = 1:numel(metaCols)
-                    col = char(metaCols(ci));
-                    try
-                        val = STAT.(col)(r);
-                        if iscell(val), val = val{1}; end
-                        G_r.(col) = repmat(string(val), T_r, 1);
-                    catch, end
-                end
-                Z_parts{end+1} = df_r;   %#ok<AGROW>
-                G_parts{end+1} = G_r;    %#ok<AGROW>
-            end
-            if isempty(Z_parts), return; end
-            STATE.Z = cat(1, Z_parts{:});
-            STATE.S = zeros(size(STATE.Z));
-            STATE.G = vertcat(G_parts{:});
-            STATE   = nexObj.finalizeSTATEptr(STATE);
-        end
-
-        function STATE = buildSTATE_fromRESULT(nexObj, key)
-            % Group averages with SEM from a stored RESULTS entry.
-            STATE = struct();
-            RESULT = nexObj.RESULTS.(key);
-            if isempty(RESULT) || ~istable(RESULT), return; end
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","cov","labels"];
-            metaCols = setdiff(string(RESULT.Properties.VariableNames), DF_STRUCT_FIELDS);
-            hasSEM   = ismember('sem', RESULT.Properties.VariableNames);
-
-            Z_parts = {}; S_parts = {}; G_parts = {};
-            for g = 1:height(RESULT)
-                df_g = RESULT.df{g};
-                if isempty(df_g), continue; end
-                T_g   = size(df_g, 1);
-                sem_g = zeros(size(df_g));
-                if hasSEM && ~isempty(RESULT.sem{g}), sem_g = RESULT.sem{g}; end
-                G_g = table((1:T_g)', 'VariableNames', {'sampleNumber'});
-                for ci = 1:numel(metaCols)
-                    col = char(metaCols(ci));
-                    try
-                        val = RESULT.(col)(g);
-                        if iscell(val), val = val{1}; end
-                        G_g.(col) = repmat(string(val), T_g, 1);
-                    catch, end
-                end
-                Z_parts{end+1} = df_g;   %#ok<AGROW>
-                S_parts{end+1} = sem_g;  %#ok<AGROW>
-                G_parts{end+1} = G_g;    %#ok<AGROW>
-            end
-            if isempty(Z_parts), return; end
-            STATE.Z = cat(1, Z_parts{:});
-            STATE.S = cat(1, S_parts{:});
-            STATE.G = vertcat(G_parts{:});
-            STATE   = nexObj.finalizeSTATEptr(STATE);
-        end
-
-        function STATE = finalizeSTATEptr(nexObj, STATE)
-            % Build sampleNumber ptr and refresh domain.F — shared by all sub-builders.
-            if ~isfield(STATE, 'G') || isempty(STATE.G) || height(STATE.G) == 0, return; end
-            T = max(STATE.G.sampleNumber);
-            sPtr.sampleNumber.dim    = 1;
-            sPtr.sampleNumber.value  = 1;
-            sPtr.sampleNumber.range  = [1, T];
-            sPtr.sampleNumber.window = T;
-            STATE.ptr = nexObj_ptr(sPtr);
+            %% Auto-populate domain.F from ax.latent labels or column count
             if ~isempty(STATE.Z)
-                nF = size(STATE.Z, 2);
+                nFactors = size(STATE.Z, 2);
                 if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'ax') ...
                         && isfield(nexObj.DF_postOp.ax, 'latent')
                     nexObj.domain.F = string(nexObj.DF_postOp.ax.latent);
                 elseif isempty(nexObj.domain.F) || isequal(nexObj.domain.F, "")
-                    nexObj.domain.F = "f" + string(1:nF);
+                    nexObj.domain.F = "f" + string(1:nFactors);
                 end
                 nexObj.refreshDomainF(nexObj.domain.F);
             end
@@ -452,18 +408,163 @@ classdef nexObj_stateSpace < nexObject
             nexObj.STAT = nexOp_fuseGroups(nexObj.STAT, groupIDCols);
         end
 
-        function reportAverage(nexObj, resultID, nBins, STAT)
-            % Delegate to base class (grouping, binning, RESULTS store, bus refresh),
-            % then rebuild STATE for the newly selected result.
-            if nargin < 2, resultID = []; end
-            if nargin < 3, nBins    = []; end
-            if nargin < 4, STAT     = []; end
-            reportAverage@nexObject(nexObj, resultID, nBins, STAT);
-            % Base class refreshSRC auto-selects the newest result; rebuild STATE for it.
-            src = nexObj.getCurrentSRC();
-            if ~ismember(src, {'DF','STAT'}) && isfield(nexObj.RESULTS, src) ...
-                    && ~isempty(nexObj.RESULTS.(src))
-                nexObj.buildSTATE();
+        function reportAverage(nexObj, resultID, nBins)
+            % Average STAT trials grouped by the columns currently selected in
+            % the CTG bus.  Continuous columns are quantile-binned into nBins
+            % pseudo-categories.  Results go into RESULTS.(resultID) and are
+            % exposed in the VW and SRC buses for display.
+            if nargin < 3 || isempty(nBins), nBins = 4; end
+            if nargin < 2 || isempty(resultID)
+                displayLabel = nexObj.buildResultID("AVG", nBins);
+                resultID     = nexObj.getResultKey(displayLabel);
+                nexObj.resultLabels.(resultID) = char(displayLabel);
+            end
+
+            STAT = nexObj.STAT;
+            if isempty(STAT) || ~istable(STAT), return; end
+
+            % ── 1. Resolve grouping columns from the CTG bus ──────────────────
+            % nex_returnSelectionMask maps listbox indices → the actual column-
+            % name strings that the user highlighted in the CTG listbox.
+            viewSel   = nex_returnSelectionMask(nexObj.collector.View);
+            groupCols = string(viewSel.CTG);
+            statCols  = string(STAT.Properties.VariableNames);
+            groupCols = groupCols(groupCols ~= "" & ismember(groupCols, statCols));
+            if isempty(groupCols), return; end
+
+            % ── 2. Build TF cell array from STAT ──────────────────────────────
+            % table2struct on a table whose df column is a cell unwraps each
+            % cell into the struct field directly: TF{i}.df = numeric array.
+            % That is the form nexOp_trimTF / nexOp_averageTF expect.
+            TF = arrayfun(@(s) s, table2struct(STAT), 'UniformOutput', false);
+
+            % ── 3. Attempt SLRT event alignment; fall back silently ───────────
+            % nexOp_compileSTAT group-sorts rows so STAT indices can no longer
+            % be mapped back to DTS rows for SLRT event lookup.  For latent
+            % trajectories the DFs are already time-aligned at extraction.
+            try
+                TF = nexOp_eventAlignTF(nexObj, TF);
+            catch
+            end
+
+            % ── 4. Build groupTable with numeric recovery + quantile binning ──
+            % nexOp_compileSTAT concatenates all category arrays into a single
+            % numeric matrix Y before array2table.  When a string column (e.g.
+            % sessionLabel--phase) and a numeric column (e.g. h5--responseThreshold_g)
+            % appear together, MATLAB coerces the doubles to strings — so the
+            % numeric column ends up as strings in STAT.  str2double recovers
+            % the values so quantile binning can proceed correctly.
+            groupTable = table();
+            for ci = 1:numel(groupCols)
+                col = char(groupCols(ci));
+                raw = STAT.(col);
+
+                % Attempt numeric recovery for string-encoded float columns
+                if ~isnumeric(raw)
+                    numTry = str2double(string(raw));
+                    if any(~isnan(numTry))   % at least some values parseable
+                        raw = numTry;
+                    end
+                end
+
+                if isnumeric(raw) && numel(unique(raw(~isnan(raw)))) > nBins
+                    % Continuous column: quantile-bin into nBins groups.
+                    % Each bin is labelled "col_qN(mean_val)" so the label
+                    % carries both dimension identity and the bin's centre.
+                    vals       = raw(~isnan(raw));
+                    edges      = quantile(vals, linspace(0, 1, nBins + 1));
+                    edges(end) = edges(end) + abs(edges(end)) * 1e-10 + 1e-10;
+                    binIdx     = discretize(raw, edges);
+                    labels     = strings(numel(raw), 1);
+                    for b = 1:nBins
+                        m = binIdx == b;
+                        if any(m)
+                            labels(m) = sprintf('%s_q%d(%.3g)', col, b, ...
+                                mean(raw(m), 'omitnan'));
+                        end
+                    end
+                    labels(isnan(raw)) = "<NaN>";
+                    groupTable.(col) = labels;
+
+                elseif isnumeric(raw)
+                    % Discrete numeric (few unique values): keep as-is
+                    groupTable.(col) = raw;
+
+                else
+                    % Already a categorical string column
+                    groupTable.(col) = string(raw);
+                end
+            end
+            if width(groupTable) == 0, return; end
+
+            % ── 5. Find unique groups and compute per-group average ───────────
+            % findgroups on a table returns G (Nx1 index) and groupIDs (one row
+            % per unique combination of all groupTable columns).
+            [G, groupIDs] = findgroups(groupTable);
+            nG = height(groupIDs);
+
+            df_out  = cell(nG, 1);
+            ax_out  = cell(nG, 1);
+            ptr_out = cell(nG, 1);
+            sem_out = cell(nG, 1);
+            valid   = false(nG, 1);
+
+            for g = 1:nG
+                % Collect trials that belong to this group; drop empties
+                TF_g    = TF(G == g);
+                isEmpty = cellfun(@(s) isempty(s) || ~isfield(s,'df') || isempty(s.df), TF_g);
+                TF_g    = TF_g(~isEmpty);
+                if isempty(TF_g), continue; end
+
+                % Borrow ptr from the first trial (nexOp_averageTF only trims)
+                ptr = [];
+                if isfield(TF_g{1}, 'ptr') && ~isempty(TF_g{1}.ptr)
+                    ptr = TF_g{1}.ptr;
+                end
+
+                % nexOp_averageTF trims all DFs to minimum length, then means
+                try
+                    DF_avg = nexOp_averageTF(TF_g, ptr, 2);
+                catch
+                    continue;
+                end
+
+                % Build a fresh ptr for the averaged df
+                DF_avg.ptr = nexInit_axisPointer(DF_avg.df, DF_avg.ax);
+
+                % Store as cells: nexOp_stackSTAT expects iscell(STAT.ax) = true
+                df_out{g}  = DF_avg.df;
+                ax_out{g}  = DF_avg.ax;
+                ptr_out{g} = DF_avg.ptr;
+                sem_out{g} = DF_avg.sem;
+                valid(g)   = true;
+            end
+            if ~any(valid), return; end
+
+            % ── 6. Build RESULT table ─────────────────────────────────────────
+            % Structural cell columns (df/ax/ptr/sem) + group-label columns from
+            % groupIDs.  Cell wrapping is required so nexOp_stackSTAT can later
+            % index into them as STAT.ax{k}.
+            RESULT = table(df_out(valid), ax_out(valid), ptr_out(valid), sem_out(valid), ...
+                'VariableNames', {'df','ax','ptr','sem'});
+            RESULT = [RESULT, groupIDs(valid, :)];
+
+            % ── 7. Store and refresh buses ────────────────────────────────────
+            nexObj.RESULTS.(resultID) = RESULT;
+
+            % AVG is the legacy source consumed by buildSTATE → nexOp_stackSTAT
+            nexObj.AVG = RESULT;
+
+            nexObj.refreshVW();
+            nexObj.refreshSRC();
+            nexObj.broadcastResult(resultID);
+
+            try
+                if ismember('h5_path', nexObj.nexon.console.BASE.DTS.Properties.VariableNames)
+                    nexOp_saveResult(nexObj, resultID);
+                end
+            catch ME
+                warning('[%s.reportAverage] auto-save failed: %s', class(nexObj), ME.message);
             end
         end
 
@@ -518,85 +619,76 @@ classdef nexObj_stateSpace < nexObject
         end
 
         % ── View bus helpers ───────────────────────────────────────────────
-        function refreshSRC(nexObj)
-            % Override: stateSpace always exposes "DF" and "STAT" as base options.
-            if ~isfield(nexObj.collector, 'View'), return; end
-            bus      = nexObj.collector.View;
-            baseKeys = ["DF"; "STAT"];
-            keys     = [baseKeys; string(fieldnames(nexObj.RESULTS))];
-            labels   = keys;
-            for ki = numel(baseKeys)+1:numel(keys)
-                k = char(keys(ki));
-                if isfield(nexObj.resultLabels, k)
-                    labels(ki) = string(nexObj.resultLabels.(k));
-                end
+        function vwKeys = getCTGGroupKeys(nexObj)
+            % Return all unique category values across EVERY group column of
+            % nexObj.AVG.  VW therefore lists one selectable entry per distinct
+            % label in each dimension (phase values + threshold-bin labels, etc.).
+            % nexVisualization_stateSpace ANDs selections across dimensions so
+            % picking "pre" and "thresh_q2(…)" shows only their intersection.
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
+            if isempty(nexObj.AVG) || ~istable(nexObj.AVG)
+                vwKeys = "";
+                return;
             end
-            % Auto-select the newest result when RESULTS is non-empty; else default to "DF".
-            if ~isempty(fieldnames(nexObj.RESULTS))
-                newSel = numel(keys);
-            else
-                newSel = 1;
+            cols      = string(nexObj.AVG.Properties.VariableNames)';
+            groupCols = cols(~ismember(cols, DF_STRUCT_FIELDS));
+            if isempty(groupCols)
+                vwKeys = "";
+                return;
             end
-            bus.selKeys.SRC    = keys;
-            bus.selections.SRC = newSel;
-            if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
-                bus.listBoxes.SRC.String = labels;
-                bus.listBoxes.SRC.Max    = numel(keys);   % multi-select enabled
-                bus.listBoxes.SRC.Value  = newSel;
+            % Gather unique values from every group column into one flat list
+            all_vals = string.empty(0, 1);
+            for ci = 1:numel(groupCols)
+                vals     = string(nexObj.AVG.(char(groupCols(ci))));
+                all_vals = [all_vals; unique(vals(:))];  %#ok<AGROW>
             end
+            vwKeys = unique(all_vals);
+            if isempty(vwKeys), vwKeys = ""; end
         end
 
         function onSRCChanged(nexObj, lb)
-            % Multi-select aware: sync all selected indices then rebuild STATE.
+            % SRC listbox callback — keeps bus selection index in sync then
+            % routes to applySRC so nexObj.AVG always matches the active source.
             nexObj.collector.View.selections.SRC = lb.Value;
-            % AVG mirrors the last selected RESULT (drives VW label lookup in vis).
-            srcKeys = string(nexObj.collector.View.selKeys.SRC(lb.Value));
-            lastKey = char(srcKeys(end));
-            if ~ismember(lastKey, {'DF','STAT'}) && isfield(nexObj.RESULTS, lastKey)
-                nexObj.AVG = nexObj.RESULTS.(lastKey);
+            if iscell(lb.String)
+                srcKey = lb.String{lb.Value(end)};
             else
-                nexObj.AVG = [];
+                srcKey = char(lb.String(lb.Value(end)));
             end
-            nexObj.refreshVW();
-            nexObj.buildSTATE();
+            nexObj.applySRC(srcKey);
         end
 
         function applySRC(nexObj, srcKey)
-            % Sync AVG mirror (used by visualization), lazy-load disk stubs,
-            % update SRC bus index, refresh VW, then rebuild STATE.
-            if ~isfield(nexObj.collector, 'View'), return; end
-            % Lazy-load disk stubs on first selection (delegates to base class).
-            if isfield(nexObj.RESULTS, srcKey) && isempty(nexObj.RESULTS.(srcKey))
-                try, nexObj.loadResult(srcKey); catch, return; end
-            end
-            % Update SRC bus selection index and listbox.
-            bus = nexObj.collector.View;
-            idx = find(string(bus.selKeys.SRC) == string(srcKey), 1);
-            if ~isempty(idx)
-                bus.selections.SRC = idx;
-                if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
-                    bus.listBoxes.SRC.Value = idx;
-                end
-            end
-            % Sync AVG mirror for visualization.
-            switch srcKey
-                case {'DF', 'STAT'}
-                    nexObj.AVG = [];
-                otherwise
-                    if isfield(nexObj.RESULTS, srcKey)
-                        nexObj.AVG = nexObj.RESULTS.(srcKey);
-                    else
-                        return;
-                    end
+            % Sync nexObj.AVG to the selected source then refresh VW.
+            % "DF" → clear AVG so buildSTATE falls back to raw DF data.
+            % Any RESULTS key → point AVG at that result table.
+            if strcmp(srcKey, 'DF')
+                nexObj.AVG = [];
+            elseif isfield(nexObj.RESULTS, srcKey)
+                nexObj.AVG = nexObj.RESULTS.(srcKey);
+            else
+                return;
             end
             nexObj.refreshVW();
-            nexObj.buildSTATE();
         end
 
         function refreshVW(nexObj)
-            % Base class handles VW bus update (preserving prior selections);
-            % stateSpace adds tracker handle rebuild when group set changes.
-            refreshVW@nexObject(nexObj);
+            % Full three-field update of VW selectionBus after AVG is populated.
+            % Must update selKeys, selection index, AND listbox — updating only
+            % selKeys leaves the listbox stale and index potentially out of range.
+            % (Pattern from nexOp_sBus_alignItems2ax.)
+            if ~isfield(nexObj.collector, 'View'), return; end
+            newKeys = nexObj.getCTGGroupKeys();
+            bus = nexObj.collector.View;
+            nVW = numel(newKeys);
+            bus.selKeys.VW    = newKeys;
+            bus.selections.VW = 1:nVW;
+            if isfield(bus.listBoxes, 'VW') && ~isempty(bus.listBoxes.VW)
+                bus.listBoxes.VW.String = newKeys;
+                bus.listBoxes.VW.Max    = nVW;
+                bus.listBoxes.VW.Value  = 1:nVW;
+            end
+            % VW group membership changed — rebuild tracker handles before next frame.
             nexObj.rebuildTrackers();
         end
 

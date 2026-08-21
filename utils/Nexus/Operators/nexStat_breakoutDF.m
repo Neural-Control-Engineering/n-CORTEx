@@ -1,5 +1,8 @@
 function dfSet = nexStat_breakoutDF(DF, SS_ax)
-    axSels = strrep(convertCharsToStrings(fieldnames(SS_ax)),"ax_","");    
+    % Latent coordinates are jointly meaningful (an embedding point) — never
+    % split them into per-coordinate rows regardless of ax selection.
+    if isfield(SS_ax, 'ax_latent'), SS_ax = rmfield(SS_ax, 'ax_latent'); end
+    axSels = strrep(convertCharsToStrings(fieldnames(SS_ax)),"ax_","");
     axVals = structfun(@(f) {f}, SS_ax, "UniformOutput", true);
     DF = nex_initAxisPointer_v2(DF);
     [df_slice, ax_slice] = nexOp_sliceDF(DF, axSels, axVals); % turn into cell fun    

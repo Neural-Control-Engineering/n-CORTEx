@@ -33,6 +33,8 @@ function nexVisualization_stateSpace(nexObj, ~)
     if numel(fIdx) < 2, return; end
 
     % Pad to 3 columns with zeros when only 2 latents are selected
+    % Guard after filter
+    % if 
     Z_full = STATE.Z(:, fIdx);
     if numel(fIdx) == 2
         Z_full = [Z_full, zeros(size(Z_full, 1), 1)];
