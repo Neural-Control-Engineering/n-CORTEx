@@ -35,7 +35,7 @@ classdef mdlObj_umap < mdlObject
                 return;
             end
             X_flat   = mdlObj.flattenInput(DF_X);   % nexHR_transform or reshape → 2D
-            X_py     = mdlObj.py.np.array(X_flat);
+            X_py     = mdlObj.py.np.atleast_2d(mdlObj.py.np.array(X_flat));
             X_scaled = mdlObj.Scaler.model.transform(X_py);
             if isstruct(mdlObj.Reducer) && isfield(mdlObj.Reducer, 'model') && ...
                     ~isempty(mdlObj.Reducer.model)
@@ -45,7 +45,9 @@ classdef mdlObj_umap < mdlObject
             Z    = double(Z_py);
             DF_Z.df        = Z;
             D1             = char(mdlObj.domain.D1);
-            DF_Z.ax.(D1)   = DF_X.ax.(D1);
+            if D1 ~= "None"
+                DF_Z.ax.(D1) = DF_X.ax.(D1);
+            end
             DF_Z.ax.factor = 1:size(Z, 2);
             DF_Z           = nex_initAxisPointer_v2(DF_Z);
         end

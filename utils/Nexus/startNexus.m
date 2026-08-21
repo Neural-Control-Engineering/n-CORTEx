@@ -54,6 +54,9 @@
         end
     end
 
+    % temporary patch for prebuffer length
+    nexon.console.BASE.UserData.preBuffLen=3.5;
+
 
     % Registry — load from experiment-scoped cache; build + cache on first run.
     % On a cache hit, reconcile against the current DTS so newly added subjects /
