@@ -147,6 +147,64 @@ classdef mdlObj_pca < mdlObject
             end
         end
 
+        function saveFit(mdlObj, uniqueID)
+            if nargin < 2 || isempty(uniqueID)
+                uniqueID = char(datetime("now", "Format", "yyyyMMdd_HHmmss"));
+            end
+            try
+                [h5Dir, ~, ~] = fileparts(char(mdlObj.nexon.console.BASE.DTS.h5_path(1)));
+            catch
+                h5Dir = pwd;
+            end
+            fitDir = fullfile(h5Dir, sprintf('mdlObj_pca_%s', uniqueID));
+            if ~exist(fitDir, 'dir'), mkdir(fitDir); end
+            pickle = py.importlib.import_module('pickle');
+            fid = py.open(fullfile(fitDir, 'model.pkl'), 'wb');
+            pickle.dump(mdlObj.model, fid); fid.close();
+            fid = py.open(fullfile(fitDir, 'scaler.pkl'), 'wb');
+            pickle.dump(mdlObj.Scaler.model, fid); fid.close();
+            if isstruct(mdlObj.Reducer) && isfield(mdlObj.Reducer, 'model') ...
+                    && ~isempty(mdlObj.Reducer.model)
+                fid = py.open(fullfile(fitDir, 'reducer.pkl'), 'wb');
+                pickle.dump(mdlObj.Reducer.model, fid); fid.close();
+            end
+            canonChans = []; %#ok<NASGU>
+            if isstruct(mdlObj.UserData) && isfield(mdlObj.UserData, 'canonicalChans')
+                canonChans = mdlObj.UserData.canonicalChans; %#ok<NASGU>
+            end
+            save(fullfile(fitDir, 'pca_state.mat'), 'canonChans');
+            mdlObj.fitPath = fitDir;
+            fprintf('[mdlObj_pca] saved: %s\n', fitDir);
+        end
+
+        function loadFit(mdlObj, fitDir)
+            if nargin < 2 || isempty(fitDir)
+                fitDir = uigetdir(pwd, "Select PCA fit folder");
+                if isequal(fitDir, 0), return; end
+            end
+            pickle = py.importlib.import_module('pickle');
+            fid = py.open(fullfile(fitDir, 'model.pkl'), 'rb');
+            mdlObj.model = pickle.load(fid); fid.close();
+            fid = py.open(fullfile(fitDir, 'scaler.pkl'), 'rb');
+            mdlObj.Scaler.model = pickle.load(fid); fid.close();
+            reducerPath = fullfile(fitDir, 'reducer.pkl');
+            if exist(reducerPath, 'file')
+                if isempty(mdlObj.Reducer), mdlObj.Reducer = struct(); end
+                fid = py.open(reducerPath, 'rb');
+                mdlObj.Reducer.model = pickle.load(fid); fid.close();
+            end
+            statePath = fullfile(fitDir, 'pca_state.mat');
+            if exist(statePath, 'file')
+                S = load(statePath, 'canonChans');
+                if ~isempty(S.canonChans)
+                    if ~isstruct(mdlObj.UserData), mdlObj.UserData = struct(); end
+                    mdlObj.UserData.canonicalChans = S.canonChans;
+                end
+            end
+            mdlObj.fitPath = fitDir;
+            fprintf('[mdlObj_pca] loaded: %s\n', fitDir);
+        end
+
         function DF_Z = transform(mdlObj, DF_X)
             % Use learned weights to project emission into state-space
             disp("transforming pca...");

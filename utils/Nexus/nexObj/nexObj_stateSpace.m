@@ -368,6 +368,17 @@ classdef nexObj_stateSpace < nexObject
                 if isstruct(df_r) && isfield(df_r, 'df'), df_r = df_r.df; end
                 T_r = size(df_r, 1);
                 G_r = table((1:T_r)', 'VariableNames', {'sampleNumber'});
+                if ismember('ax', STAT.Properties.VariableNames) && ~isempty(STAT.ax{r})
+                    axS = STAT.ax{r};
+                    if isstruct(axS)
+                        for axFn = string(fieldnames(axS))'
+                            axVals = double(axS.(char(axFn))(:));
+                            if numel(axVals) == T_r
+                                G_r.(char(axFn)) = axVals;
+                            end
+                        end
+                    end
+                end
                 for ci = 1:numel(metaCols)
                     col = char(metaCols(ci));
                     try
@@ -403,6 +414,19 @@ classdef nexObj_stateSpace < nexObject
                 sem_g = zeros(size(df_g));
                 if hasSEM && ~isempty(RESULT.sem{g}), sem_g = RESULT.sem{g}; end
                 G_g = table((1:T_g)', 'VariableNames', {'sampleNumber'});
+                % Propagate axis values into G so the visualizer can use
+                % physical coordinates (e.g. ax.t for the animate window).
+                if ismember('ax', RESULT.Properties.VariableNames) && ~isempty(RESULT.ax{g})
+                    axS = RESULT.ax{g};
+                    if isstruct(axS)
+                        for axFn = string(fieldnames(axS))'
+                            axVals = double(axS.(char(axFn))(:));
+                            if numel(axVals) == T_g
+                                G_g.(char(axFn)) = axVals;
+                            end
+                        end
+                    end
+                end
                 for ci = 1:numel(metaCols)
                     col = char(metaCols(ci));
                     try

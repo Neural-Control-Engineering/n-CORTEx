@@ -375,16 +375,15 @@ classdef mdlObject < handle
             end  
         end
 
-        function scaleApply_transform(mdlObj, dfID_source, isOverwrite)
+        function scaleApply_transform(mdlObj, dfID_source, isOverwrite, currentTrialOnly)
 
             % CFG HEADER
             scope = "global"; % scope : global/local
 
             % apply fit transform row-by-row — avoids loading entire column into memory
-            if nargin < 2
-                dfID_source = mdlObj.dfID_source; % use original dfID_source
-                isOverwrite = 0; % don't overwrite source
-            end
+            if nargin < 2 || isempty(dfID_source),   dfID_source    = mdlObj.dfID_source; end
+            if nargin < 3 || isempty(isOverwrite),   isOverwrite    = true;  end
+            if nargin < 4 || isempty(currentTrialOnly), currentTrialOnly = false; end
             dfID_entry = strrep(dfID_source, "_df", "");
             d1Sel = mdlObj.domain.D1(1);
             % dtsRows = height(mdlObj.nexon.console.BASE.DTS);
@@ -404,7 +403,13 @@ classdef mdlObject < handle
                     S_merge = outerjoinStructs(S_categories, S_items);
                     idxSel = nex_applySelectionMask(mdlObj.nexon.console.BASE.DTS, S_merge);                    
             end
-            rowIdxs = find(idxSel==1);
+            if currentTrialOnly
+                ridx = nex_getRouterIdx(mdlObj.nexon);
+                if islogical(ridx), ridx = find(ridx); end
+                rowIdxs = ridx(1:min(1, end));
+            else
+                rowIdxs = find(idxSel==1);
+            end
 
             % Output routing. The transform output always lands on dfID_target —
             % never back on the source. For a disk-backed DTS it is written to a
@@ -464,13 +469,19 @@ classdef mdlObject < handle
                     continue
                 end
                 if usePatch
-                    % Overwrite in place: unlink this row's group in the target's
-                    % patch file first so re-running Transform REPLACES the prior
-                    % pca output cleanly — no stale axis datasets (an old
-                    % 'chans'/'measure') left beside the fresh 'latent', since the
-                    % low-level writer only overwrites datasets it re-writes.
                     h5Root = char(mdlObj.nexon.console.BASE.DTS.h5_root(i));
-                    mdlObj_h5ClearGroup(h5FileOut, [h5Root '/' dfID_out]);
+                    groupPath = [h5Root '/' dfID_out];
+                    % When isOverwrite=false, skip rows whose output group
+                    % already exists in the patch file (incremental mode).
+                    if ~isOverwrite
+                        try, h5info(h5FileOut, groupPath); isWritten = true;
+                        catch,                              isWritten = false; end
+                        if isWritten
+                            fprintf("skipping row %d (already written)\n", i);
+                            continue
+                        end
+                    end
+                    mdlObj_h5ClearGroup(h5FileOut, groupPath);
                     fprintf("patching %s -> %s\n", dfID_out, h5FileOut);
                     dtsIO_writeDF_toHDF5(h5FileOut, h5Root, dfID_out, DF_Z);
                 else

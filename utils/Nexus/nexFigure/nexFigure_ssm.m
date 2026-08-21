@@ -18,7 +18,8 @@ function nexFigure_ssm(mdlObj)
 
     % Bottom-to-top y positions inside the scrollable sidebar
     yFit     = xInner;
-    yEig     = yFit    + hBtn    + gap;
+    ySave    = yFit    + hBtn    + gap;
+    yEig     = ySave   + hBtn    + gap;
     yDomain  = yEig    + hBtn    + gap;
     yFitCfg  = yDomain + hDomain + gap;
     yPool    = yFitCfg + hFitCfg + gap;
@@ -129,6 +130,10 @@ function nexFigure_ssm(mdlObj)
         mdlObj.cfg.fitCfg.entryParams, str2func("cfgEntryChanged_v2"), []);
 
     %% Buttons
+    [mdlObj.Figure.saveButton, mdlObj.Figure.loadButton] = ...
+        nexFigure_addSaveLoadControls(mdlObj.Figure.panel1.ph, mdlObj, ...
+            [xInner, ySave, wInner, hBtn], BLACK, GREEN);
+
     mdlObj.Figure.eigButton = uibutton(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yEig, wInner, hBtn], ...
         "Text",            "Eigenspectra", ...
