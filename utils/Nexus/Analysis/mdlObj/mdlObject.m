@@ -272,7 +272,13 @@ classdef mdlObject < handle
             axNames  = string(fieldnames(ax_s))';
             ftrAxes  = axNames(axNames ~= d1Sel & axNames ~= "None");
             if isempty(ftrAxes), return; end
-            dims = arrayfun(@(ax) ptr.(char(ax)).dim, ftrAxes);
+            % dim = [] for co-indexed label axes (e.g. 'chans' on a unit DF);
+            % filter them out before sorting — they have no array dimension to order.
+            dimCell  = arrayfun(@(ax) ptr.(char(ax)).dim, ftrAxes, 'UniformOutput', false);
+            validMask = ~cellfun(@isempty, dimCell);
+            ftrAxes   = ftrAxes(validMask);
+            if isempty(ftrAxes), return; end
+            dims = cell2mat(dimCell(validMask));
             ns   = arrayfun(@(ax) numel(ax_s.(char(ax))), ftrAxes);
             [~, ord] = sort(dims, 'descend');   % outermost = last dim = highest
             ftrAxes  = ftrAxes(ord);
