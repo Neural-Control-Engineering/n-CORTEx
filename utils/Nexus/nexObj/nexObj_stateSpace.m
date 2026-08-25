@@ -368,14 +368,18 @@ classdef nexObj_stateSpace < nexObject
                 if isstruct(df_r) && isfield(df_r, 'df'), df_r = df_r.df; end
                 T_r = size(df_r, 1);
                 G_r = table((1:T_r)', 'VariableNames', {'sampleNumber'});
-                if ismember('ax', STAT.Properties.VariableNames) && ~isempty(STAT.ax{r})
-                    axS = STAT.ax{r};
-                    if isstruct(axS)
-                        for axFn = string(fieldnames(axS))'
-                            axVals = double(axS.(char(axFn))(:));
-                            if numel(axVals) == T_r
-                                G_r.(char(axFn)) = axVals;
-                            end
+                hasAx = ismember('ax', STAT.Properties.VariableNames);
+                axS   = [];
+                if hasAx
+                    raw = STAT.ax(r);          % struct array row → scalar struct
+                    if iscell(raw), raw = raw{1}; end
+                    if isstruct(raw) && ~isempty(raw), axS = raw; end
+                end
+                if ~isempty(axS)
+                    for axFn = string(fieldnames(axS))'
+                        axVals = double(axS.(char(axFn))(:));
+                        if numel(axVals) == T_r
+                            G_r.(char(axFn)) = axVals;
                         end
                     end
                 end
