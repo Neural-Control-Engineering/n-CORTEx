@@ -512,6 +512,7 @@ classdef nexObject < handle
 
             nexObj.refreshSRC();
             nexObj.refreshVW();
+            nexObj.refreshCLR();
             nexObj.broadcastResult(resultID);
 
             try
@@ -737,6 +738,7 @@ classdef nexObject < handle
 
             nexObj.refreshSRC();
             nexObj.refreshVW();
+            nexObj.refreshCLR();
             nexObj.broadcastResult(resultID);
             fprintf('[%s.reportAverage_batched] %d groups → RESULTS.%s\n', ...
                     class(nexObj), numel(df_out), resultID);

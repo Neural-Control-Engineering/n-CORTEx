@@ -368,7 +368,7 @@ classdef mdlObject < handle
         function scaleApply_transform(mdlObj, dfID_source, isOverwrite, currentTrialOnly)
 
             % CFG HEADER
-            scope = "global"; % scope : global/local
+            scope = "local"; % scope : global/local
 
             % apply fit transform row-by-row — avoids loading entire column into memory
             if nargin < 2 || isempty(dfID_source),   dfID_source    = mdlObj.dfID_source; end

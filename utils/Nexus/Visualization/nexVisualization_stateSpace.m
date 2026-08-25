@@ -248,7 +248,10 @@ function nexVisualization_stateSpace(nexObj, ~)
     if isequal(vwGroups, ""), return; end
 
     % Safe struct field names for the same VW values used in rebuildTrackers
-    activeFlds  = string(matlab.lang.makeValidName(cellstr(vwGroups)));
+    activeFlds = string(matlab.lang.makeValidName(cellstr(vwGroups)));
+    % No animation axis in G_sel (e.g. UMAP: only 'latent' exists, which is the
+    % feature dim not a traversable row axis) — skip tracker rendering entirely.
+    if isempty(animAx) || ~ismember(animAx, G_sel.Properties.VariableNames), return; end
     aniVals_sel = double(G_sel.(animAx));
     mask_ani    = aniVals_sel >= winStart_ani - aniTol & aniVals_sel <= winEnd_ani + aniTol;
 
