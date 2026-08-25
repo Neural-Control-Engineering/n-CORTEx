@@ -40,6 +40,35 @@ classdef nexObject < handle
             if ~isempty(nexObj.headline) && isfield(nexObj.Figure, 'fh') && isvalid(nexObj.Figure.fh)
                 nexObj.Figure.fh.Name = nexObj.headline;
             end
+            if isfield(nexObj.Figure, 'fh') && isvalid(nexObj.Figure.fh)
+                nexObj.Figure.fh.CloseRequestFcn = @(~,~) nexObj.closeFcn();
+            end
+        end
+
+        function closeFcn(nexObj)
+            % Stop animation timer cleanly before the figure disappears.
+            try
+                if ~isempty(nexObj.player) && isvalid(nexObj.player) ...
+                        && strcmp(nexObj.player.Running, 'on')
+                    nexObj.player.stop();
+                end
+            catch
+            end
+            % Remove from launcher registry so nexRefresh does not try to
+            % reach a deleted figure handle.
+            try
+                figs = nexObj.nexon.UserData.launchedFigures;
+                nexObj.nexon.UserData.launchedFigures = ...
+                    figs(~cellfun(@(f) isequal(f, nexObj), figs));
+            catch
+            end
+            % Close the figure.
+            try
+                if isfield(nexObj.Figure, 'fh') && isvalid(nexObj.Figure.fh)
+                    delete(nexObj.Figure.fh);
+                end
+            catch
+            end
         end
 
         function domain = inferDomain(nexObj)
