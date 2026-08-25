@@ -1,4 +1,11 @@
- function nexon = startNexus(params, DTS)    
+ function nexon = startNexus(params, DTS)
+    % Ensure GPU forward-compat is active (RTX 5090 / compute 12.0).
+    % Idempotent — safe to call even if startup.m already ran.
+    try
+        parallel.gpu.enableCUDAForwardCompatibility(true);
+        gpuDevice();
+    catch
+    end
     nexon = Nexon();
     % COLOR SETTINGS
     nexon.settings.Colors.cyberGreen   = [0.24, 0.94, 0.46];

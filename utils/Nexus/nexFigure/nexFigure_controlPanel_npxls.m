@@ -39,10 +39,13 @@ function nexFigure_controlPanel_npxls(nexObj)
 
     %% ---- CAPTURE ----
     pCap = uipanel(ctrl,"Position",[5,45,175,120],"BackgroundColor",BLACK,"ForegroundColor",GREEN,"Title","CAPTURE");
-    uilabel(pCap,"Text","trial #","Position",[5,68,55,22],"FontColor",GREEN);
-    trialField = uieditfield(pCap,"numeric","Position",[62,68,103,22],"Value",1,"Limits",[1 255],"RoundFractionalValues","on");
+    uilabel(pCap,"Text","trial #","Position",[5,68,40,22],"FontColor",GREEN);
+    trialField    = uieditfield(pCap,"numeric","Position",[47,68,42,22],"Value",1,"Limits",[1 255],"RoundFractionalValues","on");
+    uilabel(pCap,"Text","len(s)","Position",[93,68,30,22],"FontColor",GREEN);
+    capDurField   = uieditfield(pCap,"numeric","Position",[125,68,40,22],"Value",10,"Limits",[0 Inf],"RoundFractionalValues","on","Tooltip","Capture duration (s); 0 or Inf = manual stop");
     startBtn = uibutton(pCap,"Text","Start Capture","Position",[5,38,160,26],"BackgroundColor",GREEN,"FontColor",BLACK,"ButtonPushedFcn",@(~,~)onStart());
     stopBtn  = uibutton(pCap,"Text","Stop Capture","Position",[5,10,160,24],"BackgroundColor",BLACK,"FontColor",GREEN,"ButtonPushedFcn",@(~,~)onStop());
+    capAutoStopTimer = [];
 
     %% ---- SINK ----
     sinkBtn = uibutton(ctrl,"Text","Sink to Disk","Position",[5,8,175,30], ...
@@ -108,14 +111,32 @@ function nexFigure_controlPanel_npxls(nexObj)
         px = getPx();
         if isempty(px), uialert(nexObj.Figure.fh, "no npxls proxy", "Capture failed"); return; end
         try
-            px.startCapture(uint8(trialField.Value), []);   % same entry as the slrt relay
+            px.startCapture(uint8(trialField.Value), []);
         catch e
             disp(getReport(e, "extended", "hyperlinks", "on"));
             uialert(nexObj.Figure.fh, e.message, "Capture failed");
+            return;
+        end
+        dur = capDurField.Value;
+        if dur > 0 && isfinite(dur)
+            capAutoStopTimer = timer("ExecutionMode", "singleShot", ...
+                "StartDelay", dur, ...
+                "TimerFcn",   @(t,~) onAutoStop(t));
+            start(capAutoStopTimer);
         end
     end
 
+    function onAutoStop(t)
+        try, stop(t); delete(t); catch, end
+        capAutoStopTimer = [];
+        onStop();
+    end
+
     function onStop()
+        if ~isempty(capAutoStopTimer)
+            try, stop(capAutoStopTimer); delete(capAutoStopTimer); catch, end
+            capAutoStopTimer = [];
+        end
         px = getPx();
         if isempty(px), uialert(nexObj.Figure.fh, "no npxls proxy", "Stop failed"); return; end
         try
