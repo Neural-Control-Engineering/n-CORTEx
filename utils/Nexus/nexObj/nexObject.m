@@ -101,8 +101,29 @@ classdef nexObject < handle
             aniKeys = nexObj.collector.Domain.selKeys.ANI;
             if ~isempty(lb.Value) && ~isempty(aniKeys)
                 nexObj.domain.animate = string(aniKeys(lb.Value(end)));
+                nexObj.clearAnimatePointer();
             end
             nexObj.visualize();
+        end
+
+        function clearAnimatePointer(nexObj)
+            % Free the animate axis's Pointer bus selection so its frame is driven
+            % by ptr.value (advanced by stepAnimate), not pinned by a single bus
+            % index. Slice consumers (nexOp_sliceAndCollapse) lock a residual axis
+            % to its bus index when one is set; every Pointer key defaults to [1],
+            % which would freeze the animation on frame 1.
+            ax = char(string(nexObj.domain.animate));
+            if isempty(ax), return; end
+            try
+                P = nexObj.collector.Pointer;
+                if isempty(P) || ~isfield(P.selections, ax), return; end
+                P.selections.(ax) = [];
+                if isfield(P.listBoxes, ax) && ~isempty(P.listBoxes.(ax)) ...
+                        && isvalid(P.listBoxes.(ax))
+                    try, P.listBoxes.(ax).Value = []; catch, end
+                end
+            catch
+            end
         end
 
         % -- POOLING -------------------------------------------------------
@@ -112,10 +133,11 @@ classdef nexObject < handle
 
         % ── Player ────────────────────────────────────────────────────────
         function startPlayer(nexObj)
-            isPlay = nexObj.Figure.playButton.Value;
-            switch isPlay
-                case 0, nexObj.player.start;
-                case 1, nexObj.player.stop;
+            % Value==1 = pressed (play), Value==0 = released (stop).
+            if nexObj.Figure.playButton.Value
+                if strcmp(nexObj.player.Running, 'off'), nexObj.player.start; end
+            else
+                nexObj.player.stop;
             end
         end
 
@@ -123,34 +145,50 @@ classdef nexObject < handle
             % CFG HEADER
             stride = args.stride; % default = 1
             len_afterImage = args.len_afterImage; % default = 10
-            % Advance the animation pointer by stride steps along
-            % domain.animate, then call visualize(). Wraps around at
-            % axis length. Inherited by all nexObject subclasses.
-            % domain.animate is written by the UI axSelDropDown so that
-            % the axis being stepped is dynamically selectable.
-            axSel  = nexObj.domain.animate;
+            % Advance the animation pointer by stride steps along domain.animate,
+            % then call visualize(). Inherited by all nexObject subclasses.
+            axSel = nexObj.domain.animate;
+            if isempty(axSel) || strlength(string(axSel)) == 0, return; end
+            axSel = char(axSel);
+            ptrObj = nexObj.DF_postOp.ptr;
+            hasAx = (isobject(ptrObj) && isprop(ptrObj, axSel)) || ...
+                    (isstruct(ptrObj) && isfield(ptrObj, axSel));
+            if ~hasAx, return; end
+
+            nAx = numel(nexObj.DF_postOp.ax.(axSel));
+            if nAx < 1, return; end
+
             curVal = nexObj.DF_postOp.ptr.(axSel).value;
-            % Step through Pointer bus selection as a sequence when available —
-            % handles discontinuous selections and snaps to sel(1) if curVal
-            % is not currently in sel (e.g. on first step after initialization).
+
+            % Multi-value Pointer selection → step through it as a sequence.
+            % Single selection (incl. default [1]) falls through to range stepping
+            % so the frame actually advances rather than being pinned.
             if isfield(nexObj.collector, 'Pointer') && ~isempty(nexObj.collector.Pointer) ...
                     && isfield(nexObj.collector.Pointer.selections, axSel)
                 sel = nexObj.collector.Pointer.selections.(axSel);
-                if ~isempty(sel)
+                if numel(sel) > 1
                     curPos = find(sel == curVal, 1);
-                    if isempty(curPos), curPos = 1 - stride; end  % snaps to sel(1) on first step
+                    if isempty(curPos), curPos = 1 - stride; end
                     axVal = sel(mod(curPos - 1 + stride, numel(sel)) + 1);
                 else
-                    r     = nexObj.DF_postOp.ptr.(axSel).range;
-                    span  = r(2) - r(1) + 1;
+                    r    = nexObj.DF_postOp.ptr.(axSel).range;
+                    span = r(2) - r(1) + 1;
+                    if span < 1 || r(1) < 1 || r(2) > nAx
+                        r = [1, nAx]; span = nAx;
+                    end
                     axVal = r(1) + mod(curVal - r(1) + stride, span);
                 end
             else
-                r     = nexObj.DF_postOp.ptr.(axSel).range;
-                span  = r(2) - r(1) + 1;
+                r    = nexObj.DF_postOp.ptr.(axSel).range;
+                span = r(2) - r(1) + 1;
+                if span < 1 || r(1) < 1 || r(2) > nAx
+                    r = [1, nAx]; span = nAx;
+                end
                 axVal = r(1) + mod(curVal - r(1) + stride, span);
             end
-            nexObj.DF_postOp.ptr.(axSel).value = axVal;
+            axVal = max(1, min(nAx, axVal));
+            nexObj.DF_postOp.ptr.(axSel).value   = axVal;
+            nexObj.DF_postOp.ptr.(axSel).indices = axVal;
             nexObj.visualize();
         end
 
