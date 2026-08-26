@@ -424,7 +424,9 @@ classdef nexObj_stateSpace < nexObject
                     axS = RESULT.ax{g};
                     if isstruct(axS)
                         for axFn = string(fieldnames(axS))'
-                            axVals = double(axS.(char(axFn))(:));
+                            raw_ax = axS.(char(axFn));
+                            if ~(isnumeric(raw_ax) || islogical(raw_ax)), continue; end
+                            axVals = double(raw_ax(:));
                             if numel(axVals) == T_g
                                 G_g.(char(axFn)) = axVals;
                             end

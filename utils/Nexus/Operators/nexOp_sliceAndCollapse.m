@@ -28,7 +28,7 @@ function [df_out, ax_out] = nexOp_sliceAndCollapse(DF, displayAxes)
     for fi = 1:numel(ptrFields)
         f     = ptrFields{fi};
         p     = ptr.(f);
-        if ~isstruct(p) || ~isfield(p, 'dim'), continue; end
+        if ~isstruct(p) || ~isfield(p, 'dim') || isempty(p.dim), continue; end
         if ~isfield(DF.ax, f), continue; end
         raw    = DF.ax.(f);
         if isnumeric(raw) || islogical(raw)

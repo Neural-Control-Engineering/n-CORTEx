@@ -37,6 +37,12 @@ classdef nexObj_categorical < nexObject
             if isempty(DF) || isempty(fieldnames(DF))
                 DF = dtsIO_readHDF5(nexObj.nexon, char(nexObj.dfID_source), []);
             end
+            if isempty(DF) || isempty(fieldnames(DF))
+                sentinelRow = dtsIO_findSentinelRow(nexObj.nexon, nexObj.dfID_source);
+                if ~isempty(sentinelRow)
+                    DF = dtsIO_readDF(nexObj.nexon, nexObj.dfID_source, sentinelRow);
+                end
+            end
             nexObj.DF=DF;            
             % compute result
             nexObj.compute();

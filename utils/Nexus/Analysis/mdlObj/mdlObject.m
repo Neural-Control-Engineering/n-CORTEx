@@ -826,6 +826,7 @@ classdef mdlObject < handle
                 end
                 if isempty(dimIdx) || numel(dimIdx) == numel(axVals), continue; end
                 dim = DF.ptr.(f).dim;
+                if isempty(dim), continue; end  % co-indexed label (e.g. 'chans') — no own dimension
                 S = repmat({':'}, 1, ndims(DF.df)); S{dim} = dimIdx;
                 DF.df      = DF.df(S{:});
                 preLen     = numel(axVals);
