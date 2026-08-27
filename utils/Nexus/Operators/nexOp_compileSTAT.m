@@ -57,16 +57,25 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
     selMatch= selMatch(~drop);
     for i = 1:length(categories)
         category = categories{i};
-        categoryID = S_categories.(category);
-        if ~isequal(categoryID, "") && ~contains(categoryID, "ax") && ~strcmp(categoryID, "None")
+        categoryID = char(string(S_categories.(category)));   % normalise: string/char/cell → char
+        if ~isempty(categoryID) && ~contains(categoryID, "ax") && ~strcmp(categoryID, "None")
             TF_category = dtsIO_readTF_category(nexon, categoryID, idxSel);
             TF_category = TF_category(~drop); % filter empty entries
             Y = [Y, TF_category];
-            categoryProps = [categoryProps; strrep(categoryID,"--","_")];
+            categoryProps = [categoryProps; string(strrep(categoryID,"--","_"))];
             selMatch = [selMatch & ismember(TF_category, S_items.(category))];
         end
-    end        
-    Y = array2table(Y, 'VariableNames', categoryProps);
+    end
+    if isempty(Y)
+        % No category constraints — use sessionLabel as the default grouping so
+        % the downstream findgroups / sort path works without special-casing.
+        sessionLabels = string(nexon.console.BASE.DTS.sessionLabel(idxSel));
+        sessionLabels = sessionLabels(~drop);
+        Y = table(sessionLabels, 'VariableNames', {'sessionLabel_subj'});
+        selMatch = true(height(Y), 1);
+    else
+        Y = array2table(Y, 'VariableNames', cellstr(categoryProps));
+    end
     Y = Y(selMatch,:); % filter by intersection of all category selections
     TF_pooled = TF_pooled(selMatch); % filter selected data as well
     % enumerate rows as trial numbers, relative to subject/phase combos
