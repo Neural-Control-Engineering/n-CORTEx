@@ -266,12 +266,20 @@ function nexVisualization_stateSpace(nexObj, ~)
                         & aniVals_ani <= winEnd_ani   + aniTol;
             Z_trail     = Z_vis(mask_ani, :);
             if ~isempty(Z_trail)
-                hsv_trail  = rgb2hsv(C_sel_pure(mask_ani, :));
-                recency_t  = (aniVals_ani(mask_ani) - winStart_ani) ...
-                           / max(eps, winEnd_ani - winStart_ani);
-                recency_t  = max(0, min(1, recency_t));
+                hsv_trail = rgb2hsv(C_sel_pure(mask_ani, :));
+                span_t    = winEnd_ani - winStart_ani;
+                if span_t < aniTol
+                    % Degenerate zero-width window (e.g. ptr.value=1):
+                    % show the single point at full brightness.
+                    recency_t = ones(size(Z_trail, 1), 1);
+                else
+                    recency_t = (aniVals_ani(mask_ani) - winStart_ani) / span_t;
+                    recency_t = max(0, min(1, recency_t));
+                end
+                % Modulate V only — preserve base S so the hue stays vivid.
+                % C_sel_pure is already undimmed (pre-D1-gradient), so the
+                % trail is naturally brighter than the canvas at the same positions.
                 hsv_trail(:,3) = min(1, trail_brightness * recency_t);
-                hsv_trail(:,2) = max(0.4, (1 - recency_t).^2);
                 set(gfx.canvas_trail, ...
                     'XData', Z_trail(:,1), 'YData', Z_trail(:,2), 'ZData', Z_trail(:,3), ...
                     'CData', hsv2rgb(hsv_trail), 'SizeData', trackerSize);

@@ -58,7 +58,7 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
     for i = 1:length(categories)
         category = categories{i};
         categoryID = S_categories.(category);
-        if ~contains(categoryID, "ax") && (~strcmp(categoryID,"None"))
+        if ~isequal(categoryID, "") && ~contains(categoryID, "ax") && ~strcmp(categoryID, "None")
             TF_category = dtsIO_readTF_category(nexon, categoryID, idxSel);
             TF_category = TF_category(~drop); % filter empty entries
             Y = [Y, TF_category];
