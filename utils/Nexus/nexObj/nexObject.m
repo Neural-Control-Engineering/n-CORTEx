@@ -174,6 +174,7 @@ classdef nexObject < handle
             % CFG HEADER
             stride = args.stride; % default = 1
             len_afterImage = args.len_afterImage; % default = 10
+            trail_brightness = args.trail_brightness; % default = 2
             % Advance the animation pointer by stride steps along domain.animate,
             % then call visualize(). Inherited by all nexObject subclasses.
             axSel = nexObj.domain.animate;

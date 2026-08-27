@@ -403,40 +403,38 @@ classdef mdlObject < handle
 
             % Output routing. The transform output always lands on dfID_target —
             % never back on the source. For a disk-backed DTS it is written to a
-            % DEDICATED sibling HDF5 (patch) file — one file per dfID_target,
-            % named like the source h5 — and registered in the manifest
-            % (h5_path_<dfID_target>), exactly like nexTract. This keeps the
-            % transform artifact out of the main nexDTS.h5, and gives a clean
-            % OVERWRITE: each row's group is unlinked before the write so re-running
-            % Transform REPLACES the prior pca output in the existing patch file
-            % rather than leaving stale axis datasets (e.g. an old 'chans'/'measure')
-            % beside the fresh 'latent' — the low-level writer only overwrites the
-            % datasets it re-writes, not ones the new DF dropped.
-            isDiskBacked = ismember('h5_path', ...
-                mdlObj.nexon.console.BASE.DTS.Properties.VariableNames);
-            usePatch = isDiskBacked;
-            if usePatch
-                dfID_out  = char(mdlObj.dfID_target);
-                h5FileIn  = char(mdlObj.nexon.console.BASE.DTS.h5_path(1));
-                [pd, pb, pe] = fileparts(h5FileIn);
-                h5FileOut = fullfile(pd, [pb '_' dfID_out pe]);
-                dtsIO_patchManifest(mdlObj.nexon, dfID_out, h5FileOut);
+            % Output routing — mirrors nexTract's convention:
+            %   disk-backed row  → dedicated sibling patch HDF5, manifest registered
+            %   in-memory row    → dtsIO_writeDF with forceMem (hybrid DTS support)
+            %   pure in-memory   → dtsIO_writeDF, patchManifest pending mode
+            nexon        = mdlObj.nexon;
+            dfID_out     = char(mdlObj.dfID_target);
+            isDiskBacked = ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames);
+            h5FileOut    = '';
+
+            if isDiskBacked
+                % Use the first row with a non-empty h5_path (row 1 may be
+                % in-memory in a hybrid DTS, which would give a bad path).
+                allH5     = string(nexon.console.BASE.DTS.h5_path);
+                firstDisk = find(strlength(allH5) > 0, 1);
+                if ~isempty(firstDisk)
+                    [pd, pb, pe] = fileparts(char(allH5(firstDisk)));
+                    h5FileOut = fullfile(pd, [pb '_' dfID_out pe]);
+                end
+                dtsIO_patchManifest(nexon, dfID_out, h5FileOut);
+            else
+                % Pure in-memory DTS: register pending so Sink creates the patch.
+                dtsIO_patchManifest(nexon, dfID_out, []);
             end
 
-            % for i = 1:dtsRows
-            for r=1:length(rowIdxs)
-                i=rowIdxs(r);
-                fprintf("row: %d \n",i);
-                sessionLabel = mdlObj.nexon.console.BASE.DTS.sessionLabel{i};
-                disp(sessionLabel);
-                DF_X = dtsIO_readDF(mdlObj.nexon, dfID_entry, i);
-                if ~isfield(DF_X,"df")
+            for r = 1:length(rowIdxs)
+                i = rowIdxs(r);
+                fprintf("row: %d \n", i);
+                disp(nexon.console.BASE.DTS.sessionLabel{i});
+                DF_X = dtsIO_readDF(nexon, dfID_entry, i);
+                if isempty(DF_X) || ~isfield(DF_X, 'df') || isempty(DF_X.df)
                     continue
                 end
-                if isempty(DF_X) || isempty(DF_X.df)
-                    continue
-                end
-                % DF_X = nex_initAxisPointer_v2(DF_X);
                 DF_X.ptr = nexInit_axisPointer(DF_X.df, DF_X.ax);
                 if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
                     DF_X = mdlObj.applyPointerDF(DF_X);
@@ -445,40 +443,36 @@ classdef mdlObject < handle
                 if d1Sel ~= "None"
                     DF_X = nexOp_permute2First(DF_X, d1Sel, DF_X.ptr);
                 end
-                % Pool: positive-divsPerBin axes (matches getDesignMatrix pool step)
                 if ~isempty(mdlObj.pMap)
                     DF_X = nexOp_poolAxes(mdlObj.pMap, DF_X, DF_X.ptr);
                 end
                 try
                     DF_Z = mdlObj.transform(DF_X);
                 catch e
-                    disp(getReport(e));
-                    continue
+                    disp(getReport(e)); continue
                 end
-                if isempty(DF_Z) || isempty(DF_Z.df)
-                    continue
-                end
-                if usePatch
-                    h5Root = char(mdlObj.nexon.console.BASE.DTS.h5_root(i));
-                    groupPath = [h5Root '/' dfID_out];
-                    % When isOverwrite=false, skip rows whose output group
-                    % already exists in the patch file (incremental mode).
-                    if ~isOverwrite
-                        try, h5info(h5FileOut, groupPath); isWritten = true;
-                        catch,                              isWritten = false; end
-                        if isWritten
-                            fprintf("skipping row %d (already written)\n", i);
-                            continue
-                        end
-                    end
-                    mdlObj_h5ClearGroup(h5FileOut, groupPath);
-                    fprintf("patching %s -> %s\n", dfID_out, h5FileOut);
-                    dtsIO_writeDF_toHDF5(h5FileOut, h5Root, dfID_out, DF_Z);
-                else
-                    fprintf("writing to: %s", mdlObj.dfID_target);
-                    dtsIO_writeDF(mdlObj.nexon, DF_Z, mdlObj.dfID_target, i);
-                end
+                if isempty(DF_Z) || isempty(DF_Z.df), continue; end
 
+                if isDiskBacked
+                    h5Root = char(nexon.console.BASE.DTS.h5_root(i));
+                    if isempty(h5Root)
+                        % Hybrid in-memory row — write to in-memory DTS.
+                        dtsIO_writeDF(nexon, DF_Z, dfID_out, i, true);
+                    else
+                        % Disk-backed row.
+                        groupPath = [h5Root '/' dfID_out];
+                        if ~isOverwrite
+                            try, h5info(h5FileOut, groupPath);
+                                fprintf("skipping row %d (already written)\n", i); continue
+                            catch, end
+                        end
+                        mdlObj_h5ClearGroup(h5FileOut, groupPath);
+                        fprintf("patching %s -> %s\n", dfID_out, h5FileOut);
+                        dtsIO_writeDF_toHDF5(h5FileOut, h5Root, dfID_out, DF_Z);
+                    end
+                else
+                    dtsIO_writeDF(nexon, DF_Z, dfID_out, i);
+                end
             end
         end
 

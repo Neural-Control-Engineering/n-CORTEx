@@ -101,7 +101,6 @@ function nexVisualization_stateSpace(nexObj, ~)
             f   = ptrAxes{k};
             sel = ptrSel.(f);
             if ~isempty(sel) && ~isequal(sel, "") && ismember(f, gCols)
-                % t_ptr = tic;
                 if isnumeric(sel)
                     mask_f = ismembertol(double(STATE.G.(f)), double(sel(:)), 1e-3);
                 else
@@ -111,11 +110,6 @@ function nexVisualization_stateSpace(nexObj, ~)
                     end
                 end
                 mask_ptr = mask_ptr & mask_f;
-                if sum(mask_ptr)==0
-                    keyboard
-                end
-                % fprintf('[vis]   ptr.%s: %.1f ms  (numel(sel)=%d, type=%s)\n', ...
-                %     f, toc(t_ptr)*1e3, numel(sel), class(sel));
             end
         end
     end
@@ -129,24 +123,34 @@ function nexVisualization_stateSpace(nexObj, ~)
             && isprop(nexObj.DF_postOp.ptr, d1Ax) && isfield(nexObj.DF_postOp.ax, d1Ax)
         d1Ptr    = nexObj.DF_postOp.ptr.(d1Ax);
         d1Axis   = nexObj.DF_postOp.ax.(d1Ax);
-        curIdx   = d1Ptr.value;
-        half     = round(d1Ptr.window / 2);
-        d1Start  = d1Axis(max(1, curIdx - half));
-        d1End    = d1Axis(min(numel(d1Axis), curIdx + half));
-        d1Vals_G = double(STATE.G.(d1Ax));
-        d1Tol    = 0;
-        if numel(d1Axis) > 1, d1Tol = abs(d1Axis(2) - d1Axis(1)) * 0.01; end
-        mask_d1  = d1Vals_G >= d1Start - d1Tol & d1Vals_G <= d1End + d1Tol;
+        nD1      = numel(d1Axis);
+        % Full-window bypass: when window spans the axis, show all points.
+        % Without this, value=1 + window=N centres at the first element and
+        % clips the second half (shows only index 1 to N/2+1).
+        if d1Ptr.window < nD1
+            curIdx   = d1Ptr.value;
+            half     = round(d1Ptr.window / 2);
+            d1Start  = d1Axis(max(1, curIdx - half));
+            d1End    = d1Axis(min(nD1, curIdx + half));
+            d1Vals_G = double(STATE.G.(d1Ax));
+            d1Tol    = 0;
+            if nD1 > 1, d1Tol = abs(d1Axis(2) - d1Axis(1)) * 0.01; end
+            mask_d1  = d1Vals_G >= d1Start - d1Tol & d1Vals_G <= d1End + d1Tol;
+        end
     end
 
     % fprintf('[vis] D1 mask:      %.1f ms\n', toc(t0)*1e3); t0 = tic;
     %% ANI pointer + after-image window
-    len_afterImage = 5;
+    len_afterImage   = 5;
+    trail_brightness = 2;
     if ~isempty(nexObj.cfg) && isfield(nexObj.cfg, 'aniCfg') ...
             && ~isempty(nexObj.cfg.aniCfg) && ~isempty(nexObj.cfg.aniCfg.entryParams)
         ep = nexObj.cfg.aniCfg.entryParams;
-        if isfield(ep, 'len_afterImage') && ~isempty(ep.len_afterImage)
-            len_afterImage = ep.len_afterImage;
+        if isfield(ep, 'len_afterImage')   && ~isempty(ep.len_afterImage)
+            len_afterImage   = ep.len_afterImage;
+        end
+        if isfield(ep, 'trail_brightness') && ~isempty(ep.trail_brightness)
+            trail_brightness = ep.trail_brightness;
         end
     end
     winStart_ani = -Inf;
@@ -196,6 +200,8 @@ function nexVisualization_stateSpace(nexObj, ~)
     C_sel_pure = C_sel;   % snapshot before D1 gradient — used for legend swatches
 
     %% D1 brightness gradient — over selected rows only
+    % Absolute / static: anchored to the full axis range so d1=0 always
+    % occupies the same brightness level regardless of ptr.value.
     if ~isempty(d1Ax) && ismember(d1Ax, G_sel.Properties.VariableNames)
         d1Vals = double(G_sel.(d1Ax));
         d1Min  = min(d1Vals);
@@ -241,17 +247,52 @@ function nexVisualization_stateSpace(nexObj, ~)
     end
 
     % fprintf('[vis] Labels/title: %.1f ms\n', toc(t0)*1e3); t0 = tic;
-    %% Tracker — per-VW-value after-image, operating on the canvas-visible subset
-    % Each VW selection value gets its own tracker handle (built by rebuildTrackers).
-    % To find which rows in G_sel match a given VW value, we search across all
-    % group columns (same multi-column lookup used by the VW mask above).
-    if isequal(vwGroups, ""), return; end
+    %% After-image overlay — canvas_trail (no VW) ↔ canvas_tracker (VW groups).
+    % The two are mutually exclusive: trail is the global fallback when no VW
+    % groups are selected; per-group trackers own the overlay when VW is set.
+    % Both use the same after-image window [winStart_ani, winEnd_ani] and the
+    % same recency formula. Trail uses C_sel_pure (pre-D1-gradient) so it is
+    % naturally a notch brighter than the dimmed canvas at the same positions.
+    hasTrail  = isfield(gfx, 'canvas_trail') && ~isempty(gfx.canvas_trail) ...
+                && isvalid(gfx.canvas_trail);
+    hasAnimAx = ~isempty(animAx) && ismember(animAx, G_sel.Properties.VariableNames) ...
+                && isfinite(winEnd_ani);
+
+    if isequal(vwGroups, "")
+        % — no VW groups: render global trail, then return —
+        if hasTrail && hasAnimAx
+            aniVals_ani = double(G_sel.(animAx));
+            mask_ani    = aniVals_ani >= winStart_ani - aniTol ...
+                        & aniVals_ani <= winEnd_ani   + aniTol;
+            Z_trail     = Z_vis(mask_ani, :);
+            if ~isempty(Z_trail)
+                hsv_trail  = rgb2hsv(C_sel_pure(mask_ani, :));
+                recency_t  = (aniVals_ani(mask_ani) - winStart_ani) ...
+                           / max(eps, winEnd_ani - winStart_ani);
+                recency_t  = max(0, min(1, recency_t));
+                hsv_trail(:,3) = min(1, trail_brightness * recency_t);
+                hsv_trail(:,2) = max(0.4, (1 - recency_t).^2);
+                set(gfx.canvas_trail, ...
+                    'XData', Z_trail(:,1), 'YData', Z_trail(:,2), 'ZData', Z_trail(:,3), ...
+                    'CData', hsv2rgb(hsv_trail), 'SizeData', trackerSize);
+            else
+                set(gfx.canvas_trail, 'XData', [], 'YData', [], 'ZData', []);
+            end
+        elseif hasTrail
+            set(gfx.canvas_trail, 'XData', [], 'YData', [], 'ZData', []);
+        end
+        return;
+    end
+
+    % — VW groups present: per-group trackers own the overlay; clear trail —
+    if hasTrail
+        set(gfx.canvas_trail, 'XData', [], 'YData', [], 'ZData', []);
+    end
 
     % Safe struct field names for the same VW values used in rebuildTrackers
     activeFlds = string(matlab.lang.makeValidName(cellstr(vwGroups)));
-    % No animation axis in G_sel (e.g. UMAP: only 'latent' exists, which is the
-    % feature dim not a traversable row axis) — skip tracker rendering entirely.
-    if isempty(animAx) || ~ismember(animAx, G_sel.Properties.VariableNames), return; end
+    % No animation axis in G_sel — skip tracker rendering entirely.
+    if ~hasAnimAx, return; end
     aniVals_sel = double(G_sel.(animAx));
     mask_ani    = aniVals_sel >= winStart_ani - aniTol & aniVals_sel <= winEnd_ani + aniTol;
 
@@ -275,7 +316,7 @@ function nexVisualization_stateSpace(nexObj, ~)
         hsv_grp = rgb2hsv(C_sel(mask_grp, :));
         recency = (aniVals_sel(mask_grp) - winStart_ani) / max(eps, winEnd_ani - winStart_ani);
         recency = max(0, min(1, recency));
-        hsv_grp(:, 3) = min(1, 2 * recency);
+        hsv_grp(:, 3) = min(1, trail_brightness * recency);
         hsv_grp(:, 2) = max(0.5, (1 - recency) .^ 2);
         C_grp_vivid = hsv2rgb(hsv_grp);
 

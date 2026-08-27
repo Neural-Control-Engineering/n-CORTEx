@@ -12,13 +12,26 @@ function listCfgEntryChanged(src, event, key, selectionBus)
                 && (isprop(parent.DF_postOp.ptr, key) || isfield(parent.DF_postOp.ptr, key))
             p = parent.DF_postOp.ptr.(key);
             if isstruct(p) && isfield(p, 'dim')
-                sel = src.Value;
+                sel = sort(double(src.Value(:)'));
                 if ~isempty(sel) && isnumeric(sel)
-                    p.indices = sort(double(sel(:)'));
+                    p.indices = sel;
+                    % Bidirectional sync: map selection → (value, window) so the
+                    % Window panel always reflects the Pointer context.
+                    p.value  = sel(round(end/2));
+                    p.window = numel(sel);
                 else
                     p.indices = [];
                 end
                 parent.DF_postOp.ptr.(key) = p;
+                % Update Window-panel spinners if present.
+                try
+                    ef = parent.Figure.windowCfgPanel.editFields.(key);
+                    if ~isempty(sel)
+                        ef.uiField.Value = p.value;
+                        ef.window.Value  = p.window;
+                    end
+                catch
+                end
             end
         end
         parent.visualize();

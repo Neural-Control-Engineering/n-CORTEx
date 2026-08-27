@@ -275,6 +275,14 @@ classdef nexObj_stateSpace < nexObject
             end
         end
 
+        function reloadFromRouter(nexObj)
+            % Called by nexRefresh_launchedFigures on every router/trial change.
+            % Rebuilds STATE from the current router selection.  STAT and RESULTS
+            % paths hold pre-compiled data and don't need a per-trial refresh, but
+            % rebuilding them is harmless — buildSTATE dispatches correctly.
+            nexObj.buildSTATE();
+        end
+
         % ── STATE construction ────────────────────────────────────────────
         function buildSTATE(nexObj)
             % Build STATE for every selected SRC and concatenate — supports overlay.
@@ -327,6 +335,7 @@ classdef nexObj_stateSpace < nexObject
             STATE.G = vertcat(G_all{:});
             STATE   = nexObj.finalizeSTATEptr(STATE);
             nexObj.STATE = STATE;
+            nexObj.syncAxFromSTATE(STATE, srcKeys);
             if isfield(STATE,'Z') && ~isempty(STATE.Z)
                 nexObj.visualize();
             end
@@ -338,7 +347,8 @@ classdef nexObj_stateSpace < nexObject
             DF = dtsIO_readDF(nexObj.nexon, nexObj.dfID_source, []);
             if isempty(DF) || ~isfield(DF, 'df') || isempty(DF.df)
                 if ~isempty(nexObj.DF_postOp) && isprop(nexObj.DF_postOp, 'df')
-                    DF = struct('df', nexObj.DF_postOp.df);
+                    DF = struct('df', nexObj.DF_postOp.df, 'ax', struct());
+                    try, DF.ax = nexObj.DF_postOp.ax; catch, end
                 else
                     return;
                 end
@@ -348,6 +358,18 @@ classdef nexObj_stateSpace < nexObject
             STATE.Z = Z;
             STATE.S = zeros(size(Z));
             STATE.G = table((1:T)', 'VariableNames', {'sampleNumber'});
+            % Propagate numeric axes into G (enables animate windowing,
+            % CLR-by-time, and Pointer axis masking in the visualization).
+            if isfield(DF, 'ax') && isstruct(DF.ax)
+                for axFn = string(fieldnames(DF.ax))'
+                    raw_ax = DF.ax.(char(axFn));
+                    if ~(isnumeric(raw_ax) || islogical(raw_ax)), continue; end
+                    axVals = double(raw_ax(:));
+                    if numel(axVals) == T
+                        STATE.G.(char(axFn)) = axVals;
+                    end
+                end
+            end
             STATE   = nexObj.finalizeSTATEptr(STATE);
         end
 
@@ -377,7 +399,9 @@ classdef nexObj_stateSpace < nexObject
                 end
                 if ~isempty(axS)
                     for axFn = string(fieldnames(axS))'
-                        axVals = double(axS.(char(axFn))(:));
+                        raw_ax = axS.(char(axFn));
+                        if ~(isnumeric(raw_ax) || islogical(raw_ax)), continue; end
+                        axVals = double(raw_ax(:));
                         if numel(axVals) == T_r
                             G_r.(char(axFn)) = axVals;
                         end
@@ -776,6 +800,75 @@ classdef nexObj_stateSpace < nexObject
                 nexObj.domain.F = domSel.F(:)';
             end
             nexObj.updateScope();
+        end
+
+        function syncAxFromSTATE(nexObj, STATE, srcKeys)
+            % Sync DF_postOp.ax (and hence the Pointer bus) from the actual
+            % axis values in STATE.G after buildSTATE.  The sentinel-seeded
+            % DF_postOp may not cover the full preBuffer; this corrects it.
+            % Priority for which rows drive the canonical axis: RESULT > STAT > DF.
+            if isempty(nexObj.DF_postOp) || ~isprop(nexObj.DF_postOp, 'ax'), return; end
+            if ~isfield(STATE, 'G') || isempty(STATE.G), return; end
+            G     = STATE.G;
+            gCols = string(G.Properties.VariableNames);
+
+            % Row mask: highest-priority SRC rows define the canonical axis.
+            hasSRCcol  = ismember("SRC", gCols);
+            resultKeys = srcKeys(~ismember(srcKeys, ["DF", "STAT"]));
+            if ~isempty(resultKeys) && hasSRCcol
+                rowMask = ismember(string(G.SRC), resultKeys);
+            elseif ismember("STAT", srcKeys) && hasSRCcol
+                rowMask = string(G.SRC) == "STAT";
+            else
+                rowMask = true(height(G), 1);
+            end
+            G_pri = G(rowMask, :);
+
+            % Compute updated axis values from priority rows.
+            curAx    = nexObj.DF_postOp.ax;
+            axFields = fieldnames(curAx);
+            axFields = axFields(~strcmp(axFields, 'latent'));
+            newAx    = curAx;
+            changed  = {};
+            for i = 1:numel(axFields)
+                f = char(axFields{i});
+                if ~ismember(f, G_pri.Properties.VariableNames), continue; end
+                col = G_pri.(f);
+                if ~isnumeric(col), continue; end
+                newVals = unique(double(col(:)));
+                if ~isequal(newVals, double(curAx.(f)(:)))
+                    newAx.(f)    = newVals;
+                    changed{end+1} = f; %#ok<AGROW>
+                end
+            end
+            if isempty(changed), return; end
+
+            % Single assignment fires PostSet → refreshPointer maps old selections.
+            nexObj.DF_postOp.ax = newAx;
+
+            % Override to full-range for changed axes: the old-range mapping in
+            % refreshPointer would preserve a partial selection (e.g. t≥0 only).
+            % Also reset ptr.window so the Window panel agrees (bidirectional sync).
+            if ~isempty(nexObj.collector.Pointer)
+                bus = nexObj.collector.Pointer;
+                for i = 1:numel(changed)
+                    f = changed{i};
+                    if ~isfield(bus.selections, f), continue; end
+                    nVals = numel(newAx.(f));
+                    bus.selections.(f) = 1:nVals;
+                    if isfield(bus.listBoxes, f) && ~isempty(bus.listBoxes.(f)) ...
+                            && isvalid(bus.listBoxes.(f))
+                        bus.listBoxes.(f).Value = 1:nVals;
+                    end
+                    if isprop(nexObj.DF_postOp.ptr, f)
+                        nexObj.DF_postOp.ptr.(f).window = nVals;
+                        try
+                            nexObj.Figure.windowCfgPanel.editFields.(f).window.Value = nVals;
+                        catch
+                        end
+                    end
+                end
+            end
         end
 
         function filterSTATE(nexObj) %#ok<MANU>

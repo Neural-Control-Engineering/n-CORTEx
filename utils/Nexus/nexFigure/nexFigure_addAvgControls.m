@@ -6,7 +6,7 @@ function nexFigure_addAvgControls(nexObj, fh, x, y, h)
 %   h      — button height (match surrounding controls)
 %
 % Writes nexObj.Figure.nBinsSpinner and nexObj.Figure.reportAvgButton.
-% Total width consumed: 90px (30 spinner + 5 gap + 55 button).
+% Total width consumed: 140px (60 spinner + 5 gap + 75 button).
 
     GREEN = nexObj.nexon.settings.Colors.cyberGreen;
     BLACK = [0 0 0];
