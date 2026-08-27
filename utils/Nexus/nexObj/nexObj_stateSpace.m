@@ -93,6 +93,7 @@ classdef nexObj_stateSpace < nexObject
             viewDict.VW  = vwKeys;
             viewDict.CLR = clrKeys;
             nexObj.collector.View = nexInit_collectorView(nexObj, viewDict);
+            nexObj.wireCTGListeners();
 
             %% Collector — Domain selection bus (F / D1 / ANI)
             % F: values inside DF.ax.latent — the actual latent labels (pc1, pc2,
@@ -608,8 +609,13 @@ classdef nexObj_stateSpace < nexObject
             lastKey = char(srcKeys(end));
             if ~ismember(lastKey, {'DF','STAT'}) && isfield(nexObj.RESULTS, lastKey)
                 nexObj.AVG = nexObj.RESULTS.(lastKey);
+                % Sync CTG bus to the RESULT's actual grouping columns so
+                % vw_col_idx can map VW values (e.g. "L-hind-paw") to the
+                % correct column (e.g. "stimSite") in the visualization mask.
+                nexObj.refreshCTGFromAVG();
             else
                 nexObj.AVG = [];
+                nexObj.refreshCTG();   % restore from parent categorical
             end
             nexObj.refreshVW();
             nexObj.buildSTATE();

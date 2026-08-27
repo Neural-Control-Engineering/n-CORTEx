@@ -402,15 +402,7 @@ classdef nexObject < handle
             viewDict.CLR = clrKeys;
             nexObj.collector.View = nexInit_collectorView(nexObj, viewDict);
 
-            % Wire dynamic CTG refresh: when the parent categorical changes
-            % which categories are selected, update this figure's CTG listbox.
-            if ~isempty(nexObj.Parent) && isvalid(nexObj.Parent) && ...
-                    strcmp(nexObj.Parent.classID, 'ctg') && ...
-                    isfield(nexObj.Parent.selectionBus, 'categories')
-                nexObj.Listeners.ctgCategories = addlistener(...
-                    nexObj.Parent.selectionBus.categories, 'selections', 'PostSet', ...
-                    @(~,~) nexObj.refreshCTG());
-            end
+            nexObj.wireCTGListeners();
         end
 
         function resID = buildResultID(nexObj, resType, nBins)
@@ -1140,6 +1132,54 @@ classdef nexObject < handle
                 bus.listBoxes.CTG.String = newKeys;
                 bus.listBoxes.CTG.Max    = nCTG;
                 bus.listBoxes.CTG.Value  = newSel;
+            end
+        end
+
+        function refreshCTGFromAVG(nexObj)
+            % Set CTG bus to the grouping columns of nexObj.AVG (the active RESULT).
+            % Called when SRC changes to a RESULT so the visualization mask can
+            % map VW group labels (values) to the correct column (e.g. "stimSite").
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","cov","labels", ...
+                                 "trialNumber","sampleNumber"];
+            tbl = nexObj.AVG;
+            if isempty(tbl) || ~istable(tbl)
+                nexObj.refreshCTG(); return;
+            end
+            cols    = string(tbl.Properties.VariableNames)';
+            grpCols = cols(~ismember(cols, DF_STRUCT_FIELDS));
+            if isempty(grpCols), grpCols = ""; end
+            bus  = nexObj.collector.View;
+            nCTG = numel(grpCols);
+            bus.selKeys.CTG    = grpCols;
+            bus.selections.CTG = 1:nCTG;
+            if isfield(bus.listBoxes, 'CTG') && ~isempty(bus.listBoxes.CTG)
+                bus.listBoxes.CTG.String = grpCols;
+                bus.listBoxes.CTG.Max    = max(1, nCTG);
+                bus.listBoxes.CTG.Value  = 1:nCTG;
+            end
+        end
+
+        function wireCTGListeners(nexObj)
+            % Attach PostSet listeners so category/item changes in the parent
+            % categorical propagate to this nexObject's CTG listbox via refreshCTG.
+            % Safe to call multiple times — skips if listeners already exist.
+            if isempty(nexObj.Parent) || ~isvalid(nexObj.Parent) || ...
+                    ~strcmp(nexObj.Parent.classID, 'ctg') || ...
+                    ~isfield(nexObj.Parent.selectionBus, 'categories')
+                return;
+            end
+            if ~isfield(nexObj.Listeners, 'ctgCategories') || ...
+                    isempty(nexObj.Listeners.ctgCategories)
+                nexObj.Listeners.ctgCategories = addlistener(...
+                    nexObj.Parent.selectionBus.categories, 'selections', 'PostSet', ...
+                    @(~,~) nexObj.refreshCTG());
+            end
+            if isfield(nexObj.Parent.selectionBus, 'items') && ...
+                    (~isfield(nexObj.Listeners, 'ctgItems') || ...
+                     isempty(nexObj.Listeners.ctgItems))
+                nexObj.Listeners.ctgItems = addlistener(...
+                    nexObj.Parent.selectionBus.items, 'selections', 'PostSet', ...
+                    @(~,~) nexObj.refreshCTG());
             end
         end
 

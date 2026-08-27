@@ -1,5 +1,10 @@
 function listCfgEntryChanged(src, event, key, selectionBus)
-    selectionBus.selections.(key) = src.Value;
+    % Whole-struct replacement so PostSet fires on selectionBus.selections,
+    % allowing addlistener('selections','PostSet',...) to propagate changes
+    % (field-level assignment sel.(key)=val never fires PostSet).
+    newSel = selectionBus.selections;
+    newSel.(key) = src.Value;
+    selectionBus.selections = newSel;
     parent = selectionBus.Parent;
     if isa(parent, 'nexObj_selectionBus')
         % Items bus of nexObj_categorical — enumerate items for the new selection

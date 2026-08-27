@@ -29,6 +29,7 @@ function [TF, drop] = nexOp_compileTF(nexObj, idxSel, dfID, ptr)
     is_no_data              = false(size(TF));
     is_no_data(~is_empty_TF) = cellfun(@(DF) isempty(DF.df), TF(~is_empty_TF), 'UniformOutput', true);
     drop = is_empty_TF | is_no_data;
+    fprintf("dropping %d samples \n", sum(drop));
     TF   = TF(~drop);    
     %% ALIGNMENT (align all samples by '0' given preBuffLen)
     try
