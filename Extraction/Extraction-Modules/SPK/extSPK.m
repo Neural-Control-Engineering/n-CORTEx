@@ -108,8 +108,9 @@ function SPK = extSPK(SLRT, npxls_path, trigNum, bin_s, sigma_s, doViz)
 
         session_label = SLRT(trial,:).session_label{1};
         gate_ct   = SLRT(trial,:).("trial-gate_clock_time"){1};
-        t_start_s = gate_ct(1) - preBuffLen;
-        t_stop_s  = min(gate_ct(end), t_start_s + ap_dur_s);
+        % t_start_s = gate_ct(1) - preBuffLen;  % old: subtracted preBuffLen twice when gate_ct(1) already = -3.5
+        t_start_s = -preBuffLen;
+        t_stop_s  = t_start_s + ap_dur_s;
 
         row = table(trigNum, {session_label}, ...
             'VariableNames', {'trial_num', 'session_label'});

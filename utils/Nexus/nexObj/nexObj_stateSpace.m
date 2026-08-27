@@ -386,7 +386,8 @@ classdef nexObj_stateSpace < nexObject
 
             Z_parts = {}; G_parts = {};
             for r = 1:height(STAT)
-                df_r = STAT.df{r};
+                dfCol = STAT.df;
+                if iscell(dfCol), df_r = dfCol{r}; else, df_r = dfCol(r); end
                 if isempty(df_r), continue; end
                 if isstruct(df_r) && isfield(df_r, 'df'), df_r = df_r.df; end
                 T_r = size(df_r, 1);

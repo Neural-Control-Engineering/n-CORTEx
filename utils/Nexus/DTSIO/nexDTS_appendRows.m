@@ -1,4 +1,4 @@
-function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon, patchDir, overwrite)
+function [manifest_out, nWritten] = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon, patchDir, overwrite)
 % Write new rows from DTS_inmem into the nexDTS HDF5, return updated manifest.
 %
 %   DTS_inmem    : in-memory table of rows to sink (no h5_path column).
@@ -25,6 +25,7 @@ function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon,
     if nargin < 6, overwrite = false; end
 
     manifest_out = manifest_in;
+    nWritten     = 0;
     if isempty(DTS_inmem) || ~istable(DTS_inmem), return; end
 
     % ── If given a hybrid DTS, extract only the in-memory rows ───────────
@@ -58,6 +59,7 @@ function manifest_out = nexDTS_appendRows(DTS_inmem, h5File, manifest_in, nexon,
     if isempty(nonAddrCols), return; end
 
     manifest_new = nexus_exportDTS(DTS_inmem, h5File);
+    nWritten     = height(manifest_new);
 
     if isempty(manifest_in)
         manifest_out = manifest_new;

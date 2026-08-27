@@ -41,7 +41,8 @@ function row = formatSpk_toDTS(spk, t_start_s, t_stop_s, bin_s, sigma_s)
         bin_edges = [t_start_s, t_start_s + bin_s];
     end
     n_tbins    = numel(bin_edges) - 1;
-    t_bins     = (bin_edges(1:n_tbins) + bin_s/2) - t_start_s;  % relative s
+    % t_bins     = (bin_edges(1:n_tbins) + bin_s/2) - t_start_s;  % relative s
+    t_bins     = (bin_edges(1:n_tbins) + bin_s/2);  % relative s
 
     % --- slice spikes to trial window ---
     in_win = spk.spike_times_s >= bin_edges(1) & spk.spike_times_s < bin_edges(end);

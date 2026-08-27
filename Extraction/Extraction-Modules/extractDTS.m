@@ -67,14 +67,13 @@ function extractDTS(params)
             dts.trialNumber = cell2mat(dts.trialNumber);
         end
 
-        rowsBefore = height(manifest);
-        manifest   = nexDTS_appendRows(dts, h5File, manifest, [], [], OVERWRITE);
+        [manifest, nWritten] = nexDTS_appendRows(dts, h5File, manifest, [], [], OVERWRITE);
 
         % Log session as extracted only if rows were actually written
-        if height(manifest) <= rowsBefore
-            fprintf("WARNING: no new rows written for session %s (already present or empty)\n", session);
+        if nWritten == 0
+            fprintf("WARNING: no rows written for session %s (already present or empty)\n", session);
         end
-        if isfile(logPath) && height(manifest) > rowsBefore && all(modPassed)
+        if isfile(logPath) && nWritten > 0 && all(modPassed)
             try
                 extractionLog = readtable(logPath);
                 if ~ismember('SessionName', extractionLog.Properties.VariableNames) || ...
