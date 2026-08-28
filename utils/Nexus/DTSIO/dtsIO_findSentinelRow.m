@@ -1,56 +1,66 @@
 function rowIdx = dtsIO_findSentinelRow(nexon, dfID)
 % dtsIO_findSentinelRow  First DTS row with written data for dfID.
-%
-%   Disk-backed patch: reads h5info once on the patch file and intersects
-%   written h5_root groups against the DTS manifest — no row-by-row reads.
-%   In-memory: finds the first non-empty cell in the dfID column.
-%   Returns [] if no row has data yet.
+%   Tries three locations in order, falling through on failure:
+%   1. Patch column (h5_path_<dfID>) — row-by-row scan, newest first.
+%   2. In-memory foliated columns (<dfID>_df, <dfID>_unit, …).
+%   3. Base diskDTS (h5_path) — row-by-row h5info scan, newest first.
+%   Returns [] if no row has data.
 
     rowIdx = [];
     DTS    = nexon.console.BASE.DTS;
     dfID   = char(dfID);
 
-    % --- Disk-backed patch -----------------------------------------------
+    % --- 1. Disk-backed patch (h5_path_<dfID> column) --------------------
+    % Scan newest-first so recently-added dfIDs are found without traversing
+    % old trials. Falls through to base-HDF5 check when nothing is found
+    % (handles the case where patch column exists but data landed in base).
     patchCol = ['h5_path_' dfID];
     if ismember(patchCol, DTS.Properties.VariableNames)
         try
-            allPaths  = string(DTS.(patchCol));
-            patchFile = char(allPaths(find(allPaths ~= "" & allPaths ~= "0", 1)));
-            info = h5info(patchFile);
-            % h5info only populates immediate children; BFS over the struct
-            % tree to collect every group name at all depths (no extra I/O).
-            allNames = string.empty(0, 1);
-            stack    = info.Groups(:);
-            while ~isempty(stack)
-                allNames(end+1, 1) = string(stack(1).Name); %#ok<AGROW>
-                stack = [stack(2:end); stack(1).Groups(:)];
+            allPaths = string(DTS.(patchCol));
+            h5roots  = string(DTS.h5_root);
+            for ri = numel(allPaths):-1:1
+                p = allPaths(ri);
+                if p == "" || p == "0", continue; end
+                try
+                    h5info(char(p), [char(h5roots(ri)) '/' dfID]);
+                    rowIdx = ri;
+                    return;
+                catch
+                end
             end
-            [~, ia] = intersect(string(DTS.h5_root), allNames, 'stable');
-            if ~isempty(ia), rowIdx = ia(1); end
         catch
         end
-        return;
+        % fall through — patch column present but data not there
     end
 
-    % --- In-memory -------------------------------------------------------
-    if ismember(dfID, DTS.Properties.VariableNames)
-        col = DTS.(dfID);
+    % --- 2. In-memory foliated columns (<dfID>_df, <dfID>_unit, …) -------
+    [cols, ~] = dtsIO_resolveDFID(DTS, dfID);
+    if ~isempty(cols)
+        col = DTS.(char(cols(1)));
         if iscell(col)
-            rowIdx = find(~cellfun(@isempty, col), 1);
+            rowIdx = find(~cellfun(@isempty, col), 1, 'last');
         end
         return;
     end
 
-    % --- Base diskDTS (dfID in main HDF5, no patch column) ---------------
-    % All rows are written together at export time, so presence in any one
-    % row implies presence in all — just verify the dfID group exists.
+    % --- 3. Base diskDTS (dfID group in main HDF5) -----------------------
+    % Scan newest-first — newer trials more likely to have recently-added dfIDs.
     if ismember('h5_path', DTS.Properties.VariableNames)
         try
-            validH5 = find(strlength(string(DTS.h5_path)) > 0, 1);
-            h5File  = char(DTS.h5_path(validH5));
-            h5Root  = char(DTS.h5_root(validH5));
-            h5info(h5File, [h5Root '/' dfID]);   % throws if group absent
-            rowIdx = validH5;
+            h5paths   = string(DTS.h5_path);
+            h5roots   = string(DTS.h5_root);
+            validRows = find(strlength(h5paths) > 0 & strlength(h5roots) > 0);
+            if isempty(validRows), return; end
+            h5File = char(h5paths(validRows(1)));
+            for ri = validRows(end:-1:1)'
+                try
+                    h5info(h5File, [char(h5roots(ri)) '/' dfID]);
+                    rowIdx = ri;
+                    return;
+                catch
+                end
+            end
         catch
         end
     end

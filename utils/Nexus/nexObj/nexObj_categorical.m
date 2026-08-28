@@ -47,6 +47,9 @@ classdef nexObj_categorical < nexObject
             % compute result
             nexObj.compute();
             % axis control
+            if isempty(nexObj.DF_postOp) || ~isfield(nexObj.DF_postOp, 'df')
+                nexObj.DF_postOp = struct('df', [], 'ax', struct(), 'ptr', struct());
+            end
             nexObj.DF_postOp.ptr = nexInit_axisPointer(nexObj.DF_postOp.df, nexObj.DF_postOp.ax);
             % pooling control
             try
