@@ -17,6 +17,14 @@ classdef nexObj_polyGraph < nexObject
                 nexObj.Parent.Children.(nexObj.classID) = nexObj;
             else
                 nexObj.DF = dtsIO_readDF(nexon, dfID_source, []);
+                if isempty(nexObj.DF) || ~isfield(nexObj.DF, 'df') || isempty(nexObj.DF.df)
+                    sentinelRow = dtsIO_findSentinelRow(nexon, dfID_source);
+                    if ~isempty(sentinelRow)
+                        nexObj.DF = dtsIO_readDF(nexon, dfID_source, sentinelRow);
+                        fprintf('[nexObj_polyGraph] partial transform — sentinel row %d: %s\n', ...
+                            sentinelRow, nexon.console.BASE.DTS.sessionLabel{sentinelRow});
+                    end
+                end
             end
 
             %% Origin — explicit > Parent > self
