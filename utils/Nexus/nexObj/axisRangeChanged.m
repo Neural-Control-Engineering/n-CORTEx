@@ -6,11 +6,18 @@ function axisRangeChanged(src, ~, nexObj, nexPtr, axSel, rangeIdx)
     if sta <= stp
         idxArr = sta:stp;
         nexPtr.(axSel).indices = idxArr;
-        % Mirror into Pointer bus so RESULTS per-row syncs see the same selection
+        % Sta/Stp own the Pointer bus — push the new range as the selection.
         ptrBus = nexObj.collector.Pointer;
         if ~isempty(ptrBus) && isprop(ptrBus, 'selections') ...
-                && isfield(ptrBus.selections, axSel)
-            ptrBus.selections.(axSel) = idxArr;
+                && isfield(ptrBus.selections, axSel) ...
+                && isfield(ptrBus.selKeys, axSel)
+            nVals  = numel(ptrBus.selKeys.(axSel));
+            newSel = idxArr(idxArr >= 1 & idxArr <= nVals);
+            ptrBus.selections.(axSel) = newSel;
+            if isfield(ptrBus.listBoxes, axSel) && ~isempty(ptrBus.listBoxes.(axSel)) ...
+                    && isvalid(ptrBus.listBoxes.(axSel))
+                ptrBus.listBoxes.(axSel).Value = newSel;
+            end
         end
     end
     nexObj.visualize();

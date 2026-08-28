@@ -855,7 +855,8 @@ classdef nexObj_stateSpace < nexObject
 
             % Override to full-range for changed axes: the old-range mapping in
             % refreshPointer would preserve a partial selection (e.g. t≥0 only).
-            % Also reset ptr.window so the Window panel agrees (bidirectional sync).
+            % Sta/Stp (ptr.range) own the Pointer bus — reset range to full axis.
+            % Win (ptr.window) is independent and intentionally left untouched.
             if ~isempty(nexObj.collector.Pointer)
                 bus = nexObj.collector.Pointer;
                 for i = 1:numel(changed)
@@ -868,9 +869,11 @@ classdef nexObj_stateSpace < nexObject
                         bus.listBoxes.(f).Value = 1:nVals;
                     end
                     if isprop(nexObj.DF_postOp.ptr, f)
-                        nexObj.DF_postOp.ptr.(f).window = nVals;
+                        nexObj.DF_postOp.ptr.(f).range = [1, nVals];
                         try
-                            nexObj.Figure.windowCfgPanel.editFields.(f).window.Value = nVals;
+                            ef = nexObj.Figure.windowCfgPanel.editFields.(f);
+                            ef.rangeStart.Value = 1;
+                            ef.rangeEnd.Value   = nVals;
                         catch
                         end
                     end

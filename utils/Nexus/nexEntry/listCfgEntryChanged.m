@@ -19,21 +19,23 @@ function listCfgEntryChanged(src, event, key, selectionBus)
             if isstruct(p) && isfield(p, 'dim')
                 sel = sort(double(src.Value(:)'));
                 if ~isempty(sel) && isnumeric(sel)
-                    p.indices = sel;
-                    % Bidirectional sync: map selection → (value, window) so the
-                    % Window panel always reflects the Pointer context.
-                    p.value  = sel(round(end/2));
-                    p.window = numel(sel);
+                    p.indices  = sel;
+                    % Pointer bus owns Sta/Stp (ptr.range) and Val (ptr.value).
+                    % Win (ptr.window) is an independent sub-context control.
+                    p.range(1) = sel(1);
+                    p.range(2) = sel(end);
+                    p.value    = sel(round(end/2));
                 else
                     p.indices = [];
                 end
                 parent.DF_postOp.ptr.(key) = p;
-                % Update Window-panel spinners if present.
+                % Update Sta/Stp and Val spinners; leave Win spinner untouched.
                 try
                     ef = parent.Figure.windowCfgPanel.editFields.(key);
                     if ~isempty(sel)
-                        ef.uiField.Value = p.value;
-                        ef.window.Value  = p.window;
+                        ef.rangeStart.Value = p.range(1);
+                        ef.rangeEnd.Value   = p.range(2);
+                        ef.uiField.Value    = p.value;
                     end
                 catch
                 end
