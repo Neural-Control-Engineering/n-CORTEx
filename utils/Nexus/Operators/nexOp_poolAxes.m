@@ -29,7 +29,7 @@ function DF_pooled = nexOp_poolAxes(pMap, DF, ptr)
                 try
                     DF_pooled = pm.pool(DF_pooled, dim);
                 catch
-                    keyboard
+                    % keyboard
                 end
             end
             % DF_pooled.df=binAvgs;
