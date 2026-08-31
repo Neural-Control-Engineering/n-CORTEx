@@ -76,9 +76,13 @@ function  nexInit_registry(nexon)
         subjectID = sprintf("subj_%s",subject);
         subjectID = strrep(subjectID,"-","_");
         nexon.console.BASE.registry.SUBJ.(subjectID).regMap=regMap;
+        % Atlas annotation — load probabilistic posterior; falls back to NTE prior
+        subjectDir = subjectDir_local;
+        if ~isfolder(subjectDir), subjectDir = subjectDir_cloud; end
+        nexAtlas_initSubject(nexon, subjectID, subjectDir);
     end
 
-    
+
 end
 
 % res=cellfun(@(df) (df==9.669406058356351), rThresh,"UniformOutput",false)

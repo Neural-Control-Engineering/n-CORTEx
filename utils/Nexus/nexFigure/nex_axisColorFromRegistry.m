@@ -77,6 +77,9 @@ switch axID
         [colors, anyHit] = colorByRegionName(regMap, string(axisVals));
     case 'chans'
         [colors, anyHit] = colorByChannel(regMap, double(axisVals));
+    case 'map'
+        % "ax--regionMAP" — values are MAP region acronyms from atlas posterior
+        [colors, anyHit] = colorByRegionName(regMap, string(axisVals));
     otherwise
         return;   % axis not registry-backed — caller uses lines() fallback
 end

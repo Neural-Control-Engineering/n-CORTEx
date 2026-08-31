@@ -127,6 +127,28 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                         movefile(fullfile(loc,item), fullfile(binFldr,kSortOutFolder),'f');
                                     end
                                 end    
+                                %% ATLAS REGISTRATION — KS4
+                                try
+                                    subjID     = char(parseSessionLabel(sessionLabel, 'subj'));
+                                    subjectDir = fullfile(params.paths.projDir_cloud, ...
+                                        "Experiments", ...
+                                        params.extractCfg.experiment, "Subjects", subjID);
+                                    if ~isfolder(subjectDir)
+                                        subjectDir = fullfile(params.paths.projDir_local, ...
+                                            "Experiments", ...
+                                            params.extractCfg.experiment, "Subjects", subjID);
+                                    end
+                                    ks4Dir = fullfile(kSortOutPath, 'kilosort4');
+                                    spk_ks = loadKS4_spk(ks4Dir);
+                                    nexAtlas_writePreparedData(spk_ks, fileName, sessionLabel, subjectDir, 'KS');
+                                    [DF_tmpl_ks, DF_spat_ks, DF_isi_ks] = nexAtlas_spkToDFs(spk_ks);
+                                    nexAtlas_registerSession(subjectDir, sessionLabel, DF_tmpl_ks, ...
+                                        struct('DF_spatial', DF_spat_ks, 'DF_isi', DF_isi_ks, ...
+                                               'sorterTag', 'KS', 'fs', spk_ks.fs));
+                                catch e_atlas
+                                    fprintf('[atlas/KS] %s: %s\n', sessionLabel, e_atlas.message);
+                                end
+
                                 %% RTSORT OPTIONAL
                                 rtsArgs = extractMethodCfg('extractRAW_rtSort');
                                 % Prefer a pre-trained sorter for this session (e.g. a
@@ -135,6 +157,21 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                 % trigger; "" → runRTSort.py detects as before.
                                 rtsArgs.sorterPickle = resolveRTSortPickle(params, sessionLabel);
                                 extractRAW_rtSort(fileName, kSortOutPath, [], rtsArgs);
+
+                                %% ATLAS REGISTRATION — RTSort
+                                try
+                                    rtsPath = fullfile(kSortOutPath, 'rtsort_results.mat');
+                                    if isfile(rtsPath)
+                                        spk_rt = loadRTSort_spk(rtsPath);
+                                        nexAtlas_writePreparedData(spk_rt, fileName, sessionLabel, subjectDir, 'RT');
+                                        [DF_tmpl_rt, DF_spat_rt, DF_isi_rt] = nexAtlas_spkToDFs(spk_rt);
+                                        nexAtlas_registerSession(subjectDir, sessionLabel, DF_tmpl_rt, ...
+                                            struct('DF_spatial', DF_spat_rt, 'DF_isi', DF_isi_rt, ...
+                                                   'sorterTag', 'RT', 'fs', spk_rt.fs));
+                                    end
+                                catch e_atlas
+                                    fprintf('[atlas/RT] %s: %s\n', sessionLabel, e_atlas.message);
+                                end
                                 %% LFP
                                 % Load LFP data
                                 chan_nidq = 1:9;
