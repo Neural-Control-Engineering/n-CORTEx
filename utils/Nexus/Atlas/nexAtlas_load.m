@@ -47,17 +47,35 @@ function atlas = nexAtlas_readHDF5(atlasFile)
     end
 
     % Per-session phase tags (lightweight — no heavy arrays loaded at startup)
+    % Full session labels exceed MATLAB's 63-char fieldname limit, so a safe
+    % short key is used as the struct field; the original label is in .label.
     try
         info = h5info(atlasFile, '/sessions');
         for i = 1:numel(info.Groups)
-            key = info.Groups(i).Name;
-            key = key(max(strfind(key,'/'))+1:end);
+            fullKey = info.Groups(i).Name;
+            fullKey = fullKey(max(strfind(fullKey,'/'))+1:end);
+            safeKey = sessionFieldname(fullKey);
             try
-                atlas.sessions.(key).phase = ...
-                    char(h5read(atlasFile, ['/sessions/' key '/phase']));
+                atlas.sessions.(safeKey).label = fullKey;
+                atlas.sessions.(safeKey).phase = ...
+                    char(h5read(atlasFile, ['/sessions/' fullKey '/phase']));
             catch
             end
         end
     catch
     end
+end
+
+
+function k = sessionFieldname(label)
+% Derive a valid MATLAB identifier (<=63 chars) from a session label.
+% Appends an 8-char hex hash so labels that share a 54-char prefix stay unique.
+    safe = regexprep(char(label), '[^a-zA-Z0-9]', '_');
+    if ~isempty(safe) && ~isletter(safe(1)), safe = ['s' safe]; end
+    if numel(safe) <= 63
+        k = safe;
+        return;
+    end
+    hash = sprintf('%08x', mod(sum(double(char(label)) .* (1:numel(label))), 2^32));
+    k = [safe(1:54) '_' hash];   % 54 + '_' + 8 = 63
 end

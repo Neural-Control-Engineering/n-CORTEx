@@ -70,32 +70,11 @@ function catalog = nexAtlas_loadCatalog(subjectDir)
         c.labels = emptyLabels();
     end
 
-    % Per-session records
+    % Session records are written once by writeSessionRecord (nexAtlas_registerSession)
+    % directly into /units/sessions/<label>/ and are never re-read into MATLAB structs
+    % (session labels exceed MATLAB's 63-char fieldname limit).
+    % Query them directly from HDF5 when needed rather than caching here.
     c.sessions = struct();
-    try
-        sessInfo = h5info(atlasFile, '/units/sessions');
-        for i = 1:numel(sessInfo.Groups)
-            sessPath = sessInfo.Groups(i).Name;
-            sessKey  = sessPath(max(strfind(sessPath,'/'))+1:end);
-            try
-                sorterInfo = h5info(atlasFile, sessPath);
-                for j = 1:numel(sorterInfo.Groups)
-                    sortPath = sorterInfo.Groups(j).Name;
-                    sortKey  = sortPath(max(strfind(sortPath,'/'))+1:end);
-                    fields   = {'local_ids','global_ids','match_conf','root_ch'};
-                    for fi = 1:numel(fields)
-                        try
-                            c.sessions.(sessKey).(sortKey).(fields{fi}) = ...
-                                h5read(atlasFile, [sortPath '/' fields{fi}]);
-                        catch
-                        end
-                    end
-                end
-            catch
-            end
-        end
-    catch
-    end
 
     catalog = c;
 end
