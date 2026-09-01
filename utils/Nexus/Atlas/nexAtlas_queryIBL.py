@@ -15,7 +15,7 @@ Requires: ONE-api, ibllib, iblatlas, h5py, numpy, pandas
 
 Features written (units match nexOp_unitFeatures output):
     ptd_ms          peak-to-trough duration (ms)    from clusters.peakToTrough
-    firing_rate_hz  mean firing rate (Hz)            from clusters.firing_rate
+    firing_rate     mean firing rate (Hz)            from clusters.firing_rate
     cv_isi          ISI coefficient of variation     from spikes (skipped if unavailable)
 """
 
@@ -26,12 +26,12 @@ import numpy as np
 import h5py
 from pathlib import Path
 
-FEATURE_NAMES = ['ptd_ms', 'firing_rate_hz', 'cv_isi']
+FEATURE_NAMES = ['ptd_ms', 'firing_rate', 'cv_isi']
 
 # Default target regions (Allen CCF acronyms matching our probe trajectory)
 DEFAULT_REGIONS = ['STN', 'ZI', 'VPM', 'VPL', 'CA1', 'SSp']
 
-# Cap on sessions to load per region — trade-off between accuracy and runtime
+# Cap on sessions to load per region - trade-off between accuracy and runtime
 DEFAULT_MAX_SESSIONS = 80
 
 
@@ -62,23 +62,41 @@ def parse_args():
                    help='Maximum sessions to load per region (default %(default)s)')
     p.add_argument('--fallback_only', action='store_true',
                    help='Skip IBL query; write literature priors only')
-    p.add_argument('--base_url', default='https://alyx.internationalbrainlab.org',
+    p.add_argument('--base_url', default='https://openalyx.internationalbrainlab.org',
                    help='Alyx server URL')
     return p.parse_args()
 
 
 def read_prior_regions(atlas_h5):
-    """Read unique region acronyms recorded in /prior/channel_regions."""
-    with h5py.File(atlas_h5, 'r') as f:
-        if '/prior/channel_regions' not in f:
-            return None
-        raw = f['/prior/channel_regions'][:]
-        # h5py returns bytes or strings depending on how they were written
-        regions = [r.decode() if isinstance(r, bytes) else str(r) for r in raw]
-    # Unique, drop blanks/unknowns
+    """Read unique region acronyms from the atlas prior.
+    Tries /prior/region_acronyms first (already deduplicated), then falls back
+    to /prior/channel_regions.  Handles the case where MATLAB h5write encoded
+    an entire string array as one bytes-repr blob (b'STN' b'ZI' ...).
+    """
+    import re
     skip = {'', 'root', 'void', 'Not classified', 'unassigned'}
-    unique = [r for r in dict.fromkeys(regions) if r not in skip]
-    return unique
+
+    def _decode_dataset(raw):
+        regions = []
+        for r in raw.flat:
+            text = r.decode() if isinstance(r, bytes) else str(r)
+            # MATLAB may encode the whole array as one repr string: "[b'STN' b'ZI' ...]"
+            if "b'" in text:
+                regions.extend(re.findall(r"b'([^']+)'", text))
+            else:
+                t = text.strip()
+                if t:
+                    regions.append(t)
+        return [r for r in dict.fromkeys(regions) if r not in skip]
+
+    with h5py.File(atlas_h5, 'r') as f:
+        for key in ('/prior/region_acronyms', '/prior/channel_regions'):
+            if key not in f:
+                continue
+            unique = _decode_dataset(f[key][:])
+            if unique:
+                return unique
+    return None
 
 
 # ── ONE / iblatlas setup ───────────────────────────────────────────────────────
@@ -99,7 +117,7 @@ def get_region_ids(br, acronym):
     result = np.array(sorted(all_ids), dtype=int)
 
     if len(result) == 0:
-        print(f'  {acronym}: NOT FOUND in Allen CCF atlas — will use literature prior')
+        print(f'  {acronym}: NOT FOUND in Allen CCF atlas - will use literature prior')
     else:
         print(f'  {acronym}: resolved to {len(result)} Allen CCF ID(s)')
     return result
@@ -108,11 +126,12 @@ def get_region_ids(br, acronym):
 def load_one(base_url):
     from one.api import ONE
     print(f'[nexAtlas_queryIBL] Connecting to ONE ({base_url})...')
+    # IBL public read-only credentials - no account needed.
+    # silent=True suppresses interactive prompts (required when called from MATLAB system()).
     try:
-        one = ONE(base_url=base_url)
+        one = ONE(base_url=base_url, password='international', silent=True)
     except Exception as e:
         print(f'  ONE connection failed: {e}')
-        print('  If credentials are not set up, run: python -c "from one.api import ONE; ONE()"')
         return None
     return one
 
@@ -122,7 +141,7 @@ def load_one(base_url):
 def probe_collection(insertion):
     """
     Derive the alf collection path from an Alyx insertion record.
-    IBL convention: probe label 'probe00' → collection 'alf/probe00'.
+    IBL convention: probe label 'probe00' ->collection 'alf/probe00'.
     Falls back to 'alf' when the label is absent (single-probe legacy sessions).
     """
     label = insertion.get('name', '') or insertion.get('probe_label', '')
@@ -131,45 +150,68 @@ def probe_collection(insertion):
     return 'alf'
 
 
+def _find_ccf_collection(one, eid, base_collection):
+    """
+    Try base_collection then known subcollection variants (IBL changed layout over time).
+    Returns (collection_path, region_ids_array) or (None, None) if not found.
+    Variants tried: base, base/pykilosort, base/ks2, base/ks2_5.
+    """
+    candidates = [base_collection,
+                  base_collection + '/pykilosort',
+                  base_collection + '/ks2',
+                  base_collection + '/ks2_5']
+    for coll in candidates:
+        try:
+            data = one.load_dataset(eid, 'clusters.brainLocationIds_ccf_2017',
+                                    collection=coll)
+            if data is not None and len(data) > 0:
+                return coll, np.array(data).flatten().astype(int)
+        except Exception:
+            pass
+    return None, None
+
+
 def load_probe_clusters(one, eid, collection, target_ids):
     """
     Load cluster features for one probe (one collection path), filtered to target_ids.
-    Returns dict: feature → np.array (may be empty), plus '_status' string for logging.
-
-    IBL dataset names are registered types — safe to trust across all labs and dates.
-    Coverage caveat: clusters.brainLocationIds_ccf_2017 requires CCF registration;
-    a small fraction of older sessions lack it and will return empty here.
+    Returns dict: feature ->np.array (may be empty), plus '_status' string for logging.
+    Tries base collection and known IBL subcollection variants (pykilosort, ks2, ...).
     """
     out = {k: np.array([]) for k in FEATURE_NAMES}
     out['_status'] = ''
     try:
-        region_ids = one.load_dataset(eid, 'clusters.brainLocationIds_ccf_2017',
-                                      collection=collection)
-        if region_ids is None or len(region_ids) == 0:
+        collection, region_ids = _find_ccf_collection(one, eid, collection)
+        if collection is None or region_ids is None:
             out['_status'] = 'no CCF registration'
             return out
-        region_ids = np.array(region_ids).flatten().astype(int)
 
-        mask = np.isin(region_ids, target_ids)
+        # IBL stores left-hemisphere units with negative Allen CCF IDs - use abs()
+        mask = np.isin(np.abs(region_ids), target_ids)
         if not mask.any():
             out['_status'] = f'0/{len(region_ids)} units in region'
             return out
 
         hits = []
 
-        ptd_s = one.load_dataset(eid, 'clusters.peakToTrough', collection=collection)
-        if ptd_s is not None:
-            out['ptd_ms'] = np.abs(np.array(ptd_s)[mask]) * 1000.0
-            hits.append('ptd✓')
-        else:
-            hits.append('ptd✗')
+        try:
+            ptd_s = one.load_dataset(eid, 'clusters.peakToTrough', collection=collection)
+            if ptd_s is not None:
+                out['ptd_ms'] = np.abs(np.array(ptd_s)[mask]) * 1000.0
+                hits.append('ptd+')
+            else:
+                hits.append('ptd-')
+        except Exception:
+            hits.append('ptd-')
 
-        fr = one.load_dataset(eid, 'clusters.firing_rate', collection=collection)
-        if fr is not None:
-            out['firing_rate_hz'] = np.array(fr)[mask]
-            hits.append('fr✓')
-        else:
-            hits.append('fr✗')
+        try:
+            fr = one.load_dataset(eid, 'clusters.firing_rate', collection=collection)
+            if fr is not None:
+                out['firing_rate'] = np.array(fr)[mask]
+                hits.append('fr+')
+            else:
+                hits.append('fr-')
+        except Exception:
+            hits.append('fr-')
 
         # CV-ISI: computed from spike trains (not a pre-stored IBL dataset)
         try:
@@ -187,11 +229,11 @@ def load_probe_clusters(one, eid, collection, target_ids):
                     else:
                         cv_vals.append(np.nan)
                 out['cv_isi'] = np.array(cv_vals)
-                hits.append('cv✓')
+                hits.append('cv+')
             else:
-                hits.append('cv✗')
+                hits.append('cv-')
         except Exception:
-            hits.append('cv✗')
+            hits.append('cv-')
 
         out['_status'] = f'{int(mask.sum())} units  ' + '  '.join(hits)
 
@@ -206,20 +248,20 @@ def load_probe_clusters(one, eid, collection, target_ids):
 def get_insertions_for_region(one, acronym):
     """
     Query Alyx insertion records that traverse the named region.
-    Returns list of (eid, collection) pairs — already scoped to the target region,
+    Returns list of (eid, collection) pairs - already scoped to the target region,
     so no per-session region-label loading is needed.
     Falls back to a broad session search when the Alyx REST endpoint is unavailable.
     """
     try:
         # Alyx tags each probe insertion with the brain regions it traverses.
-        # This pre-filters to only probes that went through `acronym` — no scanning needed.
+        # This pre-filters to only probes that went through `acronym` - no scanning needed.
         insertions = one.alyx.rest('insertions', 'list', atlas_acronym=acronym)
         pairs = [(ins['session'], probe_collection(ins)) for ins in insertions]
         print(f'  {acronym}: {len(pairs)} registered probe insertions in IBL')
         return pairs
     except Exception as e:
         print(f'  {acronym}: Alyx insertion query unavailable ({e})')
-        print(f'    falling back to broad session scan — will be slow for common regions')
+        print(f'    falling back to broad session scan - will be slow for common regions')
         try:
             sessions = one.search(datasets='clusters.peakToTrough', query_type='remote')
             # Expand single-probe and likely dual-probe sessions
@@ -236,11 +278,11 @@ def get_insertions_for_region(one, acronym):
 def query_region(one, br, acronym, max_sessions):
     """
     Load cluster features across IBL probe insertions for one Allen CCF region.
-    Returns dict: feature → np.array of pooled values across all matched probes.
+    Returns dict: feature ->np.array of pooled values across all matched probes.
     """
     target_ids = get_region_ids(br, acronym)
     if len(target_ids) == 0:
-        print(f'  {acronym}: no Allen IDs found — skipping')
+        print(f'  {acronym}: no Allen IDs found - skipping')
         return None
 
     probe_pairs = get_insertions_for_region(one, acronym)
@@ -274,9 +316,9 @@ def query_region(one, br, acronym, max_sessions):
         v = pooled[feat]
         finite = v[np.isfinite(v)] if len(v) > 0 else np.array([])
         if len(finite) >= 3:
-            print(f'    {feat:<18}  n={len(finite):>4}  µ={np.mean(finite):.3f}  σ={np.std(finite):.3f}')
+            print(f'    {feat:<18}  n={len(finite):>4}  mu={np.mean(finite):.3f}  sd={np.std(finite):.3f}')
         else:
-            print(f'    {feat:<18}  n={len(finite):>4}  → will use literature prior')
+            print(f'    {feat:<18}  n={len(finite):>4}  ->will use literature prior')
 
     return pooled
 
@@ -315,13 +357,13 @@ def write_reference(atlas_h5, region, mu, sigma, n_units, feature_names):
 def write_fallback(atlas_h5, region):
     """Write literature-derived priors when IBL query fails or region not in IBL."""
     if region not in LITERATURE_PRIORS:
-        print(f'  [{region}]  no literature prior available — skipping')
+        print(f'  [{region}]  no literature prior available - skipping')
         return
     vals = LITERATURE_PRIORS[region]  # [ptd_µ, ptd_σ, fr_µ, fr_σ, cv_µ, cv_σ]
     mu    = [vals[0], vals[2], vals[4]]
     sigma = [vals[1], vals[3], vals[5]]
     write_reference(atlas_h5, region, mu, sigma, LITERATURE_N, FEATURE_NAMES)
-    print(f'    (literature prior — update by re-running without --fallback_only)')
+    print(f'    (literature prior - update by re-running without --fallback_only)')
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -335,7 +377,7 @@ def main():
         print('  Create it first by running nexAtlas_initFromPrior in MATLAB.')
         sys.exit(1)
 
-    # Resolve region list: CLI override → prior in atlas → hardcoded fallback
+    # Resolve region list: CLI override ->prior in atlas ->hardcoded fallback
     regions = args.regions
     if regions is None:
         regions = read_prior_regions(atlas_h5)
@@ -389,7 +431,7 @@ def main():
 
         # Fall back per-feature to literature if IBL returned too few units
         if n is None or n < 10:
-            print(f'  {region}: too few units ({n}) from IBL — using literature prior')
+            print(f'  {region}: too few units ({n}) from IBL - using literature prior')
             write_fallback(atlas_h5, region)
             continue
 
@@ -405,7 +447,7 @@ def main():
                     sources[i] = 'literature'
 
         src_str = '  '.join(f'{f}={s}' for f, s in zip(FEATURE_NAMES, sources))
-        print(f'  {region}: writing — sources: {src_str}')
+        print(f'  {region}: writing - sources: {src_str}')
         write_reference(atlas_h5, region, mu, sigma, n, FEATURE_NAMES)
 
     print('\n[nexAtlas_queryIBL] done.')

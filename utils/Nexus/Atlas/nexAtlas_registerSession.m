@@ -105,13 +105,29 @@ function catalog = updateCatalog(catalog, global_ids, match_conf, ...
             else
                 catalog.templates.(tField)(:, end+1) = waveforms(:, u);
             end
-            catalog.n_sessions.(nField)(end+1) = 1;
+            if ~isfield(catalog.n_sessions, nField)
+                catalog.n_sessions.(nField) = 1;
+            else
+                catalog.n_sessions.(nField)(end+1) = 1;
+            end
             idx = catalog.n_units;
         else
             % Existing unit — running mean update of template
-            n = catalog.n_sessions.(nField)(idx);
-            catalog.templates.(tField)(:, idx) = ...
-                (catalog.templates.(tField)(:, idx) * n + waveforms(:, u)) / (n + 1);
+            % Guard: this sorter may not have processed this unit before
+            if ~isfield(catalog.n_sessions, nField) || numel(catalog.n_sessions.(nField)) < idx
+                n = 0;
+            else
+                n = catalog.n_sessions.(nField)(idx);
+            end
+            if n == 0 || ~isfield(catalog.templates, tField) || size(catalog.templates.(tField), 2) < idx
+                catalog.templates.(tField)(:, idx) = waveforms(:, u);
+            else
+                catalog.templates.(tField)(:, idx) = ...
+                    (catalog.templates.(tField)(:, idx) * n + waveforms(:, u)) / (n + 1);
+            end
+            if ~isfield(catalog.n_sessions, nField)
+                catalog.n_sessions.(nField) = zeros(catalog.n_units, 1);
+            end
             catalog.n_sessions.(nField)(idx) = n + 1;
         end
 

@@ -49,11 +49,15 @@ function nexAtlas_h5write(h5file, dsetPath, data)
 end
 
 function nexAtlas_h5writeStr(h5file, dsetPath, strArr)
-    strArr = cellstr(string(strArr(:)));
+    % Write a string array as a 1-D HDF5 string dataset readable by h5py.
+    % Use string() (not cellstr) — MATLAB R2021b+ h5write handles string arrays
+    % correctly as individual variable-length strings; cellstr triggers scalar-blob encoding.
+    strArr = string(strArr(:));   % column string array
+    n = numel(strArr);
     exists = false;
     try, h5info(h5file, dsetPath); exists = true; catch, end
     if ~exists
-        h5create(h5file, dsetPath, size(strArr), 'Datatype', 'string');
+        h5create(h5file, dsetPath, n, 'Datatype', 'string');
     end
     h5write(h5file, dsetPath, strArr);
 end

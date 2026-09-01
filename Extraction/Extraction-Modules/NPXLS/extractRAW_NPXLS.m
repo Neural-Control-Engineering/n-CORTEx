@@ -253,21 +253,24 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                         % worker progress update
                         
                     end
-                    % zip raw data
+                    % compress raw data (7-zip + zstd: much faster than Windows zip)
+                    sevenZip = 'C:\Program Files\7-Zip\7z.exe';
                     % NIDQ
                     nidqDir = struct2table(dir(nidqFolder));
                     nidqItems = nidqDir(contains(nidqDir.name,"nidq"),:).name;
                     nidqFolder = nidqDir(contains(nidqDir.name,"nidq"),:).folder;
                     nidqItems = cellfun(@(x, fldr) fullfile(fldr,x), nidqItems, nidqFolder, "UniformOutput", false);
-                    zip(fullfile(nidqFolder{1},"NIDQ"),nidqItems);
-                    cellfun(@(x) delete(x), nidqItems, "UniformOutput",false);
+                    sevenZipArchive(sevenZip, fullfile(nidqFolder{1},"NIDQ.7z"), nidqItems);
+                    % zip(fullfile(nidqFolder{1},"NIDQ"),nidqItems);
+                    % cellfun(@(x) delete(x), nidqItems, "UniformOutput",false);
                     % LFP/AP
                     imecDir = struct2table(dir(fullfile(imec_dir.folder,imec_dir.name)));
                     imecItems = imecDir(contains(imecDir.name,"meta") | contains(imecDir.name,"bin"),:).name;
                     imecFolder = imecDir(contains(imecDir.name,"meta") | contains(imecDir.name,"bin"),:).folder;
                     imecItems = cellfun(@(x, fldr) fullfile(fldr,x), imecItems, imecFolder, "UniformOutput", false);
-                    zip(fullfile(imecFolder{1},"IMEC"),imecItems);
-                    cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
+                    sevenZipArchive(sevenZip, fullfile(imecFolder{1},"IMEC.7z"), imecItems);
+                    % zip(fullfile(imecFolder{1},"IMEC"),imecItems);
+                    % cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
                     % migrate to cloud
                     % DEBUGGING, DECOMMENT HERE
                     if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
@@ -284,6 +287,17 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
     end
     cd(fullfile(params.paths.repo_path));
 end
+% -------------------------------------------------------------------------
+function sevenZipArchive(sevenZip, archivePath, items)
+% Compress items into a single .7z archive (zstd, multithreaded) then delete sources.
+    fileArgs = strjoin(cellfun(@(f) sprintf('"%s"', f), items, 'UniformOutput', false), ' ');
+    cmd = sprintf('"%s" a -m0=zstd -mx=3 -mmt=on -sdel "%s" %s', sevenZip, archivePath, fileArgs);
+    [status, out] = system(cmd);
+    if status ~= 0
+        error('extractRAW_NPXLS:compressFailed', '7-zip failed for %s:\n%s', archivePath, out);
+    end
+end
+
 % binFldr=pwd;
 % lfp = ReadSGLXData(fileNAme, binFldr, chan_imec);
 % nidq = ReadSGLXData(fileNAme, binFldr, chan_nidq);

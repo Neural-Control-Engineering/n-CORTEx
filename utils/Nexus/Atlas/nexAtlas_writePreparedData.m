@@ -17,6 +17,11 @@ function nexAtlas_writePreparedData(spk, rawBinPath, sessionLabel, subjectDir, s
 % mechanism that makes async UnitMatch calls viable: all waveform data is
 % captured here while the raw binary is still on disk.
 
+    % prefix long file path ("\\?\")
+    if ispc
+        rawBinPath = strcat("\\?\",rawBinPath);
+    end
+
     outDir = fullfile(subjectDir, 'npxls', 'UnitMatch', char(sessionLabel), char(sorterTag));
     if ~isfolder(outDir), mkdir(outDir); end
     wfDir = fullfile(outDir, 'RawWaveforms');

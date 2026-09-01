@@ -7,11 +7,18 @@ function atlas = nexAtlas_initFromPrior(regMap)
 %   atlas   struct — see nexAtlas_load for field definitions.
 
     % Sort channels by depth, tip first (ascending Y)
-    [~, ord]   = sort(regMap.Y, 'ascend');
+    Y = regMap.Y;
+    if iscell(Y), Y = cell2mat(Y); end
+    [~, ord]   = sort(double(Y), 'ascend');
     rm         = regMap(ord, :);
 
-    depths     = double(rm.Y);
-    chanIdx    = double(rm.channel);
+    ch = rm.channel;
+    if iscell(ch), ch = cell2mat(ch); end
+    Ys = rm.Y;
+    if iscell(Ys), Ys = cell2mat(Ys); end
+
+    depths     = double(Ys);
+    chanIdx    = double(ch);
     hardLabels = string(rm.region);
     hexColors  = string(rm.color);
 
