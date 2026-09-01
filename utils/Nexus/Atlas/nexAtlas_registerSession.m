@@ -43,6 +43,24 @@ function nexAtlas_registerSession(subjectDir, sessionLabel, DF_templates, args)
     n_units = size(DF_features.df, 1);
     fprintf('  %d units  features: %s\n', n_units, strjoin(DF_features.ax.measure, ', '));
 
+    % ── Re-registration guard ─────────────────────────────────────────────────
+    % If already registered: delegate to writeSessionRecord (which has per-field
+    % skip-if-exists guards) so any fields missing from the original registration
+    % are patched automatically. Catalog update and Bayesian update are skipped
+    % to prevent double-counting. Run nexAtlas_recomputePosteriors afterward.
+    if isfile(atlasFile)
+        try
+            h5info(atlasFile, ['/sessions/' char(sessionLabel) '/phase']);
+            writeSessionRecord(atlasFile, sessionLabel, phase, sorterTag, ...
+                               nan(n_units,1), zeros(n_units,1), DF_features);
+            fprintf('  already registered — patched missing fields.\n');
+            fprintf('  run nexAtlas_recomputePosteriors to update posteriors.\n');
+            return;
+        catch
+            % Not yet registered — fall through to full registration
+        end
+    end
+
     % ── Unit catalog: match + update ──────────────────────────────────────────
     catalog = nexAtlas_loadCatalog(subjectDir);
 
@@ -194,11 +212,14 @@ function writeSessionRecord(atlasFile, sessionLabel, phase, sorterTag, ...
         nexAtlas_h5overwrite(atlasFile, [basePath 'sorter_tag'], {char(sorterTag)});
     end
 
-    % Unit registration arrays — immutable once written for this sorter
+    % Unit registration arrays — immutable once written for this sorter.
+    % cosine_global_ids preserves the cosine-similarity IDs that link to the
+    % catalog even after nexAtlas_runUnitMatch overwrites global_ids with
+    % UnitMatch IDs — required by nexAtlas_reconcileCatalog.
     sortPath = [basePath char(sorterTag) '/'];
-    fields   = {'global_ids', 'match_conf', 'local_ids'};
-    data     = {double(global_ids(:)), double(match_conf(:)), ...
-                double(DF_features.ax.unit(:))};
+    fields   = {'global_ids', 'cosine_global_ids', 'match_conf', 'local_ids', 'root_ch'};
+    data     = {double(global_ids(:)), double(global_ids(:)), double(match_conf(:)), ...
+                double(DF_features.ax.unit(:)), double(DF_features.ax.chans(:))};
     for fi = 1:numel(fields)
         path = [sortPath fields{fi}];
         try, h5info(atlasFile, path); catch

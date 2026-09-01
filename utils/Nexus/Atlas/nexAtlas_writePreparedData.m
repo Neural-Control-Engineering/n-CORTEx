@@ -63,6 +63,26 @@ function nexAtlas_writePreparedData(spk, rawBinPath, sessionLabel, subjectDir, s
     fprintf('[nexAtlas_writePreparedData] PreparedData.mat: %d units → %s\n', nUnits, outDir);
 
     extractRawWaveforms(spk, rawBinPath, wfDir);
+
+    % Compress RawWaveforms/ → RawWaveforms.7z (zstd level 1, fastest).
+    % Reduces per-session file count from ~384 .npy files to 1 archive.
+    sevenZip    = 'C:\Program Files\7-Zip\7z.exe';
+    archivePath = fullfile(outDir, 'RawWaveforms.7z');
+    npyPattern  = fullfile(wfDir, 'Unit*.npy');
+    if ~isempty(dir(npyPattern)) && isfile(sevenZip)
+        cmd = sprintf('"%s" a -m0=zstd -mx=1 -mmt=on -sdel "%s" "%s"', ...
+            sevenZip, archivePath, npyPattern);
+        [status, out] = system(cmd);
+        if status == 0
+            try, rmdir(wfDir); catch, end
+            fprintf('[nexAtlas_writePreparedData] compressed: %s\n', archivePath);
+        else
+            fprintf('[nexAtlas_writePreparedData] 7-zip failed, leaving uncompressed:\n%s\n', out);
+        end
+    elseif ~isfile(sevenZip)
+        fprintf('[nexAtlas_writePreparedData] 7-zip not found — RawWaveforms left uncompressed.\n');
+    end
+
     fprintf('[nexAtlas_writePreparedData] done: %s / %s\n', sessionLabel, sorterTag);
 end
 

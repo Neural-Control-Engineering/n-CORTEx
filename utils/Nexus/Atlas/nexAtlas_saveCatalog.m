@@ -45,28 +45,8 @@ function nexAtlas_saveCatalog(catalog, subjectDir)
         nexAtlas_h5overwrite(atlasFile, '/units/catalog/labels/burst_frac', double(catalog.labels.burst_frac(:)));
     end
 
-    % Per-session records — written once, skip if already present
-    sessKeys = fieldnames(catalog.sessions);
-    for i = 1:numel(sessKeys)
-        sessKey = sessKeys{i};
-        sortKeys = fieldnames(catalog.sessions.(sessKey));
-        for j = 1:numel(sortKeys)
-            sortKey  = sortKeys{j};
-            rec      = catalog.sessions.(sessKey).(sortKey);
-            basePath = ['/units/sessions/' sessKey '/' sortKey '/'];
-            fields   = {'local_ids','global_ids','match_conf','root_ch'};
-            for fi = 1:numel(fields)
-                fld  = fields{fi};
-                path = [basePath fld];
-                % Only write if not already in file (session records are immutable)
-                exists = false;
-                try, h5info(atlasFile, path); exists = true; catch, end
-                if ~exists && isfield(rec, fld) && ~isempty(rec.(fld))
-                    data = double(rec.(fld)(:));
-                    h5create(atlasFile, path, size(data), 'Datatype', 'double');
-                    h5write(atlasFile, path, data);
-                end
-            end
-        end
-    end
+    % Per-session records are written directly by writeSessionRecord in
+    % nexAtlas_registerSession (with ~exists guards) and are not round-tripped
+    % through the MATLAB catalog struct — session labels exceed MATLAB's 63-char
+    % fieldname limit and the HDF5 is the authoritative store.
 end

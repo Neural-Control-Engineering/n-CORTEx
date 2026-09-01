@@ -56,6 +56,10 @@ function nexAtlas_queryIBL_run(subjectDir, args)
         cmd = [cmd sprintf(' --max_sessions %d', args.max_sessions)];
     end
 
+    if isfield(args, 'spontaneous_only') && args.spontaneous_only
+        cmd = [cmd ' --spontaneous_only'];
+    end
+
     if isfield(args, 'fallback_only') && args.fallback_only
         cmd = [cmd ' --fallback_only'];
     end

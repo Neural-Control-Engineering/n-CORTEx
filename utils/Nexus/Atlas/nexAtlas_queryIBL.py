@@ -60,6 +60,9 @@ def parse_args():
                         '/prior/channel_regions in atlas_h5)')
     p.add_argument('--max_sessions', type=int, default=DEFAULT_MAX_SESSIONS,
                    help='Maximum sessions to load per region (default %(default)s)')
+    p.add_argument('--spontaneous_only', action='store_true',
+                   help='Restrict to IBL spontaneous/passive sessions (no task engagement). '
+                        'Closer match for awake non-task recordings, but fewer sessions available.')
     p.add_argument('--fallback_only', action='store_true',
                    help='Skip IBL query; write literature priors only')
     p.add_argument('--base_url', default='https://openalyx.internationalbrainlab.org',
@@ -245,17 +248,34 @@ def load_probe_clusters(one, eid, collection, target_ids):
 
 # ── Main query ────────────────────────────────────────────────────────────────
 
-def get_insertions_for_region(one, acronym):
+def get_insertions_for_region(one, acronym, spontaneous_only=False):
     """
     Query Alyx insertion records that traverse the named region.
     Returns list of (eid, collection) pairs - already scoped to the target region,
     so no per-session region-label loading is needed.
     Falls back to a broad session search when the Alyx REST endpoint is unavailable.
+
+    spontaneous_only: filter to sessions with spontaneous/passive task protocols.
+    IBL has no freely moving mice (all head-fixed), but spontaneous sessions avoid
+    task engagement and are the closest match for awake non-task recordings.
     """
+    SPONTANEOUS_PROTOCOLS = ('spontaneous', 'passive', 'habituation')
+
     try:
         # Alyx tags each probe insertion with the brain regions it traverses.
         # This pre-filters to only probes that went through `acronym` - no scanning needed.
         insertions = one.alyx.rest('insertions', 'list', atlas_acronym=acronym)
+
+        if spontaneous_only:
+            filtered = []
+            for ins in insertions:
+                proto = ins.get('session_info', {}).get('task_protocol', '') or ''
+                if any(kw in proto.lower() for kw in SPONTANEOUS_PROTOCOLS):
+                    filtered.append(ins)
+            print(f'  {acronym}: {len(filtered)}/{len(insertions)} insertions match '
+                  f'spontaneous/passive protocol')
+            insertions = filtered
+
         pairs = [(ins['session'], probe_collection(ins)) for ins in insertions]
         print(f'  {acronym}: {len(pairs)} registered probe insertions in IBL')
         return pairs
@@ -275,7 +295,7 @@ def get_insertions_for_region(one, acronym):
             return []
 
 
-def query_region(one, br, acronym, max_sessions):
+def query_region(one, br, acronym, max_sessions, spontaneous_only=False):
     """
     Load cluster features across IBL probe insertions for one Allen CCF region.
     Returns dict: feature ->np.array of pooled values across all matched probes.
@@ -285,7 +305,7 @@ def query_region(one, br, acronym, max_sessions):
         print(f'  {acronym}: no Allen IDs found - skipping')
         return None
 
-    probe_pairs = get_insertions_for_region(one, acronym)
+    probe_pairs = get_insertions_for_region(one, acronym, spontaneous_only=spontaneous_only)
     if not probe_pairs:
         return None
 
@@ -413,9 +433,14 @@ def main():
             write_fallback(atlas_h5, region)
         return
 
+    if args.spontaneous_only:
+        print('[nexAtlas_queryIBL] --spontaneous_only: restricting to spontaneous/passive sessions')
+        print('  Note: IBL has no freely moving mice; spontaneous = head-fixed rest (no task).')
+
     for region in regions:
         print(f'\n[nexAtlas_queryIBL] querying region: {region}')
-        data = query_region(one, br, region, args.max_sessions)
+        data = query_region(one, br, region, args.max_sessions,
+                            spontaneous_only=args.spontaneous_only)
 
         if data is None:
             write_fallback(atlas_h5, region)

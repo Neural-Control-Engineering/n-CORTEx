@@ -88,6 +88,27 @@ function nexAtlas_runUnitMatch(subjectDir, sorterTag)
     fprintf('[nexAtlas_runUnitMatch] %s / %s — %d sessions, %d units total\n', ...
         subjectDir, sorterTag, nSess, numel(clusinfo_all.cluster_id));
 
+    % ── Decompress all RawWaveforms archives before UnitMatch ─────────────────
+    % UnitMatch reads waveforms from all sessions in one batch call, so all
+    % sessions must be fully decompressed before UnitMatch fires.
+    sevenZip          = 'C:\Program Files\7-Zip\7z.exe';
+    decompressedDirs  = {};
+    if isfile(sevenZip)
+        for i = 1:nSess
+            archive = fullfile(KSDirs{i}, 'RawWaveforms.7z');
+            if isfile(archive)
+                wfDir = fullfile(KSDirs{i}, 'RawWaveforms');
+                if ~isfolder(wfDir), mkdir(wfDir); end
+                cmd = sprintf('"%s" e "%s" -o"%s" -y', sevenZip, archive, wfDir);
+                system(cmd);
+                decompressedDirs{end+1} = KSDirs{i}; %#ok<AGROW>
+            end
+        end
+        fprintf('[nexAtlas_runUnitMatch] decompressed %d session(s)\n', numel(decompressedDirs));
+    end
+    % Recompress on any exit — normal return or error
+    cleanupObj = onCleanup(@() recompressWaveforms(sevenZip, decompressedDirs)); %#ok<NASGU>
+
     try
         [UniqueIDConversion, MatchTable, ~, ~] = UnitMatch(clusinfo_all, param);
     catch e
@@ -135,5 +156,21 @@ function writeField(atlasFile, path, data)
     else
         h5create(atlasFile, path, size(data), 'Datatype', 'double');
         h5write(atlasFile, path, data);
+    end
+end
+
+function recompressWaveforms(sevenZip, ksDirs)
+    for i = 1:numel(ksDirs)
+        wfDir      = fullfile(ksDirs{i}, 'RawWaveforms');
+        archive    = fullfile(ksDirs{i}, 'RawWaveforms.7z');
+        npyPattern = fullfile(wfDir, 'Unit*.npy');
+        if ~isfolder(wfDir) || isempty(dir(npyPattern)), continue; end
+        if isfile(archive), delete(archive); end
+        cmd = sprintf('"%s" a -m0=zstd -mx=1 -mmt=on -sdel "%s" "%s"', ...
+            sevenZip, archive, npyPattern);
+        [status, ~] = system(cmd);
+        if status == 0
+            try, rmdir(wfDir); catch, end
+        end
     end
 end

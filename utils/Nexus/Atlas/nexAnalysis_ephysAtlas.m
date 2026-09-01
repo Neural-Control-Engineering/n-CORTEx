@@ -92,6 +92,24 @@ function nexAnalysis_ephysAtlas(subjectDir, sessionLabel, phase, DF_features)
         return;
     end
 
+    % ── Feature weights ───────────────────────────────────────────────────────
+    % Per-feature likelihood weights in [0,1]. Stored in /config/feature_weights/
+    % so they can be tuned per-subject without touching code.
+    % Default: 1.0 for all features. Condition-sensitive features (e.g. firing_rate)
+    % should be downweighted when the reference is poorly matched to recording conditions.
+    feat_weights = ones(1, numel(obs_idx));
+    try
+        cfg_names   = string(h5read(atlasFile, '/config/feature_weights/names'));
+        cfg_weights = h5read(atlasFile, '/config/feature_weights/weights');
+        for fi = 1:numel(obs_idx)
+            hit = find(cfg_names == obs_names(obs_idx(fi)), 1);
+            if ~isempty(hit)
+                feat_weights(fi) = cfg_weights(hit);
+            end
+        end
+    catch
+    end
+
     % ── Bayesian update ───────────────────────────────────────────────────────
     ref_mu_sub    = ref_mu(:, ref_idx);      % (n_reg × n_shared)
     ref_sigma_sub = ref_sigma(:, ref_idx);
@@ -104,16 +122,16 @@ function nexAnalysis_ephysAtlas(subjectDir, sessionLabel, phase, DF_features)
         row  = ch_row(ci);
         feat = ch_feat(ci, :);               % (1 × n_shared)
 
-        % Log-likelihood: sum Gaussian log-pdf across features
+        % Log-likelihood: weighted sum of Gaussian log-pdf across features
         log_lik = zeros(n_reg, 1);
         for fi = 1:numel(obs_idx)
-            if ~isfinite(feat(fi)), continue; end
+            if ~isfinite(feat(fi)) || feat_weights(fi) == 0, continue; end
             mu_f  = ref_mu_sub(:, fi);
             sig_f = ref_sigma_sub(:, fi);
             ok    = isfinite(mu_f) & sig_f > 0;
-            log_lik(ok) = log_lik(ok) ...
-                - 0.5 * ((feat(fi) - mu_f(ok)) ./ sig_f(ok)).^2 ...
-                - log(sig_f(ok));
+            log_lik(ok) = log_lik(ok) + feat_weights(fi) * ...
+                (- 0.5 * ((feat(fi) - mu_f(ok)) ./ sig_f(ok)).^2 ...
+                 - log(sig_f(ok)));
         end
 
         % Multiply log-likelihood into log-prior, normalise
