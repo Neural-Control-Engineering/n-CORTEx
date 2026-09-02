@@ -263,12 +263,21 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     sevenZipArchive(sevenZip, fullfile(nidqFolder{1},"NIDQ.7z"), nidqItems);
                     % zip(fullfile(nidqFolder{1},"NIDQ"),nidqItems);
                     % cellfun(@(x) delete(x), nidqItems, "UniformOutput",false);
-                    % LFP/AP
-                    imecDir = struct2table(dir(fullfile(imec_dir.folder,imec_dir.name)));
-                    imecItems = imecDir(contains(imecDir.name,"meta") | contains(imecDir.name,"bin"),:).name;
-                    imecFolder = imecDir(contains(imecDir.name,"meta") | contains(imecDir.name,"bin"),:).folder;
-                    imecItems = cellfun(@(x, fldr) fullfile(fldr,x), imecItems, imecFolder, "UniformOutput", false);
-                    sevenZipArchive(sevenZip, fullfile(imecFolder{1},"IMEC.7z"), imecItems);
+                    % LFP/AP — one archive per probe
+                    % imecDir = struct2table(dir(fullfile(imec_dir.folder,imec_dir.name)));
+                    % imecItems = imecDir(contains(imecDir.name,"meta") | contains(imecDir.name,"bin"),:).name;
+                    % imecFolder = imecDir(contains(imecDir.name,"meta") | contains(imecDir.name,"bin"),:).folder;
+                    % imecItems = cellfun(@(x, fldr) fullfile(fldr,x), imecItems, imecFolder, "UniformOutput", false);
+                    % sevenZipArchive(sevenZip, fullfile(imecFolder{1},"IMEC.7z"), imecItems);
+                    for ji = 1:numImecs
+                        imecDirTbl  = struct2table(dir(fullfile(imec_dir(ji).folder, imec_dir(ji).name)));
+                        imecMask    = contains(imecDirTbl.name,"meta") | contains(imecDirTbl.name,"bin");
+                        imecItems   = imecDirTbl(imecMask,:).name;
+                        imecFolders = imecDirTbl(imecMask,:).folder;
+                        imecItems   = cellfun(@(x,fldr) fullfile(fldr,x), imecItems, imecFolders, "UniformOutput", false);
+                        imecTagJ    = regexp(imec_dir(ji).name, 'imec(\d+)', 'tokens', 'once');
+                        sevenZipArchive(sevenZip, fullfile(imecFolders{1}, sprintf("IMEC%s.7z", imecTagJ{1})), imecItems);
+                    end
                     % zip(fullfile(imecFolder{1},"IMEC"),imecItems);
                     % cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
                     % migrate to cloud
@@ -286,16 +295,6 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
         end
     end
     cd(fullfile(params.paths.repo_path));
-end
-% -------------------------------------------------------------------------
-function sevenZipArchive(sevenZip, archivePath, items)
-% Compress items into a single .7z archive (zstd, multithreaded) then delete sources.
-    fileArgs = strjoin(cellfun(@(f) sprintf('"%s"', f), items, 'UniformOutput', false), ' ');
-    cmd = sprintf('"%s" a -m0=zstd -mx=3 -mmt=on -sdel "%s" %s', sevenZip, archivePath, fileArgs);
-    [status, out] = system(cmd);
-    if status ~= 0
-        error('extractRAW_NPXLS:compressFailed', '7-zip failed for %s:\n%s', archivePath, out);
-    end
 end
 
 % binFldr=pwd;
