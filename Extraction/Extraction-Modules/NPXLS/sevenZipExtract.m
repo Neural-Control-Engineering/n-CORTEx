@@ -1,12 +1,16 @@
-function sevenZipExtract(sevenZip, archivePath)
-% Extract a .7z archive in-place (contents land in the same directory as the archive).
+function sevenZipExtract(sevenZip, archivePath, destDir)
+% Extract a .7z archive. Contents land in destDir (default: same directory as archive).
 % Falls back to unzipLongPath.py for Windows long paths.
 %
 %   sevenZip    path to 7z.exe  e.g. 'C:\Program Files\7-Zip\7z.exe'
 %   archivePath full path to the .7z archive to extract
+%   destDir     (optional) destination directory; defaults to fileparts(archivePath)
 
     archivePath = char(archivePath);
-    destDir     = fileparts(archivePath);
+    if nargin < 3 || isempty(destDir)
+        destDir = fileparts(archivePath);
+    end
+    destDir = char(destDir);
     maxLen      = max(numel(archivePath), numel(destDir));
 
     if ~ispc || maxLen < 250

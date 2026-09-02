@@ -64,20 +64,20 @@ function nexAtlas_writePreparedData(spk, rawBinPath, sessionLabel, subjectDir, s
 
     extractRawWaveforms(spk, rawBinPath, wfDir);
 
-    % Compress RawWaveforms/ → RawWaveforms.7z (zstd level 1, fastest).
+    % Compress RawWaveforms/ → RawWaveforms.7z (LZMA2 level 1, multithreaded).
     % Reduces per-session file count from ~384 .npy files to 1 archive.
+    % Routes through sevenZipArchive so long-path fallback (zipLongPath.py) applies.
     sevenZip    = 'C:\Program Files\7-Zip\7z.exe';
     archivePath = fullfile(outDir, 'RawWaveforms.7z');
-    npyPattern  = fullfile(wfDir, 'Unit*.npy');
-    if ~isempty(dir(npyPattern)) && isfile(sevenZip)
-        cmd = sprintf('"%s" a -m0=zstd -mx=1 -mmt=on -sdel "%s" "%s"', ...
-            sevenZip, archivePath, npyPattern);
-        [status, out] = system(cmd);
-        if status == 0
+    npyFiles    = dir(fullfile(wfDir, 'Unit*.npy'));
+    if ~isempty(npyFiles) && isfile(sevenZip)
+        items = cellfun(@(f,d) fullfile(d,f), {npyFiles.name}, {npyFiles.folder}, 'UniformOutput', false);
+        try
+            sevenZipArchive(sevenZip, archivePath, items);
             try, rmdir(wfDir); catch, end
-            fprintf('[nexAtlas_writePreparedData] compressed: %s\n', archivePath);
-        else
-            fprintf('[nexAtlas_writePreparedData] 7-zip failed, leaving uncompressed:\n%s\n', out);
+            fprintf('[nexAtlas_writePreparedData] compressed %d .npy files: %s\n', numel(items), archivePath);
+        catch e
+            fprintf('[nexAtlas_writePreparedData] compression failed, leaving uncompressed:\n%s\n', e.message);
         end
     elseif ~isfile(sevenZip)
         fprintf('[nexAtlas_writePreparedData] 7-zip not found — RawWaveforms left uncompressed.\n');

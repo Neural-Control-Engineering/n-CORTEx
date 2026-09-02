@@ -278,6 +278,7 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                         imecTagJ    = regexp(imec_dir(ji).name, 'imec(\d+)', 'tokens', 'once');
                         sevenZipArchive(sevenZip, fullfile(imecFolders{1}, sprintf("IMEC%s.7z", imecTagJ{1})), imecItems);
                     end
+                    % sevenZipExtract(sevenZip,"C:\NCORTE~1\PROJEC~1\EXPERI~1\JOLT\Data\RAW\NPXLS\DAE573~1\DATE--~1\IMEC0.7z");
                     % zip(fullfile(imecFolder{1},"IMEC"),imecItems);
                     % cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
                     % migrate to cloud

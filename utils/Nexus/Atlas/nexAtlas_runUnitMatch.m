@@ -99,8 +99,7 @@ function nexAtlas_runUnitMatch(subjectDir, sorterTag)
             if isfile(archive)
                 wfDir = fullfile(KSDirs{i}, 'RawWaveforms');
                 if ~isfolder(wfDir), mkdir(wfDir); end
-                cmd = sprintf('"%s" e "%s" -o"%s" -y', sevenZip, archive, wfDir);
-                system(cmd);
+                sevenZipExtract(sevenZip, archive, wfDir);
                 decompressedDirs{end+1} = KSDirs{i}; %#ok<AGROW>
             end
         end
@@ -161,16 +160,17 @@ end
 
 function recompressWaveforms(sevenZip, ksDirs)
     for i = 1:numel(ksDirs)
-        wfDir      = fullfile(ksDirs{i}, 'RawWaveforms');
-        archive    = fullfile(ksDirs{i}, 'RawWaveforms.7z');
-        npyPattern = fullfile(wfDir, 'Unit*.npy');
-        if ~isfolder(wfDir) || isempty(dir(npyPattern)), continue; end
+        wfDir    = fullfile(ksDirs{i}, 'RawWaveforms');
+        archive  = fullfile(ksDirs{i}, 'RawWaveforms.7z');
+        npyFiles = dir(fullfile(wfDir, 'Unit*.npy'));
+        if ~isfolder(wfDir) || isempty(npyFiles), continue; end
         if isfile(archive), delete(archive); end
-        cmd = sprintf('"%s" a -m0=zstd -mx=1 -mmt=on -sdel "%s" "%s"', ...
-            sevenZip, archive, npyPattern);
-        [status, ~] = system(cmd);
-        if status == 0
+        items = cellfun(@(f,d) fullfile(d,f), {npyFiles.name}, {npyFiles.folder}, 'UniformOutput', false);
+        try
+            sevenZipArchive(sevenZip, archive, items);
             try, rmdir(wfDir); catch, end
+        catch e
+            fprintf('[nexAtlas_runUnitMatch] recompression failed for %s:\n%s\n', ksDirs{i}, e.message);
         end
     end
 end
