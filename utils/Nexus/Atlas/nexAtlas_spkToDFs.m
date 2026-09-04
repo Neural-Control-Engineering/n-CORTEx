@@ -16,7 +16,11 @@ function [DF_templates, DF_spatial, DF_isi] = nexAtlas_spkToDFs(spk)
     wf_data = zeros(n_wf, n_units, 'single');
     for u = 1:n_units
         rc = spk.unit_root_elecs(u);
-        wf_data(:, u) = spk.unit_templates(u, :, rc);
+        try
+            wf_data(:, u) = spk.unit_templates(u, :, rc);
+        catch
+            keyboard
+        end
     end
     DF_templates.df       = double(wf_data);
     DF_templates.ax.wf    = (1:n_wf)';
@@ -34,7 +38,7 @@ function [DF_templates, DF_spatial, DF_isi] = nexAtlas_spkToDFs(spk)
 
     stats = NaN(n_units, 3);
     for u = 1:n_units
-        t = sort(spk.spike_times_s(spk.spike_clusters == u));
+        t = sort(spk.spike_times_s(spk.spike_clusters == spk.unit_ids(u)));
         if isempty(t), continue; end
         stats(u, 1) = numel(t) / (t_total + eps);          % firing_rate_hz
         if numel(t) >= 3

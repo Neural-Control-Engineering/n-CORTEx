@@ -16,6 +16,7 @@ import sys
 import os
 import tempfile
 import time
+import shutil
 import zipfile
 import subprocess
 
@@ -70,24 +71,39 @@ def main():
     if seven_zip and os.path.isfile(seven_zip):
         # Output archive path may also exceed MAX_PATH — write to a short temp path
         # on the same drive, then rename to the final long path via \\?\ prefix.
-        tmp_archive = os.path.join(tempfile.gettempdir(), '_tmp_' + os.path.basename(archive_path))
-        print(f'[zipLongPath] 7-zip staging to {tmp_archive}', flush=True)
+        sys_temp = tempfile.gettempdir()
+        src_drive = os.path.splitdrive(items[0])[0]
+        same_drive = os.path.splitdrive(sys_temp)[0].upper() == src_drive.upper()
 
-        # All path-aliasing approaches (\\?\, subst, DefineDosDevice) fail because
-        # 7-zip resolves virtual paths back to the real long path before opening files.
-        # Solution: NTFS hard links — instant (no data copy), give 7-zip genuinely
-        # short paths pointing to the same inodes as the originals.
-        link_dir = os.path.join(tempfile.gettempdir(), '_7ztmp_npxls')
+        link_dir = os.path.join(sys_temp, '_7ztmp_npxls')
         os.makedirs(link_dir, exist_ok=True)
+
+        # Try hard links first (instant, no data copy, requires same drive).
+        # On cross-drive sources (e.g. cluster mount X:\), fall back to copies —
+        # acceptable for small files like .npy waveforms; large .bin files are
+        # always on the same drive as system temp so hard links apply there.
         short_items = []
+        used_copies = False
         for src in items:
             lp_src = src if src.startswith('\\\\?\\') else '\\\\?\\' + src
             short  = os.path.join(link_dir, os.path.basename(src))
             if os.path.exists(short):
                 os.remove(short)
-            os.link(lp_src, short)  # instant — no data copied
+            try:
+                os.link(lp_src, short)
+            except OSError as e:
+                if getattr(e, 'winerror', None) == 17:  # ERROR_NOT_SAME_DEVICE
+                    if not used_copies:
+                        print(f'[zipLongPath] cross-drive source — copying to {link_dir}', flush=True)
+                        used_copies = True
+                    shutil.copy2(lp_src, short)
+                else:
+                    raise
             short_items.append(short)
-            print(f'[zipLongPath] linked: {os.path.basename(src)}', flush=True)
+            print(f'[zipLongPath] {"copied" if used_copies else "linked"}: {os.path.basename(src)}', flush=True)
+
+        tmp_archive = os.path.join(sys_temp, '_tmp_' + os.path.basename(archive_path))
+        print(f'[zipLongPath] 7-zip staging to {tmp_archive}', flush=True)
 
         short_manifest = manifest_path + '.short.txt'
         with open(short_manifest, 'w', encoding='utf-8') as f:
@@ -132,7 +148,12 @@ def main():
                 lp_src = src if src.startswith('\\\\?\\') else '\\\\?\\' + src
                 os.remove(lp_src)
             long_final = archive_path if archive_path.startswith('\\\\?\\') else '\\\\?\\' + archive_path
-            os.rename(tmp_archive, long_final)
+            arc_drive  = os.path.splitdrive(archive_path)[0]
+            tmp_drive  = os.path.splitdrive(tmp_archive)[0]
+            if tmp_drive.upper() == arc_drive.upper():
+                os.rename(tmp_archive, long_final)   # same drive — instant
+            else:
+                shutil.move(tmp_archive, long_final) # cross-drive — copy+delete
             print('[zipLongPath] moved to final path', flush=True)
     else:
         print('[zipLongPath] 7z.exe not found — falling back to Python zipfile (ZIP)', flush=True)

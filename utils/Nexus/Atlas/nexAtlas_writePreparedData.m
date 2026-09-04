@@ -1,9 +1,9 @@
-function nexAtlas_writePreparedData(spk, rawBinPath, sessionLabel, subjectDir, sorterTag)
+function nexAtlas_writePreparedData(spk_in, binPath_in, sessionLabel, subjectDir, sorterTag)
 % Write PreparedData.mat + pre-extracted RawWaveforms in UnitMatch format.
-% Call from extractRAW_NPXLS after sorting, while the raw AP binary is on disk.
+% Accepts a single spk struct or cell arrays for multi-trigger sessions.
 %
-%   spk          spk_struct from loadKS4_spk or loadRTSort_spk
-%   rawBinPath   full path to the raw AP .bin file
+%   spk_in       spk struct  OR  cell array of spk structs (one per trigger)
+%   binPath_in   AP binary path  OR  cell array of paths (one per trigger)
 %   sessionLabel DTS sessionLabel string
 %   subjectDir   fully-resolved subject directory
 %   sorterTag    'KS' or 'RT'
@@ -12,33 +12,43 @@ function nexAtlas_writePreparedData(spk, rawBinPath, sessionLabel, subjectDir, s
 %   <subjectDir>/npxls/UnitMatch/<sessionLabel>/<sorterTag>/PreparedData.mat
 %   <subjectDir>/npxls/UnitMatch/<sessionLabel>/<sorterTag>/RawWaveforms/Unit<id>_RawSpikes.npy
 %
-% UnitMatch skips its own binary extraction step when Unit*_RawSpikes.npy
-% files are already present (RedoExtraction defaults to 0). This is the
-% mechanism that makes async UnitMatch calls viable: all waveform data is
-% captured here while the raw binary is still on disk.
+% For multi-trigger sessions, waveforms are pooled across all triggers
+% (sampleamount/nTriggers spikes per unit per trigger) so UnitMatch sees
+% richer templates without overwriting from successive triggers.
 
-    % prefix long file path ("\\?\")
-    if ispc
-        rawBinPath = strcat("\\?\",rawBinPath);
+    % Coerce scalar inputs to cell arrays
+    if ~iscell(spk_in)
+        spk_list     = {spk_in};
+        binPath_list = {char(binPath_in)};
+    else
+        spk_list     = spk_in;
+        binPath_list = cellfun(@char, binPath_in, 'UniformOutput', false);
     end
+    nTriggers = numel(spk_list);
+
+    % binPath_list paths are stored without \\?\ prefix so that dir() and
+    % isfile() work correctly (both handle long paths via LongPathsEnabled).
+    % The \\?\ prefix is applied only at the memmapfile() call inside
+    % extractRawWaveforms, which needs it to open files via CreateFileW.
 
     outDir = fullfile(subjectDir, 'npxls', 'UnitMatch', char(sessionLabel), char(sorterTag));
     if ~isfolder(outDir), mkdir(outDir); end
     wfDir = fullfile(outDir, 'RawWaveforms');
     if ~isfolder(wfDir), mkdir(wfDir); end
 
+    % Merge spike-level fields across triggers for PreparedData
+    spk    = mergeSpkList_public(spk_list);
     nUnits = numel(spk.unit_ids);
 
     % sp: field names must match UnitMatch's ExtractAndSaveAverageWaveforms
-    % and AssignUniqueIDAlgorithm (sp.st, sp.spikeTemplates, sp.SessionID).
     sp.st             = spk.spike_times_s(:);
-    sp.spikeTemplates = spk.spike_clusters(:);          % 1-indexed, matches clusinfo.cluster_id
+    sp.spikeTemplates = spk.spike_clusters(:);
     sp.spikeAmps      = spk.spike_amplitudes(:);
-    sp.spikeDepths    = double(spk.unit_locs(spk.spike_clusters, 2));  % depth per spike
+    [~, clus_idx]     = ismember(spk.spike_clusters, spk.unit_ids);
+    sp.spikeDepths    = double(spk.unit_locs(clus_idx, 2));
     sp.sample_rate    = double(spk.fs);
     sp.SessionID      = ones(numel(spk.spike_times_s), 1);
 
-    % clusinfo: per-unit metadata consumed by UnitMatch
     qual = lower(string(spk.unit_quality(:)));
     clusinfo.cluster_id = double(spk.unit_ids(:));
     clusinfo.Good_ID    = double(qual == "good" | qual == "mua");
@@ -48,25 +58,28 @@ function nexAtlas_writePreparedData(spk, rawBinPath, sessionLabel, subjectDir, s
     clusinfo.Shank      = zeros(nUnits, 1);
     clusinfo.ProbeID    = zeros(nUnits, 1);
 
-    % SessionParams: read by UnitMatch when checking whether PreparedData is
-    % current. Also carries metadata used by nexAtlas_runUnitMatch.
     SessionParams.RunQualityMetrics      = 0;
     SessionParams.RunPyKSChronicStitched = 0;
-    SessionParams.AllChannelPos          = {spk.channel_positions};  % (nChans × 2)
+    SessionParams.AllChannelPos          = {spk.channel_positions};
     SessionParams.AllProbeSN             = {'000000'};
     SessionParams.KSDir                  = {char(outDir)};
-    SessionParams.RawDataPaths           = {[]};    % binary not needed; waveforms pre-extracted
-    SessionParams.nSyncChans             = 0;       % sync already excluded in our channel layout
+    SessionParams.RawDataPaths           = {[]};
+    SessionParams.nSyncChans             = 0;
     SessionParams.spikeWidth             = spk.n_wf;
 
     save(fullfile(outDir, 'PreparedData.mat'), 'sp', 'clusinfo', 'SessionParams', '-v7.3');
-    fprintf('[nexAtlas_writePreparedData] PreparedData.mat: %d units → %s\n', nUnits, outDir);
+    fprintf('[nexAtlas_writePreparedData] PreparedData.mat: %d units, %d trigger(s) → %s\n', ...
+        nUnits, nTriggers, outDir);
 
-    extractRawWaveforms(spk, rawBinPath, wfDir);
+    extractRawWaveforms(spk_list, binPath_list, wfDir);
+
+    if isempty(dir(fullfile(wfDir, 'Unit*.npy')))
+        error('nexAtlas_writePreparedData:emptyWaveforms', ...
+            'RawWaveforms came up empty for %s / %s — check binary paths and trigger collection.\nwfDir: %s', ...
+            sessionLabel, sorterTag, wfDir);
+    end
 
     % Compress RawWaveforms/ → RawWaveforms.7z (LZMA2 level 1, multithreaded).
-    % Reduces per-session file count from ~384 .npy files to 1 archive.
-    % Routes through sevenZipArchive so long-path fallback (zipLongPath.py) applies.
     sevenZip    = 'C:\Program Files\7-Zip\7z.exe';
     archivePath = fullfile(outDir, 'RawWaveforms.7z');
     npyFiles    = dir(fullfile(wfDir, 'Unit*.npy'));
@@ -88,23 +101,53 @@ end
 
 % ── private ───────────────────────────────────────────────────────────────────
 
-function extractRawWaveforms(spk, rawBinPath, wfDir)
-% Extract split-half averaged waveforms per unit and write as
-% RawWaveforms/Unit<id>_RawSpikes.npy in the shape UnitMatch expects:
-%   (spikeWidth × nChans × 2)  where dim 3 = [first_half, second_half].
-%
-% UnitMatch checks for these files and skips its own extraction when found.
-
-    if ~isfile(rawBinPath)
-        fprintf('[nexAtlas_writePreparedData] binary not found, skipping waveform extraction\n');
-        return;
+function spk = mergeSpkList_public(spk_list)
+% Concatenate spike-level fields across triggers.
+% Per-unit metadata is unioned across triggers so units that only appear
+% in later triggers are not silently dropped.
+    spk = spk_list{1};
+    for t = 2:numel(spk_list)
+        s = spk_list{t};
+        spk.spike_times_s    = [spk.spike_times_s(:);    s.spike_times_s(:)];
+        spk.spike_clusters   = [spk.spike_clusters(:);   s.spike_clusters(:)];
+        spk.spike_amplitudes = [spk.spike_amplitudes(:); s.spike_amplitudes(:)];
+        new_mask = ~ismember(s.unit_ids, spk.unit_ids);
+        if any(new_mask)
+            new_pos  = find(new_mask);
+            spk.unit_ids         = [spk.unit_ids(:);         s.unit_ids(new_mask)];
+            spk.unit_locs        = [spk.unit_locs;           s.unit_locs(new_mask, :)];
+            spk.unit_quality     = [spk.unit_quality(:);     s.unit_quality(new_mask)];
+            spk.unit_root_elecs  = [spk.unit_root_elecs(:);  s.unit_root_elecs(new_mask)];
+            valid_t  = new_pos(new_pos <= size(s.unit_templates,   1));
+            n_fill   = numel(new_pos) - numel(valid_t);
+            spk.unit_templates   = cat(1, spk.unit_templates, ...
+                s.unit_templates(valid_t, :, :), ...
+                zeros(n_fill, size(spk.unit_templates,2),   size(spk.unit_templates,3),   'like', spk.unit_templates));
+            valid_s  = new_pos(new_pos <= size(s.spatial_profiles, 1));
+            n_fill   = numel(new_pos) - numel(valid_s);
+            spk.spatial_profiles = [spk.spatial_profiles; ...
+                s.spatial_profiles(valid_s, :); ...
+                zeros(n_fill, size(spk.spatial_profiles,2), 'like', spk.spatial_profiles)];
+        end
     end
+end
 
-    spikeWidth = spk.n_wf;
-    nChans     = spk.n_chans;      % physical AP channels (sync already excluded)
-    fs         = double(spk.fs);
+function extractRawWaveforms(spk_list, binPath_list, wfDir)
+% Extract split-half averaged waveforms pooled across all triggers.
+% Opens each trigger binary once via memmapfile (lazy — pages loaded on access).
+% Collects ceil(sampleamount/nTriggers) spikes per unit per trigger so total
+% stays bounded at sampleamount regardless of trigger count.
+%
+% Output shape per unit: (spikeWidth × nChans × 2) — [first_half, second_half].
 
-    % KS4 uses a shorter baseline window (10 samples); KS2 / RTSort use 20.
+    nTriggers    = numel(spk_list);
+    spk0         = spk_list{1};
+    spikeWidth   = spk0.n_wf;
+    nChans       = spk0.n_chans;
+    fs           = double(spk0.fs);
+    sampleamount = 1000;
+    perTrigger   = ceil(sampleamount / nTriggers);
+
     if spikeWidth == 61
         baselinewidth = 10;
     else
@@ -112,64 +155,92 @@ function extractRawWaveforms(spk, rawBinPath, wfDir)
     end
     waveformwidth = spikeWidth - baselinewidth;
 
-    % SpikeGLX AP binary: typically nChans + 1 sync channel.
-    % Validate by checking divisibility; fall back to nChans if no sync.
-    finfo       = dir(rawBinPath);
-    nSaved      = nChans + 1;
-    if mod(finfo.bytes, nSaved * 2) ~= 0
-        nSaved  = nChans;
+    % Open all trigger binaries up front (lazy memmapfile — no bulk RAM cost)
+    mmfs     = cell(nTriggers, 1);
+    memDatas = cell(nTriggers, 1);
+    nSamples = zeros(nTriggers, 1);
+    for t = 1:nTriggers
+        bp    = binPath_list{t};
+        finfo = dir(bp);   % dir handles long paths; isfile does not with \\?\ prefix
+        if isempty(finfo)
+            fprintf('[nexAtlas_writePreparedData] binary not found, skipping trigger %d: %s\n', t, bp);
+            continue;
+        end
+        nSaved = nChans + 1;
+        if mod(finfo.bytes, nSaved * 2) ~= 0, nSaved = nChans; end
+        nSamples(t) = finfo.bytes / (nSaved * 2);
+        bp_mm       = strcat('\\?\', bp);   % \\?\ needed for memmapfile/CreateFileW on long paths
+        mmfs{t}     = memmapfile(bp_mm, 'Format', {'int16', [nSaved, nSamples(t)], 'data'}, 'Writable', false);
+        memDatas{t} = mmfs{t}.Data.data;
     end
-    n_samples   = finfo.bytes / (nSaved * 2);
 
-    mmf         = memmapfile(rawBinPath, 'Format', {'int16', [nSaved, n_samples], 'data'}, 'Writable', false);
-    memData     = mmf.Data.data;
+    % Union of unit IDs across triggers — a unit active in only one trigger
+    % still gets waveforms extracted from that trigger's binary.
+    unit_ids = spk0.unit_ids;
+    for t = 2:nTriggers
+        unit_ids = union(unit_ids, spk_list{t}.unit_ids);
+    end
 
-    sampleamount  = 1000;
-    spike_samples = round(spk.spike_times_s * fs);
+    fprintf('[nexAtlas_writePreparedData] extracting RawWaveforms: %d units, %d trigger(s)...\n', ...
+        numel(unit_ids), nTriggers);
 
-    fprintf('[nexAtlas_writePreparedData] extracting RawWaveforms for %d units...\n', numel(spk.unit_ids));
-    for u = 1:numel(spk.unit_ids)
-        uid   = spk.unit_ids(u);
+    for u = 1:numel(unit_ids)
+        uid   = unit_ids(u);
         fname = fullfile(wfDir, sprintf('Unit%d_RawSpikes.npy', uid));
         if isfile(fname), continue; end
 
-        mask  = spk.spike_clusters == uid;
-        samps = spike_samples(mask);
-        valid = samps > baselinewidth & (samps + waveformwidth) < n_samples;
-        samps = samps(valid);
-        if isempty(samps), continue; end
+        spikeMapAll = zeros(spikeWidth, nChans, 0, 'single');
 
-        if numel(samps) > sampleamount
-            samps = samps(round(linspace(1, numel(samps), sampleamount)));
+        for t = 1:nTriggers
+            if isempty(memDatas{t}), continue; end
+            spk         = spk_list{t};
+            spk_samps   = round(spk.spike_times_s * fs);
+            mask        = spk.spike_clusters == uid;
+            samps       = spk_samps(mask);
+            valid       = samps > baselinewidth & (samps + waveformwidth) < nSamples(t);
+            samps       = samps(valid);
+            if isempty(samps), continue; end
+
+            if numel(samps) > perTrigger
+                samps = samps(round(linspace(1, numel(samps), perTrigger)));
+            end
+
+            nSpk     = numel(samps);
+            spikeBuf = nan(spikeWidth, nChans, nSpk, 'single');
+            for si = 1:nSpk
+                ts  = samps(si);
+                raw = double(memDatas{t}(1:nChans, ts-baselinewidth+1 : ts+waveformwidth));
+                raw = smoothdata(raw, 2, 'gaussian', 5);
+                raw = raw - mean(raw(:, 1:baselinewidth), 2);
+                spikeBuf(:, :, si) = single(raw');
+            end
+            spikeMapAll = cat(3, spikeMapAll, spikeBuf);
         end
-        nSpk = numel(samps);
 
-        spikeMap = nan(spikeWidth, nChans, nSpk, 'single');
-        for si = 1:nSpk
-            t   = samps(si);
-            raw = double(memData(1:nChans, t-baselinewidth+1 : t+waveformwidth));  % (nChans × spikeWidth)
-            raw = smoothdata(raw, 2, 'gaussian', 5);
-            raw = raw - mean(raw(:, 1:baselinewidth), 2);  % baseline subtract
-            spikeMap(:, :, si) = single(raw');             % (spikeWidth × nChans)
-        end
+        if isempty(spikeMapAll), continue; end
 
-        % Valid waveforms: no NaN in any channel or timepoint
-        valid_wavs = find(~any(isnan(reshape(spikeMap, spikeWidth * nChans, nSpk)), 1));
+        nTotal = size(spikeMapAll, 3);
+        valid_wavs = find(~any(isnan(reshape(spikeMapAll, spikeWidth*nChans, nTotal)), 1));
         nwavs      = numel(valid_wavs);
 
         wfOut = nan(spikeWidth, nChans, 2, 'single');
         if nwavs >= 2
             h            = floor(nwavs / 2);
-            wfOut(:,:,1) = median(spikeMap(:, :, valid_wavs(1:h)),      3, 'omitnan');
-            wfOut(:,:,2) = median(spikeMap(:, :, valid_wavs(h+1:nwavs)), 3, 'omitnan');
+            wfOut(:,:,1) = median(spikeMapAll(:, :, valid_wavs(1:h)),       3, 'omitnan');
+            wfOut(:,:,2) = median(spikeMapAll(:, :, valid_wavs(h+1:nwavs)), 3, 'omitnan');
         elseif nwavs == 1
-            wfOut(:,:,1) = spikeMap(:, :, valid_wavs(1));
-            wfOut(:,:,2) = spikeMap(:, :, valid_wavs(1));
+            wfOut(:,:,1) = spikeMapAll(:, :, valid_wavs(1));
+            wfOut(:,:,2) = spikeMapAll(:, :, valid_wavs(1));
         end
 
         writeNPY(wfOut, fname);
     end
 
-    clear memData mmf;
+    % Release memmapfiles
+    for t = 1:nTriggers
+        memDatas{t} = [];
+        mmfs{t}     = [];
+    end
+    clear memDatas mmfs;
     fprintf('[nexAtlas_writePreparedData] RawWaveforms done.\n');
 end

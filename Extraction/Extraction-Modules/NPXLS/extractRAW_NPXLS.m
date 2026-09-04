@@ -63,7 +63,24 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     % catch
                         % keyboard
                     % end
-                    numImecs = length(imec_dir);                       
+                    numImecs = length(imec_dir);
+
+                    % Resolve subjectDir once per session — same for all j/k
+                    subjectDir = '';
+                    try
+                        subjID     = char(parseSessionLabel(sessionLabel, 'subj'));
+                        subjectDir = fullfile(params.paths.projDir_cloud, "Experiments", ...
+                            params.extractCfg.experiment, "Subjects", subjID);
+                        if ~isfolder(subjectDir)
+                            subjectDir = fullfile(params.paths.projDir_local, "Experiments", ...
+                                params.extractCfg.experiment, "Subjects", subjID);
+                        end
+                    catch e_subj
+                        fprintf('[atlas] subjectDir: %s\n', e_subj.message);
+                    end
+                    spk_ks_list = {}; bins_ks_list = {};
+                    spk_rt_list = {}; bins_rt_list = {};
+
                     % Process each imec
                     for j = 1:numImecs
                         imecDirName = imec_dir(j).name;                
@@ -127,26 +144,13 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                         movefile(fullfile(loc,item), fullfile(binFldr,kSortOutFolder),'f');
                                     end
                                 end    
-                                %% ATLAS REGISTRATION — KS4
+                                %% COLLECT KS4 — atlas + UnitMatch written once after all triggers
                                 try
-                                    subjID     = char(parseSessionLabel(sessionLabel, 'subj'));
-                                    subjectDir = fullfile(params.paths.projDir_cloud, ...
-                                        "Experiments", ...
-                                        params.extractCfg.experiment, "Subjects", subjID);
-                                    if ~isfolder(subjectDir)
-                                        subjectDir = fullfile(params.paths.projDir_local, ...
-                                            "Experiments", ...
-                                            params.extractCfg.experiment, "Subjects", subjID);
-                                    end
                                     ks4Dir = fullfile(kSortOutPath, 'kilosort4');
-                                    spk_ks = loadKS4_spk(ks4Dir);
-                                    nexAtlas_writePreparedData(spk_ks, fileName, sessionLabel, subjectDir, 'KS');
-                                    [DF_tmpl_ks, DF_spat_ks, DF_isi_ks] = nexAtlas_spkToDFs(spk_ks);
-                                    nexAtlas_registerSession(subjectDir, sessionLabel, DF_tmpl_ks, ...
-                                        struct('DF_spatial', DF_spat_ks, 'DF_isi', DF_isi_ks, ...
-                                               'sorterTag', 'KS', 'fs', spk_ks.fs));
-                                catch e_atlas
-                                    fprintf('[atlas/KS] %s: %s\n', sessionLabel, e_atlas.message);
+                                    spk_ks_list{end+1}  = loadKS4_spk(ks4Dir);
+                                    bins_ks_list{end+1} = char(fileName);
+                                catch e_ks
+                                    fprintf('[atlas/KS] collect %s t%d: %s\n', sessionLabel, trigNum, e_ks.message);
                                 end
 
                                 %% RTSORT OPTIONAL
@@ -158,19 +162,15 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                 rtsArgs.sorterPickle = resolveRTSortPickle(params, sessionLabel);
                                 extractRAW_rtSort(fileName, kSortOutPath, [], rtsArgs);
 
-                                %% ATLAS REGISTRATION — RTSort
+                                %% COLLECT RTSORT — atlas + UnitMatch written once after all triggers
                                 try
                                     rtsPath = fullfile(kSortOutPath, 'rtsort_results.mat');
                                     if isfile(rtsPath)
-                                        spk_rt = loadRTSort_spk(rtsPath);
-                                        nexAtlas_writePreparedData(spk_rt, fileName, sessionLabel, subjectDir, 'RT');
-                                        [DF_tmpl_rt, DF_spat_rt, DF_isi_rt] = nexAtlas_spkToDFs(spk_rt);
-                                        nexAtlas_registerSession(subjectDir, sessionLabel, DF_tmpl_rt, ...
-                                            struct('DF_spatial', DF_spat_rt, 'DF_isi', DF_isi_rt, ...
-                                                   'sorterTag', 'RT', 'fs', spk_rt.fs));
+                                        spk_rt_list{end+1}  = loadRTSort_spk(rtsPath);
+                                        bins_rt_list{end+1} = char(fileName);
                                     end
-                                catch e_atlas
-                                    fprintf('[atlas/RT] %s: %s\n', sessionLabel, e_atlas.message);
+                                catch e_rt
+                                    fprintf('[atlas/RT] collect %s t%d: %s\n', sessionLabel, trigNum, e_rt.message);
                                 end
                                 %% LFP
                                 % Load LFP data
@@ -253,7 +253,47 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                         % worker progress update
                         
                     end
-                    % compress raw data (7-zip + zstd: much faster than Windows zip)
+                    %% WRITE UNITMATCH + REGISTER ATLAS — once per session, all triggers pooled
+                    if ~isempty(subjectDir)
+                        if ~isempty(spk_ks_list)
+                            try  % UnitMatch waveforms — independent of atlas
+                                nexAtlas_writePreparedData(spk_ks_list, bins_ks_list, sessionLabel, subjectDir, 'KS');
+                            catch e_wf
+                                fprintf('[atlas/KS/UnitMatch] %s: %s\n', sessionLabel, e_wf.message);
+                                rethrow(e_wf);
+                            end
+                            try  % Atlas registration — always runs regardless of UnitMatch outcome
+                                spk_mg = mergeSpkList_public(spk_ks_list);
+                                [DF_tmpl, DF_spat, DF_isi] = nexAtlas_spkToDFs(spk_mg);
+                                nexAtlas_registerSession(subjectDir, sessionLabel, DF_tmpl, ...
+                                    struct('DF_spatial', DF_spat, 'DF_isi', DF_isi, ...
+                                           'sorterTag', 'KS', 'fs', spk_mg.fs));
+                            catch e_atlas
+                                fprintf('[atlas/KS] %s: %s\n', sessionLabel, e_atlas.message);
+                                rethrow(e_atlas);
+                            end
+                        end
+                        if ~isempty(spk_rt_list)
+                            try  % UnitMatch waveforms
+                                nexAtlas_writePreparedData(spk_rt_list, bins_rt_list, sessionLabel, subjectDir, 'RT');
+                            catch e_wf
+                                fprintf('[atlas/RT/UnitMatch] %s: %s\n', sessionLabel, e_wf.message);
+                                rethrow(e_wf);
+                            end
+                            try  % Atlas registration
+                                spk_mg = mergeSpkList_public(spk_rt_list);
+                                [DF_tmpl, DF_spat, DF_isi] = nexAtlas_spkToDFs(spk_mg);
+                                nexAtlas_registerSession(subjectDir, sessionLabel, DF_tmpl, ...
+                                    struct('DF_spatial', DF_spat, 'DF_isi', DF_isi, ...
+                                           'sorterTag', 'RT', 'fs', spk_mg.fs));
+                            catch e_atlas
+                                fprintf('[atlas/RT] %s: %s\n', sessionLabel, e_atlas.message);
+                                rethrow(e_atlas);
+                            end
+                        end
+                    end
+
+                    % compress raw data (LZMA2 level 1, multithreaded)
                     sevenZip = 'C:\Program Files\7-Zip\7z.exe';
                     % NIDQ
                     nidqDir = struct2table(dir(nidqFolder));
@@ -296,6 +336,40 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
         end
     end
     cd(fullfile(params.paths.repo_path));
+end
+
+function spk = mergeSpkList_public(spk_list)
+% Concatenate spike-level fields across triggers.
+% Per-unit metadata is unioned so units appearing only in later triggers
+% are not dropped from the merged struct.
+    spk = spk_list{1};
+    for t = 2:numel(spk_list)
+        s = spk_list{t};
+        spk.spike_times_s    = [spk.spike_times_s(:);    s.spike_times_s(:)];
+        spk.spike_clusters   = [spk.spike_clusters(:);   s.spike_clusters(:)];
+        spk.spike_amplitudes = [spk.spike_amplitudes(:); s.spike_amplitudes(:)];
+        new_mask = ~ismember(s.unit_ids, spk.unit_ids);
+        if any(new_mask)
+            new_pos  = find(new_mask);   % rank positions in s of the new units
+            spk.unit_ids         = [spk.unit_ids(:);         s.unit_ids(new_mask)];
+            spk.unit_locs        = [spk.unit_locs;           s.unit_locs(new_mask, :)];
+            spk.unit_quality     = [spk.unit_quality(:);     s.unit_quality(new_mask)];
+            spk.unit_root_elecs  = [spk.unit_root_elecs(:);  s.unit_root_elecs(new_mask)];
+            % unit_templates / spatial_profiles may have fewer rows than unit_ids
+            % (KS4 stores templates only for units passing a higher quality bar).
+            % Use position-based indexing with zero-fill for any out-of-bounds units.
+            valid_t  = new_pos(new_pos <= size(s.unit_templates,   1));
+            n_fill   = numel(new_pos) - numel(valid_t);
+            spk.unit_templates   = cat(1, spk.unit_templates, ...
+                s.unit_templates(valid_t, :, :), ...
+                zeros(n_fill, size(spk.unit_templates,2),   size(spk.unit_templates,3),   'like', spk.unit_templates));
+            valid_s  = new_pos(new_pos <= size(s.spatial_profiles, 1));
+            n_fill   = numel(new_pos) - numel(valid_s);
+            spk.spatial_profiles = [spk.spatial_profiles; ...
+                s.spatial_profiles(valid_s, :); ...
+                zeros(n_fill, size(spk.spatial_profiles,2), 'like', spk.spatial_profiles)];
+        end
+    end
 end
 
 % binFldr=pwd;
