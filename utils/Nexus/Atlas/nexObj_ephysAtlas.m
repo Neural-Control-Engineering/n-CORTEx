@@ -10,10 +10,6 @@ classdef nexObj_ephysAtlas < nexObject
 %     nexon.console.ATLAS.runQuery();
 %     nexon.console.ATLAS.recompute();
 
-    properties
-        classID = "atlas"
-    end
-
     properties (GetAccess = public, SetAccess = private)
         pal     % color palette struct — read by nexFigure_ephysAtlas at build time
     end
@@ -21,8 +17,6 @@ classdef nexObj_ephysAtlas < nexObject
     properties (Access = private)
         atlasFile    = ''
         atlasSubject = ''
-        subjects     = {}
-        atlasFiles   = {}
         currentTab   = 1
         tabNames     = {'Reference','IBL Query','Posteriors','Sessions'}
         queryTimer   = []
@@ -40,7 +34,6 @@ classdef nexObj_ephysAtlas < nexObject
             obj.classID   = "atlas";
             obj.pythonExe = obj.expandHome_('~/miniconda3/envs/nexus/bin/python');
             obj.scriptDir = fileparts(mfilename('fullpath'));
-            [obj.subjects, obj.atlasFiles] = obj.findAtlasFiles_();
             obj.buildFigure_();
             try
                 lf = nexon.UserData.launchedFigures;
@@ -54,9 +47,9 @@ classdef nexObj_ephysAtlas < nexObject
             if ~obj.figAlive_(), return; end
             newSubj = obj.getSubject_();
             if strcmp(newSubj, obj.atlasSubject), return; end
-            idx = find(strcmp(obj.subjects, newSubj), 1);
-            if isempty(idx), return; end
-            obj.atlasFile    = obj.atlasFiles{idx};
+            h5 = obj.findAtlasFile_(newSubj);
+            if isempty(h5), return; end
+            obj.atlasFile    = h5;
             obj.atlasSubject = newSubj;
             obj.Figure.subjLbl.Text = newSubj;
             obj.refreshRefSources();
@@ -126,6 +119,7 @@ classdef nexObj_ephysAtlas < nexObject
                 tbl.ColumnEditable = false(1,9);
             end
             tbl.Data = D;
+            obj.padTableRows_(tbl);
             if ~isempty(D)
                 obj.applyRegionColors_(tbl, D(:,1));
             end
@@ -215,6 +209,9 @@ classdef nexObj_ephysAtlas < nexObject
                 lb.Items = {};
             end
             obj.updatePhaseInfo_(pn, phase, 'posInfo');
+            if ~isempty(lb.Value)
+                obj.updatePosteriorChart(lb.Value);
+            end
         end
 
         function updatePosteriorChart(obj, chanVal)
@@ -248,7 +245,7 @@ classdef nexObj_ephysAtlas < nexObject
             end
             hold(ax,'off');
             ax.YTick = 1:N;  ax.YTickLabel = topRegs;  ax.YDir = 'reverse';
-            ax.Color = c.PNL;  ax.XColor = c.FG;  ax.YColor = c.FG;
+            ax.Color = c.BG;  ax.XColor = c.FG;  ax.YColor = c.FG;
             ax.GridColor = c.DIM;  ax.XGrid = 'on';  ax.Box = 'off';
             title(ax, sprintf('ch %d — %s', chanN, phase),'Color',c.FG,'FontSize',10);
             xlabel(ax,'P(region | channel)','Color',c.DIM,'FontSize',9);
@@ -259,7 +256,8 @@ classdef nexObj_ephysAtlas < nexObject
             if isempty(obj.atlasFile), return; end
             if exist('nexAtlas_recomputePosteriors','file')
                 infoLbl.Text = 'Recomputing...'; drawnow;
-                nexAtlas_recomputePosteriors(obj.atlasFile);
+                subjectDir = fileparts(fileparts(obj.atlasFile));
+                nexAtlas_recomputePosteriors(subjectDir);
                 obj.populatePosteriors('');
             else
                 infoLbl.Text = 'nexAtlas_recomputePosteriors not found on path.';
@@ -298,6 +296,7 @@ classdef nexObj_ephysAtlas < nexObject
             catch
             end
             tbl.Data = D;
+            obj.padTableRows_(tbl);
         end
 
     end
@@ -306,22 +305,19 @@ classdef nexObj_ephysAtlas < nexObject
     methods (Access = private)
 
         function buildFigure_(obj)
-            obj.pal = struct('BG',[0.07 0.07 0.07],'FG',[0.92 0.92 0.92], ...
-                             'DIM',[0.46 0.46 0.46],'ACC',[0.28 0.52 0.83], ...
-                             'SEP',[0.20 0.20 0.20],'PNL',[0.10 0.10 0.10]);
+            C = obj.nexon.settings.Colors;
+            obj.pal = struct('BG', C.cyberBlack, 'FG', C.cyberGreen, ...
+                             'DIM', C.disableGrey, 'ACC', C.cyberGreen, ...
+                             'SEP', C.cyberGrey,  'PNL', C.cyberBlack);
             fig = nexFigure_ephysAtlas(obj);
             obj.Figure.fh = fig;
             obj.applyHeadline();
-            % Seed with current subject
             subj = obj.getSubject_();
-            idx  = find(strcmp(obj.subjects, subj), 1);
-            if isempty(idx) && ~isempty(obj.subjects), idx = 1; end
-            if ~isempty(idx)
-                obj.atlasFile    = obj.atlasFiles{idx};
-                obj.atlasSubject = obj.subjects{idx};
-                obj.Figure.subjLbl.Text = obj.subjects{idx};
-            end
-            if ~isempty(obj.atlasFile)
+            h5   = obj.findAtlasFile_(subj);
+            if ~isempty(h5)
+                obj.atlasFile    = h5;
+                obj.atlasSubject = subj;
+                obj.Figure.subjLbl.Text = subj;
                 obj.refreshRefSources();
                 obj.populateTab_();
             end
@@ -380,17 +376,24 @@ classdef nexObj_ephysAtlas < nexObject
 
         function applyRegionColors_(obj, tbl, regions)
             removeStyle(tbl);
-            if isempty(regions), return; end
+            addStyle(tbl, uistyle('BackgroundColor', obj.pal.PNL, 'FontColor', obj.pal.FG));
             try
                 [cmap, matched] = nex_axisColorFromRegistry(obj.nexon, 'map', string(regions));
                 if ~matched, return; end
                 for ri = 1:numel(regions)
-                    bg  = cmap(ri,:);
-                    lum = 0.299*bg(1) + 0.587*bg(2) + 0.114*bg(3);
-                    if lum > 0.45, fg = [0.05 0.05 0.05]; else, fg = [0.95 0.95 0.95]; end
-                    addStyle(tbl, uistyle('BackgroundColor',bg,'FontColor',fg), 'row', ri);
+                    addStyle(tbl, uistyle('FontColor', cmap(ri,:)), 'row', ri);
                 end
             catch
+            end
+        end
+
+        function padTableRows_(~, tbl)
+            ROW_H = 22;  HDR_H = 28;
+            nCols = numel(tbl.ColumnName);
+            nFit  = floor((tbl.Position(4) - HDR_H) / ROW_H);
+            nPad  = max(0, nFit - size(tbl.Data, 1));
+            if nPad > 0
+                tbl.Data = [tbl.Data; repmat({''}, nPad, nCols)];
             end
         end
 
@@ -450,39 +453,32 @@ classdef nexObj_ephysAtlas < nexObject
             end
         end
 
-        function [subjects, files] = findAtlasFiles_(obj)
-            subjects = {};  files = {};
-            try
-                params   = obj.nexon.console.BASE.params;
-                allSubjs = obj.nexon.console.BASE.registry.categories.subj;
-                for i = 1:numel(allSubjs)
-                    subj = char(allSubjs(i));
-                    for base = {params.paths.projDir_local, params.paths.projDir_cloud}
-                        sdir = fullfile(base{1},'Experiments', ...
-                            params.extractCfg.experiment,'Subjects',subj);
-                        h5 = fullfile(sdir,'npxls','ephys_atlas.h5');
-                        if isfile(h5) && ~ismember(h5,files)
-                            subjects{end+1} = subj; %#ok<AGROW>
-                            files{end+1}    = h5;   %#ok<AGROW>
-                            break;
-                        end
-                    end
+        function h5 = findAtlasFile_(obj, subj)
+            h5 = '';
+            if isempty(subj), return; end
+            params = obj.nexon.console.BASE.params;
+            for base = {params.paths.projDir_cloud, params.paths.projDir_local}
+                candidate = fullfile(base{1}, 'Experiments', ...
+                    params.extractCfg.experiment, 'Subjects', subj, 'npxls', 'ephys_atlas.h5');
+                if isfile(candidate)
+                    h5 = candidate;
+                    return;
                 end
-            catch
             end
         end
 
         function subj = getSubject_(obj)
             subj = '';
-            try
-                avgSel  = obj.nexon.console.BASE.controlPanel.averagingSelection;
-                subjAll = avgSel.selKeys.subj;
-                subjIdx = avgSel.selections.subj;
-                subj    = char(string(subjAll(subjIdx(1))));
-            catch
-                try
-                    subj = char(obj.nexon.console.BASE.router.entryParams.subject);
-                catch
+            ud = obj.nexon.console.BASE.router.UserData;
+            for fn = {'subjectDir_cloud', 'subjectDir'}
+                if ~isfield(ud, fn{1}), continue; end
+                sd = char(ud.(fn{1}));
+                if isempty(sd), continue; end
+                if sd(end) == filesep, sd = sd(1:end-1); end
+                [~, name] = fileparts(sd);
+                if ~isempty(name)
+                    subj = name;
+                    return;
                 end
             end
         end
