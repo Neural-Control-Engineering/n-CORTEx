@@ -45,6 +45,7 @@ LITERATURE_PRIORS = {
     'VPL': [0.44, 0.14,  10.0,   8.0,  1.15, 0.50],
     'CA1': [0.52, 0.20,   4.0,   5.0,  1.10, 0.50],
     'SSp': [0.50, 0.18,   8.0,   7.0,  0.90, 0.40],
+    'HY':  [0.45, 0.18,   8.0,   6.0,  1.10, 0.45],
 }
 
 # n_units credited to literature priors (low weight = easily overwritten by real data)
@@ -199,43 +200,58 @@ def load_probe_clusters(one, eid, collection, target_ids):
         try:
             ptd_s = one.load_dataset(eid, 'clusters.peakToTrough', collection=collection)
             if ptd_s is not None:
-                out['ptd_ms'] = np.abs(np.array(ptd_s)[mask]) * 1000.0
-                hits.append('ptd+')
+                ptd_arr = np.array(ptd_s)
+                if len(ptd_arr) == len(region_ids):
+                    # IBL stores peakToTrough in milliseconds already
+                    out['ptd_ms'] = np.abs(ptd_arr[mask])
+                    hits.append('ptd+')
+                else:
+                    # IBL versioned re-sort (e.g. #2024-05-06#) has a different cluster
+                    # count than the unversioned CCF mapping — cannot apply mask safely.
+                    # Try loading with revision=False to get the original unversioned file.
+                    ptd_orig = None
+                    try:
+                        ptd_orig = one.load_dataset(eid, 'clusters.peakToTrough',
+                                                    collection=collection, revision=False)
+                    except Exception:
+                        pass
+                    if ptd_orig is not None and len(np.array(ptd_orig)) == len(region_ids):
+                        out['ptd_ms'] = np.abs(np.array(ptd_orig)[mask])
+                        hits.append('ptd+')
+                    else:
+                        hits.append(f'ptd~({len(ptd_arr)}≠{len(region_ids)})')
             else:
                 hits.append('ptd-')
         except Exception:
             hits.append('ptd-')
 
-        try:
-            fr = one.load_dataset(eid, 'clusters.firing_rate', collection=collection)
-            if fr is not None:
-                out['firing_rate'] = np.array(fr)[mask]
-                hits.append('fr+')
-            else:
-                hits.append('fr-')
-        except Exception:
-            hits.append('fr-')
-
-        # CV-ISI: computed from spike trains (not a pre-stored IBL dataset)
+        # firing_rate and cv_isi: both computed from spike trains (clusters.firing_rate
+        # is not reliably available at the alf/probe collection level)
         try:
             spike_t = one.load_dataset(eid, 'spikes.times',    collection=collection)
             spike_c = one.load_dataset(eid, 'spikes.clusters', collection=collection)
             if spike_t is not None and spike_c is not None:
                 spike_t = np.array(spike_t)
                 spike_c = np.array(spike_c)
-                cv_vals = []
+                t_total = spike_t.max() - spike_t.min() if len(spike_t) > 1 else np.nan
+                fr_vals, cv_vals = [], []
                 for uid in np.where(mask)[0]:
                     t = spike_t[spike_c == uid]
+                    fr_vals.append(len(t) / t_total if t_total > 0 else np.nan)
                     if len(t) >= 3:
                         isis = np.diff(np.sort(t))
                         cv_vals.append(np.std(isis) / (np.mean(isis) + 1e-12))
                     else:
                         cv_vals.append(np.nan)
-                out['cv_isi'] = np.array(cv_vals)
+                out['firing_rate'] = np.array(fr_vals)
+                out['cv_isi']      = np.array(cv_vals)
+                hits.append('fr+')
                 hits.append('cv+')
             else:
+                hits.append('fr-')
                 hits.append('cv-')
         except Exception:
+            hits.append('fr-')
             hits.append('cv-')
 
         out['_status'] = f'{int(mask.sum())} units  ' + '  '.join(hits)
@@ -355,20 +371,29 @@ def compute_stats(values):
 
 def write_reference(atlas_h5, region, mu, sigma, n_units, feature_names):
     """Write [µ, σ, n_units, feature_names] to /reference/<region>/ in atlas HDF5."""
-    with h5py.File(atlas_h5, 'a') as f:
-        grp_path = f'/reference/{region}'
-        if grp_path in f:
-            del f[grp_path]
-        grp = f.create_group(grp_path)
+    import time
+    for attempt in range(4):
+        try:
+            with h5py.File(atlas_h5, 'a') as f:
+                grp_path = f'/reference/{region}'
+                if grp_path in f:
+                    del f[grp_path]
+                grp = f.create_group(grp_path)
 
-        grp.create_dataset('mu',    data=np.array(mu,    dtype=np.float64))
-        grp.create_dataset('sigma', data=np.array(sigma, dtype=np.float64))
-        grp.create_dataset('n_units', data=np.array([n_units], dtype=np.float64))
+                grp.create_dataset('mu',    data=np.array(mu,    dtype=np.float64))
+                grp.create_dataset('sigma', data=np.array(sigma, dtype=np.float64))
+                grp.create_dataset('n_units', data=np.array([n_units], dtype=np.float64))
 
-        # Feature names as variable-length strings
-        dt = h5py.string_dtype()
-        grp.create_dataset('feature_names', data=np.array(feature_names, dtype=object),
-                           dtype=dt)
+                dt = h5py.string_dtype()
+                grp.create_dataset('feature_names', data=np.array(feature_names, dtype=object),
+                                   dtype=dt)
+            break
+        except BlockingIOError:
+            if attempt < 3:
+                print(f'  [{region}]  HDF5 locked, retrying in 2s...')
+                time.sleep(2)
+            else:
+                raise
 
     print(f'  [{region}]  mu={np.round(mu,3)}  sigma={np.round(sigma,3)}'
           f'  n={n_units}')
@@ -446,13 +471,12 @@ def main():
             write_fallback(atlas_h5, region)
             continue
 
-        mu, sigma, n = [], [], None
+        mu, sigma, n = [], [], 0
         for feat in FEATURE_NAMES:
             m, s = compute_stats(data[feat])
             mu.append(m)
             sigma.append(s)
-            if n is None:
-                n = int(np.sum(np.isfinite(data[feat])))
+            n = max(n, int(np.sum(np.isfinite(data[feat]))))
 
         # Fall back per-feature to literature if IBL returned too few units
         if n is None or n < 10:
