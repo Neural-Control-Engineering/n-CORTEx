@@ -93,6 +93,13 @@ classdef mdlObject < handle
             fitFcn_str = sprintf("nexFit_%s",mdlObj.modelID);
             mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func(fitFcn_str));
             mdlObj.cfg.dmCfg.format="stack";
+            % SCALER INIT
+            try
+                sklearnPreProc = py.importlib.import_module('sklearn.preprocessing');
+                mdlObj.Scaler  = struct('model', sklearnPreProc.StandardScaler());
+            catch
+                mdlObj.Scaler  = struct('model', []);
+            end
             % DOMAIN INIT
             try
                 mdlObj.domain = nexInit_domain(mdlObj.Origin.DF_postOp);
@@ -630,33 +637,6 @@ classdef mdlObject < handle
                 % end
         end
 
-        function DF_Y = predict(mdlObj, DF_X)
-            % propagate transformation from input layer 
-            Parent=mdlObj.Parent; parentClass=class(Parent);
-            if contains(parentClass,"mdlObj")
-                DF_X_tf = mdlObj.Predictor.Parent.transformInput(DF_X);
-            else
-                DF_X_tf=DF_X;
-            end
-            % predict transformed input
-            np = py.importlib.import_module("numpy");
-            X = DF_X_tf.df;
-            X_py = np.array(X);
-            Y_py = mdlObj.Predictor.model.predict_proba(X_py);                   
-            % Y_py = mdlObj.predictor.model.predict(X_py);                    
-            Y = double(Y_py);
-            key = mdlObj.Predictor.DM.K.(mdlObj.Predictor.dfID_target);
-            % logit_pt = log(Y./ (1 - Y));     % convert probabilities to log-odds
-            % logit_smoothed = movmean(logit_pt, 50);
-            % trial_prob = mean(1 ./ (1 + exp(-logit_smoothed)));
-            % Y_label = double(mdlObj.predictor.model.classes_);
-            % figure;plot(Y(1:end,:),'DisplayName','Y(1:4348,:)')
-            % Y = find(mean(Y)==max(mean(Y)));
-            DF_Y.df=Y;
-            DF_Y.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
-            DF_Y.ax.(mdlObj.Predictor.dfID_target)=key.label';                        
-        end
-
         function reportTestScores(mdlObj)
             %  evaluate prediction accuracy and visualize results
         end
@@ -940,6 +920,44 @@ classdef mdlObject < handle
             if numel(keepIdx) == numel(axVals), return; end   % pass-through
             DF.ax.(f) = axVals(keepIdx);
             DF = nex_initAxisPointer_v2(DF);
+        end
+
+        function Y_pred = predict(mdlObj, X_raw)
+        % Scale X_raw (if Scaler is fitted) then call model.predict.
+        % Returns double for numeric predictions and string for categorical ones.
+        % Used by scoreFold in nexAnalysis_cvPermute so scaling is always applied.
+            np = py.importlib.import_module('numpy');
+            X  = X_raw;
+            if isstruct(mdlObj.Scaler) && isfield(mdlObj.Scaler, 'model') && ...
+                    ~isempty(mdlObj.Scaler.model)
+                X = double(mdlObj.Scaler.model.transform(np.array(X)));
+            end
+            Y_py = mdlObj.model.predict(np.array(X));
+            try
+                Y_pred = double(Y_py);
+            catch
+                Y_pred = string(cellfun(@char, cell(Y_py), 'UniformOutput', false));
+            end
+        end
+
+        function storeResult(mdlObj, resultID, R)
+        % Store R under RESULTS.(resultID) and push to any connected viewer.
+            mdlObj.RESULTS.(resultID) = R;
+            if isstruct(mdlObj.Partners) && isfield(mdlObj.Partners, 'viewer') && ...
+                    ~isempty(mdlObj.Partners.viewer) && isvalid(mdlObj.Partners.viewer)
+                mdlObj.Partners.viewer.push(resultID, R);
+            end
+        end
+
+        function applySRC(mdlObj, srcKeys)
+        % Dispatch to Figure.renderFcns.(activeTab) when available.
+            if isempty(mdlObj.Figure) || ~isfield(mdlObj.Figure, 'renderFcns'), return; end
+            if ~isstruct(mdlObj.Figure.renderFcns),                             return; end
+            if ~isfield(mdlObj.Figure.renderFcns, 'active'),                   return; end
+            tab = mdlObj.Figure.renderFcns.active;
+            if isfield(mdlObj.Figure.renderFcns, tab)
+                mdlObj.Figure.renderFcns.(tab)(srcKeys);
+            end
         end
 
     end

@@ -1,4 +1,7 @@
 function nexAnalysis_cvPermute(mdlObj, resultID)
+    if nargin < 2 || isempty(resultID)
+        resultID = sprintf('cv_%s', char(datetime('now','Format','HHmmss')));
+    end
 % N-fold cross-validation with permutation null distribution.
 %
 %   nexAnalysis_cvPermute(mdlObj, cvCfg)
@@ -44,8 +47,14 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
     d1Strs   = string(mdlObj.domain.D1);
     ftrStrs  = string(mdlObj.domain.FTR);
     skipAxes = [d1Strs, ftrStrs];
-    ptrAxes  = string(fieldnames(STAT_full.ptr(1))');
+    ptrAxes   = string(fieldnames(STAT_full.ptr(1))');
     outerAxes = ptrAxes(~ismember(ptrAxes, skipAxes));
+
+    % Drop co-indexed label axes (dim = [] — no own array dimension to iterate over)
+    if ~isempty(outerAxes)
+        hasDim    = arrayfun(@(ax) ~isempty(STAT_full.ptr(1).(char(ax)).dim), outerAxes);
+        outerAxes = outerAxes(hasDim);
+    end
 
     hasOuter = ~isempty(outerAxes);
     if hasOuter
@@ -152,19 +161,22 @@ end
 function score = scoreFold(mdlObj, tVar, isCont)
     STAT_test = mdlObj.TEST.STAT;
 
-    % Route through method-specific projection if registered, else trial-mean.
-    if isstruct(mdlObj.W) && isfield(mdlObj.W, 'buildTestX') && ~isempty(mdlObj.W.buildTestX)
-        X_test       = mdlObj.W.buildTestX(STAT_test);
-        isTrialLevel = isstruct(mdlObj.W) && isfield(mdlObj.W, 'isTrialLevel') && mdlObj.W.isTrialLevel;
-    else
-        % Trial-averaged features to match stat2dm_regression training DM
-        d1    = char(mdlObj.domain.D1(1));
-        d1dim = STAT_test.ptr(1).(d1).dim;
-        X_test       = cell2mat(cellfun(@(df) mean(df, d1dim), STAT_test.df, 'UniformOutput', false));
-        isTrialLevel = true;
+    % Custom scorer hook — bypasses all default logic when present.
+    if isstruct(mdlObj.W) && isfield(mdlObj.W, 'scoreFn') && ~isempty(mdlObj.W.scoreFn)
+        score = mdlObj.W.scoreFn(STAT_test, tVar);
+        return;
     end
 
-    Y_trial   = STAT_test.(tVar);
+    % Route through method-specific projection if registered, else trial-mean.
+    if isstruct(mdlObj.W) && isfield(mdlObj.W, 'buildTestX') && ~isempty(mdlObj.W.buildTestX)
+        X_test = mdlObj.W.buildTestX(STAT_test);
+    else
+        d1    = char(mdlObj.domain.D1(1));
+        d1dim = STAT_test.ptr(1).(d1).dim;
+        X_test = cell2mat(cellfun(@(df) mean(df, d1dim), STAT_test.df, 'UniformOutput', false));
+    end
+
+    Y_trial = STAT_test.(tVar);
     if iscell(Y_trial), Y_trial = [Y_trial{:}]'; end
 
     if isCont
@@ -174,9 +186,7 @@ function score = scoreFold(mdlObj, tVar, isCont)
         score  = cc(1,2)^2;
     else
         Y_test = string(Y_trial(:));
-        np     = py.importlib.import_module('numpy');
-        Y_py   = mdlObj.model.predict(np.array(double(X_test)));
-        Y_pred = string(cellfun(@char, cell(Y_py), 'UniformOutput', false));
+        Y_pred = mdlObj.predict(X_test);
         score  = balancedAccuracy(Y_test, Y_pred);
     end
 end
