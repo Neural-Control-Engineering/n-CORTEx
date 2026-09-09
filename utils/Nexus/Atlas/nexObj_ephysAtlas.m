@@ -134,7 +134,7 @@ classdef nexObj_ephysAtlas < nexObject
             col     = ev.Indices(2);
             if col < 2 || col > 7, return; end
             newVal = ev.NewData;
-            if ~isnumeric(newVal) || ~isfinite(newVal)
+            if ~isnumeric(newVal) || isinf(newVal)
                 tbl.Data{ev.Indices(1), col} = ev.PreviousData; return;
             end
             region  = tbl.Data{ev.Indices(1), 1};
@@ -145,10 +145,11 @@ classdef nexObj_ephysAtlas < nexObject
             catch, return; end
             fi = find(strcmp({'ptd_ms','firing_rate','cv_isi'}, feature), 1);
             if ismuCol(col), mu_vec(fi) = newVal; else, sig_vec(fi) = newVal; end
-            cmd = sprintf('"%s" "%s" "%s" --region %s --feature %s --mu %.6f --sigma %.6f', ...
+            cmd = sprintf('"%s" "%s" "%s" --region %s --feature %s --mu %.6f --sigma %.6f --source Manual', ...
                 obj.pythonExe, fullfile(obj.scriptDir,'nexAtlas_setReference.py'), ...
                 obj.atlasFile, region, feature, mu_vec(fi), sig_vec(fi));
             system(cmd);
+            tbl.Data{ev.Indices(1), 9} = 'Manual';
         end
 
         % ── IBL Query tab ─────────────────────────────────────────────────
@@ -172,7 +173,7 @@ classdef nexObj_ephysAtlas < nexObject
             flags = '';
             if cb1.Value, flags = [flags ' --spontaneous_only']; end
             if cb2.Value, flags = [flags ' --fallback_only'];    end
-            cmd = sprintf('"%s" "%s" "%s" --regions %s --max_sessions %d%s > "%s" 2>&1 &', ...
+            cmd = sprintf('"%s" -u "%s" "%s" --regions %s --max_sessions %d%s > "%s" 2>&1 &', ...
                 obj.pythonExe, fullfile(obj.scriptDir,'nexAtlas_queryIBL.py'), ...
                 obj.atlasFile, strjoin(regions,' '), sp.Value, flags, tmpFile);
             ta.Value = {sprintf('[%s] Starting IBL query...', datestr(now,'HH:MM:SS'))};

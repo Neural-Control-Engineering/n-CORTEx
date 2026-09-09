@@ -453,9 +453,10 @@ def main():
 
     one = load_one(args.base_url)
     if one is None:
-        print('[nexAtlas_queryIBL] Falling back to literature priors.')
-        for region in regions:
-            write_fallback(atlas_h5, region)
+        print('[nexAtlas_queryIBL] IBL connection failed - skipping all regions.')
+        # print('[nexAtlas_queryIBL] Falling back to literature priors.')
+        # for region in regions:
+        #     write_fallback(atlas_h5, region)
         return
 
     if args.spontaneous_only:
@@ -468,7 +469,8 @@ def main():
                             spontaneous_only=args.spontaneous_only)
 
         if data is None:
-            write_fallback(atlas_h5, region)
+            print(f'  {region}: no IBL data - skipping (will appear as NaN in atlas)')
+            # write_fallback(atlas_h5, region)
             continue
 
         mu, sigma, n = [], [], 0
@@ -478,25 +480,24 @@ def main():
             sigma.append(s)
             n = max(n, int(np.sum(np.isfinite(data[feat]))))
 
-        # Fall back per-feature to literature if IBL returned too few units
+        # Too few units — skip rather than fall back to literature
         if n is None or n < 10:
-            print(f'  {region}: too few units ({n}) from IBL - using literature prior')
-            write_fallback(atlas_h5, region)
+            print(f'  {region}: too few units ({n}) from IBL - skipping (will appear as NaN in atlas)')
+            # write_fallback(atlas_h5, region)
             continue
 
-        # Blend NaN features (e.g. cv_isi) with literature prior, note which
-        sources = ['IBL'] * len(FEATURE_NAMES)
-        if region in LITERATURE_PRIORS:
-            lp = LITERATURE_PRIORS[region]
-            lit_mu    = [lp[0], lp[2], lp[4]]
-            lit_sigma = [lp[1], lp[3], lp[5]]
-            for i in range(len(FEATURE_NAMES)):
-                if not np.isfinite(mu[i]):
-                    mu[i], sigma[i] = lit_mu[i], lit_sigma[i]
-                    sources[i] = 'literature'
+        # NaN features left as NaN — do not blend with literature
+        # sources = ['IBL'] * len(FEATURE_NAMES)
+        # if region in LITERATURE_PRIORS:
+        #     lp = LITERATURE_PRIORS[region]
+        #     lit_mu    = [lp[0], lp[2], lp[4]]
+        #     lit_sigma = [lp[1], lp[3], lp[5]]
+        #     for i in range(len(FEATURE_NAMES)):
+        #         if not np.isfinite(mu[i]):
+        #             mu[i], sigma[i] = lit_mu[i], lit_sigma[i]
+        #             sources[i] = 'literature'
 
-        src_str = '  '.join(f'{f}={s}' for f, s in zip(FEATURE_NAMES, sources))
-        print(f'  {region}: writing - sources: {src_str}')
+        print(f'  {region}: writing IBL data (n={n})')
         write_reference(atlas_h5, region, mu, sigma, n, FEATURE_NAMES)
 
     print('\n[nexAtlas_queryIBL] done.')

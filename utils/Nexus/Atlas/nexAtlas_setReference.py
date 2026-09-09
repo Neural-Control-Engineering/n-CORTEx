@@ -60,7 +60,7 @@ def show_reference(atlas_h5, region=None):
                 print(f'  {fn:<20}  mu={m:>9.4f}  sigma={s:>8.4f}{tag}')
 
 
-def set_reference(atlas_h5, region, feature, mu_val, sigma_val, n_override):
+def set_reference(atlas_h5, region, feature, mu_val, sigma_val, n_override, source='Manual'):
     with h5py.File(atlas_h5, 'a') as f:
         grp_path = f'/reference/{region}'
 
@@ -93,8 +93,9 @@ def set_reference(atlas_h5, region, feature, mu_val, sigma_val, n_override):
         grp.create_dataset('n_units',       data=np.array([n_write], dtype=np.float64))
         grp.create_dataset('feature_names', data=np.array(fnames, dtype=object),
                            dtype=h5py.string_dtype())
+        grp.create_dataset('source',        data=source, dtype=h5py.string_dtype())
 
-    print(f'[nexAtlas_setReference] {region}/{feature}: mu={mu_val}  sigma={sigma_val}  n={n_write:.0f}')
+    print(f'[nexAtlas_setReference] {region}/{feature}: mu={mu_val}  sigma={sigma_val}  n={n_write:.0f}  source={source}')
 
 
 def parse_args():
@@ -110,6 +111,8 @@ def parse_args():
     p.add_argument('--n',       type=int,   default=None,
                    help='n_units credit (default: keep existing, or 0 for new region). '
                         'Use ~30 for literature priors, higher for values from many units.')
+    p.add_argument('--source',  type=str,   default='Manual',
+                   help='Source label written to /reference/<region>/source (default: Manual)')
     return p.parse_args()
 
 
@@ -134,7 +137,7 @@ def main():
         p.print_usage()
         sys.exit(1)
 
-    set_reference(atlas_h5, args.region, args.feature, args.mu, args.sigma, args.n)
+    set_reference(atlas_h5, args.region, args.feature, args.mu, args.sigma, args.n, args.source)
 
 
 if __name__ == '__main__':

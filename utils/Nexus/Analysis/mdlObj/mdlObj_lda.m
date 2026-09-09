@@ -1,112 +1,74 @@
 classdef mdlObj_lda < mdlObject
-    properties  
+
+    properties
     end
 
     methods
         function mdlObj = mdlObj_lda(Parent, Origin, dfID_source, predictorID, headline)
             if nargin < 4, predictorID = []; end
             if nargin < 5, headline = []; end
-            mdlObj = mdlObj@mdlObject(Parent, Origin, "lda", dfID_source, predictorID, headline);            
+            mdlObj = mdlObj@mdlObject(Parent, Origin, "lda", dfID_source, predictorID, headline);
             mdlObj.py.np = py.importlib.import_module('numpy');
-            sklearnPreProc = py.importlib.import_module('sklearn.preprocessing'); 
-            mdlObj.py.stdScaler = sklearnPreProc.StandardScaler();            
-            mdlObj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_lda"));
-            mdlObj.cfg.dmCfg.format="supervised";
-            mdlObj.cfg.statCfg.entryParams.fuseAx=1;
-            % network, etc.
-        end
-
-        function locateDataset(mdlObj)
-
-        end
-
-        function Y = infer(mdlObj, X)
-        end
-
-        function train(mdlObj)
-        end
-
-        function formatSample(X, Y)
-        end
-
-        function getDesignMatrix(mdlObj)
-            
-            chanCond = mdlObj.cfg.dmCfg.chanSel;
-          
-            % pool
-            TF = table2struct(mdlObj.STAT);
-            ptr = mdlObj.STAT.ptr(1);
-            TF_pool = arrayfun(@(DF) nexOp_poolAxes(mdlObj.pMap, DF, ptr), TF);
-            % slice (manual)
-            [TF_slice, ax_slice] = arrayfun(@(DF) nexOp_sliceDF(DF,"chans",{chanCond}), TF_pool, "UniformOutput",false);
-            TF_pool_slice=struct2table(TF_pool);
-            TF_pool_slice.df=TF_slice; TF_pool_slice.ax=ax_slice;
-            % flatten along higher dimensions
-            TF_flat = arrayfun(@(DF) nexOp_viewDF(DF), table2struct(TF_pool_slice), "UniformOutput", false);
-            STAT=struct2table(cat(1,TF_flat{:})); % re-pack
-            % train/test partition            
-            if ~isempty(mdlObj.trainMask)
-                STAT_train = STAT(mdlObj.trainMask==1,:);
-                STAT_test = STAT(mdlObj.trainMask==0,:);
-            else
-                STAT_train=STAT;
-                STAT_test=[];
+            sklearnPreProc = py.importlib.import_module('sklearn.preprocessing');
+            mdlObj.Scaler.model = sklearnPreProc.StandardScaler();
+            mdlObj.cfg.fitCfg   = nex_generateCfgObj(str2func("nexFit_lda"));
+            mdlObj.cfg.dmCfg.format = "supervised";
+            mdlObj.initTargetBus();
+            isHeadless = isfield(mdlObj.nexon, 'settings') && ...
+                         isfield(mdlObj.nexon.settings, 'headless') && ...
+                         mdlObj.nexon.settings.headless;
+            if isHeadless
+                mdlObj.setupDomain();
             end
-            mdlObj.TEST.STAT=STAT_test;
-            mdlObj.TRAIN.STAT=STAT_train;            
-            % compile design matrix
-            dmFcn = str2func(sprintf("stat2dm_%s",mdlObj.cfg.dmCfg.format));
-            mdlObj.DM = dmFcn(mdlObj);
-            % mdlObj.DM = mdlObj.cfg.dmCfg.fcn(mdlObj, dmArgs);
         end
 
-        function partialFit(mdlObj, X, Y)
-             % Convert MATLAB 3D or 2D data into proper NumPy ndarrays
-            np = py.importlib.import_module('numpy');
-        
-            % Ensure doubles
-            X = double(X);
-            Y = double(Y);
-        
-            % Convert to contiguous NumPy arrays
-            X_py = np.ascontiguousarray(np.array(X));
-            Y_py = np.ascontiguousarray(np.array(Y));
-        
-            % Call partial_fit
-            mdlObj.modelObj.partial_fit(X_py, Y_py);                    
+        function setupDomain(mdlObj)
+            if isfield(mdlObj.domain, 'D2') && numel(mdlObj.domain.D2) >= 1
+                mdlObj.domain.FTR = mdlObj.domain.D2(1);
+            end
+            mdlObj.initDomainBus();
+            mdlObj.initPointerBus();
         end
 
-        % function DF_Y = predict(mdlObj, DF_X)
-        %     % propagate transformation from input layer 
-        %     Parent=mdlObj.Parent; parentClass=class(Parent);
-        %     if contains(parentClass,"mdlObj")
-        %         DF_X_tf = mdlObj.predictor.Parent.transformInput(DF_X);
-        %     else
-        %         DF_X_tf=DF_X;
-        %     end            % predict transformed input
-        %     np = py.importlib.import_module("numpy");
-        %     X = DF_X_tf.df;
-        %     X_py = np.array(X);
-        %     Y_py = mdlObj.predictor.model.predict_proba(X_py);                   
-        %     % Y_py = mdlObj.predictor.model.predict(X_py);                    
-        %     Y = double(Y_py);
-        %     key = mdlObj.predictor.DM.K.(mdlObj.predictor.targetVar);
-        %     % logit_pt = log(Y./ (1 - Y));     % convert probabilities to log-odds
-        %     % logit_smoothed = movmean(logit_pt, 50);
-        %     % trial_prob = mean(1 ./ (1 + exp(-logit_smoothed)));
-        %     % Y_label = double(mdlObj.predictor.model.classes_);
-        %     % figure;plot(Y(1:end,:),'DisplayName','Y(1:4348,:)')
-        %     % Y = find(mean(Y)==max(mean(Y)));
-        %     DF_Y.df=Y;
-        %     DF_Y.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
-        %     DF_Y.ax.(mdlObj.predictor.targetVar)=key.label';                        
-        % end
+        function DF_Z = transform(mdlObj, DF_X)
+            if isempty(DF_X.df)
+                DF_Z = [];
+                return;
+            end
+            X_flat   = mdlObj.flattenInput(DF_X);
+            np       = mdlObj.py.np;
+            X_py     = np.atleast_2d(np.array(X_flat));
+            X_scaled = mdlObj.Scaler.model.transform(X_py);
+            Z_py     = mdlObj.model.transform(X_scaled);
+            Z        = double(Z_py);
+            DF_Z.df        = Z;
+            D1             = char(mdlObj.domain.D1);
+            if D1 ~= "None"
+                DF_Z.ax.(D1) = DF_X.ax.(D1);
+            end
+            DF_Z.ax.latent = 1:size(Z, 2);
+            DF_Z           = nex_initAxisPointer_v2(DF_Z);
+        end
 
-        function Z = transform(mdlObj, X)
-            np = py.importlib.import_module('numpy');
-            X_py = np.ascontiguousarray(np.array(double(X)));            
-            Z_py = mdlObj.modelObj.transform(X_py);
-            Z = double(np.array(Z_py));
+        function saveFit(mdlObj, uniqueID)
+            [h5Dir, ~, ~] = fileparts(char(mdlObj.nexon.console.BASE.DTS.h5_path(1)));
+            fitDir = fullfile(h5Dir, sprintf('mdlObj_lda_%s', uniqueID));
+            if ~exist(fitDir, 'dir'), mkdir(fitDir); end
+            mdlObj.fitPath = fitDir;
+            pickle = py.importlib.import_module('pickle');
+            fid = py.open(fullfile(fitDir, 'model.pkl'), 'wb');
+            pickle.dump(mdlObj.model, fid); fid.close();
+            fid = py.open(fullfile(fitDir, 'scaler.pkl'), 'wb');
+            pickle.dump(mdlObj.Scaler.model, fid); fid.close();
+        end
+
+        function loadFit(mdlObj, fitDir)
+            mdlObj.fitPath = fitDir;
+            pickle = py.importlib.import_module('pickle');
+            fid    = py.open(fullfile(fitDir, 'model.pkl'), 'rb');
+            mdlObj.model = pickle.load(fid); fid.close();
+            fid    = py.open(fullfile(fitDir, 'scaler.pkl'), 'rb');
+            mdlObj.Scaler.model = pickle.load(fid); fid.close();
         end
     end
 end
