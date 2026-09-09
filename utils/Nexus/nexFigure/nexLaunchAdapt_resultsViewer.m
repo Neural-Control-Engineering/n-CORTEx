@@ -5,5 +5,5 @@ function obj = nexLaunchAdapt_resultsViewer(ctg) %#ok<INUSD>
 % Launches without a source — wire to an mdlObj after the fact via
 % mdlObj.Partners.viewer = obj, or use the "Open Results Viewer" button
 % on any model figure (e.g. nexFigure_lda) which connects automatically.
-    obj = nexObj_resultsViewer();
+    obj = nexObj_resultsViewer(ctg.nexon);
 end

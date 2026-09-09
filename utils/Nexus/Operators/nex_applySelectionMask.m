@@ -27,7 +27,7 @@ function selCond = nex_applySelectionMask(DTS, S)
             isNAN = false;
         end
         if isNAN
-            fprintf("WARNING: %s selection could not be resolved (allNAN)", key);
+            fprintf("WARNING: %s selection could not be resolved (allNAN) \n", key);
             continue
         end
         matchingRows = dtsIO_findMatchingRows(keySel, TF);

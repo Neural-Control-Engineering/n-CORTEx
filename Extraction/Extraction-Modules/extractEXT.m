@@ -70,7 +70,14 @@ function extractEXT(params)
                     end
                     % SAVE SLRT
                     extModPath = fullfile(params.paths.Data.EXT.SLRT.cloud,sprintf("%s.mat",session));
-                    save(extModPath, "SLRT");
+                    try                                     
+                      save(extModPath, "SLRT", '-v7.3');      
+                    catch                                                                                 
+                      tmpPath = fullfile(tempdir, 'SLRT_tmp.mat');
+                      save(tmpPath, "SLRT", '-v7.3');                                                   
+                      copyfile(tmpPath, extModPath,'f');                                                    
+                      delete(tmpPath);                                                                  
+                    end           
                 end
                 % EXTRACT ADDITIONAL MODALITIES
                 extrctModules = params.extrctItms.EXT.extrctModules;

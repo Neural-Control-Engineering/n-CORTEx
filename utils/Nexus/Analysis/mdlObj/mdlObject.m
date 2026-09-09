@@ -924,8 +924,8 @@ classdef mdlObject < handle
 
         function Y_pred = predict(mdlObj, X_raw)
         % Scale X_raw (if Scaler is fitted) then call model.predict.
-        % Returns double for numeric predictions and string for categorical ones.
-        % Used by scoreFold in nexAnalysis_cvPermute so scaling is always applied.
+        % Returns strings for classifiers (decoding via W.labelKey when the model
+        % was trained on integer codes) and doubles for regression models.
             np = py.importlib.import_module('numpy');
             X  = X_raw;
             if isstruct(mdlObj.Scaler) && isfield(mdlObj.Scaler, 'model') && ...
@@ -937,6 +937,14 @@ classdef mdlObject < handle
                 Y_pred = double(Y_py);
             catch
                 Y_pred = string(cellfun(@char, cell(Y_py), 'UniformOutput', false));
+                return;
+            end
+            % Decode integer codes → string labels when fit used label encoding
+            if isstruct(mdlObj.W) && isfield(mdlObj.W, 'labelKey') && ...
+                    ~isempty(mdlObj.W.labelKey)
+                key = mdlObj.W.labelKey;
+                [~, idx] = ismember(Y_pred, double(key.code));
+                Y_pred = string(key.label(idx));
             end
         end
 

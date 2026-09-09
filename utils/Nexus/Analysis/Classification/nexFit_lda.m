@@ -11,10 +11,10 @@ function nexFit_lda(mdlObj, args)
     if n_components > 0
         mdlObj.model.set_params(pyargs('n_components', int32(n_components)));
     end
-    % Pass original string labels — sklearn handles them natively so
-    % model.predict returns strings that directly match the STAT target column,
-    % no integer encoding/decoding needed.
+    % Use integer-encoded Y from the design matrix (stat2dm_supervised already
+    % ran nexOp_labelEncode). Store the key in W so predict() can decode back
+    % to string labels after DM is cleared.
     tVar = char(mdlObj.dfID_target);
-    Y_str = cellstr(string(mdlObj.TRAIN.STAT.(tVar)));
-    mdlObj.model = mdlObj.model.fit(X_sc, np.array(Y_str));
+    mdlObj.W = struct('labelKey', mdlObj.DM.K.(tVar));
+    mdlObj.model = mdlObj.model.fit(X_sc, np.array(double(mdlObj.DM.Y)));
 end

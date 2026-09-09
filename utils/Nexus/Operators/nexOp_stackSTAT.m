@@ -50,7 +50,11 @@ function [Z_stack, G_stack, S_stack] = nexOp_stackSTAT(STAT)
     end
 
     G_cat   = colfun(@(col) cat(1, col{:}), G_stack)';
-    G_stack = table(G_cat{:}, 'VariableNames', varNames);
+    try
+        G_stack = table(G_cat{:}, 'VariableNames', varNames);
+    catch
+        keyboard
+    end
 end
 
 function col = expandAxCol(axVals, df)
