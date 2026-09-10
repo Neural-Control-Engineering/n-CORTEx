@@ -39,7 +39,7 @@ classdef mdlObj_lda < mdlObject
             np       = mdlObj.py.np;
             X_py     = np.atleast_2d(np.array(X_flat));
             X_scaled = mdlObj.Scaler.model.transform(X_py);
-            Z_py     = mdlObj.model.transform(X_scaled);
+            Z_py     = np.ascontiguousarray(mdlObj.model.transform(X_scaled));
             Z        = double(Z_py);
             DF_Z.df        = Z;
             D1             = char(mdlObj.domain.D1);
