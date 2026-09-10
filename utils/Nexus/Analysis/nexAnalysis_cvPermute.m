@@ -116,6 +116,12 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
 
     mdlObj.STAT = STAT_full;  % restore
 
+    % ── Re-fit on full data so transform/visualize is valid after CV ──────────
+    mdlObj.trainMask = true(nTrials, 1);
+    mdlObj.getDesignMatrix();
+    mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+    mdlObj.trainMask = [];
+
     % ── 6. Pack result ────────────────────────────────────────────────────────
     if ~hasOuter
         scores = scores(:,:,:,1);  % drop outer singleton
@@ -201,7 +207,11 @@ function score = scoreFold(mdlObj, tVar, isCont, nTime)
     end
     X_test = reshape(X_test, nTest * nTime, []);  % ensure 2D
 
-    Y_pred_flat = mdlObj.predict(X_test);         % [nTest*nTime × 1]
+    try
+        Y_pred_flat = mdlObj.predict(X_test);         % [nTest*nTime × 1]
+    catch
+        keyboard
+    end
 
     if isCont
         Y_pred_mat = reshape(double(Y_pred_flat), nTime, nTest)';  % [nTest × nTime]
