@@ -1,20 +1,24 @@
 function [binEdges, binIDs, binLabels] = nexOp_getBinEdges(axis, divsPerBin)
-        % binEdges = round(linspace(axis(1), axis(end), poolMap.divsPerBin*(axis(end)-axis(1))))';
-        % binEdges = [axis(1):poolMap.divsPerBin:axis(end)]';
-        nSteps = floor(length(axis)/divsPerBin);
-
-        % axisTicks = [1:length(axis)];               
-        % linearly space steps along the axis  
-        % binEdges = [axisTicks(1):divsPerBin:axisTicks(end)]';      
-        % binEdges = floor(linspace(axis(1), axis(end), nSteps))';
-        binEdges = floor(linspace(1, length(axis), nSteps))';
-        % channel ranges
-        axIDs = axis(binEdges)';
-        binIDs=axIDs'; % de-transpose for storing
-        % binIDs_nums = num2cell([binEdges(1:end-1),binEdges(2:end)-1],2);
-        binIDs_nums = num2cell([axIDs(1:end-1),axIDs(2:end)-1],2);
-        % binIDs_nums = [binEdges(1:end-1),binEdges(2:end)];
-        % binIDs_nums = num2cell([binEdges(1:end-1),binEdges(2:end)],2);
-        binLabels = cellfun(@(idRange) sprintf("%d--%d",idRange(1),idRange(2)),binIDs_nums,"UniformOutput",true);        
-        % binIDs = arrayfun(@(idRange) sprintf("%d--%d",idRange(1),idRange(2)),binIDs_nums,"UniformOutput",true);
+% Position-based binning robust to non-contiguous axis values.
+% Groups every divsPerBin elements by position, then labels each bin
+% using the actual axis values at the start and end of that position range.
+    if divsPerBin == 0 || isempty(axis)
+        binEdges = []; binIDs = []; binLabels = string([]); return;
+    end
+    % Force column orientation up front. MATLAB's linear-indexing-of-a-vector
+    % rule returns a result matching the SOURCE vector's own orientation, not
+    % the index's — so axis(binStart) silently comes back as a row if axis is
+    % a row vector, even though binStart is a column. That orientation
+    % mismatch between the two compose() arguments is what was throwing
+    % "Format must have enough conversion operators". Normalizing axis (and
+    % the two index results, defensively) to columns removes the ambiguity.
+    axis     = axis(:);
+    N        = numel(axis);
+    binStart = (1 : divsPerBin : N)';
+    binEnd   = min(binStart + divsPerBin - 1, N);
+    binEdges = [binStart; N + 1];
+    binIDs   = axis(binStart);
+    startVals = axis(binStart); startVals = startVals(:);
+    endVals   = axis(binEnd);   endVals   = endVals(:);
+    binLabels = compose("%d--%d", startVals, endVals);
 end

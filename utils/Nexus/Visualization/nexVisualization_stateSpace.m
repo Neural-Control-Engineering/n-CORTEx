@@ -155,22 +155,42 @@ function nexVisualization_stateSpace(nexObj, ~)
     end
     winStart_ani = -Inf;
     winEnd_ani   =  Inf;
-    aniTol       = 0;      % tolerance for float-mismatched time axes (set below)
+    aniTol       = 0;      % tolerance for step-mismatched animate axes (set below)
+    aniAxis      = [];
+    aniIsNumeric = false;
     if ~isempty(animAx) && ~isempty(nexObj.DF_postOp) ...
             && isprop(nexObj.DF_postOp, 'ptr') && isprop(nexObj.DF_postOp.ptr, animAx) ...
             && isfield(nexObj.DF_postOp.ax, animAx)
         aPtr         = nexObj.DF_postOp.ptr.(animAx);
         aniAxis      = nexObj.DF_postOp.ax.(animAx);
+        aniIsNumeric = isnumeric(aniAxis);
         curIdx       = aPtr.value;
-        winEnd_ani   = aniAxis(curIdx);
-        winStart_ani = aniAxis(max(1, curIdx - len_afterImage));
+        if aniIsNumeric
+            winEnd_ani   = double(aniAxis(curIdx));
+            winStart_ani = double(aniAxis(max(1, curIdx - len_afterImage)));
+        else
+            % Non-numeric animate axis (e.g. region labels, or a pooled
+            % axis carrying "v1--v2" range strings — see nexOp_poolAxes)
+            % — the window/recency math below needs numbers, so fall back
+            % to POSITION within the axis sequence instead of the raw
+            % value. curIdx already is that position.
+            winEnd_ani   = curIdx;
+            winStart_ani = max(1, curIdx - len_afterImage);
+        end
         % STATE.G time values come from averaged-DF ax, which accumulates
         % slightly different float rounding from DF_postOp.ax.  Use 1% of the
         % axis step as tolerance — far larger than any rounding error, far
         % smaller than the actual sample spacing.  Only numeric range masks use
-        % this; strcmp-based category comparisons are unaffected.
+        % this; strcmp-based category comparisons are unaffected. A non-numeric
+        % axis has no rounding to guard against (string equality is exact), but
+        % still needs a nonzero tolerance so a single-frame window
+        % (winStart==winEnd) isn't treated as degenerate below.
         if numel(aniAxis) > 1
-            aniTol = abs(aniAxis(2) - aniAxis(1)) * 0.01;
+            if aniIsNumeric
+                aniTol = abs(double(aniAxis(2)) - double(aniAxis(1))) * 0.01;
+            else
+                aniTol = 0.01;
+            end
         end
     end
 
@@ -261,7 +281,7 @@ function nexVisualization_stateSpace(nexObj, ~)
     if isequal(vwGroups, "")
         % — no VW groups: render global trail, then return —
         if hasTrail && hasAnimAx
-            aniVals_ani = double(G_sel.(animAx));
+            aniVals_ani = aniToNumeric(G_sel.(animAx), aniAxis, aniIsNumeric);
             mask_ani    = aniVals_ani >= winStart_ani - aniTol ...
                         & aniVals_ani <= winEnd_ani   + aniTol;
             Z_trail     = Z_vis(mask_ani, :);
@@ -301,7 +321,7 @@ function nexVisualization_stateSpace(nexObj, ~)
     activeFlds = string(matlab.lang.makeValidName(cellstr(vwGroups)));
     % No animation axis in G_sel — skip tracker rendering entirely.
     if ~hasAnimAx, return; end
-    aniVals_sel = double(G_sel.(animAx));
+    aniVals_sel = aniToNumeric(G_sel.(animAx), aniAxis, aniIsNumeric);
     mask_ani    = aniVals_sel >= winStart_ani - aniTol & aniVals_sel <= winEnd_ani + aniTol;
 
     for i = 1:numel(vwGroups)
@@ -378,4 +398,23 @@ function nexVisualization_stateSpace(nexObj, ~)
 
     % fprintf('[vis] Tracker scrub:%.1f ms\n', toc(t0)*1e3);
     % fprintf('[vis] TOTAL:        %.1f ms\n', toc(t_total)*1e3);
+end
+
+
+% ── Convert animate-axis-relative values to a numeric quantity for window/
+% recency arithmetic ──────────────────────────────────────────────────────
+% Numeric axes: pass through as-is (unchanged behavior). Non-numeric axes
+% (e.g. region labels from mapID pooling, or "v1--v2" range strings from
+% axID pooling) have no numeric value to subtract/interpolate — but the
+% window/tolerance/recency math never actually needs the value itself, only
+% "how many steps away from the current frame," so each value's POSITION
+% within refAxis is used instead. That works identically for any axis type,
+% so no per-binType special-casing is needed here.
+function numVals = aniToNumeric(vals, refAxis, isNumericRef)
+    if isNumericRef
+        numVals = double(vals);
+    else
+        [~, numVals] = ismember(string(vals), string(refAxis));
+        numVals = double(numVals);
+    end
 end

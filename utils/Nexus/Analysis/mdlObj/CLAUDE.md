@@ -18,7 +18,7 @@ Key properties:
 | `cfg.fitCfg` | `nexObj_cfg` with `.fcn` (fit function handle) and `.entryParams` |
 | `cfg.dmCfg` | Format string (`"stack"`, `"batch"`, `"supervised"`, `"regression"`) |
 | `cfg.cvCfg` | Cross-validation params (`numFolds`, `isShuffle`) |
-| `domain` | Axis role assignments: `D1` (always `"t"`), `FTR` (feature axis) |
+| `domain` | Axis role assignments: `DN` (training-domain axis(es), default `"t"` alone — a string array, so multiple physical axes can be selected jointly; scoring still only resolves `DN(1)`), `FTR` (feature axis), `REG` (cross-sample registration identity axis, default `"None"`), `CTG` (category columns for training stratification), `SWP` (single Pointer axis name for the outer sweep loop, default `"None"`) |
 | `collector` | Target bus (`.Target.Y`) and Domain bus (`.Domain`) |
 | `fitPath` | Absolute path to saved model weights folder |
 | `W`, `Scaler`, `Reducer` | Fitted model artifacts (Python objects + MATLAB wrappers) |
@@ -44,7 +44,7 @@ Key base methods:
 
 | Format | Builder | Used by |
 |--------|---------|---------|
-| `"stack"` | `stat2dm_stack` | SSM, CEBRA — unsupervised, all train samples concatenated along D1 |
+| `"stack"` | `stat2dm_stack` | SSM, CEBRA — unsupervised, all train samples concatenated along DN(1) |
 | `"batch"` | `stat2dm_batch` | Batch-mode unsupervised fitting |
 | `"supervised"` | `stat2dm_supervised` | LDA, logistic — stacks X, encodes Y from `dfID_target` |
 | `"regression"` | `stat2dm_regression` | Linear regression — stacks X, Y is continuous |
@@ -113,22 +113,29 @@ The chain is the dfID lineage in HDF5. No live Predictor link is required betwee
 
 Predictor mdlObjects own a `collector` with three buses, initialized in `nexFigure_<modelID>`:
 
-### `collector.View`  — initialized via `nexInit_collectorView(mdlObj, viewDict)`
+### `collector.View`  — initialized via `initViewBus()` (wraps `nexInit_collectorView(mdlObj, viewDict)`)
 
 | Key | Default | Meaning |
 |-----|---------|---------|
+| `CTG` | derived from `Origin.selectionBus.categories`, else `"sessionLabel_phase"` | Multi-select category columns for training stratification. Mirrors `nexObj_categorical` CTG. All-selected-by-default is overridden to nothing-selected. |
+| `SWP` | `["None", <collector.Pointer axis names>]`, selection = `"None"` | Single-select outer-loop axis name. Values to iterate come from the Pointer bus on that axis, not stored here. |
 | `SRC` | `"fit"` | Active artifact. `"fit"` = current in-memory fit. Any key in `RESULTS` = a stored comparative result. |
 | `VW` | `""` | Group/row labels from the active `RESULTS.(srcKey)` table. One item per row. All selected by default. |
 | `CLR` | `""` | Column for per-point colorization; unused by default. |
 
 `SRC` for mdlObjects defaults to `"fit"` (not `"DF"`) because there is no live router/DTS path — the model has already been trained.
 
+`applyViewBus()` reads the CTG/SWP selections off `collector.View` into `domain.CTG`/`domain.SWP`; call it from the CTG/SWP listbox callbacks the same way `applyDomainBus()` is called from Domain listbox callbacks. See `nexFigure_lda.m`/`nexFigure_ssm.m` for the wiring pattern.
+
 ### `collector.Domain` — initialized via `buildSelection(mdlObj, domainDict)`
 
 | Key | Values | Meaning |
 |-----|--------|---------|
-| `D1` | axis names from `Origin.DF_postOp.ax` | Primary axis (always `"t"` for mdlObjects) |
+| `DN` | axis names from `Origin.DF_postOp.ax` | Training-domain axis(es) — multi-select, defaults to `"t"` alone. Listbox max-selections is `numel(axNames)`, not 1 (only `REG` is forced single-select). Scoring still only resolves `DN(1)` — see `nexAnalysis_cvPermute`. |
 | `FTR` | same axis names | Feature selection axis |
+| `REG` | `nexOp_computeREGOptions(FTR, ax)` — `"None"` ∪ co-indexed partners of the selected FTR axis(es) | Cross-sample registration identity axis (e.g. `"chans"` pre-unitMatch, `"unit"` post-unitMatch). Single-select. Call `mdlObj.refreshREG()` from the FTR-changed callback to keep candidates in sync — see `nexFigure_lda_onDomainChange`/`nexFigure_ssm_onDomainChange`. Consumed by `nexOp_alignCoAxes` inside `nexOp_compileSTAT`, and by `applyPointer`/`applyPointerDF` (via `nexOp_coAlign`) to propagate a mask from a co-indexed label axis to the sibling axis that owns the real DF dimension. |
+
+Full co-registration mechanics (mask propagation, canonical alignment, the CTG×SWP sweep that produces stacked STAT results) are documented in `../CoRegistration_Design.md` — that doc also tracks a couple of open deviations between the original design and what's actually implemented in `nexAnalysis_cvPermute.m`.
 
 ### `collector.Pointer` — initialized via `buildSelection(mdlObj, ptrDict)`
 

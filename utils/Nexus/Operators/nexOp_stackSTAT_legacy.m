@@ -29,7 +29,7 @@ function [Z_stack, G_stack, S_stack] = nexOp_stackSTAT(STAT)
     if ismember('ax', STAT.Properties.VariableNames) && iscell(STAT.ax)
         ax_ref = STAT.ax{1};
         axFields = fieldnames(ax_ref);
-        axFields = axFields(~strcmp(axFields, 'factor'));
+        axFields = axFields(~strcmp(axFields, 'latent'));
         for k = 1:numel(axFields)
             f = axFields{k};
             axCols = cellfun(@(ax_i, df_i) ...

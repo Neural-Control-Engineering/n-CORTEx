@@ -1,7 +1,7 @@
 function nexFigure_umap(mdlObj)
 % Interactive figure for mdlObj_umap. Layout mirrors nexFigure_pca:
 %   panel0 — UMAP embedding scatter canvas (populated by Visualize)
-%   panel1 — sidebar: Pointer / Domain (D1·FTR·MSR) / fit cfg /
+%   panel1 — sidebar: Pointer / Domain (DN·FTR·MSR) / fit cfg /
 %             Fit · Transform·DTS · Visualize · ->StateSpace buttons
 
     BLACK = [0 0 0];
@@ -85,7 +85,7 @@ function nexFigure_umap(mdlObj)
     maxSels = zeros(1, numel(domKeys));
     for i = 1:numel(domKeys)
         k = domKeys(i);
-        if k == "D1"
+        if k == "REG"
             maxSels(i) = 1;
         else
             maxSels(i) = numel(mdlObj.collector.Domain.selKeys.(k));

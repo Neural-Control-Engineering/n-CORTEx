@@ -1,8 +1,12 @@
-function nex_buildCollectorViewPanel(nexObj, ph, H_panel)
-% Build SRC / VW / CLR listboxes inside a collector View panel.
+function nex_buildCollectorViewPanel(nexObj, ph, H_panel, maxSels)
+% Build View bus listboxes inside a collector View panel.
 % Wires SRC with applySRC; all others with listCfgEntryChanged.
 % ph      — parent uipanel handle (already created by caller)
 % H_panel — height of ph (used to size listboxes)
+% maxSels — optional struct; maxSels.(key) overrides Max for that listbox.
+%           Keys absent from maxSels default to numel(vals) (multi-select).
+
+    if nargin < 4, maxSels = struct(); end
 
     bus  = nexObj.collector.View;
     cyG  = nexObj.nexon.settings.Colors.cyberGreen;
@@ -10,7 +14,8 @@ function nex_buildCollectorViewPanel(nexObj, ph, H_panel)
     nK   = numel(keys);
 
     inner_w = ph.Position(3);
-    w_list  = floor((inner_w - 5*(nK+1)) / nK);
+    w_min   = 100;
+    w_list  = max(floor((inner_w - 5*(nK+1)) / nK), w_min);
     h_list  = H_panel - 50;
 
     for i = 1:nK
@@ -21,7 +26,11 @@ function nex_buildCollectorViewPanel(nexObj, ph, H_panel)
             "ForegroundColor",cyG, "Position",[x_pos, 5, w_list, H_panel-25]);
 
         vals = bus.selKeys.(char(k));
-        nV   = max(1, numel(vals));
+        if isfield(maxSels, char(k))
+            nV = maxSels.(char(k));
+        else
+            nV = max(1, numel(vals));
+        end
 
         if k == "SRC"
             cb = @(src,~) srcSelChanged(src, nexObj);

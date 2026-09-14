@@ -3,6 +3,11 @@ classdef mdlObject < handle
     properties
         headline
         fitPath      % absolute path to saveFit folder — set by saveFit/loadFit
+        fitSentinel  % struct(regAxis, canonReg, ftrAxis) — canonical REG set from
+                     % the last nexOp_alignCoAxes call in compileSTAT; used by
+                     % scaleApply_transform to project each new raw per-trial DF
+                     % onto the SAME canonical positions the model was fit on
+                     % (see CoRegistration_Design.md, "Inference-Time Projection")
         RESULTS = struct()   % model-diagnostic results (CV scores, eigenspectra, ...)
         nexon
         modelID
@@ -158,9 +163,207 @@ classdef mdlObject < handle
             % Called after any interactive Domain listbox change.
             if ~isfield(mdlObj.collector, 'Domain'), return; end
             sel = nex_returnSelectionMask(mdlObj.collector.Domain);
-            if isfield(sel, 'D1')  && ~isempty(sel.D1),  mdlObj.domain.D1  = string(sel.D1);  end
+            if isfield(sel, 'DN')  && ~isempty(sel.DN),  mdlObj.domain.DN  = string(sel.DN);  end
             if isfield(sel, 'FTR') && ~isempty(sel.FTR), mdlObj.domain.FTR = string(sel.FTR); end
             if isfield(sel, 'MSR') && ~isempty(sel.MSR), mdlObj.domain.MSR = string(sel.MSR); end
+            if isfield(sel, 'REG') && ~isempty(sel.REG), mdlObj.domain.REG = string(sel.REG); end
+        end
+
+        function refreshREG(mdlObj)
+            % Recompute REG listbox items when FTR changes. REG candidates
+            % derive from co-index pairs of the selected FTR axis, so the
+            % available registration axes always track the active feature space.
+            try
+                srcAx = mdlObj.Origin.DF_postOp.ax;
+            catch
+                return;
+            end
+            regOpts = nexOp_computeREGOptions(string(mdlObj.domain.FTR), srcAx);
+            bus = mdlObj.collector.Domain;
+            if ~isfield(bus.selKeys, 'REG'), return; end
+            bus.selKeys.REG = regOpts;
+            lb = bus.listBoxes.REG;
+            if isempty(lb) || ~isvalid(lb), return; end
+            lb.String = cellstr(regOpts);
+            curIdx = find(string(regOpts) == string(mdlObj.domain.REG), 1);
+            if isempty(curIdx)
+                mdlObj.domain.REG = "None";
+                lb.Value = 1;
+            else
+                lb.Value = curIdx;
+            end
+        end
+
+        function refreshPointer(mdlObj)
+        % Refresh collector.Pointer listboxes from Origin.DF_postOp.ax.
+        % Called after pMap changes update the pooled axis labels (lazy path).
+        % Mirrors nexObj_stateSpace.refreshPointer but sources from Origin.
+            if ~isfield(mdlObj.collector, 'Pointer') || isempty(mdlObj.collector.Pointer)
+                return;
+            end
+            try
+                newAx = mdlObj.Origin.DF_postOp.ax;
+            catch
+                return;
+            end
+            bus = mdlObj.collector.Pointer;
+            axFields = fieldnames(newAx);
+            axFields = axFields(~strcmp(axFields, 'latent'));
+            for i = 1:numel(axFields)
+                ax = axFields{i};
+                if ~isfield(bus.selKeys, ax), continue; end
+                newVals = newAx.(ax);
+                oldVals = bus.selKeys.(ax);
+                if isequal(newVals, oldVals), continue; end
+                nVals    = numel(newVals);
+                curSel   = bus.selections.(ax);
+                validSel = curSel(curSel >= 1 & curSel <= numel(oldVals));
+                if ~isempty(validSel) && isnumeric(oldVals) && isnumeric(newVals)
+                    selRange = oldVals(validSel);
+                    newSel   = find(newVals >= min(selRange) & newVals <= max(selRange));
+                else
+                    newSel = [];
+                end
+                if isempty(newSel), newSel = 1:nVals; end
+                bus.selKeys.(ax)    = newVals;
+                bus.selections.(ax) = newSel;
+                lb = [];
+                if isfield(bus.listBoxes, ax), lb = bus.listBoxes.(ax); end
+                if ~isempty(lb) && isvalid(lb)
+                    lb.String = newVals;
+                    lb.Max    = nVals;
+                    lb.Value  = newSel;
+                end
+            end
+        end
+
+        function refreshPointerFromSentinel(mdlObj)
+        % After fitSentinel is set (see nexOp_compileSTAT), the Pointer bus's
+        % option list for the REG axis (e.g. 'chans') may still reflect
+        % whatever narrower reference initPointerBus originally built it
+        % from — any single raw session is, by nature, an incomplete sample
+        % of the full canonical set nexOp_alignCoAxes computes. Left stale,
+        % "select all" in the Pointer UI silently means "all of that
+        % narrower reference," not "all of the true canonical set" —
+        % applyPointerDF then narrows every sentinel-projected DF down to
+        % that stale reference's width instead of passing it through
+        % unfiltered. Refreshes the REG axis itself, AND neutralizes its
+        % co-indexed sibling's OWN Pointer selection (e.g. 'unit') to a
+        % single-item "no window" pass-through (this codebase's established
+        % no-op convention — see applyPointer's own comment): the sibling
+        % owns the real DF dimension, so applyPointerDF filters it
+        % independently rather than only through nexOp_coAlign mask
+        % propagation from REG — and a session-local ID (unit) has no
+        % cross-session canonical identity to refresh a reference list to,
+        % so leaving its stale selKeys active would filter every
+        % sentinel-projected DF against essentially arbitrary numeric
+        % overlap. Mirrors refreshPointer's remap-or-select-all pattern for
+        % the REG axis itself, scoped to one named field instead of every
+        % axis.
+            if ~isstruct(mdlObj.fitSentinel) || ~isfield(mdlObj.fitSentinel, 'canonReg')
+                return;
+            end
+            if ~isfield(mdlObj.collector, 'Pointer') || isempty(mdlObj.collector.Pointer)
+                return;
+            end
+            bus = mdlObj.collector.Pointer;
+            ax  = mdlObj.fitSentinel.regAxis;
+            if ~isfield(bus.selKeys, ax), return; end
+            newVals = mdlObj.fitSentinel.canonReg;
+            oldVals = bus.selKeys.(ax);
+            nVals   = numel(newVals);
+
+            % REG axis itself — independent of whether it changed, so the
+            % ftrAxis relisting below (which must always track nVals) never
+            % gets skipped by this block's own early-exit.
+            if ~isequal(newVals, oldVals)
+                curSel   = bus.selections.(ax);
+                validSel = curSel(curSel >= 1 & curSel <= numel(oldVals));
+                if ~isempty(validSel) && isnumeric(oldVals) && isnumeric(newVals)
+                    selRange = oldVals(validSel);
+                    newSel   = find(newVals >= min(selRange) & newVals <= max(selRange));
+                else
+                    newSel = [];
+                end
+                if isempty(newSel), newSel = 1:nVals; end
+                bus.selKeys.(ax)    = newVals;
+                bus.selections.(ax) = newSel;
+                lb = [];
+                if isfield(bus.listBoxes, ax), lb = bus.listBoxes.(ax); end
+                if ~isempty(lb) && isvalid(lb)
+                    lb.String = newVals;
+                    lb.Max    = nVals;
+                    lb.Value  = newSel;
+                end
+            end
+
+            % Relist the co-indexed sibling (e.g. 'unit') to canonical
+            % POSITION indices 1:nVals, fully selected — not the same
+            % values as the REG axis (unit has no cross-session identity of
+            % its own to relist to), but the same WIDTH, which is what
+            % matters: post-alignment, every DF's unit axis is uniformly
+            % nVals long, one canonical position per index, so 1:nVals is a
+            % meaningful (if generic) relisting rather than an opaque
+            % placeholder. applyPointerDF's "skip filtering" check is
+            % purely count-based (numel(selectedVals)==numel(axVals)) — it
+            % never actually compares values — so matching the width here
+            % is exactly what's needed for it to pass every position
+            % through unfiltered. Runs every call (not gated on the REG
+            % axis having changed) so it can't be silently skipped.
+            ftrAxis = mdlObj.fitSentinel.ftrAxis;
+            if ~isempty(ftrAxis) && ~strcmp(ftrAxis, ax) && isfield(bus.selKeys, ftrAxis) ...
+                    && ~isequal(bus.selKeys.(ftrAxis), (1:nVals)')
+                bus.selKeys.(ftrAxis)    = (1:nVals)';
+                bus.selections.(ftrAxis) = 1:nVals;
+                if isfield(bus.listBoxes, ftrAxis) && isvalid(bus.listBoxes.(ftrAxis))
+                    ftrLb        = bus.listBoxes.(ftrAxis);
+                    ftrLb.String = (1:nVals)';
+                    ftrLb.Max    = nVals;
+                    ftrLb.Value  = 1:nVals;
+                end
+            end
+        end
+
+        function initViewBus(mdlObj)
+        % Build collector.View with CTG + SWP (training-context keys) followed
+        % by the standard SRC / VW / CLR visualization keys.
+        % CTG — multi-select category columns for training stratification
+        % SWP — single-select Pointer axis for outer sweep loop
+            try
+                S_cat  = nex_returnSelectionMask(mdlObj.Origin.selectionBus.categories);
+                catIDs = string(struct2cell(S_cat))';
+                catIDs = strrep(catIDs(~strcmp(catIDs, "None")), "--", "_");
+                if isempty(catIDs), catIDs = "sessionLabel_phase"; end
+            catch
+                catIDs = "sessionLabel_phase";
+            end
+
+            swpOpts = "None";
+            if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
+                try
+                    ptrAxes = string(fieldnames(mdlObj.collector.Pointer.selKeys))';
+                    if ~isempty(ptrAxes), swpOpts = ["None", ptrAxes]; end
+                catch
+                end
+            end
+
+            viewDict.CTG = catIDs;
+            viewDict.SWP = swpOpts;
+            viewDict.SRC = "fit";
+            % nexInit_collectorView appends VW and CLR defaults
+            mdlObj.collector.View = nexInit_collectorView(mdlObj, viewDict);
+            mdlObj.collector.View.selections.CTG = [];   % nothing selected by default
+            mdlObj.collector.View.selections.SWP = 1;    % "None" selected by default
+            mdlObj.domain.CTG = string.empty(1, 0);
+            mdlObj.domain.SWP = "None";
+        end
+
+        function applyViewBus(mdlObj)
+        % Sync domain.CTG and domain.SWP from collector.View selections.
+            if ~isfield(mdlObj.collector, 'View'), return; end
+            sel = nex_returnSelectionMask(mdlObj.collector.View);
+            if isfield(sel, 'CTG'), mdlObj.domain.CTG = string(sel.CTG); end
+            if isfield(sel, 'SWP'), mdlObj.domain.SWP = string(sel.SWP); end
         end
 
         function initPointerBus(mdlObj)
@@ -212,6 +415,52 @@ classdef mdlObject < handle
                 "ForegroundColor", GREEN);
             mdlObj.Figure.panel_pointer = nexObj_listCfgPanel( ...
                 mdlObj.nexon, pan_ptr, mdlObj.collector.Pointer, []);
+
+            % Co-registered axes (e.g. chans/unit) share positionality and
+            % length, so their Pointer selections must move together.
+            % nexObj_listCfgPanel wires every listbox to the same generic
+            % listCfgEntryChanged, which only updates the one axis that
+            % changed — override each callback to also propagate to any
+            % co-indexed sibling of matching length, after the default
+            % bus update runs.
+            bus     = mdlObj.collector.Pointer;
+            ptrKeys = fieldnames(bus.listBoxes);
+            for i = 1:numel(ptrKeys)
+                key = ptrKeys{i};
+                lb  = bus.listBoxes.(key);
+                lb.Callback = @(src, ev) mdlObj.onPointerChange(src, ev, key);
+            end
+        end
+
+        function onPointerChange(mdlObj, src, ev, key)
+        % Run the default Pointer bus update for `key`, then propagate its
+        % new selection (positional indices) to any co-indexed sibling axis
+        % whose selKeys are the same length — same length is the only
+        % evidence available here that a sibling is still positionally
+        % aligned with `key` (e.g. after independent pooling it may not be),
+        % so mismatched lengths are skipped rather than guessed at.
+        % Plain field assignment (not whole-struct replacement), so this
+        % does not re-fire the selections PostSet — no reentrancy risk.
+            bus = mdlObj.collector.Pointer;
+            listCfgEntryChanged(src, ev, key, bus);
+
+            if ~isfield(bus.selKeys, key), return; end
+            coIdx = nexOp_coIndexPairs(bus.selKeys);
+            sel   = bus.selections.(key);
+            nSel  = numel(bus.selKeys.(key));
+            for p = 1:numel(coIdx)
+                pair = coIdx{p};
+                if ~ismember(key, pair), continue; end
+                for m = 1:numel(pair)
+                    sib = char(pair{m});
+                    if strcmp(sib, key) || ~isfield(bus.selKeys, sib), continue; end
+                    if numel(bus.selKeys.(sib)) ~= nSel, continue; end
+                    bus.selections.(sib) = sel;
+                    if isfield(bus.listBoxes, sib) && isvalid(bus.listBoxes.(sib))
+                        bus.listBoxes.(sib).Value = sel;
+                    end
+                end
+            end
         end
 
         function applyHeadline(mdlObj)
@@ -248,6 +497,18 @@ classdef mdlObject < handle
             % compile design matrix (ND: first dim = samples, rest = FTR axes)
             dmFcn     = str2func(sprintf("stat2dm_%s", mdlObj.cfg.dmCfg.format));
             mdlObj.DM = dmFcn(mdlObj);
+            % Terminal NaN resolution: nexOp_alignCoAxes NaN-pads
+            % structurally-absent canonical positions (by design, so
+            % upstream pooling/cropping stays unbiased) — no fit function
+            % downstream (including nexHR_fit's block-PCA) handles NaN
+            % input, so it must be zero-filled here, once, for every
+            % subclass's plain fit() path. nexAnalysis_cvPermute does the
+            % equivalent right before each of its own fit/predict calls,
+            % but a plain fit() (e.g. PCA/UMAP, which never go through that
+            % sweep) never hit that treatment without this.
+            if isnumeric(mdlObj.DM)
+                mdlObj.DM(isnan(mdlObj.DM)) = 0;
+            end
             % build layout then reduce (nexHR) or flatten to 2D
             mdlObj.FTR_layout = mdlObj.buildFTRLayout();
             mdlObj.initReducer();
@@ -261,9 +522,9 @@ classdef mdlObject < handle
             if isempty(mdlObj.TRAIN.STAT), return; end
             ptr   = mdlObj.TRAIN.STAT.ptr(1);
             ax_s  = mdlObj.TRAIN.STAT.ax(1);
-            d1Sel = string(mdlObj.domain.D1(1));
+            dnSel = string(mdlObj.domain.DN(1));
             axNames  = string(fieldnames(ax_s))';
-            ftrAxes  = axNames(axNames ~= d1Sel & axNames ~= "None");
+            ftrAxes  = axNames(axNames ~= dnSel & axNames ~= "None");
             if isempty(ftrAxes), return; end
             % dim = [] for co-indexed label axes (e.g. 'chans' on a unit DF);
             % filter them out before sorting — they have no array dimension to order.
@@ -276,7 +537,11 @@ classdef mdlObject < handle
             [~, ord] = sort(dims, 'descend');   % outermost = last dim = highest
             ftrAxes  = ftrAxes(ord);
             ns       = ns(ord);
-            layout   = arrayfun(@(ax, n) struct('axID', char(ax), 'n', double(n)), ftrAxes, ns);
+            % axVals: this axis's actual tick values (post-pool/relabel),
+            % needed by nexHR_fit to derive region-aware block-PCA
+            % boundaries via poolMap.getBinEdges — not just a count.
+            layout   = arrayfun(@(ax, n) struct('axID', char(ax), 'n', double(n), ...
+                                                 'axVals', ax_s.(char(ax))), ftrAxes, ns);
         end
 
         function initReducer(mdlObj)
@@ -305,7 +570,7 @@ classdef mdlObject < handle
         % whether nexHR was used.
             X = DF_X.df;
             if ~isempty(mdlObj.HR)
-                if mdlObj.domain.D1 == "None"
+                if mdlObj.domain.DN(1) == "None"
                     X = reshape(X, [1, size(X)]);  % single-trial: add N_ctx=1 to match fit shape
                 end
                 X_flat = nexHR_transform(X, mdlObj.FTR_layout, mdlObj.pMap, mdlObj.HR);
@@ -382,7 +647,7 @@ classdef mdlObject < handle
             if nargin < 3 || isempty(isOverwrite),   isOverwrite    = true;  end
             if nargin < 4 || isempty(currentTrialOnly), currentTrialOnly = false; end
             dfID_entry = strrep(dfID_source, "_df", "");
-            d1Sel = mdlObj.domain.D1(1);
+            dnSel = mdlObj.domain.DN(1);
             % dtsRows = height(mdlObj.nexon.console.BASE.DTS);
             switch scope
                 case "global"
@@ -443,12 +708,27 @@ classdef mdlObject < handle
                     continue
                 end
                 DF_X.ptr = nexInit_axisPointer(DF_X.df, DF_X.ax);
+                % Project onto the SAME canonical REG positions the model
+                % was fit on (CoRegistration_Design.md, "Inference-Time
+                % Projection") — before Pointer/pooling, same align-before-
+                % pool reasoning as nexOp_compileSTAT: positional pooling
+                % computes bins from each trial's own raw extent, so this
+                % must canonicalize first or it'd align already-scrambled
+                % session-relative labels instead of true cross-session
+                % identity.
+                if isstruct(mdlObj.fitSentinel) && isfield(mdlObj.fitSentinel, 'canonReg') ...
+                        && isfield(DF_X.ax, mdlObj.fitSentinel.regAxis)
+                    TF1  = nexOp_alignCoAxes({DF_X}, mdlObj.fitSentinel.regAxis, [], ...
+                                              mdlObj.fitSentinel.canonReg);
+                    DF_X = TF1{1};
+                    DF_X.ptr = nexInit_axisPointer(DF_X.df, DF_X.ax);
+                end
                 if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
                     DF_X = mdlObj.applyPointerDF(DF_X);
                 end
                 DF_X = mdlObj.applyDomainMSRDF(DF_X);
-                if d1Sel ~= "None"
-                    DF_X = nexOp_permute2First(DF_X, d1Sel, DF_X.ptr);
+                if dnSel ~= "None"
+                    DF_X = nexOp_permute2First(DF_X, dnSel, DF_X.ptr);
                 end
                 if ~isempty(mdlObj.pMap)
                     DF_X = nexOp_poolAxes(mdlObj.pMap, DF_X, DF_X.ptr);
@@ -505,14 +785,14 @@ classdef mdlObject < handle
             % end
             TF_STAT=arrayfun(@(s) {s}, (table2struct(STAT)));
             [df_trim,ax_trim]=nexOp_trimTF(TF_STAT);
-            d1Sel=mdlObj.domain.D1(1);
+            dnSel=mdlObj.domain.DN(1);
             STAT.df=df_trim;
             STAT.ax=arrayfun(@(ax) ax_trim, STAT.ax);
             ptr = STAT.ptr(1);
-            % place primary dim first (skip when D1="None" — trial is the sample)
-            if d1Sel ~= "None"
-                STAT.df = cellfun(@(df) nexOp_permute2First(df, d1Sel, ptr), STAT.df, "UniformOutput", false);
-            end        
+            % place primary dim first (skip when DN="None" — trial is the sample)
+            if dnSel ~= "None"
+                STAT.df = cellfun(@(df) nexOp_permute2First(df, dnSel, ptr), STAT.df, "UniformOutput", false);
+            end
             % broadcast new pointer after permute
             DF_ptr = table2struct(STAT(1,:)); DF_ptr = rmfield(DF_ptr,"ptr");
             DF_ptr =nex_initAxisPointer_v2(DF_ptr);
@@ -738,13 +1018,56 @@ classdef mdlObject < handle
                     [tf, loc] = ismembertol(double(selectedVals(:)), double(statVals(:)), ...
                                             1e-3, 'DataScale', scale);
                     dimIdx = sort(loc(tf));
+                elseif isnumeric(selectedVals) ~= isnumeric(statVals)
+                    % Pointer bus type doesn't match STAT's axis type for this
+                    % axis (e.g. bus.selKeys still numeric/raw, STAT.ax already
+                    % pooled to string labels, or vice versa) — the bus is
+                    % stale relative to the current pMap config. Skip windowing
+                    % for this axis rather than crashing on an incomparable
+                    % ismember call; surface it so it's visible, not silent.
+                    fprintf(['[mdlObject] applyPointer: axis "%s" type mismatch ' ...
+                             '(Pointer=%s vs STAT=%s) — Pointer bus is likely stale ' ...
+                             'relative to current pooling; skipping windowing for this axis.\n'], ...
+                             f, class(selectedVals), class(statVals));
+                    continue;
                 else
-                    [~, dimIdx] = ismember(selectedVals, statVals);
-                    dimIdx = sort(dimIdx(dimIdx > 0));
+                    % Every position whose value is in the selected set —
+                    % not the first match per selected value. Two-output
+                    % ismember(selectedVals, statVals) would return only one
+                    % index per query value, silently dropping every other
+                    % position sharing a repeated label (e.g. a region name
+                    % that now labels many raw units after reduce-mode
+                    % relabeling) — exactly the bug this replaces.
+                    dimIdx = find(ismember(string(statVals), string(selectedVals)));
                 end
                 if isempty(dimIdx) || numel(dimIdx) == numel(statVals), continue; end
 
-                dim     = STAT.ptr(1).(f).dim;
+                dim = STAT.ptr(1).(f).dim;
+                if isempty(dim)
+                    % Co-indexed label: propagate mask to sibling with a real dimension.
+                    coMasks  = nexOp_coAlign(STAT.ax(1), f, dimIdx);
+                    coFields = fieldnames(coMasks);
+                    newAx    = STAT.ax(1);
+                    slicedSibling = false;
+                    for ci = 1:numel(coFields)
+                        coF = coFields{ci};
+                        if strcmp(coF, f) || ~isfield(newAx, coF), continue; end
+                        try, coDim = STAT.ptr(1).(coF).dim; catch, continue; end
+                        if isempty(coDim), continue; end
+                        STAT.df    = cellfun(@(df) ptrSliceDim(df, coDim, dimIdx), ...
+                                             STAT.df, 'UniformOutput', false);
+                        newAx.(coF) = newAx.(coF)(dimIdx);
+                        slicedSibling = true;
+                    end
+                    if slicedSibling
+                        newAx.(f) = statVals(dimIdx);
+                        STAT.ax   = repmat(newAx, height(STAT), 1);
+                        fprintf('[mdlObject] applyPointer: %s (co-idx)  [%d → %d]\n', ...
+                                f, numel(statVals), numel(dimIdx));
+                        anyChanged = true;
+                    end
+                    continue;
+                end
                 STAT.df = cellfun(@(df) ptrSliceDim(df, dim, dimIdx), ...
                                   STAT.df, 'UniformOutput', false);
 
@@ -795,12 +1118,39 @@ classdef mdlObject < handle
                                              1e-3, 'DataScale', sc);
                     dimIdx = sort(loc(tf2));
                 else
-                    [~, dimIdx] = ismember(selectedVals, axVals);
-                    dimIdx = sort(dimIdx(dimIdx > 0));
+                    % Same fix as applyPointer: every position whose value
+                    % is in the selected set, not just the first match per
+                    % selected value (two-output ismember(selectedVals,
+                    % axVals) would silently drop every other position
+                    % sharing a repeated label).
+                    dimIdx = find(ismember(string(axVals), string(selectedVals)));
                 end
                 if isempty(dimIdx) || numel(dimIdx) == numel(axVals), continue; end
                 dim = DF.ptr.(f).dim;
-                if isempty(dim), continue; end  % co-indexed label (e.g. 'chans') — no own dimension
+                if isempty(dim)
+                    % Co-indexed label (e.g. 'chans' riding on 'unit' dim).
+                    % Propagate mask to the sibling axis that owns the DF dimension.
+                    coMasks = nexOp_coAlign(DF, f, dimIdx);
+                    coFields = fieldnames(coMasks);
+                    slicedSibling = false;
+                    for ci = 1:numel(coFields)
+                        coF = coFields{ci};
+                        if strcmp(coF, f) || ~isfield(DF.ax, coF), continue; end
+                        try, coDim = DF.ptr.(coF).dim; catch, continue; end
+                        if isempty(coDim), continue; end
+                        S = repmat({':'}, 1, ndims(DF.df)); S{coDim} = dimIdx;
+                        DF.df       = DF.df(S{:});
+                        DF.ax.(coF) = DF.ax.(coF)(dimIdx);
+                        slicedSibling = true;
+                    end
+                    if slicedSibling
+                        DF.ax.(f) = axVals(dimIdx);
+                        fprintf('[mdlObject] applyPointerDF: %s (co-idx)  [%d → %d]\n', ...
+                                f, numel(axVals), numel(dimIdx));
+                        anyChanged = true;
+                    end
+                    continue;
+                end
                 S = repmat({':'}, 1, ndims(DF.df)); S{dim} = dimIdx;
                 DF.df      = DF.df(S{:});
                 preLen     = numel(axVals);
@@ -818,7 +1168,7 @@ classdef mdlObject < handle
 
         function initDomainBus(mdlObj)
         % Build collector.Domain: the D1 / FTR axis-role selectors plus, when a
-        % residual axis remains (not D1 / FTR / 'factor'), an MSR value-selector
+        % residual axis remains (not DN / FTR / 'latent'), an MSR value-selector
         % over that axis's values. Mirrors the inline construction in the model
         % figures so the bus exists headlessly (fit path) and interactively.
         %
@@ -840,24 +1190,29 @@ classdef mdlObject < handle
             axNames = string(fieldnames(srcAx))';
             if isempty(axNames), axNames = "t"; end
 
-            % D1 options include "None" (trial-as-sample; D1 permute skipped)
-            d1Options = ["None", axNames];
-            d1Init    = find(d1Options == mdlObj.domain.D1(1), 1);
-            if isempty(d1Init), d1Init = 2; end   % default to first real axis
-            d1Name    = d1Options(d1Init);
+            % DN options include "None" (trial-as-sample; DN permute skipped).
+            % DN allows multi-select — the model trains/is scored jointly
+            % across every selected axis (scoring itself still only resolves
+            % DN(1); see nexAnalysis_cvPermute).
+            dnOptions = ["None", axNames];
+            dnInit    = find(ismember(dnOptions, mdlObj.domain.DN));
+            if isempty(dnInit), dnInit = 2; end   % default to first real axis
+            dnName    = dnOptions(dnInit);
 
             ftrInit = find(ismember(axNames, string(mdlObj.domain.FTR)));
-            if isempty(ftrInit), ftrInit = find(axNames ~= d1Name, 1); end
+            if isempty(ftrInit), ftrInit = find(~ismember(axNames, dnName), 1); end
             if isempty(ftrInit), ftrInit = 1; end
 
-            domainDict.D1  = d1Options;
+            domainDict.DN  = dnOptions;
             domainDict.FTR = axNames;
+            domainDict.REG = nexOp_computeREGOptions(axNames(ftrInit), srcAx);
+            mdlObj.domain.REG = "None";
 
             % MSR value selector — only when "measure" is explicitly a residual axis
             mdlObj.domain.MSRaxis = "";
             mdlObj.domain.MSR     = string.empty;
             msrInit  = [];
-            claimed  = [d1Name, axNames(ftrInit), "factor"];
+            claimed  = [dnName, axNames(ftrInit), "latent"];
             residual = axNames(~ismember(axNames, claimed));
             if ismember("measure", residual)
                 rax   = "measure";
@@ -872,14 +1227,15 @@ classdef mdlObject < handle
             end
 
             mdlObj.collector.Domain = buildSelection(mdlObj, domainDict);
-            mdlObj.collector.Domain.selections.D1  = d1Init;
+            mdlObj.collector.Domain.selections.DN  = dnInit;
             mdlObj.collector.Domain.selections.FTR = ftrInit;
+            mdlObj.collector.Domain.selections.REG = 1;   % default = "None"
             if ~isempty(msrInit)
                 mdlObj.collector.Domain.selections.MSR = msrInit;
             end
             % Sync domain fields directly — the selection listboxes may not
             % exist yet at init time (headless, or pre-panel figure build).
-            mdlObj.domain.D1  = d1Name;
+            mdlObj.domain.DN  = dnName;
             mdlObj.domain.FTR = axNames(ftrInit);
         end
 
@@ -926,13 +1282,23 @@ classdef mdlObject < handle
         % Scale X_raw (if Scaler is fitted) then call model.predict.
         % Returns strings for classifiers (decoding via W.labelKey when the model
         % was trained on integer codes) and doubles for regression models.
-            np = py.importlib.import_module('numpy');
-            X  = X_raw;
+            np    = py.importlib.import_module('numpy');
+            X     = X_raw;
+            nFeat = size(X_raw, 2);
+            % MATLAB's py.* conversion can collapse a genuine [n_samples x 1]
+            % column (e.g. a single surviving feature after a Pointer filter
+            % narrows a SWP group down to one unit) into a 1-D (n,) NumPy
+            % array — sklearn's transform/predict reject 1-D input outright.
+            % Force the shape explicitly using nFeat computed from the
+            % MATLAB side (always reliable), rather than trusting the
+            % conversion to have preserved it. Same fix as nexFit_lda.m.
             if isstruct(mdlObj.Scaler) && isfield(mdlObj.Scaler, 'model') && ...
                     ~isempty(mdlObj.Scaler.model)
-                X = double(mdlObj.Scaler.model.transform(np.array(X)));
+                X_py = np.array(X).reshape(int32(-1), int32(nFeat));
+                X    = double(mdlObj.Scaler.model.transform(X_py));
             end
-            Y_py = mdlObj.model.predict(np.array(X));
+            X_py = np.array(X).reshape(int32(-1), int32(nFeat));
+            Y_py = mdlObj.model.predict(X_py);
             try
                 Y_pred = double(Y_py);
             catch

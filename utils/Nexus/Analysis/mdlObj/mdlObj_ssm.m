@@ -69,8 +69,8 @@ classdef mdlObj_ssm < mdlObject
                 return;
             end
             domSel = nex_returnSelectionMask(mdlObj.collector.Domain);
-            if ~isequal(domSel.D1, "")
-                mdlObj.domain.D1 = domSel.D1;
+            if ~isequal(domSel.DN, "")
+                mdlObj.domain.DN = domSel.DN;
             end
             if ~isequal(domSel.FTR, "")
                 mdlObj.domain.FTR = domSel.FTR;
@@ -140,9 +140,9 @@ classdef mdlObj_ssm < mdlObject
         end
          
         % function getDesignMatrix(mdlObj)
-        %     d1Sel = mdlObj.domain.D1(1);
-        %     % mdlObj.DM = stat2dm_batch(mdlObj, d1Sel);
-        %     mdlObj.DM = stat2dm_stack(mdlObj, d1Sel);
+        %     dnSel = mdlObj.domain.DN(1);
+        %     % mdlObj.DM = stat2dm_batch(mdlObj, dnSel);
+        %     mdlObj.DM = stat2dm_stack(mdlObj, dnSel);
         % end
 
         function DF_Z = transform(mdlObj, DF_X)
@@ -192,7 +192,7 @@ classdef mdlObj_ssm < mdlObject
                 DF_Z.df  = Z_mu;
                 DF_Z.cov = Z_cov;
                 DF_Z.ax=DF_X.ax;
-                DF_Z.ax.(mdlObj.domain.D1) = DF_X.ax.(mdlObj.domain.D1);
+                DF_Z.ax.(mdlObj.domain.DN(1)) = DF_X.ax.(mdlObj.domain.DN(1));
                 DF_Z.ax.latent = 1:size(Z_mu, 2);
                 DF_Z = nex_initAxisPointer_v2(DF_Z);
             else

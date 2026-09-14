@@ -12,7 +12,12 @@ classdef mdlObj_umap < mdlObject
             mdlObj.py.np = py.importlib.import_module('numpy');
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing');
             mdlObj.Scaler.model = sklearnPreProc.StandardScaler();
-            mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func("nexFit_umap"));
+            % mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func("nexFit_umap"));
+            % Base mdlObject constructor already builds cfg.fitCfg (from
+            % modelID) AND the figure — reassigning it here orphans whatever
+            % cfgObj instance the fitCfg panel's spinner callbacks captured
+            % at figure-build time, so UI edits would silently never reach
+            % fit(). See mdlObj_ssm.m / mdlObj_pca.m.
             isHeadless = isfield(mdlObj.nexon, 'settings') && ...
                          isfield(mdlObj.nexon.settings, 'headless') && ...
                          mdlObj.nexon.settings.headless;
@@ -44,9 +49,9 @@ classdef mdlObj_umap < mdlObject
             Z_py = mdlObj.model.transform(X_scaled);
             Z    = double(Z_py);
             DF_Z.df        = Z;
-            D1             = char(mdlObj.domain.D1);
-            if D1 ~= "None"
-                DF_Z.ax.(D1) = DF_X.ax.(D1);
+            DN             = char(mdlObj.domain.DN(1));
+            if DN ~= "None"
+                DF_Z.ax.(DN) = DF_X.ax.(DN);
             end
             DF_Z.ax.latent = 1:size(Z, 2);
             DF_Z           = nex_initAxisPointer_v2(DF_Z);

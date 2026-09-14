@@ -183,24 +183,26 @@ Do NOT write per-figure `fitCfgEntryChanged`, `aniCfgEntryChanged`, etc. — use
 
 Every Nexus object (both `nexObject` subclasses and `mdlObject` subclasses) carries a `domain` struct that describes which axes play which role.
 
+**Note:** this primary-axis field is named differently in each family — `domain.D1` (scalar) for `nexObject`, `domain.DN` (string array) for `mdlObject`. They used to share the name `D1`; `mdlObject`'s was generalized to `DN` to allow training/scoring jointly across more than one physical axis (e.g. time AND frequency), while `nexObject`'s stayed `D1` unchanged. Don't assume the two are interchangeable.
+
 | Field | Meaning |
 |-------|---------|
-| `domain.D1` | **Primary axis** — rendered on the canvas itself (e.g. `"t"` for time). For all `mdlObject`s this is always `"t"`. |
-| `domain.D2` | **Full complement** — `setdiff(allAxes, D1, "stable")`. The complete set of non-primary axes. Never set this manually; it is computed by `nexInit_domain`. |
+| `domain.D1` (`nexObject`) / `domain.DN` (`mdlObject`) | **Primary/training-domain axis(es)** — rendered on the canvas itself (e.g. `"t"` for time). For `mdlObject`, defaults to `"t"` alone but may hold multiple axis names; scoring still only resolves `DN(1)` (see `nexAnalysis_cvPermute`). |
+| `domain.D2` | **Full complement** — `setdiff(allAxes, D1_or_DN, "stable")`. The complete set of non-primary axes. Never set this manually; it is computed by `nexInit_domain` (`mdlObject`) or the `nexObject` equivalent. |
 | `domain.FTR` | **Feature selection** — a caller-chosen subset of `D2` (one axis or several). Not an alias for `D2`; can be narrowed at any time by `applyDomainBus`. |
 | `domain.animate` | (`nexObject` only) The currently animated member of `D2`. |
 
-**Initialization** — always use `nexInit_domain`:
+**Initialization** — always use `nexInit_domain` (`mdlObject` only; `nexObject` has its own domain-init path):
 ```matlab
 % base mdlObject constructor calls this automatically:
-mdlObj.domain = nexInit_domain(mdlObj.Origin.DF_postOp);  % D1="t", D2=all other axes, FTR=D2 default
+mdlObj.domain = nexInit_domain(mdlObj.Origin.DF_postOp);  % DN="t", D2=all other axes, FTR=D2 default
 
 % subclasses narrow FTR to the axis they actually operate on:
 mdlObj.domain.FTR = mdlObj.domain.D2(1);   % e.g. first non-t axis
 ```
 
 **Rules:**
-- Do NOT manually set `domain.D1` or `domain.D2` in subclass constructors — the base `mdlObject` constructor handles both via `nexInit_domain`.
+- Do NOT manually set `domain.DN` or `domain.D2` in `mdlObject` subclass constructors — the base `mdlObject` constructor handles both via `nexInit_domain`.
 - `FTR` is the only domain field subclasses should write after construction; it expresses *which* feature dimension(s) this model operates on and may be narrowed further by `applyDomainBus`.
 - `FTR` is initialized to `D2` by `nexInit_domain` as a safe default; subclasses that know their operating axis should narrow it to `D2(1)` or a specific axis name.
 - For `nexObject` subclasses, `D2` may contain `"t"` (the sweep axis lives in D2, D1 is the complement) — the semantics flip relative to `mdlObject`. Check `nexObject.inferDomain()` for that path.
@@ -228,7 +230,7 @@ MATLAB handle classes (`nexObject`, `mdlObject`, `Nexon`) are reference types an
 Every `nexObject` and `mdlObject` subclass inherits `saveState()` from its base class. It returns a plain struct containing:
 
 - Identity fields: `className`, `modelID`/`classID`, `dfID_source`, `headline`
-- `domain` — axis role assignments (D1, FTR, etc.) as plain strings
+- `domain` — axis role assignments (D1/DN, FTR, etc.) as plain strings
 - `cfg` — all `nexObj_cfg` sub-trees serialized via `nex_serializeCfg` (primitives only; function handles are dropped and re-derived at load time)
 - `collector` — selection bus values as plain value structs
 - `selectionBus` — (nexObject only) category/item selection values

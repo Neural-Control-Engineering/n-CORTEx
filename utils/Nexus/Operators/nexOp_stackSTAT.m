@@ -2,11 +2,18 @@ function [Z_stack, G_stack, S_stack] = nexOp_stackSTAT(STAT)
     % Flatten each df from (D1 x F x D2 x D3 x ...) → (D1*D2*D3*... x F),
     % then stack across STAT rows. All extra-dim ax values propagate to G_stack.
     % F (dim 2) is always preserved as the coordinate/factor space.
+    %
+    % Row order must match expandAxCol's assumption below: dims ordered
+    % [D1, D2, D3, ...] with D1 fastest-varying (column-major), F excluded
+    % and moved last. This generalizes what used to be a fixed permute([1,3,2])
+    % — correct only for exactly one extra axis beyond D1/F — to any number
+    % of extra axes (e.g. a genuine D2 like frequency coexisting with a
+    % SWP-sliced-but-not-squeezed singleton dimension).
 
     % Pre-reshape to 2D — D1 varies fastest (MATLAB column-major)
-    df_perm = cellfun(@(df) permute(df, [1,3,2]), STAT.df, "UniformOutput", false);
-    df_flat = cellfun(@(df) reshape(df,[],size(df,3)), df_perm, "UniformOutput",false);
-    % df_flat = cellfun(@(df) reshape(df, [], size(df,2)), STAT.df, 'UniformOutput', false);
+    df_perm = cellfun(@(df) permute(df, [1, 3:ndims(df), 2]), STAT.df, "UniformOutput", false);
+    df_flat = cellfun(@(df, df_orig) reshape(df, [], size(df_orig,2)), ...
+                       df_perm, STAT.df, "UniformOutput", false);
 
     Z_stack = cat(1, df_flat{:});
     try
@@ -39,7 +46,28 @@ function [Z_stack, G_stack, S_stack] = nexOp_stackSTAT(STAT)
     if ismember('ax', STAT.Properties.VariableNames) && iscell(STAT.ax)
         ax_ref   = STAT.ax{1};
         axFields = fieldnames(ax_ref);
-        axFields = axFields(~strcmp(axFields, 'factor'));
+        % Exclude whichever axis(es) own dim 2 (F) — F is already fully
+        % represented in Z_stack's columns and must never also appear as a
+        % G_stack group-label. Derived by role (ptr.(name).dim==2), not by a
+        % hardcoded name like 'latent': that name-based exclusion silently
+        % missed the common chans/unit-FTR case (falls into expandAxCol's
+        % size-mismatch fallback instead) and would wrongly exclude 'latent'
+        % even when it's the real FTR axis being trained on (e.g. classifying
+        % on latent-space trajectories from a CEBRA/SSM embedding).
+        if ismember('ptr', STAT.Properties.VariableNames)
+            ptr_ref = STAT.ptr(1);
+            fAxes   = axFields(cellfun(@(f) isfield(ptr_ref, f) && isequal(ptr_ref.(f).dim, 2), axFields));
+            if ~isempty(fAxes)
+                coIdx = nexOp_coIndexPairs(ax_ref);
+                for p = 1:numel(coIdx)
+                    pair = coIdx{p};
+                    if any(ismember(fAxes, pair)), fAxes = union(fAxes, pair); end
+                end
+            end
+        else
+            fAxes = {};
+        end
+        axFields = axFields(~ismember(axFields, fAxes));
         for k = 1:numel(axFields)
             f = axFields{k};
             axCols = cellfun(@(ax_i, df_i) expandAxCol(ax_i.(f), df_i), ...

@@ -13,7 +13,12 @@ classdef mdlObj_logistic < mdlObject
             mdlObj.py.np = py.importlib.import_module('numpy');
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing'); 
             mdlObj.py.stdScaler = sklearnPreProc.StandardScaler();
-            mdlObj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_logistic"));
+            % mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func("nexFit_logistic"));
+            % Base mdlObject constructor already builds cfg.fitCfg (from
+            % modelID) AND the figure — reassigning it here orphans whatever
+            % cfgObj instance the fitCfg panel's spinner callbacks captured
+            % at figure-build time, so UI edits would silently never reach
+            % fit(). See mdlObj_ssm.m / mdlObj_pca.m.
             mdlObj.cfg.dmCfg.format="supervised";
             % classID = "ssm";
             % mdlObj.model = model_ssm();                        
@@ -57,9 +62,9 @@ classdef mdlObj_logistic < mdlObject
         end
 
         % function getDesignMatrix(mdlObj)
-        %     d1Sel = mdlObj.domain.D1(1);
-        %     % mdlObj.DM = stat2dm_batch(mdlObj, d1Sel);
-        %     mdlObj.DM = stat2dm_stack(mdlObj, d1Sel);
+        %     dnSel = mdlObj.domain.DN(1);
+        %     % mdlObj.DM = stat2dm_batch(mdlObj, dnSel);
+        %     mdlObj.DM = stat2dm_stack(mdlObj, dnSel);
         % end
 
         % function DF_Z = transform(mdlObj, DF_X)
@@ -86,8 +91,8 @@ classdef mdlObj_logistic < mdlObject
         %         % A_np=np.asarray(mdlObj.W.params.dynamics.weights);
         %         DF_Z.df=Z_mu;
         %         DF_Z.cov=Z_cov;
-        %         DF_Z.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
-        %         DF_Z.ax.factor=[1:size(Z_mu,2)];
+        %         DF_Z.ax.(mdlObj.domain.DN(1))=DF_X.ax.(mdlObj.domain.DN(1));
+        %         DF_Z.ax.latent=[1:size(Z_mu,2)];
         %         DF_Z = nex_initAxisPointer_v2(DF_Z);            
         %     else
         %         DF_Z = [];

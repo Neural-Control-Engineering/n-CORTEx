@@ -101,7 +101,7 @@ function nexFigure_linear_renderResults(mdlObj, ax, srcKey, GREEN, BLACK)
     outerID = '';
     if isstruct(R.ax)
         axFields    = string(fieldnames(R.ax))';
-        outerFields = axFields(~ismember(axFields, ["fold","permute"]));
+        outerFields = axFields(~ismember(axFields, ["fold","perm"]));
         if ~isempty(outerFields), outerID = char(outerFields(1)); end
     end
 

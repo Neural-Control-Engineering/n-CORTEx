@@ -58,7 +58,7 @@ classdef mdlObj_dPCA < mdlObject
             Z = X * mdlObj.W.W;          % (T × nComp), W is (N_latents × nComp)
             DF_Z = rmfield(DF_X, {'ptr', 'ax'});
             DF_Z.df  = Z;
-            DF_Z.ax.(mdlObj.domain.D1) = DF_X.ax.(mdlObj.domain.D1);
+            DF_Z.ax.(mdlObj.domain.DN(1)) = DF_X.ax.(mdlObj.domain.DN(1));
             DF_Z.ax.latent = 1:size(Z, 2);
             DF_Z = nex_initAxisPointer_v2(DF_Z);
         end

@@ -22,7 +22,7 @@ function nexFit_lds(mdlObj, args)
 
     STAT_train = mdlObj.TRAIN.STAT;
     tVar       = char(mdlObj.dfID_target);
-    d1         = mdlObj.domain.D1;
+    dn         = mdlObj.domain.DN(1);
 
     % ── 1. Global PCA basis from stacked training trajectories ───────────────
     X_stack  = mdlObj.DM.X;                            % [nSamples × nChans]
@@ -32,7 +32,7 @@ function nexFit_lds(mdlObj, args)
     V        = V(:, 1:nLatent);                        % [nChans × nLatent]
 
     % ── 2. Per-trial AR(1) eigenvalue features ───────────────────────────────
-    featFcn = @(ST) ldsFeatures(ST, d1, V, mu);
+    featFcn = @(ST) ldsFeatures(ST, dn, V, mu);
 
     mdlObj.DM.X = featFcn(STAT_train);                 % [nTrials × 2*nLatent]
 
@@ -44,7 +44,7 @@ function nexFit_lds(mdlObj, args)
     mdlObj.W = struct( ...
         'pcaBasis',     V, ...
         'trainMean',    mu, ...
-        'buildTestX',   @(ST) ldsFeatures(ST, d1, V, mu), ...
+        'buildTestX',   @(ST) ldsFeatures(ST, dn, V, mu), ...
         'isTrialLevel', true);
 
     fprintf('[nexFit_lds] PCA %d dims → AR(1) eigvals × 2 = %d features  [%d trials]\n', ...
@@ -55,12 +55,12 @@ end
 
 % ── AR(1) eigenvalue extraction ───────────────────────────────────────────────
 
-function X = ldsFeatures(STAT, d1, V, mu)
+function X = ldsFeatures(STAT, dn, V, mu)
     nTrials  = height(STAT);
     nLatent  = size(V, 2);
     X        = zeros(nTrials, 2*nLatent);
     for i = 1:nTrials
-        traj = trialTrajectory(STAT.df{i}, STAT.ptr(i), d1);   % [nTime × nChans]
+        traj = trialTrajectory(STAT.df{i}, STAT.ptr(i), dn);   % [nTime × nChans]
         if isempty(traj) || size(traj,1) < nLatent+2, continue; end
         z  = (traj - mu) * V;                                   % [nTime × nLatent]
         ev = arEigenvalues(z, nLatent);
@@ -79,10 +79,10 @@ function ev = arEigenvalues(z, nLatent)
     ev = ev(ord(1:nLatent));
 end
 
-function traj = trialTrajectory(df, ptr, d1)
+function traj = trialTrajectory(df, ptr, dn)
 % Return [nTime × nChans] with time in the first dimension.
     if isempty(df), traj = []; return; end
-    tDim   = ptr.(char(d1)).dim;
+    tDim   = ptr.(char(dn)).dim;
     nDims  = ndims(df);
     pOrder = [tDim, setdiff(1:nDims, tDim)];
     traj   = reshape(permute(df, pOrder), size(df, tDim), []);

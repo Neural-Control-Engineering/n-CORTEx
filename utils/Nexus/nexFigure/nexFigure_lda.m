@@ -1,9 +1,9 @@
 function nexFigure_lda(mdlObj)
 % Interactive figure for mdlObj_lda.
 %   panel0 — LD scatter canvas (populated by Visualize)
-%   panel1 — sidebar (scrollable): Target / Pool / Pointer / Domain /
-%             FitCfg / Visualize / Open Viewer / CV cfg / Result ID /
-%             Run CV / Transform / Save·Load / Fit
+%   panel1 — sidebar (scrollable): Target / View (CTG/SWP/SRC/VW/CLR) /
+%             Pool / Pointer / Domain / FitCfg / Visualize / Open Viewer /
+%             CV cfg / Result ID / Run CV / Transform / Save·Load / Fit
 
     BLACK = [0 0 0];
     nexon = mdlObj.nexon;
@@ -21,6 +21,7 @@ function nexFigure_lda(mdlObj)
     hPtr     = 150;
     hPool    = 165;
     hTarget  = 55;
+    hView    = 175;
     hCvCfg   = 80;
     hResultID= 55;
     gap      = 5;
@@ -39,6 +40,7 @@ function nexFigure_lda(mdlObj)
     yPtr      = yDomain    + hDomain   + gap;
     yPool     = yPtr       + hPtr      + gap;
     yTarget   = yPool      + hPool     + gap;
+    yView     = yTarget    + hTarget   + gap;
 
     % ── Figure ────────────────────────────────────────────────────────────
     mdlObj.Figure.fh = uifigure( ...
@@ -100,7 +102,7 @@ function nexFigure_lda(mdlObj)
         mdlObj, pan_pool, @poolCfgEntryChanged_v3);
 
     % ── Pointer + Domain panels ───────────────────────────────────────────
-    mdlObj.setupDomain();   % narrows FTR to D2(1), builds Domain + Pointer buses
+    mdlObj.setupDomain();   % builds Domain + Pointer + CTG + SWP buses
 
     mdlObj.buildPointerPanel(mdlObj.Figure.panel1.ph, [xInner, yPtr, wInner, hPtr]);
 
@@ -108,8 +110,10 @@ function nexFigure_lda(mdlObj)
     maxSels = zeros(1, numel(domKeys));
     for i = 1:numel(domKeys)
         k = domKeys(i);
-        if k == "D1", maxSels(i) = 1;
-        else,         maxSels(i) = numel(mdlObj.collector.Domain.selKeys.(k));
+        if k == "REG"
+            maxSels(i) = 1;
+        else
+            maxSels(i) = numel(mdlObj.collector.Domain.selKeys.(k));
         end
     end
     pan_domain.ph = uipanel(mdlObj.Figure.panel1.ph, ...
@@ -129,6 +133,19 @@ function nexFigure_lda(mdlObj)
         end
         lb.Callback = @(src, ev) nexFigure_lda_onDomainChange(src, ev, k, mdlObj);
     end
+
+    % ── View panel — CTG / SWP / SRC / VW / CLR ─────────────────────────
+    pan_view.ph = uipanel(mdlObj.Figure.panel1.ph, ...
+        "Position",        [xInner, yView, wInner, hView], ...
+        "BackgroundColor", BLACK, ...
+        "Scrollable",      "on", ...
+        "Title",           "View", ...
+        "ForegroundColor", GREEN);
+    viewMaxSels.SWP = 1;
+    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels);
+    bus = mdlObj.collector.View;
+    bus.listBoxes.CTG.Callback = @(src,ev) nexFigure_lda_onViewChange(src, ev, 'CTG', mdlObj);
+    bus.listBoxes.SWP.Callback = @(src,ev) nexFigure_lda_onViewChange(src, ev, 'SWP', mdlObj);
 
     % ── FitCfg panel ─────────────────────────────────────────────────────
     pan_fitCfg.ph = uipanel(mdlObj.Figure.panel1.ph, ...
@@ -230,6 +247,9 @@ end
 function nexFigure_lda_onDomainChange(src, ev, key, mdlObj)
     listCfgEntryChanged(src, ev, char(key), mdlObj.collector.Domain);
     mdlObj.applyDomainBus();
+    if key == "FTR"
+        mdlObj.refreshREG();
+    end
 end
 
 function nexFigure_lda_runCV(mdlObj)
@@ -258,6 +278,12 @@ function nexFigure_lda_visualize(mdlObj)
     try
         for r = 1:height(mdlObj.STAT)
             DF_X = table2struct(mdlObj.STAT(r,:));
+            % mdlObj.STAT retains nexOp_alignCoAxes' NaN-padding for
+            % non-canonical positions (by design, so upstream pooling/
+            % cropping stays unbiased) — sklearn's transform/predict reject
+            % NaN input outright, so it must be zero-filled here just like
+            % nexAnalysis_cvPermute does before every fit/predict call.
+            DF_X.df(isnan(DF_X.df)) = 0;
             DF_Z = mdlObj.transform(DF_X);
             if ~isempty(DF_Z) && ~isempty(DF_Z.df)
                 Z_all = [Z_all; DF_Z.df]; %#ok<AGROW>
@@ -293,6 +319,11 @@ function nexFigure_lda_visualize(mdlObj)
     ylabel(ax, 'LD 2', 'Color', GREEN);
     title(ax, sprintf('LDA — %s  (%d pts)', mdlObj.dfID_source, size(Z_all,1)), ...
           'Color', GREEN, 'FontWeight', 'normal', 'FontSize', 9, 'Interpreter', 'none');
+end
+
+function nexFigure_lda_onViewChange(src, ev, key, mdlObj)
+    listCfgEntryChanged(src, ev, key, mdlObj.collector.View);
+    mdlObj.applyViewBus();
 end
 
 function setfield_cvCfg(mdlObj, field, value)

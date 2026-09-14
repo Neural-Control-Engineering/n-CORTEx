@@ -25,6 +25,44 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
     ptr_filter = nexOp_buildPtrFromAxSel(S_categories, S_items, nexObj);
     [TF, drop] = nexOp_compileTF(nexObj.nexon, idxSel, dfID, ptr_filter);
     
+    % CO-AXIS ALIGNMENT — canonicalize FTR axis across sessions, on the RAW
+    % TF, before any pooling. Must happen first: positional (axID) pooling
+    % computes bin edges from each trial's own raw axis extent, which is
+    % session-relative — canonicalizing afterward would align already-
+    % scrambled, session-relative bin labels rather than true cross-session
+    % identity. NaN-fill in alignCoAxes plus 'omitnan' in pm.pool() (called
+    % below) means padded positions never bias the subsequent pooling mean.
+    try
+        % nexObj is an mdlObj handle-class instance, not a struct —
+        % isfield() always returns false for non-struct types even when the
+        % property genuinely exists. Use fieldnames-membership instead,
+        % which works for both structs and objects.
+        hasRegField = ismember('domain', fieldnames(nexObj)) && isfield(nexObj.domain, 'REG');
+        if hasRegField && ~isempty(nexObj.domain.REG) && ~strcmp(char(nexObj.domain.REG), 'None')
+            [TF, canonReg, ftrAxis] = nexOp_alignCoAxes(TF, char(nexObj.domain.REG));
+            % Cache the canonical set this compileSTAT call established, so
+            % scaleApply_transform can later project each new raw per-trial
+            % DF onto these SAME canonical positions at inference time
+            % (CoRegistration_Design.md, "Inference-Time Projection"). Only
+            % mdlObj instances carry this property — nexObject subclasses
+            % (which also route through nexOp_compileSTAT) don't, hence the
+            % fieldnames guard rather than a direct property check.
+            if ismember('fitSentinel', fieldnames(nexObj))
+                nexObj.fitSentinel = struct('regAxis', char(nexObj.domain.REG), ...
+                                             'canonReg', canonReg, 'ftrAxis', ftrAxis);
+                % The Pointer bus's option list for this axis may still be
+                % built from a narrower, pre-canonicalization reference —
+                % refresh it so "select all" actually means the full
+                % canonical set (see refreshPointerFromSentinel).
+                if ismethod(nexObj, 'refreshPointerFromSentinel')
+                    nexObj.refreshPointerFromSentinel();
+                end
+            end
+        end
+    catch e
+        fprintf('[nexOp_compileSTAT] alignCoAxes skipped: %s\n', e.message);
+    end
+
     % AXIS POOLING
     try
         try
@@ -45,7 +83,6 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
     catch
         TF_pooled = TF;
     end
-    % TF_pooled = nexOp_poolAxes(nexObj.pMap, TF, nexObj.DF_postOp.ptr);
 
     % READ CATEGORY LABELS / FIXED+RANDOM VARIABLES
     categories = fieldnames(S_categories);

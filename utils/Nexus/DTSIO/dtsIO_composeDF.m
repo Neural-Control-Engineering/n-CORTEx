@@ -60,4 +60,7 @@ function DF = dtsIO_composeDF(DTS, DFID, dtsIdx, ptr)
             end
         end
     end
+    if isfield(DF, 'ax')
+        DF.coIdx = nexOp_coIndexPairs(DF.ax);
+    end
 end

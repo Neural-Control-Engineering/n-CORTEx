@@ -54,21 +54,21 @@ function nexFigure_linear(mdlObj)
     % Pointer bus — delegate to base method
     mdlObj.initPointerBus();
 
-    % Domain bus (D1 / FTR)
+    % Domain bus (DN / FTR)
     try
         axNames = string(fieldnames(srcAx))';
     catch
         axNames = ["t"];
     end
-    d1Init  = find(axNames == mdlObj.domain.D1, 1);
-    if isempty(d1Init), d1Init = 1; end
-    ftrIdx  = find(axNames ~= axNames(d1Init));
+    dnInit  = find(ismember(axNames, mdlObj.domain.DN));
+    if isempty(dnInit), dnInit = 1; end
+    ftrIdx  = find(~ismember(axNames, axNames(dnInit)));
     ftrInit = 1;
     if ~isempty(ftrIdx), ftrInit = ftrIdx(1); end
-    domainDict.D1  = axNames;
+    domainDict.DN  = axNames;
     domainDict.FTR = axNames;
     mdlObj.collector.Domain = buildSelection(mdlObj, domainDict);
-    mdlObj.collector.Domain.selections.D1  = d1Init;
+    mdlObj.collector.Domain.selections.DN  = dnInit;
     mdlObj.collector.Domain.selections.FTR = ftrInit;
 
     % ── Figure ────────────────────────────────────────────────────────────
@@ -113,6 +113,7 @@ function nexFigure_linear(mdlObj)
     pan_view.ph = uipanel(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yView, wInner, hView], ...
         "BackgroundColor", BLACK, ...
+        "Scrollable",      "on", ...
         "Title",           "View", ...
         "ForegroundColor", GREEN);
     nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView);
@@ -147,7 +148,7 @@ function nexFigure_linear(mdlObj)
         "FontColor",       GREEN, ...
         "ValueChangedFcn", @(src,~) nexFigure_linear_onTargetChange(src, mdlObj));
 
-    % ── Domain panel — D1 / FTR axis selection ───────────────────────────
+    % ── Domain panel — DN / FTR axis selection ───────────────────────────
     pan_domain.ph = uipanel(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yDomain, wInner, hDomain], ...
         "BackgroundColor", BLACK, ...
@@ -155,7 +156,7 @@ function nexFigure_linear(mdlObj)
         "Title",           "Domain", ...
         "ForegroundColor", GREEN);
     mdlObj.Figure.panel_domain = nexObj_listCfgPanel( ...
-        nexon, pan_domain, mdlObj.collector.Domain, [1, numel(axNames)]);
+        nexon, pan_domain, mdlObj.collector.Domain, [numel(axNames), numel(axNames)]);
     domainKeys = string(fieldnames(mdlObj.collector.Domain.listBoxes))';
     for i = 1:numel(domainKeys)
         k  = domainKeys(i);

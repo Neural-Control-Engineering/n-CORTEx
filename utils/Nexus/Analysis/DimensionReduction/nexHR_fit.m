@@ -43,9 +43,20 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
 % Signature
 % ---------
 %   data   : (N_ctx, inner_dims..., outermost_dim) — outermost axis is last dim
-%   layout : struct array, outermost-first; each entry has .axID and .n
-%   pMap   : divsPerBin < 0  → block-PCA, blockSize = abs(divsPerBin)
-%            divsPerBin >= 0 → already mean-pooled; pass through
+%   layout : struct array, outermost-first; each entry has .axID, .n, and
+%            .axVals (this axis's tick values, needed to derive block
+%            boundaries — see below).
+%   pMap   : divsPerBin >= 0 → already mean-pooled; pass through.
+%            divsPerBin <  0 → block-PCA. Block boundaries come from the
+%            same poolMap.getBinEdges dispatch pooling itself uses
+%            (mapID region tables or axID fixed stride) — abs(divsPerBin)
+%            keeps meaning exactly what it means for pooling: 0 = per-
+%            element (degenerate here), finite N = subdivide (mapID: ≤N
+%            units per region sub-block; axID: fixed stride), Inf = one
+%            block spanning the whole region/axis. Blocks need not all be
+%            the same size (e.g. one contiguous run per region, region
+%            sizes differ) — every step below derives shapes from
+%            size(data_block) rather than a fixed constant.
 %   out    : (N_ctx, total_compressed_features)   always 2-D
 %   models : cell of structs — {b}.mean_, {b}.V, {b}.inner_models
 
@@ -71,8 +82,6 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
     end
     pm = pMap.(current.axID);
 
-    % Clamp blockSize to actual last-dim size (layout.n may be stale after
-    % recursive merges shrink the available dimension).
     % Guard: if actual_n == 1 there is nothing to compress — pass through.
     % (Also avoids MATLAB [N,1] → numpy 1D conversion that breaks sklearn.)
     actual_n = size(data, nd);
@@ -80,12 +89,22 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
         [out, models] = nexHR_fit(data, inner_layout, pMap, useGPU);
         return;
     end
-    blockSize = round(abs(pm.divsPerBin));
-    if ~isfinite(blockSize) || blockSize >= actual_n
-        blockSize = actual_n;
+
+    % axVals was captured once at buildFTRLayout time; it must still match
+    % the live last-dim size at this recursion depth, since this axis's own
+    % dimension is never touched by any other axis's block processing (only
+    % N_ctx grows as outer axes fold their block dim into it) — a mismatch
+    % means layout.axVals is stale, not a case to silently paper over.
+    if numel(current.axVals) ~= actual_n
+        error('nexHR_fit:axisMismatch', ...
+            ['Axis "%s" block-PCA: axVals length (%d) does not match ' ...
+             'data''s last dim (%d) at this recursion depth — ' ...
+             'layout.axVals is stale.'], ...
+            current.axID, numel(current.axVals), actual_n);
     end
-    nBlocks = floor(actual_n / blockSize);
-    nComp   = pm.reducerDim;
+    binEdges = pm.getBinEdges(current.axVals, abs(pm.divsPerBin));
+    nBlocks  = numel(binEdges) - 1;
+    nComp    = pm.reducerDim;
 
     np  = py.importlib.import_module('numpy');
     dr  = fileparts(mfilename('fullpath'));
@@ -99,11 +118,14 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
     block_models = cell(1, nBlocks);
 
     for b = 1:nBlocks
-        % 1. EXTRACT — slice this block from the last dim
-        idx        = (b-1)*blockSize + (1:blockSize);
+        % 1. EXTRACT — slice this block from the last dim. Block width can
+        % vary across b (e.g. one contiguous run per region, region sizes
+        % differ) — curBlockSize (not a shared constant) tracks it.
+        idx          = binEdges(b) : (binEdges(b+1) - 1);
+        curBlockSize = numel(idx);
         S          = repmat({':'}, 1, nd);
         S{nd}      = idx;
-        data_block = data(S{:});               % (N_ctx, inner_dims..., blockSize)
+        data_block = data(S{:});               % (N_ctx, inner_dims..., curBlockSize)
 
         % 2. EXPOSE — bring blockSize to position 2: (N_ctx, blockSize, inner_dims...)
         order      = [1, nd, 2:nd-1];
@@ -128,7 +150,7 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
         % contiguous array. Fix: reshape in Python with order='F' (column-major),
         % then ascontiguousarray → guaranteed C-contiguous with no IPC stride issue.
         n_inner_feat  = size(inner_out, 2);
-        n_feat        = blockSize * n_inner_feat;
+        n_feat        = curBlockSize * n_inner_feat;
         try
             block_feat = np.ascontiguousarray( ...
                 np.array(inner_out).reshape(int32(N_ctx), int32(n_feat), pyargs('order', 'F')));

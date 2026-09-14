@@ -16,18 +16,26 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
 %
 % Scores are time-resolved: scoreFold stacks all trial-time rows without
 % averaging, predicts per (trial, time) pair, and returns balanced accuracy
-% (or R²) at each time bin.  R.df shape: [nFolds × (1+nPermute) × nTime].
+% (or R²) at each time bin.
 %
-% If the STAT data has dimensions beyond D1 and FTR (e.g. a regionDropout
-% axis), the analysis iterates over that outer axis automatically.
+% CTG (domain.CTG) — category columns to stratify over.  One RESULT row per
+% unique CTG combination; rows are navigated via the VW bus.
 %
-% Result stored in mdlObj.RESULTS.(resultID):
-%   .df     [nFolds × (1+nPermute) × nTime]               (no outer axis)
-%   .df     [nFolds × (1+nPermute) × nTime × nOuter]      (outer axis present)
-%   .ax.fold     (1:nFolds)'
-%   .ax.permute  ["real", "null_001", ...]
-%   .ax.t        D1 time axis values
-%   .ax.(outerAxisID)  e.g. ["NULL","STN",...] (if outer axis present)
+% SWP (domain.SWP) — if set to a non-"None" Pointer axis, that axis is
+% iterated as an inner dimension of df rather than breaking into more rows.
+%
+% Result stored in mdlObj.RESULTS.(resultID) as a STAT-shaped table:
+%   identity columns  — one per CTG variable (e.g. sessionLabel_subj)
+%   df   {1×1}  [nFolds × (1+nPermute) × nTime]         (no SWP axis)
+%   df   {1×1}  [nFolds × (1+nPermute) × nTime × nSWP]  (SWP active)
+%   ax   {1×1}  struct with fold / perm / t [/ SWP axis]
+%   ptr  {1×1}  axis pointer struct
+%   fitSentinel {1×nSWP} cell of structs — one per SWP value (or {1×1} when
+%               SWP is inactive). Each struct holds the REG-canonical axis
+%               labels that survived NaN-cropping for that iteration, i.e.
+%               which canonical positions actually had data in this
+%               CTG-combo × SWP-value slice, tightened down from the
+%               globally-aligned canonical set computed in compileSTAT.
 
     cvCfg = mdlObj.cfg.cvCfg.entryParams;
     nFolds   = cvCfg.nFolds;
@@ -37,140 +45,394 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
     [STAT_full, idxSel, drop] = mdlObj.compileSTAT();
     tVar = char(mdlObj.dfID_target);
     if ~ismember(tVar, STAT_full.Properties.VariableNames)
-        Y_all = dtsIO_readTF(mdlObj.nexon, tVar, idxSel, 'simple');
-        Y_all = Y_all(~drop);
-        STAT_full.(tVar) = Y_all;
+        Y_tmp = dtsIO_readTF(mdlObj.nexon, tVar, idxSel, 'simple');
+        Y_tmp = Y_tmp(~drop);
+        STAT_full.(tVar) = Y_tmp;
     end
-    Y_all   = STAT_full.(tVar);
-    nTrials = height(STAT_full);
 
     fitArgs = mdlObj.cfg.fitCfg.entryParams;
     dmFcn   = str2func(sprintf('stat2dm_%s', mdlObj.cfg.dmCfg.format));
 
-    % ── 2. Detect outer iteration axis ───────────────────────────────────────
-    d1Strs   = string(mdlObj.domain.D1);
-    ftrStrs  = string(mdlObj.domain.FTR);
-    skipAxes = [d1Strs, ftrStrs];
-    ptrAxes  = string(fieldnames(STAT_full.ptr(1))');
-    outerAxes = ptrAxes(~ismember(ptrAxes, skipAxes));
-    if ~isempty(outerAxes)
-        hasDim    = arrayfun(@(ax) ~isempty(STAT_full.ptr(1).(char(ax)).dim), outerAxes);
-        outerAxes = outerAxes(hasDim);
-    end
-    hasOuter = ~isempty(outerAxes);
-    if hasOuter
-        outerID   = char(outerAxes(1));
-        outerVals = STAT_full.ax(1).(outerID);
-        nOuter    = numel(outerVals);
-        outerDim  = STAT_full.ptr(1).(outerID).dim;
-        fprintf('[nexAnalysis_cvPermute] outer axis: %s (%d values)\n', outerID, nOuter);
+    % ── 2. CTG combo enumeration ─────────────────────────────────────────────
+    ctgCols   = string(mdlObj.domain.CTG);
+    validCTG  = ctgCols(ismember(ctgCols, string(STAT_full.Properties.VariableNames)));
+    if ~isempty(validCTG)
+        comboTbl = unique(STAT_full(:, cellstr(validCTG)), 'rows');
     else
-        nOuter = 1;
+        comboTbl = table();   % single "all data" combo
     end
+    nCombos = max(1, height(comboTbl));
 
-    % ── 3. Y type and trial-level fold allocation ────────────────────────────
-    if iscell(Y_all), Y_flat = [Y_all{:}]'; else, Y_flat = Y_all(:); end
-    isCont = isnumeric(Y_flat);
-    if isCont
-        cv         = cvpartition(nTrials, 'KFold', nFolds);
-        trainMasks = arrayfun(@(k) {training(cv, k)}, 1:nFolds);
-    else
-        trainMasks = nexStat_allocateFolds(Y_flat, nFolds);
+    % ── 3. DN(1) time axis (shared across combos) ─────────────────────────────
+    dn   = char(mdlObj.domain.DN(1));
+    dnAx = STAT_full.ax(1).(dn);
+    nTime = numel(dnAx);
+
+    % ── 4. SWP outer-axis detection ──────────────────────────────────────────
+    % The SWP axis is an extra dimension inside df, NOT extra rows.
+    swpID = "";
+    if isfield(mdlObj.domain, 'SWP') && mdlObj.domain.SWP ~= "None"
+        swpID = mdlObj.domain.SWP;
     end
-
-    % ── 4. Time axis — preserved in output ───────────────────────────────────
-    d1   = char(mdlObj.domain.D1(1));
-    d1ax = STAT_full.ax(1).(d1);
-    nTime = numel(d1ax);
-
-    % ── 5. Outer × fold loop ─────────────────────────────────────────────────
-    scores = nan(nFolds, 1 + nPermute, nTime, nOuter);
-
-    for oi = 1:nOuter
-        if hasOuter
-            fprintf('[nexAnalysis_cvPermute]   %s %d/%d (%s)\n', ...
-                    outerID, oi, nOuter, outerVals(oi));
-            STAT_oi = sliceSTAT(STAT_full, outerDim, oi);
+    if swpID == ""
+        % Fall back to auto-detect: any ptr axis that is not DN or FTR and
+        % has a real dim (the legacy behaviour before explicit SWP bus).
+        dnStr  = string(mdlObj.domain.DN);
+        ftrStr = string(mdlObj.domain.FTR);
+        skip   = [dnStr, ftrStr];
+        ptrAx  = string(fieldnames(STAT_full.ptr(1))');
+        cands  = ptrAx(~ismember(ptrAx, skip));
+        if ~isempty(cands)
+            hasDim = arrayfun(@(ax) ~isempty(STAT_full.ptr(1).(char(ax)).dim), cands);
+            cands  = cands(hasDim);
+        end
+        if ~isempty(cands), swpID = cands(1); end
+    end
+    hasSwp = swpID ~= "";
+    if hasSwp
+        % Iterate by unique label value, not raw positional index — axis
+        % granularity (one-position-per-unit vs repeated-region-labels vs
+        % fully-pooled-region) is entirely controlled upstream via
+        % poolMap's groupBy/nDivsPerBin (see nexObj_poolMap/nexOp_poolAxes);
+        % SWP just needs to group whatever labels it's handed. 'stable'
+        % keeps iteration order matching physical axis order rather than
+        % sorting, since repeated labels (e.g. region names) are typically
+        % contiguous along the probe.
+        rawSwpVals = STAT_full.ax(1).(char(swpID));
+        swpVals    = unique(rawSwpVals, 'stable');
+        nSwp       = numel(swpVals);
+        % swpID may be a co-indexed label with no dimension of its own
+        % (e.g. 'chans' riding on 'unit') — resolve through the co-index
+        % registry the same way nexOp_alignCoAxes resolves REG/FTR.
+        swpDim  = resolveAxisDim(STAT_full.ax(1), STAT_full.ptr(1), swpID);
+        if isempty(swpDim)
+            warning('[nexAnalysis_cvPermute] SWP axis "%s" has no resolvable dimension (not co-indexed to one either) — disabling SWP.', swpID);
+            hasSwp = false;
+            nSwp   = 1;
         else
-            STAT_oi = STAT_full;
+            fprintf('[nexAnalysis_cvPermute] SWP axis: %s (%d values)\n', swpID, nSwp);
+        end
+    else
+        nSwp = 1;
+    end
+
+    % ── 4b. REG canonical dimension — for per-SWP-value NaN cropping ─────────
+    % REG may itself be a co-indexed label (e.g. 'chans'); resolve the real
+    % owning dimension the same way, so cropping operates on the axis that
+    % actually carries the padded/pooled data.
+    regAxis = "";
+    if isfield(mdlObj.domain, 'REG') && mdlObj.domain.REG ~= "None"
+        regAxis = mdlObj.domain.REG;
+    end
+    regDim = [];
+    if regAxis ~= ""
+        regDim = resolveAxisDim(STAT_full.ax(1), STAT_full.ptr(1), regAxis);
+    end
+
+    % ── 5. Main loop: CTG combos ─────────────────────────────────────────────
+    resultRows = cell(nCombos, 1);
+
+    for ci = 1:nCombos
+        % ── 5a. Subset STAT for this CTG combo ───────────────────────────────
+        if ~isempty(validCTG)
+            mask = true(height(STAT_full), 1);
+            for j = 1:numel(validCTG)
+                col = char(validCTG(j));
+                val = comboTbl.(col)(ci);
+                if iscell(STAT_full.(col))
+                    mask = mask & strcmp(STAT_full.(col), val);
+                elseif isstring(STAT_full.(col))
+                    mask = mask & (STAT_full.(col) == string(val));
+                else
+                    mask = mask & (STAT_full.(col) == val);
+                end
+            end
+            STAT_ctg = STAT_full(mask, :);
+            ctgLabel = strjoin(arrayfun(@(c) char(comboTbl.(char(c))(ci)), ...
+                               validCTG, 'UniformOutput', false), ' | ');
+        else
+            STAT_ctg = STAT_full;
+            ctgLabel  = 'all';
         end
 
-        for k = 1:nFolds
-            mdlObj.trainMask = logical(trainMasks{k});
-            mdlObj.STAT      = STAT_oi;
+        nTrials = height(STAT_ctg);
+        if nTrials == 0
+            fprintf('[nexAnalysis_cvPermute] combo %d/%d — no trials, skipping\n', ci, nCombos);
+            continue;
+        end
+        fprintf('[nexAnalysis_cvPermute] combo %d/%d: %s  (%d trials)\n', ...
+                ci, nCombos, ctgLabel, nTrials);
 
-            % Real fold
-            mdlObj.getDesignMatrix();
-            mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
-            scores(k, 1, :, oi) = scoreFold(mdlObj, tVar, isCont, nTime);
+        % ── 5b. Y labels + fold allocation ───────────────────────────────────
+        Y_ctg = STAT_ctg.(tVar);
+        if iscell(Y_ctg), Y_flat = [Y_ctg{:}]'; else, Y_flat = Y_ctg(:); end
+        isCont = isnumeric(Y_flat);
+        if isCont
+            cv         = cvpartition(nTrials, 'KFold', nFolds);
+            trainMasks = arrayfun(@(k) {training(cv, k)}, 1:nFolds);
+        else
+            trainMasks = nexStat_allocateFolds(Y_flat, nFolds);
+        end
 
-            % Permutation null — shuffle trial-level Y in training set only
-            for p = 1:nPermute
-                mdlObj.TRAIN.STAT = shuffleTrialLabels(mdlObj.TRAIN.STAT, tVar);
-                mdlObj.DM         = dmFcn(mdlObj);
+        % ── 5c. SWP × fold × permute loop ────────────────────────────────────
+        scores    = nan(nFolds, 1 + nPermute, nTime, nSwp);
+        sentinels = cell(1, nSwp);
+
+        for si = 1:nSwp
+            if hasSwp
+                % Select every position whose raw label matches this
+                % unique value — a single index when labels are already
+                % unique per-position (raw chans, or region+sub-bin), or
+                % multiple indices when several positions share a label
+                % (e.g. per-element region labels via groupBy='region',
+                % nDivsPerBin=0). sliceDim/sliceSTAT need no changes for
+                % this: MATLAB indexing already accepts a vector here.
+                swpIdx  = find(matchesSWPValue(rawSwpVals, swpVals(si)));
+                STAT_si = sliceSTAT(STAT_ctg, swpDim, swpIdx);
+                fprintf('[nexAnalysis_cvPermute]   %s %d/%d (%s, %d feature(s))\n', ...
+                        swpID, si, nSwp, string(swpVals(si)), numel(swpIdx));
+            else
+                STAT_si = STAT_ctg;
+            end
+
+            % Tighten to this iteration's own canonical support: drop REG
+            % positions that are NaN (structurally absent) for every trial
+            % in this CTG combo × SWP value, then record which canonical
+            % labels survived as this iteration's fitSentinel. Cheaper than
+            % re-deriving from HDF5 and lossless — the global alignment in
+            % compileSTAT already pooled real duplicates trial-locally; this
+            % only removes positions no trial here ever had data for.
+            sentinel = struct();
+            if ~isempty(regDim)
+                [STAT_si, sentinel] = cropCanonicalREG(STAT_si, regDim);
+            end
+            sentinels{si} = sentinel;
+
+            % Terminal fill: no fit function downstream handles NaN input.
+            % NaN only needed to exist to keep pooling/cropping unbiased —
+            % resolve any still-scattered NaN (partial, not fully-absent,
+            % positions) back to 0 right before building the design matrix.
+            STAT_si.df = cellfun(@zeroFillRemainingNaN, STAT_si.df, 'UniformOutput', false);
+
+            for k = 1:nFolds
+                mdlObj.trainMask = logical(trainMasks{k});
+                mdlObj.STAT      = STAT_si;
+
+                % Real fold
+                mdlObj.getDesignMatrix();
                 mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
-                scores(k, 1+p, :, oi) = scoreFold(mdlObj, tVar, isCont, nTime);
+                scores(k, 1, :, si) = scoreFold(mdlObj, tVar, isCont, nTime);
+
+                % Permutation null
+                for p = 1:nPermute
+                    mdlObj.TRAIN.STAT = shuffleTrialLabels(mdlObj.TRAIN.STAT, tVar);
+                    mdlObj.DM         = dmFcn(mdlObj);
+                    mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+                    scores(k, 1+p, :, si) = scoreFold(mdlObj, tVar, isCont, nTime);
+                end
             end
         end
+
+        % ── 5d. Re-fit on full CTG data so transform path is valid ───────────
+        % Uncropped (full global canonical width, per compileSTAT) — this is
+        % the artifact future inference projects onto, so it keeps the wide
+        % canonical axis rather than any one SWP iteration's tightened crop.
+        % Still needs terminal NaN resolution since alignCoAxes NaN-fills.
+        STAT_ctg.df      = cellfun(@zeroFillRemainingNaN, STAT_ctg.df, 'UniformOutput', false);
+        mdlObj.STAT      = STAT_ctg;
+        mdlObj.trainMask = true(nTrials, 1);
+        mdlObj.getDesignMatrix();
+        mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+        mdlObj.trainMask = [];
+
+        % ── 5e. Pack result DF ────────────────────────────────────────────────
+        if ~hasSwp
+            scores = scores(:,:,:,1);   % drop SWP singleton
+        end
+
+        R     = struct();
+        R.df  = scores;
+        R.ax.fold    = (1:nFolds)';
+        % Named "perm", not "permute" — a dynamicprops field literally named
+        % 'permute' collides with MATLAB's generic array-reordering
+        % permute() once nex_initAxisPointer_v2 wraps R.ptr into a
+        % nexObj_ptr (handle & dynamicprops): the assignment resolves as a
+        % method call instead of a property write ("Assignment not
+        % supported because the result of method 'permute' is a temporary
+        % value").
+        R.ax.perm = ["real", compose("null_%03d", 1:nPermute)];
+        R.ax.t       = dnAx;
+        if hasSwp
+            R.ax.(char(swpID)) = swpVals;
+        end
+        R = nex_initAxisPointer_v2(R);
+        R.fitSentinel = sentinels;   % {1×nSwp} cell, one struct per SWP value
+
+        % ── 5f. Build result STAT row ─────────────────────────────────────────
+        row = table({R.df}, {R.ax}, {R.ptr}, {R.fitSentinel}, ...
+                     'VariableNames', {'df','ax','ptr','fitSentinel'});
+        if ~isempty(validCTG)
+            row = [comboTbl(ci,:), row]; %#ok<AGROW>
+        end
+        resultRows{ci} = row;
     end
 
-    mdlObj.STAT = STAT_full;  % restore
+    % ── 6. Restore STAT; assemble RESULT table ───────────────────────────────
+    mdlObj.STAT = STAT_full;
 
-    % ── Re-fit on full data so transform/visualize is valid after CV ──────────
-    mdlObj.trainMask = true(nTrials, 1);
-    mdlObj.getDesignMatrix();
-    mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
-    mdlObj.trainMask = [];
-
-    % ── 6. Pack result ────────────────────────────────────────────────────────
-    if ~hasOuter
-        scores = scores(:,:,:,1);  % drop outer singleton
+    resultRows = resultRows(~cellfun(@isempty, resultRows));
+    if isempty(resultRows)
+        fprintf('[nexAnalysis_cvPermute] no results produced.\n');
+        return;
     end
-
-    R.df         = scores;
-    R.ax.fold    = (1:nFolds)';
-    R.ax.permute = ["real", compose("null_%03d", 1:nPermute)];
-    R.ax.t       = d1ax;
-    if hasOuter
-        R.ax.(outerID) = outerVals;
-    end
+    RESULT = vertcat(resultRows{:});
 
     if ismethod(mdlObj, 'storeResult')
-        mdlObj.storeResult(resultID, R);
+        mdlObj.storeResult(resultID, RESULT);
     else
-        mdlObj.RESULTS.(resultID) = R;
+        mdlObj.RESULTS.(resultID) = RESULT;
     end
 
     if isfield(cvCfg, 'resultsPath') && ~isempty(cvCfg.resultsPath)
         [pDir,~,~] = fileparts(cvCfg.resultsPath);
         if ~isfolder(pDir), mkdir(pDir); end
-        save(cvCfg.resultsPath, 'R');
+        save(cvCfg.resultsPath, 'RESULT');
         fprintf('[nexAnalysis_cvPermute] saved → %s\n', cvCfg.resultsPath);
     end
-    fprintf('[nexAnalysis_cvPermute] done — %s\n', resultID);
+    fprintf('[nexAnalysis_cvPermute] done — %s  (%d rows)\n', resultID, height(RESULT));
 end
 
 
-% ── Slice all trial dfs along a given dimension at index oi ──────────────────
-function STAT_out = sliceSTAT(STAT_in, dim, oi)
+% ── Resolve the DF dimension an axis's data actually lives on ────────────────
+% Mirrors the REG/FTR resolution inside nexOp_alignCoAxes: a co-indexed label
+% (e.g. 'chans' riding on 'unit') has ptr.(axisName).dim == [] — find the
+% co-indexed sibling that owns a real dimension instead.
+%
+% ptr is an axis-pointer object, not a plain struct — isfield() always
+% returns false for non-struct types even when the property genuinely
+% exists (fieldnames()/dynamic dot-access work fine on objects; isfield()
+% is struct-only). Must check membership against fieldnames(ptr) instead,
+% or this silently fails to resolve anything and always returns [].
+function dim = resolveAxisDim(ax, ptr, axisName)
+    axisName  = char(axisName);
+    dim       = [];
+    ptrFields = fieldnames(ptr);
+    if ismember(axisName, ptrFields) && ~isempty(ptr.(axisName).dim)
+        dim = ptr.(axisName).dim;
+        return;
+    end
+    coIdx = nexOp_coIndexPairs(ax);
+    for p = 1:numel(coIdx)
+        pair = coIdx{p};
+        if ~ismember(axisName, pair), continue; end
+        for m = 1:numel(pair)
+            cand = char(pair{m});
+            if strcmp(cand, axisName), continue; end
+            if ismember(cand, ptrFields) && ~isempty(ptr.(cand).dim)
+                dim = ptr.(cand).dim;
+                return;
+            end
+        end
+    end
+end
+
+
+% ── Crop REG-canonical positions that are NaN (structurally absent) for ─────
+% every trial in STAT_in, along `dim`. Lossless: the global alignment in
+% compileSTAT already pooled real duplicates trial-locally, so a position
+% that's NaN everywhere here genuinely has no data for this CTG×SWP slice.
+% Returns the cropped STAT and a sentinel struct of the canonical labels
+% (one field per axis riding on `dim`) that survived the crop.
+function [STAT_out, sentinel] = cropCanonicalREG(STAT_in, dim)
+    STAT_out = STAT_in;
+    sentinel = struct();
+    dfs = STAT_in.df;
+    if isempty(dfs) || isempty(dim), return; end
+
+    nd        = ndims(dfs{1});
+    otherDims = setdiff(1:nd, dim);
+
+    allNaN = [];
+    for i = 1:numel(dfs)
+        if isempty(otherDims)
+            m = isnan(dfs{i});
+        else
+            m = all(isnan(dfs{i}), otherDims);
+        end
+        m = reshape(m, [], 1);
+        if isempty(allNaN), allNaN = m; else, allNaN = allNaN & m; end
+    end
+    keepMask = ~allNaN;
+    if all(keepMask), return; end   % nothing to crop
+
+    ax0     = STAT_in.ax(1);
+    ptr0    = STAT_in.ptr(1);
+    axNames = fieldnames(ax0);
+    ridingAxes = {};
+    for f = axNames'
+        fld = f{1};
+        d = resolveAxisDim(ax0, ptr0, fld);
+        if isequal(d, dim) && numel(ax0.(fld)) == numel(keepMask)
+            sentinel.(fld) = ax0.(fld)(keepMask);
+            ridingAxes{end+1} = fld; %#ok<AGROW>
+        end
+    end
+
+    for i = 1:height(STAT_out)
+        A = STAT_out.df{i};
+        S = repmat({':'}, 1, nd);
+        S{dim} = keepMask;
+        STAT_out.df{i} = A(S{:});
+        ax_i = STAT_out.ax(i);
+        for f = ridingAxes
+            ax_i.(f{1}) = ax_i.(f{1})(keepMask);
+        end
+        STAT_out.ax(i) = ax_i;
+    end
+end
+
+
+% ── Resolve any surviving NaN (partial, not fully-absent, positions) to 0 ───
+% before a design matrix is built — no fit function in this pipeline handles
+% NaN input.
+function A = zeroFillRemainingNaN(A)
+    A(isnan(A)) = 0;
+end
+
+
+% ── Match raw SWP labels against one unique value (cell/string/numeric) ──────
+function mask = matchesSWPValue(vals, target)
+    if iscell(target), target = target{1}; end
+    if iscell(vals)
+        mask = strcmp(vals, target);
+    else
+        mask = vals == target;
+    end
+end
+
+
+% ── Slice all trial dfs along a given dimension at index si ──────────────────
+function STAT_out = sliceSTAT(STAT_in, dim, si)
     STAT_out    = STAT_in;
-    STAT_out.df = cellfun(@(df) sliceDim(df, dim, oi), STAT_in.df, 'UniformOutput', false);
+    STAT_out.df = cellfun(@(df) sliceDim(df, dim, si), STAT_in.df, 'UniformOutput', false);
 end
 
 function X = sliceDim(A, dim, idx)
+    % Deliberately not squeezed: collapsing this singleton would shift every
+    % higher dimension index down by one, invalidating any .ptr.(axis).dim
+    % computed against the pre-slice array (dnDim in scoreFold, regDim in
+    % cropCanonicalREG, etc). A leftover size-1 dim is inert for every
+    % dimension-name-relative consumer downstream (permute/reshape/cell2mat).
     S      = repmat({':'}, 1, ndims(A));
     S{dim} = idx;
-    X      = squeeze(A(S{:}));
+    X      = A(S{:});
 end
 
 
 % ── Score one fold: time-resolved predictions ─────────────────────────────────
-% Stack all trial-time rows without collapsing D1, predict per (trial,time),
-% return balanced accuracy (or R²) at each time bin — shape [nTime × 1].
 function score = scoreFold(mdlObj, tVar, isCont, nTime)
     STAT_test = mdlObj.TEST.STAT;
 
-    % Custom scorer hook — bypasses all default logic when present.
     if isstruct(mdlObj.W) && isfield(mdlObj.W, 'scoreFn') && ~isempty(mdlObj.W.scoreFn)
         score = mdlObj.W.scoreFn(STAT_test, tVar);
         return;
@@ -180,45 +442,43 @@ function score = scoreFold(mdlObj, tVar, isCont, nTime)
     if iscell(Y_trial), Y_trial = [Y_trial{:}]'; end
     nTest = numel(STAT_test.df);
 
-    % Custom test projection (e.g. TDR, trajectory geometry) — scalar path.
     if isstruct(mdlObj.W) && isfield(mdlObj.W, 'buildTestX') && ~isempty(mdlObj.W.buildTestX)
         X_test = mdlObj.W.buildTestX(STAT_test);
         Y_pred = mdlObj.predict(X_test);
         if isCont
-            cc  = corrcoef(double(Y_trial(:)), double(Y_pred(:)));
-            sc  = cc(1,2)^2;
+            cc = corrcoef(double(Y_trial(:)), double(Y_pred(:)));
+            sc = cc(1,2)^2;
         else
             sc = balancedAccuracy(string(Y_trial(:)), Y_pred);
         end
-        score = repmat(sc, nTime, 1);  % broadcast scalar across time axis
+        score = repmat(sc, nTime, 1);
         return;
     end
 
-    % Default path: stack trial-time rows, preserve temporal structure.
-    d1    = char(mdlObj.domain.D1(1));
-    d1dim = STAT_test.ptr(1).(d1).dim;
+    dn    = char(mdlObj.domain.DN(1));
+    dnDim = STAT_test.ptr(1).(dn).dim;
 
-    if d1dim == 1
-        X_test = cell2mat(STAT_test.df);          % [(nTest*nTime) × nFeat]
+    if dnDim == 1
+        X_test = cell2mat(STAT_test.df);
     else
-        order  = [d1dim, setdiff(1:ndims(STAT_test.df{1}), d1dim)];
+        order  = [dnDim, setdiff(1:ndims(STAT_test.df{1}), dnDim)];
         X_test = cell2mat(cellfun(@(df) permute(df, order), ...
                           STAT_test.df, 'UniformOutput', false));
     end
-    X_test = reshape(X_test, nTest * nTime, []);  % ensure 2D
+    X_test = reshape(X_test, nTest * nTime, []);
 
     try
-        Y_pred_flat = mdlObj.predict(X_test);         % [nTest*nTime × 1]
+        Y_pred_flat = mdlObj.predict(X_test);
     catch
         keyboard
     end
 
     if isCont
-        Y_pred_mat = reshape(double(Y_pred_flat), nTime, nTest)';  % [nTest × nTime]
+        Y_pred_mat = reshape(double(Y_pred_flat), nTime, nTest)';
         Y_true     = double(Y_trial(:));
         score = arrayfun(@(t) localCorrR2(Y_true, Y_pred_mat(:,t)), 1:nTime)';
     else
-        Y_pred_mat = reshape(Y_pred_flat, nTime, nTest)';          % [nTest × nTime]
+        Y_pred_mat = reshape(Y_pred_flat, nTime, nTest)';
         Y_true     = string(Y_trial(:));
         score = arrayfun(@(t) balancedAccuracy(Y_true, Y_pred_mat(:,t)), 1:nTime)';
     end

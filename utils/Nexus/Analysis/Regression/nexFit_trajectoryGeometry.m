@@ -20,9 +20,9 @@ function nexFit_trajectoryGeometry(mdlObj, args)
     % CFG HEADER
     features = args.features; % default = "pathLen,endDisp,speed_var"
 
-    d1       = mdlObj.domain.D1;
+    dn       = mdlObj.domain.DN(1);
     featList = strtrim(strsplit(char(features), ','));
-    featFcn  = @(ST) extractGeoFeatures(ST, d1, featList);
+    featFcn  = @(ST) extractGeoFeatures(ST, dn, featList);
 
     STAT_train = mdlObj.TRAIN.STAT;
     tVar       = char(mdlObj.dfID_target);
@@ -47,12 +47,12 @@ end
 
 % ── Feature extraction ────────────────────────────────────────────────────────
 
-function X = extractGeoFeatures(STAT, d1, featList)
+function X = extractGeoFeatures(STAT, dn, featList)
     nTrials = height(STAT);
     nFeat   = numel(featList);
     X       = zeros(nTrials, nFeat);
     for i = 1:nTrials
-        traj = trialTrajectory(STAT.df{i}, STAT.ptr(i), d1);  % [nTime × nChans]
+        traj = trialTrajectory(STAT.df{i}, STAT.ptr(i), dn);  % [nTime × nChans]
         if isempty(traj), continue; end
         for fi = 1:nFeat
             X(i, fi) = geoFeature(traj, featList{fi});
@@ -87,10 +87,10 @@ function v = geoFeature(traj, feat)
     end
 end
 
-function traj = trialTrajectory(df, ptr, d1)
+function traj = trialTrajectory(df, ptr, dn)
 % Return [nTime × nChans] with time in the first dimension.
     if isempty(df), traj = []; return; end
-    tDim   = ptr.(char(d1)).dim;
+    tDim   = ptr.(char(dn)).dim;
     nDims  = ndims(df);
     pOrder = [tDim, setdiff(1:nDims, tDim)];
     traj   = reshape(permute(df, pOrder), size(df, tDim), []);

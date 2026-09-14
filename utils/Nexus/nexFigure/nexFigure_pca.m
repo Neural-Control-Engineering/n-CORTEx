@@ -1,8 +1,9 @@
 function nexFigure_pca(mdlObj)
-% Interactive figure for mdlObj_pca. Mirrors nexFigure_ssm/_dpca:
+% Interactive figure for mdlObj_pca. Mirrors nexFigure_ssm/_lda:
 %   panel0 — scree / explained-variance canvas (populated by Visualize)
-%   panel1 — sidebar: Pointer (value windowing) / Domain (D1·FTR·MSR) /
-%            fit cfg / Fit·Transform·Visualize buttons
+%   panel1 — sidebar: Pointer (value windowing) / Pool (pMap: region
+%            grouping, block-PCA reduce mode) / Domain (DN·FTR·REG·MSR) /
+%            View (SRC·VW·CLR) / fit cfg / Fit·Transform·Visualize buttons
 %
 % The Domain bus (incl. the MSR residual-axis value selector) is built via
 % mdlObj.setupDomain() — the same entry the headless path uses — so FTR is
@@ -22,6 +23,8 @@ function nexFigure_pca(mdlObj)
     hPtr     = 150;
     hDomain  = 150;
     hFitCfg  = 145;
+    hPool    = 165;
+    hView    = 175;
     hBtn     = 30;
     gap      = 5;
 
@@ -34,6 +37,8 @@ function nexFigure_pca(mdlObj)
     yFitCfg  = yState  + hBtn    + gap;
     yDomain  = yFitCfg + hFitCfg + gap;
     yPtr     = yDomain + hDomain + gap;
+    yPool    = yPtr    + hPtr    + gap;
+    yView    = yPool   + hPool   + gap;
 
     %% Figure
     mdlObj.Figure.fh = uifigure( ...
@@ -70,19 +75,28 @@ function nexFigure_pca(mdlObj)
         "BackgroundColor", BLACK, ...
         "Scrollable",      "on");
 
+    %% Pointer + Domain + View buses — setupDomain narrows FTR to D2(1) and
+    %% builds collector.Domain (+MSR), collector.Pointer, and collector.View
+    mdlObj.setupDomain();
+
     %% Pointer panel — per-axis value windowing (single-select = pass-through)
-    mdlObj.initPointerBus();
     mdlObj.buildPointerPanel(mdlObj.Figure.panel1.ph, [xInner, yPtr, wInner, hPtr]);
 
-    %% Domain panel — D1 / FTR (axis roles) + MSR (residual-axis value select)
-    mdlObj.setupDomain();   % narrows FTR to D2(1), builds collector.Domain (+MSR)
+    %% Pool panel — pMap pooling control (region grouping, block-PCA reduce
+    %% mode, etc.) — same construction as SSM/LDA
+    pan_pool.ph = uipanel(mdlObj.Figure.panel1.ph, ...
+        "Position",        [xInner, yPool, wInner, hPool], ...
+        "BackgroundColor", BLACK, ...
+        "Scrollable",      "on");
+    mdlObj.Figure.panel_pMap = nexObj_poolCfgPanel_v3( ...
+        mdlObj, pan_pool, @poolCfgEntryChanged_v3);
 
-    % Per-key max-selections: D1 single, everything else multi.
+    % Per-key max-selections: DN multi (physical training-domain axes), REG single.
     domKeys = string(fieldnames(mdlObj.collector.Domain.selKeys))';
     maxSels = zeros(1, numel(domKeys));
     for i = 1:numel(domKeys)
         k = domKeys(i);
-        if k == "D1"
+        if k == "REG"
             maxSels(i) = 1;
         else
             maxSels(i) = numel(mdlObj.collector.Domain.selKeys.(k));
@@ -109,6 +123,21 @@ function nexFigure_pca(mdlObj)
         end
         lb.Callback = @(src, ev) nexFigure_pca_onDomainChange(src, ev, k, mdlObj);
     end
+
+    %% View panel — SRC / VW / CLR (+ CTG / SWP, dormant — PCA has no
+    %% cvPermute-style sweep to consume them, but the bus is built the same
+    %% way as SSM/LDA for consistency and future result-browsing support)
+    pan_view.ph = uipanel(mdlObj.Figure.panel1.ph, ...
+        "Position",        [xInner, yView, wInner, hView], ...
+        "BackgroundColor", BLACK, ...
+        "Scrollable",      "on", ...
+        "Title",           "View", ...
+        "ForegroundColor", GREEN);
+    viewMaxSels.SWP = 1;
+    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels);
+    bus_v = mdlObj.collector.View;
+    bus_v.listBoxes.CTG.Callback = @(src,ev) nexFigure_pca_onViewChange(src, ev, 'CTG', mdlObj);
+    bus_v.listBoxes.SWP.Callback = @(src,ev) nexFigure_pca_onViewChange(src, ev, 'SWP', mdlObj);
 
     %% Fit cfg panel
     pan_fitCfg.ph = uipanel(mdlObj.Figure.panel1.ph, ...
@@ -156,6 +185,16 @@ end
 function nexFigure_pca_onDomainChange(src, ev, key, mdlObj)
     listCfgEntryChanged(src, ev, char(key), mdlObj.collector.Domain);
     mdlObj.applyDomainBus();
+    if key == "FTR"
+        mdlObj.refreshREG();
+    end
+end
+
+
+% ── Local: view bus changed (CTG / SWP) ───────────────────────────────────
+function nexFigure_pca_onViewChange(src, ev, key, mdlObj)
+    listCfgEntryChanged(src, ev, key, mdlObj.collector.View);
+    mdlObj.applyViewBus();
 end
 
 

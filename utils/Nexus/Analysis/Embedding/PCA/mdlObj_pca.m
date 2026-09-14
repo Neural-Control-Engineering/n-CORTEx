@@ -15,7 +15,15 @@ classdef mdlObj_pca < mdlObject
             mdlObj.py.np = py.importlib.import_module('numpy');
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing');             
             mdlObj.Scaler.model = sklearnPreProc.StandardScaler();
-            mdlObj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_pca"));
+            % mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func("nexFit_pca"));
+            % Base mdlObject constructor already builds cfg.fitCfg (from
+            % modelID) AND the figure — reassigning it here after the fact
+            % orphans whatever cfgObj instance the fitCfg panel's spinner
+            % callbacks captured at figure-build time. UI edits would keep
+            % updating the orphaned original while mdlObj.cfg.fitCfg points
+            % at this fresh, still-default instance, so a value entered in
+            % the panel would silently never reach fit(). See mdlObj_ssm.m,
+            % which already carries this fix (same line, commented out).
             % Headless construction skips nexFigure_pca (which calls setupDomain
             % to build the Domain bus), so do it here in that case. Interactive
             % builds run inside nexFigure_pca during the base constructor.
@@ -33,11 +41,17 @@ classdef mdlObj_pca < mdlObject
         function setupDomain(mdlObj)
             % Narrow FTR to a single feature axis (D2(1), e.g. 'unit'); the
             % residual axis (e.g. 'measure') is then governed by the Domain MSR
-            % selector (default 'rate'). Builds collector.Domain via initDomainBus.
+            % selector (default 'rate'). Builds collector.Domain (incl. REG)
+            % via initDomainBus, plus Pointer and View (SRC/VW/CLR) buses —
+            % same bundling as mdlObj_lda's setupDomain, so headless
+            % construction gets the full bus set without depending on the
+            % interactive figure to build them piecemeal.
             if isfield(mdlObj.domain, 'D2') && numel(mdlObj.domain.D2) >= 1
                 mdlObj.domain.FTR = mdlObj.domain.D2(1);
             end
             mdlObj.initDomainBus();
+            mdlObj.initPointerBus();
+            mdlObj.initViewBus();
         end
 
         function locateDataset(mdlObj)
@@ -65,88 +79,6 @@ classdef mdlObj_pca < mdlObject
             end
         end
 
-        function [STAT, idxSel, drop] = compileSTAT(mdlObj)
-            % Compile STAT, then remap each trial's ragged per-unit features onto
-            % the fixed canonical channel axis so the PCA feature dimension is
-            % stable across sessions/subjects (nexOp_unitsToChannels).
-            [STAT, idxSel, drop] = compileSTAT@mdlObject(mdlObj);
-            mdlObj.STAT = mdlObj.mapSTAT_unitsToChannels(mdlObj.STAT);
-            STAT = mdlObj.STAT;
-        end
-
-        function STAT = mapSTAT_unitsToChannels(mdlObj, STAT)
-            % Map every STAT trial (t x unit x measure) onto the canonical
-            % channel axis. After compileSTAT the ax/ptr are shared across rows,
-            % so map a reference DF once for the new channel-space ax/ptr, then
-            % remap each row's df with the original per-unit ax.
-            if isempty(STAT) || ~all(ismember({'df','ax','ptr'}, ...
-                    STAT.Properties.VariableNames))
-                return;
-            end
-            ax0 = STAT.ax(1);
-            if ~isstruct(ax0) || ~isfield(ax0, 'unit') || ~isfield(ax0, 'chans')
-                return;   % not per-unit spk data — leave unchanged
-            end
-            canon = mdlObj.resolveCanonicalChans(ax0.chans);
-            agg   = mdlObj.chanAggMode();
-            ptr0  = STAT.ptr(1);
-
-            DF0m = nexOp_unitsToChannels(struct('df', STAT.df{1}, 'ax', ax0, ...
-                                                'ptr', ptr0), canon, agg);
-            STAT.df  = cellfun(@(df) mdlObj.mapDF_df(df, ax0, ptr0, canon, agg), ...
-                               STAT.df, 'UniformOutput', false);
-            STAT.ax  = repmat(DF0m.ax,  height(STAT), 1);
-            STAT.ptr = repmat(DF0m.ptr, height(STAT), 1);
-        end
-
-        function DF = mapUnitsToChannels_DF(mdlObj, DF)
-            % Single-DF map (transform path). No-op if already channel-space.
-            if ~isstruct(DF) || ~isfield(DF, 'ax') || ...
-                    ~isfield(DF.ax, 'unit') || ~isfield(DF.ax, 'chans')
-                return;
-            end
-            canon = mdlObj.resolveCanonicalChans(DF.ax.chans);
-            DF = nexOp_unitsToChannels(DF, canon, mdlObj.chanAggMode());
-        end
-
-        function dfc = mapDF_df(~, df, ax, ptr, canon, agg)
-            % Map one df array (given its per-unit ax/ptr) -> channel-space df.
-            DFm = nexOp_unitsToChannels(struct('df', df, 'ax', ax, 'ptr', ptr), ...
-                                        canon, agg);
-            dfc = DFm.df;
-        end
-
-        function canon = resolveCanonicalChans(mdlObj, chansPerUnit)
-            % Fixed canonical channel axis, resolved ONCE (at first fit) and
-            % reused for every transform so widths always match. Defaults to a
-            % contiguous 1:max(observed channel); set
-            % mdlObj.UserData.canonicalChans = (1:nProbeChan)' before fitting for
-            % full-probe invariance across subjects.
-            if ~isstruct(mdlObj.UserData), mdlObj.UserData = struct(); end
-            canon = [];
-            if isfield(mdlObj.UserData, 'canonicalChans')
-                canon = mdlObj.UserData.canonicalChans;
-            end
-            if isempty(canon)
-                m = max(double(chansPerUnit(:)));
-                if isempty(m) || ~isfinite(m)
-                    canon = unique(double(chansPerUnit(:)));
-                else
-                    canon = (1:m)';
-                end
-                mdlObj.UserData.canonicalChans = canon;
-            end
-        end
-
-        function m = chanAggMode(mdlObj)
-            % Aggregation for units sharing a channel — default "sum".
-            m = "sum";
-            if isstruct(mdlObj.UserData) && isfield(mdlObj.UserData, 'chanAgg') ...
-                    && ~isempty(mdlObj.UserData.chanAgg)
-                m = string(mdlObj.UserData.chanAgg);
-            end
-        end
-
         function saveFit(mdlObj, uniqueID)
             if nargin < 2 || isempty(uniqueID)
                 uniqueID = char(datetime("now", "Format", "yyyyMMdd_HHmmss"));
@@ -168,11 +100,12 @@ classdef mdlObj_pca < mdlObject
                 fid = py.open(fullfile(fitDir, 'reducer.pkl'), 'wb');
                 pickle.dump(mdlObj.Reducer.model, fid); fid.close();
             end
-            canonChans = []; %#ok<NASGU>
-            if isstruct(mdlObj.UserData) && isfield(mdlObj.UserData, 'canonicalChans')
-                canonChans = mdlObj.UserData.canonicalChans; %#ok<NASGU>
-            end
-            save(fullfile(fitDir, 'pca_state.mat'), 'canonChans');
+            % Persist fitSentinel (the canonical REG set this fit established,
+            % if REG was in use — see nexOp_alignCoAxes/CoRegistration_Design.md
+            % "Inference-Time Projection") so loadFit can restore it for a
+            % headless/reloaded model's transform() calls.
+            fitSentinel = mdlObj.fitSentinel; %#ok<NASGU>
+            save(fullfile(fitDir, 'pca_state.mat'), 'fitSentinel');
             mdlObj.fitPath = fitDir;
             fprintf('[mdlObj_pca] saved: %s\n', fitDir);
         end
@@ -195,10 +128,9 @@ classdef mdlObj_pca < mdlObject
             end
             statePath = fullfile(fitDir, 'pca_state.mat');
             if exist(statePath, 'file')
-                S = load(statePath, 'canonChans');
-                if ~isempty(S.canonChans)
-                    if ~isstruct(mdlObj.UserData), mdlObj.UserData = struct(); end
-                    mdlObj.UserData.canonicalChans = S.canonChans;
+                S = load(statePath, 'fitSentinel');
+                if isfield(S, 'fitSentinel') && ~isempty(S.fitSentinel)
+                    mdlObj.fitSentinel = S.fitSentinel;
                 end
             end
             mdlObj.fitPath = fitDir;
@@ -208,10 +140,18 @@ classdef mdlObj_pca < mdlObject
         function DF_Z = transform(mdlObj, DF_X)
             % Use learned weights to project emission into state-space
             disp("transforming pca...");
-            % Map ragged per-unit features onto the fixed canonical channel axis
-            % established at fit, so the feature width matches the scaler/PCA.
-            DF_X = mdlObj.mapUnitsToChannels_DF(DF_X);
+            % DF_X arrives already projected onto the fit-time canonical REG
+            % set (scaleApply_transform does this via mdlObj.fitSentinel
+            % before calling transform), so the feature width here already
+            % matches the scaler/PCA — no separate remap needed. It WILL
+            % still carry NaN, though: nexOp_alignCoAxes deliberately
+            % NaN-fills canonical positions this specific trial has no real
+            % data for (this trial's own recording is, by nature, a partial
+            % sample of the full canonical set) — sklearn's transform
+            % rejects NaN outright, so it must be zero-filled here, same as
+            % getDesignMatrix does on the fit side.
             X = DF_X.df;
+            X(isnan(X)) = 0;
             % chanCond = [1:10]; % TEMP            
             % tCond = [1600:2250]; % TEMP
             if ~isempty(X)
@@ -239,9 +179,9 @@ classdef mdlObj_pca < mdlObject
                 % (e.g. measure, dim 3) when present. Dropping the reduced feature
                 % axis (unit / chans) stops it lingering as a stale axis; 'latent'
                 % is also the reserved DR keyword buildSTATE's G_DF loop skips.
-                D1 = char(mdlObj.domain.D1);
+                DN = char(mdlObj.domain.DN(1));
                 DF_Z.ax = struct();
-                DF_Z.ax.(D1)   = DF_X.ax.(D1);
+                DF_Z.ax.(DN)   = DF_X.ax.(DN);
                 DF_Z.ax.latent = [1:size(Z,2)];
                 if ndims(Z) >= 3
                     ra = "";

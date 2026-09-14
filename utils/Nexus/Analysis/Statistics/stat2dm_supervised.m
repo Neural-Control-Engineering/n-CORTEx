@@ -3,10 +3,10 @@ function DM = stat2dm_supervised(mdlObj)
     % STAT = mdlObj.Origin.STAT;  
     STAT = mdlObj.TRAIN.STAT;
     % STAT.df = nexOp_trimDfCol(STAT.df);
-    % d1Sel=mdlObj.domain.D1(1);
+    % dnSel=mdlObj.domain.DN(1);
     % ptr = STAT.ptr(1);
     % % place primary dim first
-    % STAT.df = cellfun(@(df) nexOp_permute2First(df, d1Sel, ptr), STAT.df, "UniformOutput", false);        
+    % STAT.df = cellfun(@(df) nexOp_permute2First(df, dnSel, ptr), STAT.df, "UniformOutput", false);
     STAT_cell = table2cell(STAT);
     STAT_cell = cellfun(@(c) {c}, STAT_cell, "UniformOutput", true);
     T = cell2table(STAT_cell, 'VariableNames', STAT.Properties.VariableNames);

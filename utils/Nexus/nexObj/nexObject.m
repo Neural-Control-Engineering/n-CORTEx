@@ -157,7 +157,13 @@ classdef nexObject < handle
 
         % -- POOLING -------------------------------------------------------
         function poolDF(nexObj)
-            nexObj.DF_postOp = nexOp_poolAxes(nexObj.pMap, nexObj.DF_postOp, nexObj.DF_postOp.ptr);
+            % Source must be the frozen raw DF, never DF_postOp, so repeated
+            % calls don't compound pooling on already-pooled data.
+            if isempty(nexObj.DF) || isempty(nexObj.DF_postOp), return; end
+            ptr       = nexObj.DF_postOp.ptr;
+            DF_pooled = nexOp_poolAxes(nexObj.pMap, nexObj.DF, ptr);
+            nexObj.DF_postOp.df = DF_pooled.df;
+            nexObj.DF_postOp.ax = DF_pooled.ax;
         end
 
         % ── Player ────────────────────────────────────────────────────────

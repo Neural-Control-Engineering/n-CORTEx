@@ -15,7 +15,12 @@ classdef mdlObj_cebra < mdlObject
             obj.py.np = py.importlib.import_module('numpy');
             sklearnPreProc = py.importlib.import_module('sklearn.preprocessing'); 
             obj.py.stdScaler = sklearnPreProc.StandardScaler();            
-            obj.cfg.fitCfg=nex_generateCfgObj(str2func("nexFit_cebra"));
+            % obj.cfg.fitCfg = nex_generateCfgObj(str2func("nexFit_cebra"));
+            % Base mdlObject constructor already builds cfg.fitCfg (from
+            % modelID) AND the figure — reassigning it here orphans whatever
+            % cfgObj instance the fitCfg panel's spinner callbacks captured
+            % at figure-build time, so UI edits would silently never reach
+            % fit(). See mdlObj_ssm.m / mdlObj_pca.m.
             obj.cfg.dmCfg.format="cebra";
             % network, etc.
         end
@@ -55,7 +60,7 @@ classdef mdlObj_cebra < mdlObject
         end
 
         % function getDesignMatrix(mdlObj)
-        %     d1Sel=mdlObj.domain.D1(1);
+        %     dnSel=mdlObj.domain.DN(1);
         %     mdlObj.DM = stat2dm_cebra(mdlObj);
         % end
 
@@ -88,9 +93,9 @@ classdef mdlObj_cebra < mdlObject
                 % DF_Z=DF_X;
                 DF_Z.df=Z;
                 % DF_Z.ax=struct;
-                DF_Z.ax.(mdlObj.domain.D1)=DF_X.ax.(mdlObj.domain.D1);
+                DF_Z.ax.(mdlObj.domain.DN(1))=DF_X.ax.(mdlObj.domain.DN(1));
                 % DF_Z.ax.t=DF_Z.ax.t(tCond); % TEMP
-                DF_Z.ax.factor=[1:size(Z,2)];
+                DF_Z.ax.latent=[1:size(Z,2)];
                 DF_Z = nex_initAxisPointer_v2(DF_Z);
             else
                 DF_Z = [];

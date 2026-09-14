@@ -8,7 +8,12 @@ classdef mdlObj_linear < mdlObject
             if nargin < 4, headline = []; end
             mdlObj = mdlObj@mdlObject(Parent, Origin, "linear", dfID_source, [], headline);
             mdlObj.py.np = py.importlib.import_module('numpy');
-            mdlObj.cfg.fitCfg  = nex_generateCfgObj(str2func("nexFit_linear"));
+            % mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func("nexFit_linear"));
+            % Base mdlObject constructor already builds cfg.fitCfg (from
+            % modelID) AND the figure — reassigning it here orphans whatever
+            % cfgObj instance the fitCfg panel's spinner callbacks captured
+            % at figure-build time, so UI edits would silently never reach
+            % fit(). See mdlObj_ssm.m / mdlObj_pca.m.
             mdlObj.cfg.dmCfg.format = "regression";
         end
 
@@ -76,7 +81,7 @@ classdef mdlObj_linear < mdlObject
                     R = mdlObj.RESULTS.(srcKey);
                     if isstruct(R.ax)
                         axNames = string(fieldnames(R.ax))';
-                        clrOpts = axNames(~ismember(axNames, "permute"));
+                        clrOpts = axNames(~ismember(axNames, "perm"));
                     else
                         clrOpts = string.empty(1,0);
                     end

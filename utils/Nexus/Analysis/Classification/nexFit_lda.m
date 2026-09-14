@@ -5,8 +5,15 @@ function nexFit_lda(mdlObj, args)
     shrinkage    = args.shrinkage;      % default = "auto"
 
     disp("fitting LDA...");
-    np   = py.importlib.import_module("numpy");
-    X_py = np.array(mdlObj.DM.X);
+    np    = py.importlib.import_module("numpy");
+    nFeat = size(mdlObj.DM.X, 2);
+    % MATLAB's py.* conversion can collapse a genuine [n_samples x 1] column
+    % (e.g. a single surviving feature after cropping) into a 1-D (n,)
+    % NumPy array instead of 2-D (n,1) — sklearn's fit/transform reject 1-D
+    % input outright. Force the shape explicitly using nFeat computed from
+    % the MATLAB side (always reliable), rather than trusting the
+    % conversion to have preserved it.
+    X_py = np.array(mdlObj.DM.X).reshape(int32(-1), int32(nFeat));
     mdlObj.Scaler.model = mdlObj.Scaler.model.fit(X_py);
     X_sc = mdlObj.Scaler.model.transform(X_py);
     if n_components > 0

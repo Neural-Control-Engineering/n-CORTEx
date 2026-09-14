@@ -10,9 +10,10 @@ function nexFigure_ssm(mdlObj)
     wInner  = 250;
     xInner  = 5;
 
-    hDomain  = 130;
+    hDomain  = 155;
     hPool    = 165;
     hFitCfg  = 170;
+    hView    = 175;
     hBtn     = 30;
     gap      = 5;
 
@@ -23,7 +24,7 @@ function nexFigure_ssm(mdlObj)
     yDomain  = yEig    + hBtn    + gap;
     yFitCfg  = yDomain + hDomain + gap;
     yPool    = yFitCfg + hFitCfg + gap;
-    hTotal   = yPool   + hPool   + gap;
+    yView    = yPool   + hPool   + gap;
 
     %% Figure
     mdlObj.Figure.fh = uifigure( ...
@@ -81,17 +82,25 @@ function nexFigure_ssm(mdlObj)
         axNames = ["t"];
     end
 
-    d1Init  = find(axNames == mdlObj.domain.D1, 1);
-    if isempty(d1Init), d1Init = 1; end
+    dnInit  = find(ismember(axNames, mdlObj.domain.DN));
+    if isempty(dnInit), dnInit = 1; end
 
-    ftrInit = find(axNames ~= axNames(d1Init));
+    ftrInit = find(~ismember(axNames, axNames(dnInit)));
     if isempty(ftrInit), ftrInit = 1; end
 
-    domainDict.D1  = axNames;
+    ftrAxes = axNames(ftrInit);
+    domainDict.DN  = axNames;
     domainDict.FTR = axNames;
+    try
+        domainDict.REG = nexOp_computeREGOptions(ftrAxes, mdlObj.Origin.DF_postOp.ax);
+    catch
+        domainDict.REG = "None";
+    end
+    mdlObj.domain.REG = "None";
     mdlObj.collector.Domain = buildSelection(mdlObj, domainDict);
-    mdlObj.collector.Domain.selections.D1  = d1Init;
+    mdlObj.collector.Domain.selections.DN  = dnInit;
     mdlObj.collector.Domain.selections.FTR = ftrInit;
+    mdlObj.collector.Domain.selections.REG = 1;
 
     pan_domain.ph = uipanel(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yDomain, wInner, hDomain], ...
@@ -100,7 +109,7 @@ function nexFigure_ssm(mdlObj)
         "Title",           "Domain", ...
         "ForegroundColor", GREEN);
     mdlObj.Figure.panel_domain = nexObj_listCfgPanel( ...
-        nexon, pan_domain, mdlObj.collector.Domain, [1, numel(axNames)]);
+        nexon, pan_domain, mdlObj.collector.Domain, [numel(axNames), numel(axNames), 1]);
 
     % Overwrite listbox callbacks so any selection change immediately
     % applies the domain bus — no button press required.
@@ -119,6 +128,20 @@ function nexFigure_ssm(mdlObj)
         "Scrollable",      "on");
     mdlObj.Figure.panel_pMap = nexObj_poolCfgPanel_v3( ...
         mdlObj, pan_pool, @poolCfgEntryChanged_v3);
+
+    %% View panel — CTG / SWP / SRC / VW / CLR
+    mdlObj.initViewBus();   % Pointer bus not available for SSM; SWP defaults to "None"
+    pan_view.ph = uipanel(mdlObj.Figure.panel1.ph, ...
+        "Position",        [xInner, yView, wInner, hView], ...
+        "BackgroundColor", BLACK, ...
+        "Scrollable",      "on", ...
+        "Title",           "View", ...
+        "ForegroundColor", GREEN);
+    viewMaxSels.SWP = 1;
+    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels);
+    bus_v = mdlObj.collector.View;
+    bus_v.listBoxes.CTG.Callback = @(src,ev) nexFigure_ssm_onViewChange(src, ev, 'CTG', mdlObj);
+    bus_v.listBoxes.SWP.Callback = @(src,ev) nexFigure_ssm_onViewChange(src, ev, 'SWP', mdlObj);
 
     %% Fit cfg panel
     pan_fitCfg.ph = uipanel(mdlObj.Figure.panel1.ph, ...
@@ -152,10 +175,20 @@ function nexFigure_ssm(mdlObj)
 end
 
 
+% ── Local: view bus changed (CTG / SWP) ───────────────────────────────────
+function nexFigure_ssm_onViewChange(src, ev, key, mdlObj)
+    listCfgEntryChanged(src, ev, key, mdlObj.collector.View);
+    mdlObj.applyViewBus();
+end
+
+
 % ── Local: domain selection changed ───────────────────────────────────────
 function nexFigure_ssm_onDomainChange(src, ev, key, mdlObj)
     listCfgEntryChanged(src, ev, char(key), mdlObj.collector.Domain);
     mdlObj.applyDomainBus();
+    if key == "FTR"
+        mdlObj.refreshREG();
+    end
 end
 
 
