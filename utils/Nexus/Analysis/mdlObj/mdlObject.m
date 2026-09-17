@@ -310,9 +310,12 @@ classdef mdlObject < handle
             % is exactly what's needed for it to pass every position
             % through unfiltered. Runs every call (not gated on the REG
             % axis having changed) so it can't be silently skipped.
+            % Always reset both selKeys AND selections for ftrAxis — the
+            % selKeys guard was blocking re-neutralization when the user had
+            % narrowed the selection after a prior fit (selKeys already
+            % matched 1:nVals but selections still held the stale subset).
             ftrAxis = mdlObj.fitSentinel.ftrAxis;
-            if ~isempty(ftrAxis) && ~strcmp(ftrAxis, ax) && isfield(bus.selKeys, ftrAxis) ...
-                    && ~isequal(bus.selKeys.(ftrAxis), (1:nVals)')
+            if ~isempty(ftrAxis) && ~strcmp(ftrAxis, ax) && isfield(bus.selKeys, ftrAxis)
                 bus.selKeys.(ftrAxis)    = (1:nVals)';
                 bus.selections.(ftrAxis) = 1:nVals;
                 if isfield(bus.listBoxes, ftrAxis) && isvalid(bus.listBoxes.(ftrAxis))

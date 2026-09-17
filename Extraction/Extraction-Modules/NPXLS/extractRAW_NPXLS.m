@@ -22,6 +22,10 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
         % numProbes = params.extractCfg.npxls.numProbes;
         sessions = sessions_to_extract.sessions;
         % subjects = sessions_to_extract.subjects;
+        % Process spontaneous/spontaneous-CCI sessions first so their learned
+        % sorters are promoted to experimentModules before same-day short-trigger
+        % sessions run resolveRTSortPickle (which looks there).
+        sessions = reorderSpontaneousFirst(sessions);
         % Keep the RTX 5070 out of deep idle for the whole extraction run: it sits
         % in a chipset PCIe x4 slot and otherwise falls off the bus during the GPU-
         % idle gaps between per-trigger subprocesses (zip/cloud-copy/LFP), causing a
@@ -29,8 +33,9 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
         % error). See Extraction/GPUKeepAlive/README.md.
         pacifierPy  = fullfile(params.paths.repo_path,"Extraction","GPUKeepAlive","gpu_pacifier.py");
         pacifierLog = fullfile("C:\Users\Primus\gpu-tdr-diag","pacifier.out.log");
-        system(sprintf('start "gpu_pacifier" /B "%s" "%s" > "%s" 2>&1', pyVersion, pacifierPy, pacifierLog));
+        system(sprintf('start "gpu_pacifier" /B "%s" "%s" --logfile "%s"', pyVersion, pacifierPy, pacifierLog));
         stopPacifier = onCleanup(@() system(sprintf('"%s" "%s" --stop', pyVersion, pacifierPy))); %#ok<NASGU>
+        sevenZip = 'C:\Program Files\7-Zip\7z.exe';
         for i = 1 : length(sessions)
             try
                 % Find relevant sessions
@@ -52,6 +57,18 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     nidq_dir = dataDirs.nidq;
                     nidqBinDir = nidq_dir(contains({nidq_dir.name},'.bin'));
                     imec_dir = dataDirs.imec;
+                    % If nidq bins are missing, session may be archived on cloud
+                    if isfield(params.extractCfg, 'reExtractFromCloud') && params.extractCfg.reExtractFromCloud
+                        [dataDirs, loc] = rehydrateSession(params, modality, exp_template, dataDirs, loc, sevenZip);
+                        nidq_dir   = dataDirs.nidq;
+                        nidqBinDir = nidq_dir(contains({nidq_dir.name}, '.bin'));
+                        imec_dir   = dataDirs.imec;
+                        % Reconcile rawData paths explicitly — do NOT re-run scopeRawData here,
+                        % it re-prefers cloud (folder still exists there) and undoes rehydration.
+                        % params.paths.raw_neuropixel_data     = params.paths.Data.RAW.(modality).local;
+                        % params.paths.rawData.(modality).nidq = fullfile(nidq_dir(1).folder);
+                        % params.paths.rawData.(modality).imec = params.paths.Data.RAW.(modality).local;
+                    end
                     if loc.imec
                         params.paths.raw_neuropixel_data = params.paths.Data.RAW.(modality).local; 
                     else
@@ -162,9 +179,11 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                 rtsArgs.sorterPickle = resolveRTSortPickle(params, sessionLabel);
                                 extractRAW_rtSort(fileName, kSortOutPath, [], rtsArgs);
 
+                                promoteRTSortPickle(params, params.extractCfg.experiment, subjID, sessionLabel, kSortOutPath);
+
                                 %% COLLECT RTSORT — atlas + UnitMatch written once after all triggers
                                 try
-                                    rtsPath = fullfile(kSortOutPath, 'rtsort_results.mat');
+                                    rtsPath = strcat("\\?\",fullfile(kSortOutPath,'rtsort','rtsort_results.mat'));
                                     if isfile(rtsPath)
                                         spk_rt_list{end+1}  = loadRTSort_spk(rtsPath);
                                         bins_rt_list{end+1} = char(fileName);
@@ -226,10 +245,10 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                                 lfp.meta.Fs=Fs/downSampleRate;
                                 lfp.meta.preBuffLen = 3.5;                            
                                 %% SAVE RESULTS                            
-                                save(fullfile(strcat("\\?\",kSortOutPath),"lfp.mat"),"lfp");
-                                save(fullfile(strcat("\\?\",kSortOutPath),"nidq.mat"),"nidq");                              
-                                save(fullfile(strcat("\\?\",kSortOutPath),"sync.mat"),"sync");
-                                save(fullfile(strcat("\\?\",kSortOutPath),"ap.mat"),"ap");
+                                save(fullfile(strcat("\\?\",kSortOutPath),"lfp.mat"),"lfp","-v7.3");
+                                save(fullfile(strcat("\\?\",kSortOutPath),"nidq.mat"),"nidq","-v7.3");
+                                save(fullfile(strcat("\\?\",kSortOutPath),"sync.mat"),"sync","-v7.3");
+                                save(fullfile(strcat("\\?\",kSortOutPath),"ap.mat"),"ap","-v7.3");
                                 %% UPDATE UI
                                 progress = cell(2,1);
                                 progress{1} = modality;                     
@@ -255,6 +274,17 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     end
                     %% WRITE UNITMATCH + REGISTER ATLAS — once per session, all triggers pooled
                     if ~isempty(subjectDir)
+                        % Bootstrap atlas if this subject has never been registered
+                        atlasFile = fullfile(subjectDir, 'npxls', 'ephys_atlas.h5');
+                        if ~isfile(atlasFile)
+                            try
+                                regMap = nexAtlas_loadRegMap(subjectDir);
+                                nexAtlas_save(nexAtlas_initFromPrior(regMap), subjectDir);
+                                fprintf('[extractRAW_NPXLS] bootstrapped atlas for %s\n', subjID);
+                            catch e_boot
+                                fprintf('[extractRAW_NPXLS] atlas bootstrap skipped (%s): %s\n', subjID, e_boot.message);
+                            end
+                        end
                         if ~isempty(spk_ks_list)
                             try  % UnitMatch waveforms — independent of atlas
                                 nexAtlas_writePreparedData(spk_ks_list, bins_ks_list, sessionLabel, subjectDir, 'KS');
@@ -294,7 +324,6 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     end
 
                     % compress raw data (LZMA2 level 1, multithreaded)
-                    sevenZip = 'C:\Program Files\7-Zip\7z.exe';
                     % NIDQ
                     nidqDir = struct2table(dir(nidqFolder));
                     nidqItems = nidqDir(contains(nidqDir.name,"nidq"),:).name;
@@ -323,9 +352,26 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
                     % cellfun(@(x) delete(x), imecItems, "UniformOutput",false);
                     % migrate to cloud
                     % DEBUGGING, DECOMMENT HERE
-                    if exist(fullfile(params.paths.Data.RAW.(modality).local,exp_template),"dir")
-                        copyfile(fullfile(params.paths.Data.RAW.(modality).local,exp_template), strcat("\\?\",fullfile(params.paths.Data.RAW.(modality).cloud,exp_template)));                
-                        rmdir(fullfile(params.paths.Data.RAW.(modality).local,exp_template),'s');
+                    localSessionPath = fullfile(params.paths.Data.RAW.(modality).local, exp_template);
+                    if exist(localSessionPath, "dir")
+                        % Verify local archives are present and comparable in size to cloud.
+                        cloudSessionPath = fullfile(params.paths.Data.RAW.(modality).cloud, exp_template);
+                        archivesComplete = sessionArchivesComplete(localSessionPath, cloudSessionPath);
+                        if ~archivesComplete
+                            warning('extractRAW_NPXLS:incompleteLocal', ...
+                                '[migrate] %s: local archives missing or empty — skipping cloud upload', exp_template);
+                        else
+                            cloudDest = strcat("\\?\", fullfile(params.paths.Data.RAW.(modality).cloud, exp_template));
+                            % Remove stale cloud copy before uploading so re-extracted sessions
+                            % fully replace the old archived folder rather than merging into it.
+                            if isfield(params.extractCfg, 'reExtractFromCloud') && params.extractCfg.reExtractFromCloud
+                                if exist(fullfile(params.paths.Data.RAW.(modality).cloud, exp_template), "dir")
+                                    rmdir(fullfile(params.paths.Data.RAW.(modality).cloud, exp_template), 's');
+                                end
+                            end
+                            copyfile(localSessionPath, cloudDest);
+                            rmdir(localSessionPath, 's');
+                        end
                     end
                     extractionLog = updateExtractionLog(extractionLog, sessionLabel, "Extracted_npxls", 1, 0);
                     writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","RAW")));
@@ -336,6 +382,19 @@ function extractRAW_NPXLS(params, sessions_to_extract, Q)
         end
     end
     cd(fullfile(params.paths.repo_path));
+end
+
+function sessions = reorderSpontaneousFirst(sessions)
+% Move spontaneous/spontaneous-CCI sessions before others so their
+% detect-mode sorters are promoted to experimentModules before same-day
+% short-trigger sessions call resolveRTSortPickle.
+    n = numel(sessions);
+    isSpontan = false(n, 1);
+    for k = 1:n
+        ph = string(parseSessionLabel(string(sessions{k}), "phase"));
+        isSpontan(k) = ismember(ph, ["spontaneous", "spontaneous-CCI"]);
+    end
+    sessions = [sessions(isSpontan); sessions(~isSpontan)];
 end
 
 function spk = mergeSpkList_public(spk_list)
@@ -378,3 +437,4 @@ end
 % slrt250_1K=realtimeLog.data.getElement("sync_250Hz_int").Values.Data;
 % figure; plot(slrt250_1K(1:10000)); hold on; plot(npx250_1K(1:10000));
 % read ap.bin
+

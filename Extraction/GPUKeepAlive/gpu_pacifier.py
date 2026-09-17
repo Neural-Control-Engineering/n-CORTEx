@@ -32,6 +32,7 @@ USAGE  (nexus env)
 """
 import argparse
 import ctypes
+import gc
 import os
 import signal
 import subprocess
@@ -42,6 +43,8 @@ import time
 # repo, so the working tree stays clean. Change here if that folder moves.
 DEFAULT_PIDFILE = r"C:\Users\Primus\gpu-tdr-diag\pacifier.pid"
 _STILL_ACTIVE = 259
+_TDR_SETTLE_S = 15.0   # seconds to wait for Windows TDR to reset the driver before reinit
+_MAX_TDR_RETRIES = 5
 
 
 def _pid_alive(pid):
@@ -80,6 +83,44 @@ def _stop(pidfile):
         pass
 
 
+def _pulse_loop(args, dev, stop, total_so_far=0):
+    # One "pulse" = one iteration of this loop: a batch of matmuls + one PCIe round-trip.
+    # The GPU core needs continuous compute to stay out of P8; the PCIe link needs
+    # actual bus *transactions* (not just compute) to stay in L0 rather than L1/Gen1.
+    # Both happen here on every wake-up.
+    #
+    # The function is deliberately a separate scope from main() so that the CUDA tensors
+    # (a, b, host) are LOCAL variables.  If a TDR fires and raises cudaErrorUnknown,
+    # this function unwinds, the tensors go out of scope, and the garbage collector can
+    # actually free the stale CUDA memory before main() tries to reinitialize the
+    # context.  If the tensors lived in main() they'd stay alive and block that cleanup.
+    import torch
+    a = torch.randn(args.size, args.size, device=dev)
+    b = torch.randn(args.size, args.size, device=dev)
+    n_elems = max(1, int(args.transfer_mb * 1024 * 1024) // 4)
+    host = torch.empty(n_elems, dtype=torch.float32, pin_memory=True)  # pinned = fast H2D
+
+    pulses = 0
+    t_last = time.time()
+    while not stop["now"]:
+        # tanh keeps b bounded in [-1,1] so the running product never overflows
+        for _ in range(args.iters):
+            b = torch.tanh(a @ b)
+        # non_blocking issues the copy asynchronously; synchronize() below forces
+        # it to actually commit so the PCIe transaction really happens this pulse.
+        _ = host.to(dev, non_blocking=True).add_(1.0).cpu()
+        torch.cuda.synchronize()
+        pulses += 1
+        now = time.time()
+        if now - t_last >= args.heartbeat:
+            mib = torch.cuda.memory_allocated(0) // (1024 * 1024)
+            print(f"[pacifier] alive: {total_so_far + pulses} pulses, mem={mib}MiB @ "
+                  f"{time.strftime('%H:%M:%S')}", flush=True)
+            t_last = now
+        time.sleep(args.interval)
+    return pulses
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stop", action="store_true", help="stop the running pacifier and exit")
@@ -90,11 +131,18 @@ def main():
     ap.add_argument("--transfer-mb", type=float, default=8.0,
                     help="host<->device round-trip per pulse (MB) to keep the PCIe LINK out of L1/Gen1")
     ap.add_argument("--heartbeat", type=float, default=60.0, help="seconds between status prints")
+    ap.add_argument("--logfile", default=None,
+                    help="write stdout+stderr to this file (owned by the process, no shell redirect needed)")
     args = ap.parse_args()
 
     if args.stop:
         _stop(args.pidfile)
         return
+
+    if args.logfile:
+        _log = open(args.logfile, "w", buffering=1)   # line-buffered
+        sys.stdout = _log
+        sys.stderr = _log
 
     # idempotency guard: don't stack duplicate pacifiers
     existing = _read_pid(args.pidfile)
@@ -112,10 +160,6 @@ def main():
 
     dev = torch.device("cuda:0")
     name = torch.cuda.get_device_name(0)
-    a = torch.randn(args.size, args.size, device=dev)
-    b = torch.randn(args.size, args.size, device=dev)
-    n_elems = max(1, int(args.transfer_mb * 1024 * 1024) // 4)
-    host = torch.empty(n_elems, dtype=torch.float32, pin_memory=True)
     print(f"[pacifier] holding {name} awake: {args.iters} x {args.size}^2 matmul + "
           f"{args.transfer_mb:g}MB H2D/D2H every {args.interval}s (PID {os.getpid()}, "
           f"torch {torch.__version__})", flush=True)
@@ -129,33 +173,43 @@ def main():
     except Exception:
         pass
 
-    pulses = 0
-    t_last = time.time()
+    total_pulses = 0
+    tdr_count = 0
     try:
         while not stop["now"]:
-            # tanh keeps values bounded in [-1, 1] so the running product never
-            # overflows over long runs; the kernels still exercise the GPU.
-            for _ in range(args.iters):
-                b = torch.tanh(a @ b)
-            # round-trip the pinned buffer for real PCIe traffic (link -> L0).
-            _ = host.to(dev, non_blocking=True).add_(1.0).cpu()
-            torch.cuda.synchronize()      # force the kernels to actually execute
-            pulses += 1
-            now = time.time()
-            if now - t_last >= args.heartbeat:
-                mib = torch.cuda.memory_allocated(0) // (1024 * 1024)
-                print(f"[pacifier] alive: {pulses} pulses, mem={mib}MiB @ "
-                      f"{time.strftime('%H:%M:%S')}", flush=True)
-                t_last = now
-            time.sleep(args.interval)
+            try:
+                total_pulses += _pulse_loop(args, dev, stop, total_so_far=total_pulses)
+                break  # stop["now"] was set; clean exit
+            except Exception as e:
+                if "CUDA" not in str(e) and "cuda" not in str(e):
+                    raise  # non-CUDA error — don't retry
+                tdr_count += 1
+                print(f"[pacifier] CUDA error #{tdr_count} (TDR/bus-drop): {e}", flush=True)
+                if tdr_count > _MAX_TDR_RETRIES:
+                    print(f"[pacifier] exceeded {_MAX_TDR_RETRIES} TDR retries; giving up.", flush=True)
+                    break
+                # _pulse_loop has returned, so its tensors are out of scope; collect
+                # them now so the stale CUDA memory is freed before we reinit.
+                gc.collect()
+                try:
+                    torch.cuda.empty_cache()
+                except Exception:
+                    pass
+                print(f"[pacifier] waiting {_TDR_SETTLE_S:.0f}s for TDR to settle "
+                      f"(retry {tdr_count}/{_MAX_TDR_RETRIES})...", flush=True)
+                time.sleep(_TDR_SETTLE_S)
+                try:
+                    torch.cuda.init()  # re-establish the CUDA context after TDR reset
+                except Exception:
+                    pass
     finally:
-        # only remove the pidfile if it's still ours
         if _read_pid(args.pidfile) == os.getpid():
             try:
                 os.remove(args.pidfile)
             except OSError:
                 pass
-        print(f"[pacifier] stopping after {pulses} pulses; released GPU.", flush=True)
+        suffix = "clean" if tdr_count == 0 else f"{tdr_count} TDR recovery/ies"
+        print(f"[pacifier] stopping after {total_pulses} pulses ({suffix}).", flush=True)
 
 
 if __name__ == "__main__":
