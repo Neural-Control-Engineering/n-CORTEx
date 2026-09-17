@@ -106,3 +106,69 @@ priority (get single-DN training fully confirmed working first) and by the
 fact that it's a coordinated, five-file change rather than an isolated fix.
 
 ---
+
+## 2. Bridge UnitMatch `global_ids` into `domain.REG = 'unit'`
+
+**Status:** Not started. UnitMatch itself is now reachable from the UI
+(`nexObj_ephysAtlas`'s new Units tab — `runUnitMatch()`/`reconcileCatalog()`,
+wrapping `nexAtlas_runUnitMatch.m`/`nexAtlas_reconcileCatalog.m`), but its
+output doesn't reach anything `nexOp_alignCoAxes` can see yet.
+
+**Context:** `CoRegistration_Design.md`'s "REG — Registration Identity Axis"
+section states the intended end state plainly:
+
+```matlab
+Domain.REG = 'chans'   % pre-unitMatch: channel position is stable identity
+Domain.REG = 'units'   % post-unitMatch: matched unit IDs are stable identity
+```
+
+and claims *"UnitMatch online: once unit IDs are matched across sessions,
+REG transitions from `chans` (proxy) to `unit` (true); the bus selection
+drives this, no code change needed."* That claim is only half true today:
+`nexOp_alignCoAxes`/`refreshREG`/the REG bus genuinely are axis-agnostic and
+need no changes — but nothing currently *writes* a cross-session-stable
+value onto any DF's `ax.unit`. `nexAtlas_runUnitMatch` writes its matched
+IDs to `/units/sessions/<label>/<sorterTag>/global_ids` in `ephys_atlas.h5`
+— a side artifact, never joined back onto the per-trial DF axes that
+`compileSTAT`/`nexOp_alignCoAxes` actually operate on. Selecting
+`REG = 'unit'` today aligns on session-local cluster IDs, which are *not*
+stable across sessions — silently wrong, not just inert.
+
+**Design — what's missing, concretely:**
+1. A new small operator (something like `nexOp_applyUnitMatchIDs(DF, subjectDir, sorterTag)`
+   or a batch equivalent) that reads `/units/sessions/<label>/<sorterTag>/{local_ids,global_ids}`
+   for a given session and remaps that session's `ax.unit` values from local
+   cluster IDs to UnitMatch's global IDs — in place, or into a new axis
+   (e.g. `ax.unit_matched`) if keeping both identities visible is preferable
+   to overwriting.
+2. Decide *where* this remap happens: at DTS-read time (`dtsIO_readDF`/
+   `dtsIO_composeDF`, so every consumer sees matched IDs transparently), or
+   as an explicit step inside `nexOp_compileSTAT` alongside the existing
+   `nexOp_alignCoAxes` call (gated the same way, on `domain.REG == "unit"`)?
+   The former is more transparent but touches a much more load-bearing path;
+   the latter is more contained but means raw-DF consumers outside
+   `compileSTAT` (e.g. `scaleApply_transform`'s per-trial reads) still see
+   unmatched local IDs unless they're updated too — same shape of gap as
+   the `mdlObj_pca` units-to-channels vs. `alignCoAxes` split this session
+   already worked through.
+3. `nexAtlas_reconcileCatalog`'s catalog-level `global_id` merge is a
+   *different* consumer (the atlas's own per-subject unit catalog, not a
+   per-trial DF) — this item is specifically about wiring matched IDs into
+   the DTS/DF axis path that `nexOp_alignCoAxes` reads, not about the
+   catalog itself (already handled by the atlas's own reconcile step).
+
+**Touches (anticipated):** a new `nexOp_*` operator (or two), `dtsIO_readDF`/
+`dtsIO_composeDF` or `nexOp_compileSTAT` (depending on the timing decision
+above), and possibly `nexOp_computeREGOptions`/`nexOp_coIndexPairs` per the
+design doc's own note that those are the only two sites expected to need
+touching when this lands.
+
+**Depends on:** UnitMatch actually having been run + reconciled for the
+subject in question (the new Units tab makes this reachable, but running it
+is a manual, per-subject action, not automatic) — and, on this Linux dev
+machine specifically, `7z`/`p7zip` needs to be installed for
+`nexAtlas_runUnitMatch`'s waveform decompression step to do anything
+(`nexAtlas_runUnitMatch.m`'s `resolveSevenZip_()` degrades gracefully but
+silently if it's absent).
+
+---

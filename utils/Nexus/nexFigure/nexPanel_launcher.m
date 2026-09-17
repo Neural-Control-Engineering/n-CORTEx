@@ -30,7 +30,11 @@ function nexPanel_launcher(nexon)
     nexon.console.launcher = struct("fh",fh,"ph",ph,"phExt",phExt,"phTools",phTools);
 
     function raiseOrCreate()
-        if isfield(nexon.console,'ATLAS') && isvalid(nexon.console.ATLAS)
+        % isvalid() only accepts a handle object — it errors outright on
+        % anything else (including [], e.g. after the field was cleared
+        % to reset a stale instance), so isa() must gate it first.
+        if isfield(nexon.console,'ATLAS') && isa(nexon.console.ATLAS,'nexObj_ephysAtlas') ...
+                && isvalid(nexon.console.ATLAS)
             nexon.console.ATLAS.raise();
         else
             nexon.console.ATLAS = nexObj_ephysAtlas(nexon);
