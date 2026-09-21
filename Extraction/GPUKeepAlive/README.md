@@ -105,3 +105,107 @@ nvidia-smi --query-gpu=pcie.link.gen.current,pcie.link.width.current --format=cs
 ```
 
 Full history and checklist: `C:\Users\Primus\gpu-tdr-diag\RTX5070_bus-drop_fix_checklist.txt`
+
+---
+
+## Why pcie_monitor.py failed to prevent the 2026-09-17 drop
+
+Three nested failures, confirmed against `pcie_log_20260917_183846.csv` and
+`pcie_log_20260917_182959.csv`.
+
+### 1. Sampling rate mismatch — the burst was physically invisible
+
+`nvmlDeviceGetPcieThroughput` reports the last **20 ms** of traffic.
+`pcie_monitor.py` polls it every **1 s** — it sees 2% of time.
+
+The fatal VRAM allocation (+1168 MiB, ~330 ms at PCIe 3.0 x4 max) completed
+entirely inside one 1 s gap. Direct evidence from the CSV:
+
+```
+19:10:48  vram=1331 MiB  gpu_rx=519 MB/s
+19:11:48  vram=2499 MiB  gpu_rx=2 MB/s    ← +1168 MiB landed; burst already gone
+```
+
+The monitor observed nothing. Controller state: CLEAR throughout.
+
+### 2. Threshold calibrated for the wrong Kilosort profile
+
+The earlier session (`pcie_log_20260917_182959.csv`) ran a **large** Kilosort
+job (4156 MiB VRAM, 76–80 W sustained). That produced continuous gpu_rx of
+200–640+ MB/s for several minutes, and the old code (single-sample trigger,
+lower threshold ≈700 MB/s) correctly went ACTIVE at 18:32:46 and suspended
+robocopy.
+
+The threshold was then **raised to 900 MB/s** to stop triggering on the
+pacifier's observed max (708 MB/s). The fatal second Kilosort run was
+**smaller** (2499 MiB VRAM, 41–53 W). Its max observed gpu_rx was **443 MB/s**
+in any sample — never close to 900. The threshold was calibrated against the
+large run's bandwidth profile; the small run was a different workload.
+
+### 3. `trigger_secs=2` compounded the problem
+
+The 2-consecutive-sample requirement was added to filter single-sample
+pacifier bursts. For a 330 ms burst that's already invisible to one 1 s
+sample, requiring two is academic — but it also means any borderline signal
+that does get caught once is silently discarded.
+
+### Near-term mitigation
+
+Going to **serialize**: run robocopy only when extractRAW_NPXLS is idle.
+No concurrent GPU load + disk I/O through the shared PCH link.
+
+### Paths to a real fix (when bandwidth allows)
+
+- **VRAM-delta trigger**: `vram_used` is a stable counter, not a rate window.
+  `Δvram > 200 MiB in one sample` is an unambiguous Kilosort-start signal
+  that doesn't miss sub-second bursts. Doesn't require faster polling.
+- **100 ms polling**: still misses ~70% of a 330 ms burst but much better
+  odds. Check win32pdh/psutil overhead at 10 Hz first.
+- **Serialize at source**: `extractRAW_NPXLS.m` pauses robocopy before each
+  Kilosort invocation (e.g. `taskkill /IM robocopy.exe /F`) and restarts it
+  after. No polling needed.
+
+---
+
+## Session log — 2026-09-21
+
+### What happened
+
+Second under-load VRAM spike drop. Same root cause as 9/17 — Kilosort cold-start
+allocating through the shared PCH x4 link.
+
+**Key data** (from `gpu_log_20260918_201508.csv` and `pacifier.out.log`):
+
+| Time | Event |
+|------|-------|
+| 12:55–13:00 | Kilosort run 1 — 1317 MiB, ~100 W — survived (VRAM pre-allocated mid-run) |
+| 13:01:57 | Pacifier loaded 2228 MiB, took over; P1/Gen3 stable |
+| ~13:12:49 | Pacifier caught CUDA unknown error — Kilosort 2 started cold VRAM allocation |
+| 13:13:33 | GPU log: +1888 MiB spike → 4118 MiB total, 97 W, 63% util |
+| 13:13:38 | DEVICE_LOST |
+| 13:13–15:12+ | Persistent DEVICE_LOST — required reboot |
+
+**Why Kilosort 1 survived but Kilosort 2 didn't:** run 1 was already mid-execution
+(VRAM pre-allocated); run 2 started cold against the 2228 MiB pacifier baseline
+and burst +1888 MiB through PCH x4 in ~330 ms.
+
+**HAGS confirmed applied** (HwSchMode=1) — no effect. This is a PCH bandwidth
+issue, not a scheduler issue.
+
+### Applied fixes (cumulative)
+
+| Fix | Status |
+|-----|--------|
+| TdrDelay/TdrDdiDelay=60 | Active |
+| Defender path exclusions | Active |
+| HwSchMode=1 (HAGS off) | Active — confirmed, did not prevent drop |
+
+### Still outstanding
+
+- **BIOS update** — 0820 (2021), predates Blackwell. Flash via ASUS EZ Flash
+  from USB. Highest remaining leverage.
+- **Driver clean reinstall** (currently 610.74)
+- **Serialize at source** in `extractRAW_NPXLS.m` — `taskkill /IM robocopy.exe`
+  before each Kilosort call, restart after.
+- **VRAM-delta trigger** in `pcie_monitor.py` — Δvram > 200 MiB as unambiguous
+  Kilosort-start signal; doesn't require faster polling.

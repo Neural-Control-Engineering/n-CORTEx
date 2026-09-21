@@ -1,10 +1,10 @@
-function extractRAW_NPXLS(params, sessions_to_extract, Q)    
+ function extractRAW_NPXLS(params, sessions_to_extract, Q)    
     cd(fullfile(params.paths.repo_path,"Extraction/"));
     % pyVersion = "C:\Users\Primus\anaconda3\envs\kilosort\python.EXE";
     pyVersion = "C:\Users\Primus\miniconda3\envs\nexus\python.EXE";
     pyenv(Version=pyVersion,ExecutionMode="OutOfProcess");
     % pyenv(Version=pyVersion);
-    % modality = params.extractCfg.modality;
+    % modality = params.extractCfg.modality;    
     modality = params.extractCfg.modality;    
     % Check if there are Neuropixel lfp data files.
     localCheck = ~isempty(dir(fullfile(params.paths.projDir_local,"Experiments",params.extractCfg.experiment,"Data","RAW","NPXLS", '*Npxls*'))); 
