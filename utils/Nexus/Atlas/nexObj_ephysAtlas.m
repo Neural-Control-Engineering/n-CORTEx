@@ -18,7 +18,7 @@ classdef nexObj_ephysAtlas < nexObject
         atlasFile    = ''
         atlasSubject = ''
         currentTab   = 1
-        tabNames     = {'Reference','IBL Query','Posteriors','Sessions'}
+        tabNames     = {'Reference','IBL Query','Posteriors','Sessions','Units','Map'}
         queryTimer   = []
         queryTmpFile = ''
         queryReadPos = 0
@@ -292,12 +292,100 @@ classdef nexObj_ephysAtlas < nexObject
                     lbl = strrep(sinfo.Groups(gi).Name,'/sessions/','');
                     try, contrib = logical(h5read(obj.atlasFile,['/sessions/' lbl '/contributed']));
                     catch, contrib = false; end
-                    D(end+1,:) = {lbl, contrib, n_sess, lu}; %#ok<AGROW>
+                    [umStr, bridgeStr] = obj.unitMatchStatus_(lbl);
+                    D(end+1,:) = {lbl, contrib, n_sess, lu, umStr, bridgeStr}; %#ok<AGROW>
                 end
             catch
             end
             tbl.Data = D;
             obj.padTableRows_(tbl);
+        end
+
+        % ── Units tab ─────────────────────────────────────────────────────
+
+        function populateUnits(obj)
+            pn = obj.Figure.tabPanels{5};
+            infoLbl = findobj(pn,'Tag','unitsInfo');
+            if isempty(obj.atlasFile) || ~isfile(obj.atlasFile)
+                infoLbl.Text = 'No atlas loaded.';
+            else
+                infoLbl.Text = 'Ready.';
+            end
+        end
+
+        function runUnitMatch(obj)
+            pn = obj.Figure.tabPanels{5};
+            infoLbl = findobj(pn,'Tag','unitsInfo');
+            if isempty(obj.atlasFile), return; end
+            sorterTag = findobj(pn,'Tag','unitsSorterDD').Value;
+            if ~exist('nexAtlas_runUnitMatch','file')
+                infoLbl.Text = 'nexAtlas_runUnitMatch not found on path.';
+                return;
+            end
+            obj.clearUnitsLog_();
+            obj.setUnitsProgress_(0, sprintf('Running UnitMatch (%s)...', sorterTag));
+            subjectDir = fileparts(fileparts(obj.atlasFile));
+            try
+                ok = nexAtlas_runUnitMatch(subjectDir, sorterTag, ...
+                    @(frac,label) obj.setUnitsProgress_(frac,label));
+                % nexAtlas_runUnitMatch reports its own failures via
+                % progressFcn and returns normally (doesn't throw) — ok
+                % is the only reliable signal that it actually succeeded.
+                % Printing "done" unconditionally here would silently
+                % follow a failure message with a false success message.
+                if ok
+                    obj.setUnitsProgress_(1, sprintf('UnitMatch (%s) done — see Sessions tab for status.', sorterTag));
+                end
+            catch e
+                obj.setUnitsProgress_(0, sprintf('UnitMatch failed: %s', e.message));
+            end
+            obj.populateSessions('');
+        end
+
+        function reconcileCatalog(obj)
+            pn = obj.Figure.tabPanels{5};
+            infoLbl = findobj(pn,'Tag','unitsInfo');
+            if isempty(obj.atlasFile), return; end
+            sorterTag = findobj(pn,'Tag','unitsSorterDD').Value;
+            if ~exist('nexAtlas_reconcileCatalog','file')
+                infoLbl.Text = 'nexAtlas_reconcileCatalog not found on path.';
+                return;
+            end
+            obj.setUnitsProgress_(0, sprintf('Reconciling catalog (%s)...', sorterTag));
+            subjectDir = fileparts(fileparts(obj.atlasFile));
+            try
+                nexAtlas_reconcileCatalog(subjectDir, sorterTag);
+                obj.setUnitsProgress_(1, sprintf('Catalog reconciled (%s).', sorterTag));
+            catch e
+                obj.setUnitsProgress_(0, sprintf('Reconcile failed: %s', e.message));
+            end
+            obj.populateSessions('');
+        end
+
+        % ── Map tab ───────────────────────────────────────────────────────
+
+        function populateMap(obj)
+        % Push current subject context into the embedded HTML view. Real
+        % unit/edge export isn't wired yet (see ingestLiveData's TODO in
+        % index.html) — this proves the MATLAB->HTML Data push path works
+        % end to end; the HTML falls back to its own synthetic demo for
+        % anything it doesn't recognize.
+            if ~isfield(obj.Figure,'mapHTML') || isempty(obj.Figure.mapHTML) || ~isvalid(obj.Figure.mapHTML)
+                return;
+            end
+            obj.Figure.mapHTML.Data = struct('subjectLabel', obj.atlasSubject, 'units', {{}});
+        end
+
+        function onMapEvent(obj, ev)
+        % Receives events sent from the embedded HTML via
+        % htmlComponent.sendEventToMATLAB(...) — e.g. 'unitHover' while
+        % scrubbing the 3-D view. Just logged for now; a natural next step
+        % is driving e.g. the Reference tab's selection from a click here.
+            try
+                fprintf('[nexObj_ephysAtlas] map event "%s": %s\n', ...
+                    ev.HTMLEventName, jsonencode(ev.HTMLEventData));
+            catch
+            end
         end
 
     end
@@ -336,7 +424,70 @@ classdef nexObj_ephysAtlas < nexObject
                 case 2,  obj.populateIBLList_();
                 case 3,  obj.populatePosteriors('');
                 case 4,  obj.populateSessions('');
+                case 5,  obj.populateUnits();
+                case 6,  obj.populateMap();
             end
+        end
+
+        function [umStr, bridgeStr] = unitMatchStatus_(obj, lbl)
+        % Compact per-session UnitMatch status across both sorters, for the
+        % Sessions tab table: "KS:N RT:N" style counts, and which sorters
+        % have been bridged into the catalog (nexAtlas_reconcileCatalog).
+            umParts = {}; bridgeParts = {};
+            for sorter = ["KS","RT"]
+                base = ['/units/sessions/' lbl '/' char(sorter) '/'];
+                try
+                    gid = h5read(obj.atlasFile, [base 'global_ids']);
+                    umParts{end+1} = sprintf('%s:%d', sorter, numel(gid)); %#ok<AGROW>
+                catch
+                end
+                try
+                    h5info(obj.atlasFile, [base 'cosine_global_ids']);
+                    bridgeParts{end+1} = char(sorter); %#ok<AGROW>
+                catch
+                end
+            end
+            if isempty(umParts),     umStr     = '–'; else, umStr     = strjoin(umParts, ' ');     end
+            if isempty(bridgeParts), bridgeStr = '–'; else, bridgeStr = strjoin(bridgeParts, ', '); end
+        end
+
+        function setUnitsProgress_(obj, frac, label)
+        % Resize the hand-built fill panel (uifigure has no native inline
+        % progress-bar widget) and update the stage label, then force an
+        % immediate repaint. Called both locally (start/end) and as
+        % nexAtlas_runUnitMatch's progressFcn callback, so it must be
+        % cheap and safe to call from inside that blocking function.
+            if ~obj.figAlive_(), return; end
+            pn = obj.Figure.tabPanels{5};
+            track = findobj(pn,'Tag','unitsProgTrack');
+            fill  = findobj(track,'Tag','unitsProgFill');
+            infoLbl = findobj(pn,'Tag','unitsInfo');
+            frac = max(0, min(1, frac));
+            fill.Position(3) = max(0, track.Position(3) * frac);
+            infoLbl.Text = label;
+            obj.unitsLog_(label);
+            drawnow;
+        end
+
+        function unitsLog_(obj, msg)
+        % Append one line to the Units tab's running transcript — same
+        % pattern as iblLog_. Multi-line messages (e.g. the "excluding N
+        % session(s): ..." list) get split so each line is its own entry,
+        % consistent with how a real console log would wrap it.
+            ta = findobj(obj.Figure.tabPanels{5},'Tag','unitsLog');
+            if isempty(ta), return; end
+            lines = strsplit(char(msg), newline);
+            ta.Value = [ta.Value(:)', lines];
+        end
+
+        function clearUnitsLog_(obj)
+        % Reset the transcript at the start of a fresh run so each run's
+        % output starts clean instead of piling up under the last one.
+        % uitextarea.Value must be a non-empty cell of char vectors — a
+        % truly empty {} is rejected, hence the single blank line.
+            ta = findobj(obj.Figure.tabPanels{5},'Tag','unitsLog');
+            if isempty(ta), return; end
+            ta.Value = {''};
         end
 
         function populateIBLList_(obj)

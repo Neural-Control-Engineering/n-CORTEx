@@ -20,6 +20,11 @@ function sevenZipArchive(sevenZip, archivePath, items)
         % Windows with short paths: same.
         cmd = sprintf('"%s" a -mx=1 -mmt=on -sdel "%s" %s', ...
             sevenZip, archivePath, fileArgs);
+        if ~ispc
+            % See sevenZipExtract.m — MATLAB's bundled LD_LIBRARY_PATH
+            % shadows the system linker path for system() subprocesses.
+            cmd = ['LD_LIBRARY_PATH= ' cmd];
+        end
         [status, out] = system(cmd);
     else
         % Windows only: paths exceed MAX_PATH (260 chars).

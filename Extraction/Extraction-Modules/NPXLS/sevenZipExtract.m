@@ -15,6 +15,14 @@ function sevenZipExtract(sevenZip, archivePath, destDir)
 
     if ~ispc || maxLen < 250
         cmd = sprintf('"%s" e -y "-o%s" "%s"', sevenZip, destDir, archivePath);
+        if ~ispc
+            % MATLAB's own bundled LD_LIBRARY_PATH is inherited by system()
+            % subprocesses and shadows the system linker path, which breaks
+            % real compiled binaries like p7zip's 7z even though the exact
+            % same command runs fine from a normal shell. Clear it for this
+            % call only.
+            cmd = ['LD_LIBRARY_PATH= ' cmd];
+        end
         [status, out] = system(cmd);
     else
         % Paths exceed MAX_PATH — cmd.exe cannot pass them to 7-zip.
@@ -40,14 +48,22 @@ function sevenZipExtract(sevenZip, archivePath, destDir)
     end
 
     if status ~= 0
-        warning('sevenZipExtract:7zipFailed', ...
-            '7-zip extraction failed for %s, falling back to unzipLongPath.py:\n%s', archivePath, out);
-        unzipLongPathFallback(archivePath, destDir);
+        if ispc
+            warning('sevenZipExtract:7zipFailed', ...
+                '7-zip extraction failed for %s, falling back to unzipLongPath.py:\n%s', archivePath, out);
+            unzipLongPathFallback(archivePath, destDir, sevenZip);
+        else
+            % unzipLongPath.py's fallback path is a Windows long-path
+            % workaround (subst drives, hardcoded 7z.exe) with no Linux/Mac
+            % equivalent — nothing sensible to fall back to here.
+            error('sevenZipExtract:7zipFailed', ...
+                '7-zip extraction failed for %s:\n%s', archivePath, out);
+        end
     end
 end
 
 
-function unzipLongPathFallback(archivePath, destDir)
+function unzipLongPathFallback(archivePath, destDir, sevenZip)
     pyExe = char(pyenv().Executable);
     if isempty(pyExe)
         error('sevenZipExtract:noPython', ...
@@ -56,7 +72,6 @@ function unzipLongPathFallback(archivePath, destDir)
 
     scriptDir = fileparts(mfilename('fullpath'));
     pyScript  = fullfile(scriptDir, 'unzipLongPath.py');
-    sevenZip  = 'C:\Program Files\7-Zip\7z.exe';
 
     [status, out] = system(sprintf('"%s" -u "%s" "%s" "%s" "%s"', ...
         pyExe, pyScript, archivePath, destDir, sevenZip), '-echo');

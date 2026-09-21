@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit Constellation</title>
+<style>
+  /* Fonts vendored locally under fonts/ — no network dependency, works
+     fully offline (e.g. on an experiment-rig machine with no internet). */
+  @font-face{ font-family:'JetBrains Mono'; font-weight:400; font-style:normal; src:url('fonts/jetbrainsmono-400.ttf') format('truetype'); font-display:swap; }
+  @font-face{ font-family:'JetBrains Mono'; font-weight:500; font-style:normal; src:url('fonts/jetbrainsmono-500.ttf') format('truetype'); font-display:swap; }
+  @font-face{ font-family:'JetBrains Mono'; font-weight:700; font-style:normal; src:url('fonts/jetbrainsmono-700.ttf') format('truetype'); font-display:swap; }
+  @font-face{ font-family:'Manrope'; font-weight:400; font-style:normal; src:url('fonts/manrope-400.ttf') format('truetype'); font-display:swap; }
+  @font-face{ font-family:'Manrope'; font-weight:500; font-style:normal; src:url('fonts/manrope-500.ttf') format('truetype'); font-display:swap; }
+  @font-face{ font-family:'Manrope'; font-weight:600; font-style:normal; src:url('fonts/manrope-600.ttf') format('truetype'); font-display:swap; }
+  @font-face{ font-family:'Manrope'; font-weight:700; font-style:normal; src:url('fonts/manrope-700.ttf') format('truetype'); font-display:swap; }
+
+  :root{
+    --bg:        #050605;
+    --bg-panel:  rgba(16,21,18,0.72);
+    --bg-panel-solid: #101512;
+    --grid:      #1c2420;
+    --line:      #223028;
+    --text:      #d7e4dc;
+    --text-dim:  #6f8177;
+    --text-dimmer: #4c5a52;
+    --accent:    #3ef2a0;
+    --accent-dim:#1c5c42;
+    --accent-glow: rgba(62,242,160,0.35);
+    --warn:      #f2b33e;
+    --danger:    #f2503e;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    --sans: 'Manrope', -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    overflow:hidden;
+    position:relative;
+  }
+
+  canvas#scene{
+    position:absolute; inset:0;
+    display:block;
+    width:100%; height:100%;
+    touch-action:none;
+    cursor:grab;
+  }
+  canvas#scene.dragging{ cursor:grabbing; }
+
+  /* ── ambient vignette + scanline texture, subtle ───────────────────── */
+  .vignette{
+    position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(0,0,0,0.55) 100%);
+    z-index:2;
+  }
+  .scan{
+    position:absolute; inset:0; pointer-events:none; z-index:2;
+    opacity:0.05;
+    background:repeating-linear-gradient(
+      to bottom, #fff 0px, #fff 1px, transparent 1px, transparent 3px
+    );
+    mix-blend-mode:overlay;
+  }
+
+  /* ── title mark ───────────────────────────────────────────────────── */
+  .mark{
+    position:absolute; top:20px; right:24px; z-index:5;
+    text-align:right;
+    pointer-events:none;
+  }
+  .mark .name{
+    font-family:var(--mono); font-weight:700; font-size:13px;
+    letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--accent);
+    text-shadow:0 0 12px var(--accent-glow);
+  }
+  .mark .sub{
+    margin-top:3px;
+    font-family:var(--mono); font-size:10px; letter-spacing:0.08em;
+    color:var(--text-dimmer);
+  }
+
+  /* ── glass panel base ─────────────────────────────────────────────── */
+  .panel{
+    background:var(--bg-panel);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--line);
+    border-radius:10px;
+    box-shadow:0 8px 28px rgba(0,0,0,0.45);
+    z-index:5;
+  }
+
+  /* ── control rail ─────────────────────────────────────────────────── */
+  .rail{
+    position:absolute; top:20px; left:20px; z-index:5;
+    width:236px;
+    padding:16px 16px 14px;
+    display:flex; flex-direction:column; gap:14px;
+    max-height:calc(100vh - 40px);
+    overflow-y:auto;
+  }
+  .rail::-webkit-scrollbar{ width:6px; }
+  .rail::-webkit-scrollbar-thumb{ background:var(--line); border-radius:3px; }
+
+  .field-label{
+    font-family:var(--mono); font-size:9.5px; font-weight:500;
+    letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:7px;
+  }
+
+  .seg{
+    display:flex; background:#0d1210; border:1px solid var(--line);
+    border-radius:7px; padding:2px; gap:2px;
+  }
+  .seg button{
+    flex:1; appearance:none; border:none; cursor:pointer;
+    padding:6px 4px;
+    font-family:var(--sans); font-size:11.5px; font-weight:600;
+    color:var(--text-dim);
+    background:transparent; border-radius:5px;
+    transition:background 0.18s ease, color 0.18s ease;
+  }
+  .seg button.active{
+    background:var(--accent-dim); color:var(--accent);
+  }
+  .seg button:hover:not(.active){ color:var(--text); }
+
+  select.edge-select{
+    width:100%; appearance:none;
+    font-family:var(--sans); font-size:12px; font-weight:600;
+    color:var(--text);
+    background:#0d1210 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236f8177'/%3E%3C/svg%3E") no-repeat right 10px center;
+    border:1px solid var(--line);
+    border-radius:7px;
+    padding:8px 26px 8px 10px;
+    cursor:pointer;
+  }
+  select.edge-select:focus{ outline:1.5px solid var(--accent-dim); }
+  .edge-note{
+    margin-top:6px;
+    font-size:10.5px; line-height:1.4; color:var(--text-dimmer);
+  }
+  .edge-note b{ color:var(--text-dim); font-weight:600; }
+
+  .divider{ height:1px; background:var(--line); margin:2px 0; }
+
+  .legend{ display:flex; flex-direction:column; gap:6px; }
+  .legend-row{
+    display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:11px; color:var(--text);
+  }
+  .legend-row .n{ margin-left:auto; color:var(--text-dimmer); font-size:10px; }
+  .swatch{
+    width:9px; height:9px; border-radius:50%; flex:none;
+    box-shadow:0 0 6px currentColor;
+  }
+
+  .stats{
+    display:grid; grid-template-columns:1fr 1fr; gap:8px 12px;
+  }
+  .stat .v{
+    font-family:var(--mono); font-size:17px; font-weight:700; color:var(--text);
+    font-variant-numeric:tabular-nums;
+  }
+  .stat .k{
+    font-family:var(--mono); font-size:9px; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--text-dimmer); margin-top:2px;
+  }
+
+  /* ── readout (hover/select detail) ───────────────────────────────── */
+  .readout{
+    position:absolute; left:20px; bottom:20px; z-index:5;
+    width:280px;
+    padding:14px 16px;
+    opacity:0; transform:translateY(6px);
+    transition:opacity 0.16s ease, transform 0.16s ease;
+  }
+  .readout.show{ opacity:1; transform:translateY(0); }
+  .readout .hdr{
+    display:flex; align-items:baseline; gap:8px; margin-bottom:9px;
+  }
+  .readout .region-chip{
+    font-family:var(--mono); font-weight:700; font-size:13px;
+    letter-spacing:0.02em;
+  }
+  .readout .uid{
+    font-family:var(--mono); font-size:10px; color:var(--text-dimmer);
+  }
+  .readout .rows{ display:flex; flex-direction:column; gap:5px; }
+  .readout .row{
+    display:flex; justify-content:space-between;
+    font-family:var(--mono); font-size:11px;
+  }
+  .readout .row .k{ color:var(--text-dim); }
+  .readout .row .v{ color:var(--text); font-variant-numeric:tabular-nums; }
+  .readout .conf-bar{
+    margin-top:9px; height:4px; border-radius:2px; background:#0d1210;
+    overflow:hidden;
+  }
+  .readout .conf-fill{ height:100%; background:var(--accent); }
+
+  /* ── hint ─────────────────────────────────────────────────────────── */
+  .hint{
+    position:absolute; bottom:20px; right:24px; z-index:5;
+    font-family:var(--mono); font-size:9.5px; letter-spacing:0.04em;
+    color:var(--text-dimmer);
+    text-align:right; line-height:1.6;
+    pointer-events:none;
+  }
+
+  @media (max-width:640px){
+    .rail{ width:calc(100vw - 40px); max-height:46vh; }
+    .readout{ width:calc(100vw - 40px); }
+    .hint{ display:none; }
+    .mark{ top:14px; right:16px; }
+    .rail{ top:14px; left:14px; }
+    .readout{ left:14px; bottom:14px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div class="vignette"></div>
+<div class="scan"></div>
+
+<div class="mark">
+  <div class="name">Unit Constellation</div>
+  <div class="sub" id="source-badge">ephys atlas &middot; synthetic demo</div>
+</div>
+
+<div class="rail panel">
+  <div>
+    <div class="field-label">Layout</div>
+    <div class="seg" id="seg-layout">
+      <button data-val="spatial" class="active">Spatial</button>
+      <button data-val="force">Force</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="field-label">Region color</div>
+    <div class="seg" id="seg-color">
+      <button data-val="prior" class="active">Prior</button>
+      <button data-val="map">MAP</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="field-label">Edges</div>
+    <select class="edge-select" id="edge-select">
+      <option value="none">None</option>
+      <option value="unitmatch" selected>UnitMatch &middot; cross-session</option>
+      <option value="granger">Granger causality &middot; synthetic</option>
+      <option value="ssm">SSM coupling &middot; synthetic</option>
+      <option value="cfc">Cross-frequency coupling &middot; synthetic</option>
+    </select>
+    <div class="edge-note" id="edge-note"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div>
+    <div class="field-label">Regions</div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="stats" id="stats"></div>
+</div>
+
+<div class="readout panel" id="readout">
+  <div class="hdr">
+    <span class="region-chip" id="ro-region">&mdash;</span>
+    <span class="uid" id="ro-uid">&mdash;</span>
+  </div>
+  <div class="rows">
+    <div class="row"><span class="k">DEPTH</span><span class="v" id="ro-depth">&mdash;</span></div>
+    <div class="row"><span class="k">CHANNEL</span><span class="v" id="ro-chan">&mdash;</span></div>
+    <div class="row"><span class="k">SESSIONS</span><span class="v" id="ro-sess">&mdash;</span></div>
+    <div class="row"><span class="k">P(REGION)</span><span class="v" id="ro-conf">&mdash;</span></div>
+  </div>
+  <div class="conf-bar"><div class="conf-fill" id="ro-conf-bar" style="width:0%"></div></div>
+</div>
+
+<div class="hint">DRAG ORBIT &middot; SCROLL ZOOM &middot; HOVER A UNIT</div>
+
+<!-- Vendored locally under vendor/ — no network dependency. -->
+<script src="vendor/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ───────────────────────────────────────────────────────────────────
+  // 0. MATLAB uihtml BRIDGE — no-op unless this page is actually loaded
+  //    inside a MATLAB uihtml component. window.setup(htmlComponent) is
+  //    MATLAB's own entry point convention: it's called automatically
+  //    once the page is ready, handing us the live component object.
+  //    Opened as a plain file in a browser (matlabHost stays null), the
+  //    page behaves exactly as the standalone prototype always did.
+  // ───────────────────────────────────────────────────────────────────
+
+  var matlabHost = null;
+
+  function setSourceBadge(text){
+    var el = document.getElementById('source-badge');
+    if (el) el.textContent = 'ephys atlas · ' + text;
+  }
+
+  function ingestLiveData(data){
+    // TODO: real ingestion — once nexObj_ephysAtlas exports actual
+    // units/edges (depth, channel, prior/MAP region, sessions,
+    // confidence, UnitMatch links) in this shape, rebuild `units` and
+    // `edgesByType` from it here and re-run the mesh/edge setup below
+    // instead of the synthetic generator. Left as a stub for now —
+    // this pass only proves the MATLAB<->HTML pipe itself works.
+    if (!data || !data.units || !data.units.length){
+      setSourceBadge('synthetic demo (no live data received)');
+      return;
+    }
+    setSourceBadge('live — ' + (data.subjectLabel || 'subject') + ' (ingestion not yet wired)');
+  }
+
+  window.setup = function(htmlComponent){
+    matlabHost = htmlComponent;
+    setSourceBadge('connected to nexObj_ephysAtlas · synthetic demo');
+    try { ingestLiveData(htmlComponent.Data); } catch(e){}
+    htmlComponent.addEventListener('DataChanged', function(event){
+      ingestLiveData(event.Data);
+    });
+  };
+
+  // ───────────────────────────────────────────────────────────────────
+  // 1. SYNTHETIC DATA — stands in for a real ephys_atlas.h5 export.
+  //    Geometry matches a real single-shank Neuropixels-style probe:
+  //    384 sites, ~10um vertical pitch, two-column stagger.
+  //    Region table is a real dorsal->ventral thalamic/subthalamic
+  //    trajectory (VPL/VPM/ZI/STN/HY) with deliberately overlapping
+  //    probabilistic boundaries, so Prior vs MAP actually disagrees
+  //    somewhere — that disagreement is the whole point of the toggle.
+  // ───────────────────────────────────────────────────────────────────
+
+  var REGIONS = [
+    { id:"VPL", name:"Ventral posterolateral thalamus", color:0x5ec8e8, center:380,  spread:220 },
+    { id:"VPM", name:"Ventral posteromedial thalamus",  color:0x7fa8f0, center:760,  spread:210 },
+    { id:"ZI",  name:"Zona incerta",                    color:0xc98af2, center:1120, spread:230 },
+    { id:"STN", name:"Subthalamic nucleus",              color:0xf2789a, center:1540, spread:210 },
+    { id:"HY",  name:"Hypothalamus",                     color:0xf2a13e, center:2000, spread:320 },
+    { id:"—",   name:"Unassigned (outside atlas)",       color:0x4a5850, center:3100, spread:500 }
+  ];
+  var PROBE_LEN_UM = 3840, N_SITES = 384, SITE_PITCH = PROBE_LEN_UM / N_SITES;
+  var SESSIONS = ["2026-07-22","2026-07-23","2026-08-10"];
+
+  function gauss(){ var u=1-Math.random(), v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+  function priorRegionFor(depth){
+    var best=REGIONS[REGIONS.length-1], bd=Infinity;
+    for (var i=0;i<REGIONS.length-1;i++){
+      var d = Math.abs(depth - REGIONS[i].center);
+      if (d < REGIONS[i].spread*1.15 && d < bd){ bd=d; best=REGIONS[i]; }
+    }
+    return best;
+  }
+  function mapRegionFor(depth, seed){
+    // Bayesian-ish: softmax over inverse-distance, sampled — smooths
+    // boundaries and occasionally reassigns near a border vs. the hard
+    // prior lookup above.
+    var weights = REGIONS.map(function(r){
+      var d = Math.abs(depth - r.center) / r.spread;
+      return Math.exp(-d*d*1.6);
+    });
+    var sum = weights.reduce(function(a,b){return a+b;},0);
+    var r = seed*sum, acc=0;
+    for (var i=0;i<REGIONS.length;i++){ acc+=weights[i]; if (r<=acc) return REGIONS[i]; }
+    return REGIONS[REGIONS.length-1];
+  }
+
+  var N_UNITS = 230;
+  var units = [];
+  for (var i=0;i<N_UNITS;i++){
+    var depth = Math.max(0, Math.min(PROBE_LEN_UM*0.86, Math.abs(gauss())*620 + 200));
+    var site  = Math.round(depth / SITE_PITCH);
+    var stagger = (site % 2 === 0) ? -11 : 11;
+    var seedMap = Math.random();
+    var prior = priorRegionFor(depth);
+    var map   = mapRegionFor(depth, seedMap);
+    var nSess = (Math.random() < 0.46) ? (Math.random()<0.35 ? 3 : 2) : 1;
+    var sessSet = SESSIONS.slice().sort(function(){return Math.random()-0.5;}).slice(0, nSess);
+    units.push({
+      uid: "u" + (1000+i),
+      depth: depth,
+      channel: site,
+      x0: stagger + gauss()*3,
+      y0: gauss()*3,
+      priorRegion: prior,
+      mapRegion: map,
+      confidence: 0.52 + Math.random()*0.47,
+      sessions: sessSet
+    });
+  }
+
+  // Edges: unitmatch links units that co-occur across >=2 sessions with
+  // similar depth (a believable proxy for "same unit, matched"). The
+  // synthetic connectivity types (granger/ssm/cfc) are explicit stand-ins
+  // for measures not implemented yet — same edge schema, different
+  // "type" and weight source, wired now so real analyses drop in later
+  // without touching the render path.
+  var edgesByType = { unitmatch:[], granger:[], ssm:[], cfc:[] };
+  var multi = units.filter(function(u){ return u.sessions.length>1; });
+  multi.sort(function(a,b){return a.depth-b.depth;});
+  for (var i=0;i<multi.length-1;i++){
+    if (Math.abs(multi[i].depth - multi[i+1].depth) < 90 && Math.random()<0.7){
+      edgesByType.unitmatch.push({ a:multi[i], b:multi[i+1], w: 0.7+Math.random()*0.29 });
+    }
+  }
+  var connTypes = ["granger","ssm","cfc"];
+  connTypes.forEach(function(t){
+    var n = 26 + Math.floor(Math.random()*18);
+    for (var k=0;k<n;k++){
+      var a = units[Math.floor(Math.random()*units.length)];
+      var b = units[Math.floor(Math.random()*units.length)];
+      if (a===b) continue;
+      edgesByType[t].push({ a:a, b:b, w: 0.3+Math.random()*0.65 });
+    }
+  });
+
+  var EDGE_META = {
+    none:      { note:"No edges drawn." },
+    unitmatch: { note:"<b>Live.</b> Links the same unit matched across recording sessions by UnitMatch." },
+    granger:   { note:"<b>Synthetic demo.</b> Placeholder for Granger-causality coupling between units — not yet computed." },
+    ssm:       { note:"<b>Synthetic demo.</b> Placeholder for state-space-model coupling strength — not yet computed." },
+    cfc:       { note:"<b>Synthetic demo.</b> Placeholder for cross-frequency coupling — not yet computed." }
+  };
+
+  // ───────────────────────────────────────────────────────────────────
+  // 2. THREE.JS SCENE
+  // ───────────────────────────────────────────────────────────────────
+
+  var canvas = document.getElementById('scene');
+  var renderer = new THREE.WebGLRenderer({ canvas:canvas, antialias:true, alpha:false });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x050605);
+  scene.fog = new THREE.FogExp2(0x050605, 0.00062);
+
+  var camera = new THREE.PerspectiveCamera(45, 1, 1, 20000);
+  var SCALE = 0.62; // world-units per micron, for the spatial layout
+
+  // Frame the actual unit cloud rather than a guessed position — depth
+  // is half-normal-distributed (see synthetic generator above), so its
+  // true centroid/extent shifts with whatever random draw happened this
+  // load; a fixed target would drift off-center run to run.
+  var depths = units.map(function(u){ return u.depth; });
+  var depthMid = (Math.min.apply(null, depths) + Math.max.apply(null, depths)) / 2;
+  var depthSpan = Math.max.apply(null, depths) - Math.min.apply(null, depths);
+  var target  = new THREE.Vector3(0, -depthMid*SCALE, 0);
+  var camDist = Math.max(1400, depthSpan*SCALE*1.15), camTheta = 0.9, camPhi = 1.15;
+
+  function updateCamera(){
+    camPhi = Math.max(0.25, Math.min(Math.PI-0.25, camPhi));
+    camDist = Math.max(700, Math.min(6000, camDist));
+    camera.position.set(
+      target.x + camDist*Math.sin(camPhi)*Math.sin(camTheta),
+      target.y + camDist*Math.cos(camPhi),
+      target.z + camDist*Math.sin(camPhi)*Math.cos(camTheta)
+    );
+    camera.lookAt(target);
+  }
+  updateCamera();
+
+  // subtle probe shaft, real-scale reference
+  var shaftGeo = new THREE.CylinderGeometry(4, 4, PROBE_LEN_UM*0.86, 12, 1, true);
+  var shaftMat = new THREE.MeshBasicMaterial({ color:0x1c2420, transparent:true, opacity:0.5, side:THREE.DoubleSide });
+  var shaft = new THREE.Mesh(shaftGeo, shaftMat);
+  shaft.position.y = -(PROBE_LEN_UM*0.86)/2;
+  scene.add(shaft);
+
+  // depth gridlines every 500um
+  var gridGroup = new THREE.Group();
+  for (var d=0; d<=PROBE_LEN_UM*0.86; d+=500){
+    var g = new THREE.RingGeometry(60, 61, 32);
+    var m = new THREE.MeshBasicMaterial({ color:0x1c2420, transparent:true, opacity:0.35, side:THREE.DoubleSide });
+    var ring = new THREE.Mesh(g, m);
+    ring.rotation.x = Math.PI/2;
+    ring.position.y = -d;
+    gridGroup.add(ring);
+  }
+  scene.add(gridGroup);
+
+  // node points (sprites via custom shader-free approach: instanced circles)
+  var nodeGeo = new THREE.SphereGeometry(1, 10, 10);
+  var nodeMeshes = units.map(function(u){
+    var mat = new THREE.MeshBasicMaterial({ color: u.priorRegion.color });
+    var mesh = new THREE.Mesh(nodeGeo, mat);
+    mesh.userData.unit = u;
+    scene.add(mesh);
+    return mesh;
+  });
+
+  // halo sprites (glow) — additive, billboarded
+  var haloTex = (function(){
+    var c = document.createElement('canvas'); c.width=c.height=64;
+    var ctx = c.getContext('2d');
+    var g = ctx.createRadialGradient(32,32,0,32,32,32);
+    g.addColorStop(0,'rgba(255,255,255,0.9)');
+    g.addColorStop(0.4,'rgba(255,255,255,0.35)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,64,64);
+    return new THREE.CanvasTexture(c);
+  })();
+  var haloMeshes = units.map(function(u){
+    var mat = new THREE.SpriteMaterial({ map:haloTex, color:u.priorRegion.color, transparent:true, opacity:0.55, depthWrite:false, blending:THREE.AdditiveBlending });
+    var spr = new THREE.Sprite(mat);
+    spr.scale.set(34,34,1);
+    scene.add(spr);
+    return spr;
+  });
+
+  // edges — thin additive lines, one LineSegments per active type for perf
+  var edgeGroup = new THREE.Group();
+  scene.add(edgeGroup);
+  var currentEdgeLines = null;
+
+  function buildEdgeLines(type){
+    if (currentEdgeLines){ edgeGroup.remove(currentEdgeLines); currentEdgeLines.geometry.dispose(); currentEdgeLines.material.dispose(); currentEdgeLines=null; }
+    if (type === 'none') return;
+    var list = edgesByType[type] || [];
+    var positions = new Float32Array(list.length*6);
+    var colors = new Float32Array(list.length*6);
+    var col = type==='unitmatch' ? new THREE.Color(0x3ef2a0) : new THREE.Color(0xf2b33e);
+    list.forEach(function(e, idx){
+      var pa = e.a.pos, pb = e.b.pos;
+      positions[idx*6+0]=pa.x; positions[idx*6+1]=pa.y; positions[idx*6+2]=pa.z;
+      positions[idx*6+3]=pb.x; positions[idx*6+4]=pb.y; positions[idx*6+5]=pb.z;
+      var alpha = 0.25 + e.w*0.5;
+      for (var k=0;k<2;k++){
+        colors[idx*6+k*3+0]=col.r*alpha; colors[idx*6+k*3+1]=col.g*alpha; colors[idx*6+k*3+2]=col.b*alpha;
+      }
+    });
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+    var mat = new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, opacity:0.9, blending:THREE.AdditiveBlending, depthWrite:false });
+    currentEdgeLines = new THREE.LineSegments(geo, mat);
+    edgeGroup.add(currentEdgeLines);
+  }
+
+  // ambient + point light (mostly cosmetic — materials are unlit basic,
+  // kept simple/fast; light reserved for potential future shading)
+  scene.add(new THREE.AmbientLight(0xffffff, 1));
+
+  // ───────────────────────────────────────────────────────────────────
+  // 3. LAYOUTS — spatial (probe geometry) vs. force-directed (network)
+  // ───────────────────────────────────────────────────────────────────
+
+  units.forEach(function(u){
+    u.spatialPos = new THREE.Vector3(u.x0*3.4, -u.depth*SCALE, u.y0*3.4);
+    u.forcePos = new THREE.Vector3((Math.random()-0.5)*1600, (Math.random()-0.5)*1600, (Math.random()-0.5)*1600);
+    u.pos = u.spatialPos.clone();
+  });
+
+  function relax(iterations){
+    var links = edgesByType.unitmatch.concat(edgesByType.granger, edgesByType.ssm, edgesByType.cfc);
+    for (var it=0; it<iterations; it++){
+      // repulsion
+      for (var i=0;i<units.length;i++){
+        var ui = units[i];
+        var fx=0, fy=0, fz=0;
+        for (var j=0;j<units.length;j+=3){ // sparse sampling keeps this cheap
+          if (i===j) continue;
+          var uj = units[j];
+          var dx=ui.forcePos.x-uj.forcePos.x, dy=ui.forcePos.y-uj.forcePos.y, dz=ui.forcePos.z-uj.forcePos.z;
+          var d2 = dx*dx+dy*dy+dz*dz+40;
+          var f = 26000/d2;
+          fx+=dx*f; fy+=dy*f; fz+=dz*f;
+        }
+        // weak centering
+        fx += -ui.forcePos.x*0.004; fy += -ui.forcePos.y*0.004; fz += -ui.forcePos.z*0.004;
+        ui.forcePos.x += fx*0.6; ui.forcePos.y += fy*0.6; ui.forcePos.z += fz*0.6;
+      }
+      // attraction along edges
+      links.forEach(function(e){
+        var dx=e.b.forcePos.x-e.a.forcePos.x, dy=e.b.forcePos.y-e.a.forcePos.y, dz=e.b.forcePos.z-e.a.forcePos.z;
+        var d = Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+        var target = 180, k=0.02*e.w;
+        var f = (d-target)*k;
+        var nx=dx/d, ny=dy/d, nz=dz/d;
+        e.a.forcePos.x += nx*f; e.a.forcePos.y += ny*f; e.a.forcePos.z += nz*f;
+        e.b.forcePos.x -= nx*f; e.b.forcePos.y -= ny*f; e.b.forcePos.z -= nz*f;
+      });
+    }
+  }
+  relax(70);
+
+  var state = { layout:'spatial', color:'prior', edge:'unitmatch' };
+  buildEdgeLines('unitmatch');
+  refreshLegend(); refreshStats(); refreshEdgeNote();
+
+  function regionOf(u){ return state.color==='prior' ? u.priorRegion : u.mapRegion; }
+  function applyColors(){
+    units.forEach(function(u, i){
+      var c = regionOf(u).color;
+      nodeMeshes[i].material.color.setHex(c);
+      haloMeshes[i].material.color.setHex(c);
+    });
+  }
+  applyColors();
+
+  var lerpT = 1; // 1 = layout transition complete
+  function setLayout(name){
+    if (name===state.layout) return;
+    state.layout = name;
+    units.forEach(function(u){ u.fromPos = u.pos.clone(); });
+    lerpT = 0;
+    setActive('seg-layout', name);
+  }
+  function setColorMode(name){
+    state.color = name; setActive('seg-color', name);
+    applyColors(); refreshLegend();
+  }
+  function setEdgeType(name){
+    state.edge = name; buildEdgeLines(name); refreshEdgeNote();
+  }
+
+  function setActive(segId, val){
+    document.querySelectorAll('#'+segId+' button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.val===val);
+    });
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  // 4. UI wiring
+  // ───────────────────────────────────────────────────────────────────
+
+  document.getElementById('seg-layout').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return; setLayout(b.dataset.val);
+  });
+  document.getElementById('seg-color').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return; setColorMode(b.dataset.val);
+  });
+  document.getElementById('edge-select').addEventListener('change', function(e){
+    setEdgeType(e.target.value);
+  });
+
+  function refreshLegend(){
+    var el = document.getElementById('legend');
+    var counts = {};
+    units.forEach(function(u){ var id=regionOf(u).id; counts[id]=(counts[id]||0)+1; });
+    el.innerHTML = REGIONS.map(function(r){
+      var n = counts[r.id]||0;
+      var hex = '#'+r.color.toString(16).padStart(6,'0');
+      return '<div class="legend-row"><span class="swatch" style="background:'+hex+';color:'+hex+'"></span>'+r.id+'<span class="n">'+n+'</span></div>';
+    }).join('');
+  }
+  function refreshStats(){
+    var el = document.getElementById('stats');
+    var nMulti = units.filter(function(u){return u.sessions.length>1;}).length;
+    var rows = [
+      [units.length,'Units'], [SESSIONS.length,'Sessions'],
+      [nMulti,'Cross-session'], [edgesByType.unitmatch.length,'UM links']
+    ];
+    el.innerHTML = rows.map(function(r){
+      return '<div class="stat"><div class="v">'+r[0]+'</div><div class="k">'+r[1]+'</div></div>';
+    }).join('');
+  }
+  function refreshEdgeNote(){
+    document.getElementById('edge-note').innerHTML = EDGE_META[state.edge].note;
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  // 5. Camera orbit (hand-rolled — no OrbitControls dependency)
+  // ───────────────────────────────────────────────────────────────────
+
+  var dragging=false, lastX=0, lastY=0;
+  var panning=false, lastPanX=0, lastPanY=0;
+  var _panRight = new THREE.Vector3(), _panUp = new THREE.Vector3();
+
+  function panCamera(dx, dy){
+    // Pan speed scales with camDist so it feels consistent whether
+    // zoomed in tight or pulled way back — a fixed pixel->world ratio
+    // would crawl at long range and overshoot up close.
+    camera.updateMatrixWorld();
+    _panRight.setFromMatrixColumn(camera.matrixWorld, 0);
+    _panUp.setFromMatrixColumn(camera.matrixWorld, 1);
+    var panScale = camDist * 0.0011;
+    target.addScaledVector(_panRight, -dx*panScale);
+    target.addScaledVector(_panUp,     dy*panScale);
+    updateCamera();
+  }
+
+  canvas.addEventListener('pointerdown', function(e){
+    autoSpin = false;
+    if (e.button === 1){ // middle mouse button — translate
+      e.preventDefault();
+      panning=true; lastPanX=e.clientX; lastPanY=e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
+    dragging=true; lastX=e.clientX; lastY=e.clientY; canvas.classList.add('dragging'); canvas.setPointerCapture(e.pointerId);
+  });
+  // Middle-click on some platforms fires an autoscroll/paste action unless
+  // suppressed — auxclick is the event that carries that default.
+  canvas.addEventListener('auxclick', function(e){ if (e.button===1) e.preventDefault(); });
+  canvas.addEventListener('pointerup', function(e){
+    dragging=false; panning=false; canvas.classList.remove('dragging');
+  });
+  canvas.addEventListener('pointermove', function(e){
+    if (panning){
+      panCamera(e.clientX-lastPanX, e.clientY-lastPanY);
+      lastPanX=e.clientX; lastPanY=e.clientY;
+      return;
+    }
+    if (dragging){
+      camTheta -= (e.clientX-lastX)*0.0055;
+      camPhi   -= (e.clientY-lastY)*0.0055;
+      lastX=e.clientX; lastY=e.clientY;
+      updateCamera();
+    }
+    handleHover(e);
+  });
+  canvas.addEventListener('wheel', function(e){
+    e.preventDefault(); camDist += e.deltaY*0.9; updateCamera();
+  }, { passive:false });
+
+  var raycaster = new THREE.Raycaster();
+  raycaster.params.Sprite = { threshold: 14 };
+  var mouseNDC = new THREE.Vector2();
+  var hovered = null;
+
+  function handleHover(e){
+    var rect = canvas.getBoundingClientRect();
+    mouseNDC.x = ((e.clientX-rect.left)/rect.width)*2-1;
+    mouseNDC.y = -((e.clientY-rect.top)/rect.height)*2+1;
+    raycaster.setFromCamera(mouseNDC, camera);
+    var hits = raycaster.intersectObjects(haloMeshes);
+    if (hits.length){
+      var u = hits[0].object.userData.unit || units[haloMeshes.indexOf(hits[0].object)];
+      showReadout(u);
+    } else if (!dragging){
+      hideReadout();
+    }
+  }
+  haloMeshes.forEach(function(spr,i){ spr.userData.unit = units[i]; });
+
+  var lastNotifiedUid = null;
+  function showReadout(u){
+    hovered = u;
+    if (matlabHost && u.uid !== lastNotifiedUid){
+      lastNotifiedUid = u.uid;
+      try {
+        matlabHost.sendEventToMATLAB('unitHover', {
+          uid:u.uid, region:regionOf(u).id, depth:u.depth, channel:u.channel
+        });
+      } catch(e){}
+    }
+    var ro = document.getElementById('readout');
+    ro.classList.add('show');
+    var r = regionOf(u);
+    var hex = '#'+r.color.toString(16).padStart(6,'0');
+    document.getElementById('ro-region').textContent = r.id;
+    document.getElementById('ro-region').style.color = hex;
+    document.getElementById('ro-uid').textContent = u.uid;
+    document.getElementById('ro-depth').textContent = Math.round(u.depth)+' µm';
+    document.getElementById('ro-chan').textContent = 'ch '+u.channel;
+    document.getElementById('ro-sess').textContent = u.sessions.length + ' (' + u.sessions.join(', ') + ')';
+    document.getElementById('ro-conf').textContent = (u.confidence*100).toFixed(0)+'%';
+    document.getElementById('ro-conf-bar').style.width = (u.confidence*100).toFixed(0)+'%';
+    document.getElementById('ro-conf-bar').style.background = hex;
+  }
+  function hideReadout(){
+    hovered = null;
+    lastNotifiedUid = null;
+    document.getElementById('readout').classList.remove('show');
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  // 6. Render loop
+  // ───────────────────────────────────────────────────────────────────
+
+  function resize(){
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w,h,false);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  var clock = new THREE.Clock();
+  var autoSpin = true; // set false on first interaction — see the pointerdown handler above
+
+  function animate(){
+    requestAnimationFrame(animate);
+    var dt = clock.getDelta();
+
+    if (lerpT < 1){
+      lerpT = Math.min(1, lerpT + dt*1.4);
+      var ease = 1 - Math.pow(1-lerpT, 3);
+      units.forEach(function(u){
+        var to = state.layout==='spatial' ? u.spatialPos : u.forcePos;
+        u.pos.lerpVectors(u.fromPos, to, ease);
+      });
+    } else if (state.layout==='force'){
+      // gentle continuous relax so the network breathes subtly
+    }
+
+    units.forEach(function(u,i){
+      nodeMeshes[i].position.copy(u.pos);
+      haloMeshes[i].position.copy(u.pos);
+      haloMeshes[i].material.opacity = (hovered===u) ? 0.95 : 0.5;
+      var s = (hovered===u) ? 52 : 34;
+      haloMeshes[i].scale.set(s,s,1);
+    });
+
+    if (currentEdgeLines){
+      var list = edgesByType[state.edge] || [];
+      var pos = currentEdgeLines.geometry.attributes.position.array;
+      list.forEach(function(e, idx){
+        pos[idx*6+0]=e.a.pos.x; pos[idx*6+1]=e.a.pos.y; pos[idx*6+2]=e.a.pos.z;
+        pos[idx*6+3]=e.b.pos.x; pos[idx*6+4]=e.b.pos.y; pos[idx*6+5]=e.b.pos.z;
+      });
+      currentEdgeLines.geometry.attributes.position.needsUpdate = true;
+    }
+
+    if (autoSpin){ camTheta += dt*0.028; updateCamera(); }
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('keydown', function(e){
+    if (e.key===' '){ autoSpin = !autoSpin; }
+  });
+
+})();
+</script>
+
+</body>
+</html>
