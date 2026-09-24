@@ -172,3 +172,68 @@ machine specifically, `7z`/`p7zip` needs to be installed for
 silently if it's absent).
 
 ---
+
+## 3. Reduce-mode (`nexHR`) runs *after* pool-mode has already collapsed other axes
+
+**Status:** Not started, deliberately deferred. Discovered while wiring up
+nested SWP sweep + time-window pooling for `mdlObj_lda`. Not being fixed for
+now — routing around it instead (see "Resolution" below) — but the ordering
+bug itself is still real and still latent for the next person who combines
+reduce-mode and pool-mode axes in one `mdlObj`.
+
+**Context:** A pMap axis with negative `divsPerBin` is reduce-mode (deferred
+to `nexHR_fit`'s block-PCA, fit later on the assembled design matrix); an
+axis with positive `divsPerBin` is pool-mode (collapsed immediately via
+`splitapply(mean,...)` inside `nexOp_poolAxes`/`nexObj_poolMap.pool()`, at
+STAT-compile time). The bug: if `domain.FTR` (e.g. `unit`) is reduce-mode
+while another axis (e.g. `t`) is pool-mode, `t`'s pooling happens *first*,
+inside `nexOp_compileSTAT`'s "AXIS POOLING" step — long before
+`getDesignMatrix()` → `initReducer()` → `nexHR_fit` ever runs on `unit`. So
+the block-PCA basis for `unit` gets fit using only the already-time-averaged
+samples (e.g. 2 window-means per trial) instead of the full raw-timepoint
+resolution — a real loss of statistical power/information for the reduction
+step, not just a hypothetical.
+
+**Why it's not a quick fix:** `nexHR_fit` needs `FTR_layout`
+(`buildFTRLayout()`), which is derived from the *already-pooled* `STAT.ax`/
+`.ptr` — reduction is architecturally tied to the fully-assembled, stacked
+design matrix, not to raw per-trial DFs. Making reduce-mode actually run
+before pool-mode would mean: splitting `nexOp_poolAxes`'s single per-field
+loop into two real passes (resolve every reduce-mode axis's block-PCA basis
+first, from a stack of *raw* per-trial DFs, before any pool-mode axis
+collapses anything), computing `FTR_layout` from pre-pool axis info, and
+relocating `nexHR_fit`'s call site out of `getDesignMatrix()`. That also
+forces a decision this session's precompile work didn't have to make for
+pooling: should the reduction basis be fit once and cached (like REG
+alignment) or re-derived fresh every `compileSTAT()` call (like pooling
+currently is, deliberately, so pMap edits after Compile still take effect)?
+PCA fitting is expensive enough that "fresh every Fit" is a real cost pooling
+never had to pay.
+
+**Resolution (why this is deferred, not fixed):** realized mid-discussion
+that this only bites when *incidental preprocessing* dimensionality
+reduction is smuggled into a Predictor `mdlObj`'s own `pMap`. The codebase
+already has the right tool for that case — the Phase-Based Pipeline
+Convention (`mdlObj/CLAUDE.md`): fit/transform `unit` down to N components
+explicitly via `mdlObj_pca` first (Phase 1, full raw-timepoint resolution,
+no `t`-pooling of its own to conflict with), write the reduced dfID, then
+point `mdlObj_lda` (Phase 2) at *that* dfID. `mdlObj_lda`'s own `pMap` then
+only ever needs pool-mode for `t` — no reduce-mode axis left to collide with
+it, no ordering bug triggered. `nexHR`/Reducer stays fully wired and
+untouched for its actual intended use: hierarchical block-PCA as a
+first-class analysis question in its own right (e.g. "how much variance does
+each anatomical block explain, reduced within its own nested group"), not as
+implicit preprocessing inside a classifier.
+
+**Touches (if ever fixed for real):** `nexOp_poolAxes.m` (split the
+per-field loop by mode), `nexOp_compileSTAT.m` ("AXIS POOLING" section),
+`mdlObject.m` (`getDesignMatrix`/`initReducer`/`buildFTRLayout`),
+`nexHR_fit.m`/`nexHR_transform.m` (would need to accept raw per-trial DFs
+instead of an assembled `DM`), and a caching-lifetime decision mirroring
+`precompiledAligned`.
+
+**Depends on:** Nothing architecturally. Purely deferred by priority + the
+existence of a working alternative (Phase 1/2 split) for the case that
+surfaced it.
+
+---

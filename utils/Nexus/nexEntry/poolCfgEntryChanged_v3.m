@@ -1,6 +1,22 @@
 function poolCfgEntryChanged_v3(src, ~, poolMap, field, nexObj)
     poolMap.(field) = src.Value;
     if nargin < 5 || isempty(nexObj), return; end
+
+    % mdlObject subclasses own their pMap-pooled Pointer bus independently
+    % of Origin — Origin.DF_postOp is a different, single-session, never-
+    % cross-session-canonicalized axis, so pooling through it (below) can
+    % disagree with what mdlObj's own compileSTAT will actually produce.
+    % Re-seed from mdlObj's own canonical aligned TF instead (cheap,
+    % label-only — see mdlObject.refreshPointerFromPool).
+    if ismethod(nexObj, 'refreshPointerFromPool')
+        try
+            nexObj.refreshPointerFromPool();
+        catch e
+            fprintf('[poolCfgEntryChanged_v3] refreshPointerFromPool failed: %s\n', e.message);
+        end
+        return;
+    end
+
     % Lazy ax-only update: recompute axis labels from pMap without pooling
     % DF.df. Source from nexObj.DF (frozen at construction, never overwritten
     % by pooling) so repeated spinner changes don't accumulate drift.

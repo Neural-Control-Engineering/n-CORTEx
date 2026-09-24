@@ -37,6 +37,17 @@ classdef mdlObject < handle
         Partners
         dfID_source
         dfID_target
+        lastOutputLabel = ""  % last outputLabel passed to scaleApply_transform (see there) —
+                               % "" if the last Transform call didn't set one. Read by the
+                               % Save button (nexFigure_addSaveLoadControls) to fold this
+                               % label into the saved fit's folder name instead of a bare
+                               % timestamp, so a saved model's name reflects the conditions
+                               % it was last transformed under.
+        precompiledAligned = []   % cached struct(TF, idxSel, drop) from precompileSTAT() —
+                                   % see there, compileSTAT(), and invalidatePrecompile()
+        precompileListeners = struct()  % addlistener() handles for precompile invalidation —
+                                         % held here so they aren't garbage-collected
+        precompileWatchersWired = false
         cfg
         collector
         UserData
@@ -147,6 +158,7 @@ classdef mdlObject < handle
 
             mdlObj.collector.Target.Y       = catIDs(1);
             mdlObj.collector.Target.options = catIDs;
+            mdlObj.collector.Target.nBins   = Inf;
             mdlObj.applyTargetBus();
         end
 
@@ -166,7 +178,16 @@ classdef mdlObject < handle
             if isfield(sel, 'DN')  && ~isempty(sel.DN),  mdlObj.domain.DN  = string(sel.DN);  end
             if isfield(sel, 'FTR') && ~isempty(sel.FTR), mdlObj.domain.FTR = string(sel.FTR); end
             if isfield(sel, 'MSR') && ~isempty(sel.MSR), mdlObj.domain.MSR = string(sel.MSR); end
-            if isfield(sel, 'REG') && ~isempty(sel.REG), mdlObj.domain.REG = string(sel.REG); end
+            if isfield(sel, 'REG') && ~isempty(sel.REG)
+                newREG = string(sel.REG);
+                % REG changing means the next compileSTAT() would canonicalize
+                % a different axis entirely — a cached precompiledAligned from
+                % the old REG is meaningless against it.
+                if ~isequal(newREG, mdlObj.domain.REG)
+                    mdlObj.invalidatePrecompile();
+                end
+                mdlObj.domain.REG = newREG;
+            end
         end
 
         function refreshREG(mdlObj)
@@ -187,6 +208,9 @@ classdef mdlObject < handle
             lb.String = cellstr(regOpts);
             curIdx = find(string(regOpts) == string(mdlObj.domain.REG), 1);
             if isempty(curIdx)
+                if ~isequal(mdlObj.domain.REG, "None")
+                    mdlObj.invalidatePrecompile();
+                end
                 mdlObj.domain.REG = "None";
                 lb.Value = 1;
             else
@@ -206,6 +230,16 @@ classdef mdlObject < handle
             catch
                 return;
             end
+            mdlObj.refreshPointerAxes_(newAx);
+        end
+
+        function refreshPointerAxes_(mdlObj, newAx)
+        % Shared remap-or-select-all logic behind refreshPointer and
+        % refreshPointerFromPool: for each axis field newAx shares with
+        % collector.Pointer, remap the current selection onto the new
+        % values (by numeric range) when both old and new are numeric,
+        % else fall back to "select all" (this codebase's established
+        % no-op / pass-through convention — see applyPointer's own comment).
             bus = mdlObj.collector.Pointer;
             axFields = fieldnames(newAx);
             axFields = axFields(~strcmp(axFields, 'latent'));
@@ -237,101 +271,56 @@ classdef mdlObject < handle
             end
         end
 
-        function refreshPointerFromSentinel(mdlObj)
-        % After fitSentinel is set (see nexOp_compileSTAT), the Pointer bus's
-        % option list for the REG axis (e.g. 'chans') may still reflect
-        % whatever narrower reference initPointerBus originally built it
-        % from — any single raw session is, by nature, an incomplete sample
-        % of the full canonical set nexOp_alignCoAxes computes. Left stale,
-        % "select all" in the Pointer UI silently means "all of that
-        % narrower reference," not "all of the true canonical set" —
-        % applyPointerDF then narrows every sentinel-projected DF down to
-        % that stale reference's width instead of passing it through
-        % unfiltered. Refreshes the REG axis itself, AND neutralizes its
-        % co-indexed sibling's OWN Pointer selection (e.g. 'unit') to a
-        % single-item "no window" pass-through (this codebase's established
-        % no-op convention — see applyPointer's own comment): the sibling
-        % owns the real DF dimension, so applyPointerDF filters it
-        % independently rather than only through nexOp_coAlign mask
-        % propagation from REG — and a session-local ID (unit) has no
-        % cross-session canonical identity to refresh a reference list to,
-        % so leaving its stale selKeys active would filter every
-        % sentinel-projected DF against essentially arbitrary numeric
-        % overlap. Mirrors refreshPointer's remap-or-select-all pattern for
-        % the REG axis itself, scoped to one named field instead of every
-        % axis.
-            if ~isstruct(mdlObj.fitSentinel) || ~isfield(mdlObj.fitSentinel, 'canonReg')
-                return;
+        function refreshPointerFromPool(mdlObj, TF1)
+        % Seed/refresh EVERY collector.Pointer axis from a canonical (or,
+        % absent REG, just current) per-trial DF's axes, pooled through
+        % mdlObj's CURRENT pMap — cheap, label-only (nexOp_poolAx never
+        % touches .df, only pm.getBinEdges), so this is safe to call as
+        % often as needed with no real-pooling cost and no "double pooling"
+        % of actual data: real data pooling happens exactly once, at real
+        % Fit/CV time, via nexOp_compileSTAT's own nexOp_poolAxes call.
+        %
+        % TF1 (optional): a single canonical per-trial DF struct (e.g. the
+        % TF{1} a fresh nexOp_compileSTAT alignment just produced). Omit to
+        % use mdlObj.precompiledAligned.TF{1} instead (the cached result of
+        % the last Compile press).
+        %
+        % Supersedes the old REG-only refreshPointerFromSentinel: pooling a
+        % co-indexed pair (e.g. chans/unit) through nexOp_poolAx propagates
+        % region labels to BOTH axes when REG is in mapID/region mode —
+        % matching what real pooling (nexOp_poolAxes) actually does to
+        % STAT.ax, rather than resetting the sibling to a generic 1:nVals
+        % placeholder — so it now generalizes to every pMap-pooled axis
+        % (t, f, ...), not just REG, with one shared mechanism.
+        %
+        % Called from nexOp_compileSTAT right after a FRESH alignment
+        % (Compile press, or a cold Fit that skipped Compile) — never on a
+        % cache-reusing compileSTAT() call — so a Pointer/pMap subselection
+        % made afterward survives into repeated Fits untouched.
+            if nargin < 2 || isempty(TF1)
+                if isempty(mdlObj.precompiledAligned) || isempty(mdlObj.precompiledAligned.TF)
+                    return;
+                end
+                TF1 = mdlObj.precompiledAligned.TF{1};
             end
+            if isempty(mdlObj.pMap), return; end
             if ~isfield(mdlObj.collector, 'Pointer') || isempty(mdlObj.collector.Pointer)
                 return;
             end
-            bus = mdlObj.collector.Pointer;
-            ax  = mdlObj.fitSentinel.regAxis;
-            if ~isfield(bus.selKeys, ax), return; end
-            newVals = mdlObj.fitSentinel.canonReg;
-            oldVals = bus.selKeys.(ax);
-            nVals   = numel(newVals);
-
-            % REG axis itself — independent of whether it changed, so the
-            % ftrAxis relisting below (which must always track nVals) never
-            % gets skipped by this block's own early-exit.
-            if ~isequal(newVals, oldVals)
-                curSel   = bus.selections.(ax);
-                validSel = curSel(curSel >= 1 & curSel <= numel(oldVals));
-                if ~isempty(validSel) && isnumeric(oldVals) && isnumeric(newVals)
-                    selRange = oldVals(validSel);
-                    newSel   = find(newVals >= min(selRange) & newVals <= max(selRange));
-                else
-                    newSel = [];
-                end
-                if isempty(newSel), newSel = 1:nVals; end
-                bus.selKeys.(ax)    = newVals;
-                bus.selections.(ax) = newSel;
-                lb = [];
-                if isfield(bus.listBoxes, ax), lb = bus.listBoxes.(ax); end
-                if ~isempty(lb) && isvalid(lb)
-                    lb.String = newVals;
-                    lb.Max    = nVals;
-                    lb.Value  = newSel;
-                end
+            try
+                ax_out = nexOp_poolAx(mdlObj.pMap, TF1);
+            catch e
+                fprintf('[mdlObject] refreshPointerFromPool: %s\n', e.message);
+                return;
             end
-
-            % Relist the co-indexed sibling (e.g. 'unit') to canonical
-            % POSITION indices 1:nVals, fully selected — not the same
-            % values as the REG axis (unit has no cross-session identity of
-            % its own to relist to), but the same WIDTH, which is what
-            % matters: post-alignment, every DF's unit axis is uniformly
-            % nVals long, one canonical position per index, so 1:nVals is a
-            % meaningful (if generic) relisting rather than an opaque
-            % placeholder. applyPointerDF's "skip filtering" check is
-            % purely count-based (numel(selectedVals)==numel(axVals)) — it
-            % never actually compares values — so matching the width here
-            % is exactly what's needed for it to pass every position
-            % through unfiltered. Runs every call (not gated on the REG
-            % axis having changed) so it can't be silently skipped.
-            % Always reset both selKeys AND selections for ftrAxis — the
-            % selKeys guard was blocking re-neutralization when the user had
-            % narrowed the selection after a prior fit (selKeys already
-            % matched 1:nVals but selections still held the stale subset).
-            ftrAxis = mdlObj.fitSentinel.ftrAxis;
-            if ~isempty(ftrAxis) && ~strcmp(ftrAxis, ax) && isfield(bus.selKeys, ftrAxis)
-                bus.selKeys.(ftrAxis)    = (1:nVals)';
-                bus.selections.(ftrAxis) = 1:nVals;
-                if isfield(bus.listBoxes, ftrAxis) && isvalid(bus.listBoxes.(ftrAxis))
-                    ftrLb        = bus.listBoxes.(ftrAxis);
-                    ftrLb.String = (1:nVals)';
-                    ftrLb.Max    = nVals;
-                    ftrLb.Value  = 1:nVals;
-                end
-            end
+            mdlObj.refreshPointerAxes_(ax_out);
         end
 
         function initViewBus(mdlObj)
         % Build collector.View with CTG + SWP (training-context keys) followed
         % by the standard SRC / VW / CLR visualization keys.
         % CTG — multi-select category columns for training stratification
-        % SWP — single-select Pointer axis for outer sweep loop
+        % SWP — multi-select Pointer axis/axes for nested outer sweep loop
             try
                 S_cat  = nex_returnSelectionMask(mdlObj.Origin.selectionBus.categories);
                 catIDs = string(struct2cell(S_cat))';
@@ -359,14 +348,74 @@ classdef mdlObject < handle
             mdlObj.collector.View.selections.SWP = 1;    % "None" selected by default
             mdlObj.domain.CTG = string.empty(1, 0);
             mdlObj.domain.SWP = "None";
+
+            % CTG above is only a snapshot of Origin.selectionBus.categories
+            % taken right now — nothing previously kept it in sync with
+            % later changes (e.g. the user selecting an additional
+            % category in the parent nexObj_categorical after this figure
+            % was already built). selections is the one SetObservable
+            % property on nexObj_selectionBus, and it's exactly the
+            % property this snapshot is read from above, so listening on
+            % it and calling refreshCTG() is the same leaf-level PostSet
+            % pattern already used for DF_postOp.ax → refreshPointer().
+            try
+                mdlObj.collector.View.Listeners.CTGSource = addlistener( ...
+                    mdlObj.Origin.selectionBus.categories, 'selections', 'PostSet', ...
+                    @(~,~) mdlObj.refreshCTG());
+            catch
+                % Origin/selectionBus.categories unavailable (e.g. headless
+                % agent reconstruction) — CTG just won't live-refresh.
+            end
+        end
+
+        function refreshCTG(mdlObj)
+        % Re-derive CTG's available items from Origin.selectionBus.categories
+        % and update the listbox in place, preserving any still-valid
+        % selection — mirrors refreshPointer()'s role for DF_postOp.ax.
+        % Fired by the PostSet listener initViewBus() wires above, so
+        % every Predictor-family mdlObj figure (pca, lda, logistic,
+        % linear) stays in sync when the parent nexObj_categorical's
+        % active categories change after this figure was already built.
+            if ~isfield(mdlObj.collector, 'View') || ~isfield(mdlObj.collector.View, 'listBoxes') ...
+                    || ~isfield(mdlObj.collector.View.listBoxes, 'CTG')
+                return;
+            end
+            lb = mdlObj.collector.View.listBoxes.CTG;
+            if ~isvalid(lb), return; end
+
+            try
+                S_cat  = nex_returnSelectionMask(mdlObj.Origin.selectionBus.categories);
+                catIDs = string(struct2cell(S_cat))';
+                catIDs = strrep(catIDs(~strcmp(catIDs, "None")), "--", "_");
+                if isempty(catIDs), catIDs = "sessionLabel_phase"; end
+            catch
+                return;
+            end
+
+            prevSelected = string(lb.String(lb.Value));
+            lb.String = catIDs;
+            lb.Max    = max(numel(catIDs), 1);
+            lb.Value  = find(ismember(catIDs, prevSelected));
+
+            mdlObj.collector.View.selKeys.CTG = catIDs;
+            mdlObj.applyViewBus();
         end
 
         function applyViewBus(mdlObj)
         % Sync domain.CTG and domain.SWP from collector.View selections.
+        % SWP is multi-select (nested cross-product sweep in
+        % nexAnalysis_cvPermute, e.g. region x time) — "None" is dropped
+        % whenever a real axis is also selected, and left as the sole value
+        % otherwise so callers can keep testing `domain.SWP == "None"`.
             if ~isfield(mdlObj.collector, 'View'), return; end
             sel = nex_returnSelectionMask(mdlObj.collector.View);
             if isfield(sel, 'CTG'), mdlObj.domain.CTG = string(sel.CTG); end
-            if isfield(sel, 'SWP'), mdlObj.domain.SWP = string(sel.SWP); end
+            if isfield(sel, 'SWP')
+                swpSel = string(sel.SWP);
+                swpSel = swpSel(swpSel ~= "None");
+                if isempty(swpSel), swpSel = "None"; end
+                mdlObj.domain.SWP = swpSel;
+            end
         end
 
         function initPointerBus(mdlObj)
@@ -503,14 +552,20 @@ classdef mdlObject < handle
             % Terminal NaN resolution: nexOp_alignCoAxes NaN-pads
             % structurally-absent canonical positions (by design, so
             % upstream pooling/cropping stays unbiased) — no fit function
-            % downstream (including nexHR_fit's block-PCA) handles NaN
-            % input, so it must be zero-filled here, once, for every
-            % subclass's plain fit() path. nexAnalysis_cvPermute does the
-            % equivalent right before each of its own fit/predict calls,
-            % but a plain fit() (e.g. PCA/UMAP, which never go through that
-            % sweep) never hit that treatment without this.
+            % downstream (including nexHR_fit's block-PCA, and sklearn for
+            % Predictor models) handles NaN input, so it must be zero-filled
+            % here, once, for every subclass's plain fit() path.
+            % nexAnalysis_cvPermute does the equivalent right before each of
+            % its own fit/predict calls, but a plain fit() (e.g. PCA/UMAP,
+            % or LDA/logistic run without CV) never hits that treatment
+            % without this. dmCfg formats differ in shape: "stack"/"batch"/
+            % "regression" return DM as a plain numeric array; "supervised"
+            % (stat2dm_supervised) returns a struct with the numeric array
+            % at DM.X — both need the same zero-fill.
             if isnumeric(mdlObj.DM)
                 mdlObj.DM(isnan(mdlObj.DM)) = 0;
+            elseif isstruct(mdlObj.DM) && isfield(mdlObj.DM, 'X') && isnumeric(mdlObj.DM.X)
+                mdlObj.DM.X(isnan(mdlObj.DM.X)) = 0;
             end
             % build layout then reduce (nexHR) or flatten to 2D
             mdlObj.FTR_layout = mdlObj.buildFTRLayout();
@@ -640,7 +695,7 @@ classdef mdlObject < handle
             end  
         end
 
-        function scaleApply_transform(mdlObj, dfID_source, isOverwrite, currentTrialOnly)
+        function scaleApply_transform(mdlObj, dfID_source, isOverwrite, currentTrialOnly, outputLabel)
 
             % CFG HEADER
             scope = "local"; % scope : global/local
@@ -649,6 +704,18 @@ classdef mdlObject < handle
             if nargin < 2 || isempty(dfID_source),   dfID_source    = mdlObj.dfID_source; end
             if nargin < 3 || isempty(isOverwrite),   isOverwrite    = true;  end
             if nargin < 4 || isempty(currentTrialOnly), currentTrialOnly = false; end
+            % outputLabel: optional caller-supplied full override for this
+            % transform's output patch ID (not a suffix — replaces
+            % mdlObj.dfID_target entirely for this call, so distinct
+            % labels never collide with each other or the default).
+            % Affects ONLY the output artifact name computed below — never
+            % mdlObj.dfID_target itself, which keeps whatever it already
+            % means (an output artifact ID for transform models, but the
+            % STAT column name for the prediction label on Predictor
+            % models like lda/logistic — mutating it here would silently
+            % break those models' next fit/predict call).
+            if nargin < 5 || isempty(outputLabel), outputLabel = ""; end
+            mdlObj.lastOutputLabel = string(outputLabel);
             dfID_entry = strrep(dfID_source, "_df", "");
             dnSel = mdlObj.domain.DN(1);
             % dtsRows = height(mdlObj.nexon.console.BASE.DTS);
@@ -684,6 +751,9 @@ classdef mdlObject < handle
             %   pure in-memory   → dtsIO_writeDF, patchManifest pending mode
             nexon        = mdlObj.nexon;
             dfID_out     = char(mdlObj.dfID_target);
+            if strlength(outputLabel) > 0
+                dfID_out = char(outputLabel);   % full override, not a suffix — the field is the whole patch ID
+            end
             isDiskBacked = ismember('h5_path', nexon.console.BASE.DTS.Properties.VariableNames);
             h5FileOut    = '';
 
@@ -726,15 +796,27 @@ classdef mdlObject < handle
                     DF_X = TF1{1};
                     DF_X.ptr = nexInit_axisPointer(DF_X.df, DF_X.ax);
                 end
+                % Pool BEFORE Pointer-filtering — matches the fit-side order
+                % in nexOp_compileSTAT (align -> pool -> ... -> applyPointer
+                % back in mdlObject.compileSTAT()). Region-mode pooling
+                % (pMap divsPerBin=0, binType='region') relabels chans/unit
+                % from raw IDs to region NAMES without changing width — the
+                % Pointer bus's "select STN" only ever matches against
+                % those region labels, which don't exist until pooling has
+                % run. Filtering first (the old order here) matched a
+                % region-name selection against still-raw channel/unit IDs,
+                % silently matched nothing, and passed every position
+                % through unfiltered.
+                if ~isempty(mdlObj.pMap)
+                    DF_X = nexOp_poolAxes(mdlObj.pMap, DF_X, DF_X.ptr);
+                    DF_X.ptr = nexInit_axisPointer(DF_X.df, DF_X.ax);
+                end
                 if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
                     DF_X = mdlObj.applyPointerDF(DF_X);
                 end
                 DF_X = mdlObj.applyDomainMSRDF(DF_X);
                 if dnSel ~= "None"
                     DF_X = nexOp_permute2First(DF_X, dnSel, DF_X.ptr);
-                end
-                if ~isempty(mdlObj.pMap)
-                    DF_X = nexOp_poolAxes(mdlObj.pMap, DF_X, DF_X.ptr);
                 end
                 try
                     DF_Z = mdlObj.transform(DF_X);
@@ -774,11 +856,17 @@ classdef mdlObject < handle
             if strcmp(parentClass,"nexObj_categorical") % if parent is categorical
                 S_categories = nex_returnSelectionMask(Parent.selectionBus.categories);
                 S_items = nex_returnSelectionMask(Parent.selectionBus.items);
-                [STAT, idxSel, drop] = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
+                % Reuses precompileSTAT()'s cached alignment when present —
+                % nexOp_compileSTAT then skips straight past re-alignment
+                % (and the refreshPointerFromPool side effect that would
+                % otherwise wipe whatever Pointer subselection was made
+                % since Compile was pressed). Empty by default, so this is
+                % a no-op for anyone who never calls precompileSTAT.
+                [STAT, idxSel, drop] = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, [], mdlObj.precompiledAligned);
                 % STAT = nexOp_compileSTAT(Parent, mdlObj.dfID_source, S_categories, S_items, []);
             elseif contains(parentClass,"mdlObj") % if parent is a model
                 STAT = Parent.transformSTAT(Parent.STAT);
-            end  
+            end
             % STAT.df = nexOp_trimDfCol(STAT.df);
             %% STAT conditioning/standardizing
             % if mdlObj.cfg.statCfg.entryParams.fuseAx
@@ -801,7 +889,13 @@ classdef mdlObject < handle
             DF_ptr =nex_initAxisPointer_v2(DF_ptr);
             STAT.ptr = repmat(DF_ptr.ptr,height(STAT),1);
 
-            % Apply Pointer window if user has made an axis selection
+            % Apply Pointer window if user has made an axis selection. The
+            % bus is already correct by this point — refreshPointerFromPool
+            % ran once, upstream, inside nexOp_compileSTAT right after the
+            % last FRESH alignment (Compile press, or a cold Fit) — so no
+            % refresh call belongs here; doing it on every compileSTAT()
+            % call (including cache-reusing ones) is what caused Pointer
+            % selections to get silently wiped on repeated Fits.
             if isfield(mdlObj.collector, 'Pointer') && ~isempty(mdlObj.collector.Pointer)
                 STAT = mdlObj.applyPointer(STAT);
             end
@@ -810,6 +904,78 @@ classdef mdlObject < handle
             STAT = mdlObj.applyDomainMSR(STAT);
 
             mdlObj.STAT=STAT;
+        end
+
+        function precompileSTAT(mdlObj)
+        % Run compile+align (establishes fitSentinel and seeds the Pointer
+        % bus's options — every pMap-pooled axis, not just REG — to the
+        % true canonical set, via nexOp_compileSTAT's own
+        % refreshPointerFromPool side effect) WITHOUT yet applying pooling
+        % or building the final STAT table (pooling itself is cheap and
+        % re-derived fresh on every compileSTAT() call regardless — see
+        % refreshPointerFromPool). Caches the alignment so compileSTAT()
+        % (called by fit()) reuses it — skipping re-alignment/re-refresh —
+        % meaning a Pointer/pMap subselection (e.g. groupBy='region', pick
+        % specific regions) made AFTER pressing this survives untouched
+        % into Fit, rather than being silently reset by a second
+        % refreshPointerFromPool call. Stays cached across repeated Fits
+        % until invalidatePrecompile() clears it (categorical selection
+        % change, REG change, or pressing this again).
+            mdlObj.ensurePrecompileWatchers_();
+            Parent = mdlObj.Parent;
+            if ~strcmp(class(Parent), "nexObj_categorical")
+                warning('[mdlObject] precompileSTAT: Parent is not nexObj_categorical — nothing to precompile.');
+                return;
+            end
+            S_categories = nex_returnSelectionMask(Parent.selectionBus.categories);
+            S_items      = nex_returnSelectionMask(Parent.selectionBus.items);
+            [~, ~, ~, aligned] = nexOp_compileSTAT(mdlObj, mdlObj.dfID_source, S_categories, S_items, []);
+            mdlObj.precompiledAligned = aligned;
+            fprintf(['[mdlObject] precompiled STAT ready (%d trial(s)) — Pointer bus ' ...
+                     'options now reflect the full canonical set; adjust your selection, ' ...
+                     'then Fit.\n'], numel(aligned.TF));
+        end
+
+        function invalidatePrecompile(mdlObj)
+        % Drops the precompileSTAT() cache — called whenever something
+        % that would change canonicalization/TF-compilation changes: the
+        % Origin categorical's own category/item selection (via the
+        % PostSet listeners ensurePrecompileWatchers_ wires), or
+        % domain.REG (via applyDomainBus/refreshREG). Setting the property
+        % to [] drops the only reference to the cached TF (a cell array of
+        % full per-trial DFs), freeing it for garbage collection rather
+        % than just flagging it stale while the memory stays held. fit()'s
+        % next compileSTAT() call falls back to a full recompile, same as
+        % if precompileSTAT() had never been called.
+            if isempty(mdlObj.precompiledAligned), return; end
+            mdlObj.precompiledAligned = [];
+            fprintf(['[mdlObject] precompiled STAT invalidated (categorical selection or ' ...
+                     'REG changed) — Fit will recompile from scratch, or press Compile ' ...
+                     'again first.\n']);
+        end
+
+        function ensurePrecompileWatchers_(mdlObj)
+        % Lazily wires the two PostSet listeners invalidatePrecompile()
+        % needs — on the Origin categorical's own categories/items
+        % selectionBus 'selections' property (SetObservable on
+        % nexObj_selectionBus). Runs once per mdlObj instance, on first
+        % precompileSTAT() call, so subclasses that never precompile never
+        % pay for listeners they don't need.
+            if mdlObj.precompileWatchersWired, return; end
+            mdlObj.precompileWatchersWired = true;
+            try
+                mdlObj.precompileListeners.categories = addlistener( ...
+                    mdlObj.Origin.selectionBus.categories, 'selections', 'PostSet', ...
+                    @(~,~) mdlObj.invalidatePrecompile());
+                mdlObj.precompileListeners.items = addlistener( ...
+                    mdlObj.Origin.selectionBus.items, 'selections', 'PostSet', ...
+                    @(~,~) mdlObj.invalidatePrecompile());
+            catch
+                % Origin/selectionBus unavailable (e.g. headless
+                % reconstruction with no live categorical parent) — the
+                % cache just won't auto-invalidate from categorical
+                % changes; REG changes and manual re-Compile still work.
+            end
         end
 
         function STAT_tf = transformSTAT(mdlObj, STAT_in)

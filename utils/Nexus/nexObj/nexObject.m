@@ -362,7 +362,7 @@ classdef nexObject < handle
             % parent is available (legacy / standalone objects).
             % ax-- entries are excluded from grpKeys: they are ptr filters,
             % not grouping columns, and never appear as STAT table columns.
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","fitSentinel"];
             grpKeys = "";
             ctgResolved = false;
             if ~isempty(nexObj.Parent) && isvalid(nexObj.Parent) && ...
@@ -964,7 +964,7 @@ classdef nexObject < handle
         end
 
         function vwKeys = getCTGGroupKeys(nexObj)
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel"];
             srcKey = nexObj.getCurrentSRC();
             if strcmp(srcKey, 'DF') || ~isfield(nexObj.RESULTS, srcKey)
                 vwKeys = ""; return;
@@ -988,7 +988,7 @@ classdef nexObject < handle
             % Buckets selected labels by which group column they belong to,
             % then requires each row to match in every constrained column.
             % Returns all row indices when vwLabels is empty.
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel"];
             allCols  = string(RESULT.Properties.VariableNames);
             grpCols  = allCols(~ismember(allCols, DF_STRUCT_FIELDS));
             vwLabels = string(vwLabels);
@@ -1021,7 +1021,7 @@ classdef nexObject < handle
             if ~isfield(nexObj.collector, 'View'), return; end
             bus = nexObj.collector.View;
 
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel"];
 
             % Separate existing CLR keys into group keys and ax-- keys
             existing = string(bus.selKeys.CLR);
@@ -1146,7 +1146,7 @@ classdef nexObject < handle
             % Called when SRC changes to a RESULT so the visualization mask can
             % map VW group labels (values) to the correct column (e.g. "stimSite").
             DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","cov","labels", ...
-                                 "trialNumber","sampleNumber"];
+                                 "trialNumber","sampleNumber","fitSentinel"];
             tbl = nexObj.AVG;
             if isempty(tbl) || ~istable(tbl)
                 nexObj.refreshCTG(); return;

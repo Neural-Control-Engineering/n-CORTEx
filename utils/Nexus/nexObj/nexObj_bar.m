@@ -1,24 +1,30 @@
-classdef nexObj_resultsViewer < nexObject
-% Results viewer — nexObject subclass that receives R structs via push() and
-% renders performance metrics in an atlas-style tabbed figure.
+classdef nexObj_bar < nexObject
+% Nested bar-chart viewer for mdlObject CV results (nexAnalysis_cvPermute
+% output — a STAT-shaped table, one row per CTG combo).
 %
-% Provisional implementation: SRC / VW (fold filter) / Pointer (time window)
-% buses are wired; Domain bus and full DF-structured rendering are deferred.
+%   CTG (multi-select, ordered) — which grouping columns nest the bars,
+%       outer-to-inner in selection order. Drives nexStat_binSTAT.
+%   VW  (multi-select) — which row values to include at all (same
+%       row-filter role VW plays elsewhere — see filterResultsByVW).
+%   Pointer — windows any axis OTHER than fold/perm (e.g. t, unit) to a
+%       single value; fold is always aggregated into the bar (mean ± SEM),
+%       perm always becomes a null-distribution reference band (mean /
+%       95th percentile), never individually selected.
 %
 % Usage:
-%   viewer = nexObj_resultsViewer(mdlObj)   % wired to an mdlObj source
-%   viewer = nexObj_resultsViewer(nexon)    % standalone with nexon for colours
-%   viewer = nexObj_resultsViewer()         % fully standalone (no colour registry)
-%   viewer.push('cv_1', R)                  % add / update a result
+%   viewer = nexObj_bar(mdlObj)   % wired to an mdlObj source
+%   viewer = nexObj_bar(nexon)    % standalone with nexon for colours
+%   viewer = nexObj_bar()         % fully standalone (no colour registry)
+%   viewer.push('cv_1', R)        % add / update a result (R = STAT-shaped table)
 
     properties
         source   % mdlObj this viewer watches; may be empty
     end
 
     methods
-        function obj = nexObj_resultsViewer(source, headline)
+        function obj = nexObj_bar(source, headline)
             if nargin < 1 || isempty(source), source = []; end
-            if nargin < 2 || isempty(headline), headline = 'Results Viewer'; end
+            if nargin < 2 || isempty(headline), headline = 'Bar Viewer'; end
 
             % Resolve nexon from source
             if isempty(source)
@@ -32,18 +38,22 @@ classdef nexObj_resultsViewer < nexObject
             end
 
             obj = obj@nexObject(nexon_, [], "", headline);
-            obj.classID = "rv";
+            obj.classID = "bar";
 
             % No DTS pull — seed empty DF_postOp
             obj.DF_postOp = struct('df', [], 'ax', struct(), 'ptr', struct());
             obj.domain    = struct('D1', string.empty, 'D2', string.empty, ...
                                    'axes', string.empty, 'F', "", 'animate', "");
 
-            % View bus: SRC = result IDs, VW = fold filter, CLR = empty
+            % View bus: SRC = result IDs, CTG = ordered nesting columns,
+            % VW = row filter (unique values across CTG columns), CLR = empty
             viewDict.SRC = "";
+            viewDict.CTG = "";
             viewDict.VW  = "";
             viewDict.CLR = "";
             obj.collector.View = nexInit_collectorView(obj, viewDict);
+
+            obj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_bar"));
 
             % Wire to source and pull existing results
             if ~isempty(source) && ~isa(source, 'Nexon')
@@ -61,7 +71,7 @@ classdef nexObj_resultsViewer < nexObject
             isHeadless = ~isempty(nexon_) && isfield(nexon_, 'settings') && ...
                          isfield(nexon_.settings, 'headless') && nexon_.settings.headless;
             if ~isHeadless
-                nexFigure_resultsViewer(obj);
+                nexFigure_bar(obj);
                 if isstruct(obj.RESULTS) && ~isempty(fieldnames(obj.RESULTS))
                     obj.refreshSRC();
                 end
@@ -94,7 +104,10 @@ classdef nexObj_resultsViewer < nexObject
         end
 
         function applySRC(obj, srcKey)
-        % Update SRC selection, forge DF_postOp from R.ax, rebuild Pointer, visualize.
+        % Update SRC selection; forge DF_postOp from the result table's
+        % shared per-row axis layout, MINUS fold/perm (those are always
+        % aggregated — see class header — never individually
+        % Pointer-windowed); rebuild CTG/VW/Pointer; visualize.
             if ~isfield(obj.RESULTS, srcKey), return; end
             bus = obj.collector.View;
             idx = find(string(bus.selKeys.SRC) == string(srcKey), 1);
@@ -106,40 +119,50 @@ classdef nexObj_resultsViewer < nexObject
                 end
             end
 
-            % Forge DF_postOp.ax from result axes for Pointer / domain inference
             R = obj.RESULTS.(srcKey);
-            if isstruct(R) && isfield(R, 'ax')
-                obj.DF_postOp = struct('df', [], 'ax', R.ax, 'ptr', struct());
-                try
-                    obj.DF_postOp = nex_initAxisPointer_v2(obj.DF_postOp);
-                catch
-                end
-                obj.domain = obj.inferDomain();
-                obj.initPointerBus();
-                obj.rebuildPointerPanel();
-                obj.refreshVW_rv(R);
+            if ~istable(R) || height(R) == 0, return; end
+
+            ax0      = R.ax{1};
+            axFields = setdiff(fieldnames(ax0), {'fold', 'perm'}, 'stable');
+            ptrAx    = struct();
+            for i = 1:numel(axFields)
+                ptrAx.(axFields{i}) = ax0.(axFields{i});
             end
+            obj.DF_postOp = struct('df', [], 'ax', ptrAx, 'ptr', struct());
+            try
+                obj.DF_postOp = nex_initAxisPointer_v2(obj.DF_postOp);
+            catch
+            end
+            obj.domain = obj.inferDomain();
+            obj.initPointerBus();
+            obj.rebuildPointerPanel();
+
+            obj.refreshCTG_bar(R);
+            obj.refreshVW();
+            obj.refreshCLR();   % base method — scans every RESULTS table's
+                                 % own columns; fully generic, no override needed
+
             obj.visualize();
         end
 
-        function refreshVW_rv(obj, R)
-        % Populate VW with fold indices from R.ax.fold.
+        function refreshCTG_bar(obj, R)
+        % Populate CTG with this result table's own grouping columns, in
+        % table-column order — nexObj_bar has no categorical Parent to
+        % source CTG from (unlike mdlObject's own refreshCTG). CTG
+        % selection order directly drives nexStat_binSTAT's nesting order
+        % (outer tier first). All columns selected by default.
             if ~isfield(obj.collector, 'View'), return; end
-            bus = obj.collector.View;
-            if isstruct(R) && isfield(R, 'ax') && isfield(R.ax, 'fold')
-                foldVals = string(num2cell(R.ax.fold(:)))';
-                nF       = numel(foldVals);
-            else
-                foldVals = string.empty;
-                nF       = 0;
-            end
-            bus.selKeys.VW    = foldVals;
-            bus.selections.VW = 1:nF;
-            if isfield(bus.listBoxes, 'VW') && ~isempty(bus.listBoxes.VW) ...
-                    && isvalid(bus.listBoxes.VW)
-                bus.listBoxes.VW.String = cellstr(foldVals);
-                bus.listBoxes.VW.Max    = max(1, nF);
-                bus.listBoxes.VW.Value  = 1:nF;
+            bus       = obj.collector.View;
+            structCols = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel"];
+            cols      = string(R.Properties.VariableNames)';
+            groupCols = cols(~ismember(cols, structCols))';
+            bus.selKeys.CTG    = groupCols;
+            bus.selections.CTG = 1:numel(groupCols);
+            if isfield(bus.listBoxes, 'CTG') && ~isempty(bus.listBoxes.CTG) ...
+                    && isvalid(bus.listBoxes.CTG)
+                bus.listBoxes.CTG.String = cellstr(groupCols);
+                bus.listBoxes.CTG.Max    = max(1, numel(groupCols));
+                bus.listBoxes.CTG.Value  = 1:numel(groupCols);
             end
         end
 
@@ -158,16 +181,7 @@ classdef nexObj_resultsViewer < nexObject
         end
 
         function visualize(obj)
-        % Dispatch to the active tab renderer (zero-arg closure reading from obj).
-            if ~isfield(obj.Figure, 'renderFcns'), return; end
-            tab = char(obj.Figure.renderFcns.active);
-            if isfield(obj.Figure.renderFcns, tab)
-                try
-                    obj.Figure.renderFcns.(tab)();
-                catch ME
-                    fprintf('[nexObj_resultsViewer.visualize] %s\n', ME.message);
-                end
-            end
+            nexVisualization_bar(obj, obj.cfg.visCfg.entryParams);
         end
     end
 end

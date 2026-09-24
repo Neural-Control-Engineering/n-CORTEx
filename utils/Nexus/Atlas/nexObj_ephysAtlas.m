@@ -323,23 +323,59 @@ classdef nexObj_ephysAtlas < nexObject
                 return;
             end
             obj.clearUnitsLog_();
-            obj.setUnitsProgress_(0, sprintf('Running UnitMatch (%s)...', sorterTag));
+            obj.setUnitsProgress_(0, sprintf('Launching UnitMatch (%s) in a background MATLAB process...', sorterTag));
             subjectDir = fileparts(fileparts(obj.atlasFile));
-            try
-                ok = nexAtlas_runUnitMatch(subjectDir, sorterTag, ...
-                    @(frac,label) obj.setUnitsProgress_(frac,label));
-                % nexAtlas_runUnitMatch reports its own failures via
-                % progressFcn and returns normally (doesn't throw) — ok
-                % is the only reliable signal that it actually succeeded.
-                % Printing "done" unconditionally here would silently
-                % follow a failure message with a false success message.
-                if ok
-                    obj.setUnitsProgress_(1, sprintf('UnitMatch (%s) done — see Sessions tab for status.', sorterTag));
-                end
-            catch e
-                obj.setUnitsProgress_(0, sprintf('UnitMatch failed: %s', e.message));
+
+            % Run the actual computation in a SEPARATE MATLAB process
+            % rather than this one, so this session's UI and command line
+            % stay responsive for the several minutes a run takes — MATLAB
+            % is single-threaded, so nothing short of a separate OS
+            % process achieves that; a deferred-timer within this same
+            % process (tried first) still blocked everything until the
+            % run finished. Progress crosses the process boundary via a
+            % small JSON status file (nexAtlas_runUnitMatchBG writes it,
+            % pollUnitMatchStatus_ below reads it) since a function handle
+            % can't cross processes. Deliberately not parfeval/parpool —
+            % this codebase hit repeated Parallel Computing Toolbox
+            % AttachedFiles crashes earlier (the rtPMTM extraction); a
+            % plain background MATLAB process avoids that machinery
+            % entirely. As a side benefit, the background process has no
+            % uifigure at all, so it structurally can't hit the
+            % "Invalid graphics object" crash UnitMatch's legacy figure
+            % calls caused when run inside this app's own callback stack.
+            umRootDir = fullfile(subjectDir, 'npxls', 'UnitMatch');
+            if ~isfolder(umRootDir), mkdir(umRootDir); end
+            statusFile = fullfile(umRootDir, '.runUnitMatch_status.json');
+            if isfile(statusFile), delete(statusFile); end
+
+            % The background process needs nexAtlas_runUnitMatchBG.m on
+            % its path before it can even resolve the function to call —
+            % it can't addpath itself from within its own body (that runs
+            % too late, after MATLAB already failed to find it). This
+            % file lives in the same folder, so use that.
+            atlasDir   = fileparts(mfilename('fullpath'));
+            matlabExe  = fullfile(matlabroot, 'bin', 'matlab');
+            scriptCall = sprintf('addpath(''%s''); nexAtlas_runUnitMatchBG(''%s'',''%s'',''%s'')', ...
+                atlasDir, subjectDir, sorterTag, statusFile);
+            logFile = fullfile(tempdir, sprintf('runUnitMatchBG_%s.log', ...
+                char(datetime('now','Format','yyyyMMdd_HHmmss'))));
+            if ispc
+                cmd = sprintf('start "" /B "%s.exe" -batch "%s" > "%s" 2>&1', ...
+                    matlabExe, scriptCall, logFile);
+            else
+                cmd = sprintf('nohup "%s" -batch "%s" > "%s" 2>&1 &', ...
+                    matlabExe, scriptCall, logFile);
             end
-            obj.populateSessions('');
+            [launchStatus, out] = system(cmd);
+            if launchStatus ~= 0
+                obj.setUnitsProgress_(0, sprintf('Failed to launch background MATLAB process: %s', out));
+                return;
+            end
+
+            obj.unitsLog_(sprintf('Background process launched (log: %s).', logFile));
+            pollTimer = timer('ExecutionMode', 'fixedSpacing', 'Period', 1, 'BusyMode', 'drop');
+            pollTimer.TimerFcn = @(src,~) obj.pollUnitMatchStatus_(src, statusFile, sorterTag);
+            start(pollTimer);
         end
 
         function reconcileCatalog(obj)
@@ -449,6 +485,41 @@ classdef nexObj_ephysAtlas < nexObject
             end
             if isempty(umParts),     umStr     = '–'; else, umStr     = strjoin(umParts, ' ');     end
             if isempty(bridgeParts), bridgeStr = '–'; else, bridgeStr = strjoin(bridgeParts, ', '); end
+        end
+
+        function pollUnitMatchStatus_(obj, timerObj, statusFile, sorterTag)
+        % Fired every second by the repeating timer runUnitMatch() starts
+        % — reads the JSON status file the background nexAtlas_runUnitMatchBG
+        % process is writing to, and mirrors it into the Units tab's
+        % progress bar/log exactly as if it were running in-process. Stops
+        % and deletes its own timer once the background process reports
+        % done, whether that means success or failure — either way there's
+        % nothing left to poll.
+            if ~obj.figAlive_()
+                stop(timerObj); delete(timerObj);
+                return;
+            end
+            if ~isfile(statusFile), return; end
+            try
+                s = jsondecode(fileread(statusFile));
+            catch
+                return; % tolerate a race with the writer's atomic rename
+            end
+            infoLbl = findobj(obj.Figure.tabPanels{5}, 'Tag', 'unitsInfo');
+            if isempty(infoLbl) || ~strcmp(infoLbl.Text, s.label)
+                % Only push through (and log) an actual change — polling
+                % every second is far more frequent than the underlying
+                % run's real checkpoints, so most polls see the same
+                % status; re-logging it each time would spam the log.
+                obj.setUnitsProgress_(s.frac, s.label);
+            end
+            if isfield(s,'done') && s.done
+                stop(timerObj); delete(timerObj);
+                if isfield(s,'ok') && s.ok
+                    obj.setUnitsProgress_(1, sprintf('UnitMatch (%s) done — see Sessions tab for status.', sorterTag));
+                end
+                obj.populateSessions('');
+            end
         end
 
         function setUnitsProgress_(obj, frac, label)

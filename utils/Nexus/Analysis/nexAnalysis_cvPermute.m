@@ -21,21 +21,29 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
 % CTG (domain.CTG) — category columns to stratify over.  One RESULT row per
 % unique CTG combination; rows are navigated via the VW bus.
 %
-% SWP (domain.SWP) — if set to a non-"None" Pointer axis, that axis is
-% iterated as an inner dimension of df rather than breaking into more rows.
+% SWP (domain.SWP) — one or more non-"None" Pointer axes (multi-select).
+% Each selected axis is iterated as its own inner dimension of df (nested
+% cross-product — e.g. region × time), rather than breaking into more rows.
+% domain.DN(1)/FTR are never valid SWP candidates (dropped with a warning if
+% picked) — that axis is what scoreFold already resolves per-timepoint, over
+% its FULL un-swept extent. To sweep an axis instead of scoring it per-value,
+% set domain.DN to something else (or "None") first.
 %
 % Result stored in mdlObj.RESULTS.(resultID) as a STAT-shaped table:
 %   identity columns  — one per CTG variable (e.g. sessionLabel_subj)
-%   df   {1×1}  [nFolds × (1+nPermute) × nTime]         (no SWP axis)
-%   df   {1×1}  [nFolds × (1+nPermute) × nTime × nSWP]  (SWP active)
-%   ax   {1×1}  struct with fold / perm / t [/ SWP axis]
+%   df   {1×1}  [nFolds × (1+nPermute) × nTime]                  (no SWP axes)
+%   df   {1×1}  [nFolds × (1+nPermute) × nTime × n1 × n2 × ...]  (SWP active,
+%               one trailing dim per selected SWP axis, in selection order)
+%   ax   {1×1}  struct with fold / perm / domain.DN(1) [/ one field per SWP axis]
 %   ptr  {1×1}  axis pointer struct
-%   fitSentinel {1×nSWP} cell of structs — one per SWP value (or {1×1} when
-%               SWP is inactive). Each struct holds the REG-canonical axis
-%               labels that survived NaN-cropping for that iteration, i.e.
-%               which canonical positions actually had data in this
-%               CTG-combo × SWP-value slice, tightened down from the
-%               globally-aligned canonical set computed in compileSTAT.
+%   fitSentinel {1×nSWP} cell of structs — one per SWP combo (nSWP = product
+%               of all SWP axes' value counts, flattened column-major to
+%               match df's trailing dims), or {1×1} when SWP is inactive.
+%               Each struct holds the REG-canonical axis labels that
+%               survived NaN-cropping for that iteration, i.e. which
+%               canonical positions actually had data in this CTG-combo ×
+%               SWP-combo slice, tightened down from the globally-aligned
+%               canonical set computed in compileSTAT.
 
     cvCfg = mdlObj.cfg.cvCfg.entryParams;
     nFolds   = cvCfg.nFolds;
@@ -64,20 +72,63 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
     nCombos = max(1, height(comboTbl));
 
     % ── 3. DN(1) time axis (shared across combos) ─────────────────────────────
-    dn   = char(mdlObj.domain.DN(1));
-    dnAx = STAT_full.ax(1).(dn);
-    nTime = numel(dnAx);
+    % DN(1) == "None" means no training-domain axis at all — compileSTAT's
+    % own convention is "trial is the sample" (it skips nexOp_permute2First
+    % for exactly this reason). Score once per trial, not per-timepoint.
+    dn = char(mdlObj.domain.DN(1));
+    if strcmp(dn, "None")
+        dnAx  = [];
+        nTime = 1;
+    else
+        dnAx  = STAT_full.ax(1).(dn);
+        nTime = numel(dnAx);
+    end
 
     % ── 4. SWP outer-axis detection ──────────────────────────────────────────
-    % The SWP axis is an extra dimension inside df, NOT extra rows.
-    swpID = "";
-    if isfield(mdlObj.domain, 'SWP') && mdlObj.domain.SWP ~= "None"
-        swpID = mdlObj.domain.SWP;
+    % SWP axes are extra dimensions inside df, NOT extra rows. domain.SWP is
+    % a string array (multi-select bus) — multiple axes nest as a full
+    % cross-product, one trailing df dimension per selected axis.
+    %
+    % The full designated training domain (domain.DN — not just DN(1)) is
+    % never a valid SWP candidate, explicit selection or not: DN(1)
+    % specifically is the axis scoreFold resolves per-timepoint scores over
+    % (nTime, fixed above from the FULL un-swept axis) — sweeping it too
+    % would slice every combo down to a single value while nTime upstream
+    % still expects the full axis, starving folds down to far fewer samples
+    % than the CTG/SWP combo count suggests. Nothing else in this file
+    % structurally depends on DN(2+) staying full-width today, but treating
+    % the whole designated domain as off-limits — not just the one index
+    % this file happens to touch — is the simpler, less surprising rule.
+    % The intended usage is either/or: set domain.DN to the axis/axes you
+    % want fixed/scored, or set it to something else (or "None") and sweep
+    % that axis via SWP instead.
+    %
+    % FTR has no such structural conflict — nFeat is computed dynamically
+    % per fit call (e.g. size(mdlObj.DM.X,2) in nexFit_lda), nothing
+    % precomputes or fixes a feature count ahead of this loop — so an
+    % EXPLICIT domain.SWP selection of FTR (e.g. sweep each unit
+    % individually as a per-unit screen) is honored. FTR is excluded only
+    % from the UNGUIDED auto-detect fallback below, where silently sweeping
+    % away the model's only feature axis without being asked would be a bad
+    % guess, not from something deliberately selected.
+    dnStr = string(mdlObj.domain.DN);
+
+    swpIDs = string.empty(1, 0);
+    if isfield(mdlObj.domain, 'SWP')
+        domSWP = string(mdlObj.domain.SWP);
+        swpIDs = domSWP(domSWP ~= "None");
     end
-    if swpID == ""
+    skipped = swpIDs(ismember(swpIDs, dnStr));
+    if ~isempty(skipped)
+        warning(['[nexAnalysis_cvPermute] SWP axis "%s" is also the training axis ' ...
+                 '(domain.DN) — dropping it from the sweep. To sweep this axis, ' ...
+                 'remove it from domain.DN first (e.g. set DN to "None" or another axis).'], ...
+                strjoin(skipped, '", "'));
+        swpIDs = swpIDs(~ismember(swpIDs, dnStr));
+    end
+    if isempty(swpIDs)
         % Fall back to auto-detect: any ptr axis that is not DN or FTR and
         % has a real dim (the legacy behaviour before explicit SWP bus).
-        dnStr  = string(mdlObj.domain.DN);
         ftrStr = string(mdlObj.domain.FTR);
         skip   = [dnStr, ftrStr];
         ptrAx  = string(fieldnames(STAT_full.ptr(1))');
@@ -86,34 +137,48 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
             hasDim = arrayfun(@(ax) ~isempty(STAT_full.ptr(1).(char(ax)).dim), cands);
             cands  = cands(hasDim);
         end
-        if ~isempty(cands), swpID = cands(1); end
+        if ~isempty(cands), swpIDs = cands(1); end
     end
-    hasSwp = swpID ~= "";
-    if hasSwp
-        % Iterate by unique label value, not raw positional index — axis
-        % granularity (one-position-per-unit vs repeated-region-labels vs
-        % fully-pooled-region) is entirely controlled upstream via
-        % poolMap's groupBy/nDivsPerBin (see nexObj_poolMap/nexOp_poolAxes);
-        % SWP just needs to group whatever labels it's handed. 'stable'
-        % keeps iteration order matching physical axis order rather than
-        % sorting, since repeated labels (e.g. region names) are typically
-        % contiguous along the probe.
-        rawSwpVals = STAT_full.ax(1).(char(swpID));
-        swpVals    = unique(rawSwpVals, 'stable');
-        nSwp       = numel(swpVals);
-        % swpID may be a co-indexed label with no dimension of its own
+
+    % Resolve each candidate axis to its unique values + df dimension.
+    % Iterate by unique label value, not raw positional index — axis
+    % granularity (one-position-per-unit vs repeated-region-labels vs
+    % fully-pooled-region) is entirely controlled upstream via poolMap's
+    % groupBy/nDivsPerBin (see nexObj_poolMap/nexOp_poolAxes); SWP just
+    % needs to group whatever labels it's handed. 'stable' keeps iteration
+    % order matching physical axis order rather than sorting, since
+    % repeated labels (e.g. region names) are typically contiguous along
+    % the probe.
+    swpAxes  = struct('id', {}, 'raw', {}, 'vals', {}, 'dim', {}, 'n', {});
+    dimsUsed = [];
+    for a = 1:numel(swpIDs)
+        id  = swpIDs(a);
+        raw = STAT_full.ax(1).(char(id));
+        % id may be a co-indexed label with no dimension of its own
         % (e.g. 'chans' riding on 'unit') — resolve through the co-index
         % registry the same way nexOp_alignCoAxes resolves REG/FTR.
-        swpDim  = resolveAxisDim(STAT_full.ax(1), STAT_full.ptr(1), swpID);
-        if isempty(swpDim)
-            warning('[nexAnalysis_cvPermute] SWP axis "%s" has no resolvable dimension (not co-indexed to one either) — disabling SWP.', swpID);
-            hasSwp = false;
-            nSwp   = 1;
-        else
-            fprintf('[nexAnalysis_cvPermute] SWP axis: %s (%d values)\n', swpID, nSwp);
+        dim = resolveAxisDim(STAT_full.ax(1), STAT_full.ptr(1), id);
+        if isempty(dim)
+            warning('[nexAnalysis_cvPermute] SWP axis "%s" has no resolvable dimension (not co-indexed to one either) — dropping it from the sweep.', id);
+            continue;
         end
+        if ismember(dim, dimsUsed)
+            warning('[nexAnalysis_cvPermute] SWP axis "%s" shares its dimension with an earlier SWP axis — dropping it from the sweep.', id);
+            continue;
+        end
+        dimsUsed(end+1) = dim; %#ok<AGROW>
+        swpAxes(end+1) = struct('id', id, 'raw', raw, 'vals', unique(raw, 'stable'), ...
+                                 'dim', dim, 'n', numel(unique(raw, 'stable'))); %#ok<AGROW>
+    end
+    hasSwp = ~isempty(swpAxes);
+    if hasSwp
+        nSwpPerAxis = [swpAxes.n];
+        nSwp        = prod(nSwpPerAxis);
+        fprintf('[nexAnalysis_cvPermute] SWP axes: %s (%s values -> %d combos)\n', ...
+                strjoin([swpAxes.id], " x "), strjoin(string(nSwpPerAxis), " x "), nSwp);
     else
-        nSwp = 1;
+        nSwpPerAxis = [];
+        nSwp        = 1;
     end
 
     % ── 4b. REG canonical dimension — for per-SWP-value NaN cropping ─────────
@@ -180,17 +245,27 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
 
         for si = 1:nSwp
             if hasSwp
-                % Select every position whose raw label matches this
+                % Decompose the flat combo index into one subscript per SWP
+                % axis (column-major — axis 1 varies fastest, matching how
+                % `scores` gets reshaped back to N-D in step 5e), then slice
+                % STAT_ctg down each axis's own dimension in turn. Select
+                % every position whose raw label matches that axis's chosen
                 % unique value — a single index when labels are already
                 % unique per-position (raw chans, or region+sub-bin), or
                 % multiple indices when several positions share a label
                 % (e.g. per-element region labels via groupBy='region',
                 % nDivsPerBin=0). sliceDim/sliceSTAT need no changes for
                 % this: MATLAB indexing already accepts a vector here.
-                swpIdx  = find(matchesSWPValue(rawSwpVals, swpVals(si)));
-                STAT_si = sliceSTAT(STAT_ctg, swpDim, swpIdx);
-                fprintf('[nexAnalysis_cvPermute]   %s %d/%d (%s, %d feature(s))\n', ...
-                        swpID, si, nSwp, string(swpVals(si)), numel(swpIdx));
+                subs       = swpLinToSubs(si, nSwpPerAxis);
+                STAT_si    = STAT_ctg;
+                comboParts = strings(1, numel(swpAxes));
+                for a = 1:numel(swpAxes)
+                    val           = swpAxes(a).vals(subs(a));
+                    swpIdx        = find(matchesSWPValue(swpAxes(a).raw, val));
+                    STAT_si       = sliceSTAT(STAT_si, swpAxes(a).dim, swpIdx);
+                    comboParts(a) = sprintf('%s=%s(%d feature(s))', swpAxes(a).id, string(val), numel(swpIdx));
+                end
+                fprintf('[nexAnalysis_cvPermute]   combo %d/%d: %s\n', si, nSwp, strjoin(comboParts, ', '));
             else
                 STAT_si = STAT_ctg;
             end
@@ -246,7 +321,13 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
         mdlObj.trainMask = [];
 
         % ── 5e. Pack result DF ────────────────────────────────────────────────
-        if ~hasSwp
+        if hasSwp
+            % Unflatten the combo dim into one trailing dim per SWP axis —
+            % column-major reshape matches swpLinToSubs's own mixed-radix
+            % decomposition (axis 1 varies fastest), so combo si and
+            % subscript (i1,...,iA) always refer to the same slice.
+            scores = reshape(scores, [nFolds, 1+nPermute, nTime, nSwpPerAxis]);
+        else
             scores = scores(:,:,:,1);   % drop SWP singleton
         end
 
@@ -261,12 +342,16 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
         % supported because the result of method 'permute' is a temporary
         % value").
         R.ax.perm = ["real", compose("null_%03d", 1:nPermute)];
-        R.ax.t       = dnAx;
+        if ~strcmp(dn, "None")
+            R.ax.(dn) = dnAx;   % dn = domain.DN(1) — not necessarily "t"
+        end
         if hasSwp
-            R.ax.(char(swpID)) = swpVals;
+            for a = 1:numel(swpAxes)
+                R.ax.(char(swpAxes(a).id)) = swpAxes(a).vals;
+            end
         end
         R = nex_initAxisPointer_v2(R);
-        R.fitSentinel = sentinels;   % {1×nSwp} cell, one struct per SWP value
+        R.fitSentinel = sentinels;   % {1×nSwp} cell, one struct per SWP combo
 
         % ── 5f. Build result STAT row ─────────────────────────────────────────
         row = table({R.df}, {R.ax}, {R.ptr}, {R.fitSentinel}, ...
@@ -333,6 +418,23 @@ function dim = resolveAxisDim(ax, ptr, axisName)
                 return;
             end
         end
+    end
+end
+
+
+% ── Decompose a flat combo index into one subscript per SWP axis ─────────────
+% Column-major (mixed-radix) decomposition — axis 1 varies fastest — the same
+% convention MATLAB's own reshape/ind2sub use, so a `scores` array flattened
+% during the fold loop reshapes back to N-D (step 5e) with combo si and
+% subs(a) always referring to the same slice. Works for any number of axes,
+% including zero-length dims (single-axis SWP, or no SWP at all via si==1).
+function subs = swpLinToSubs(si, dims)
+    nd   = numel(dims);
+    subs = ones(1, nd);
+    rem  = si - 1;
+    for d = 1:nd
+        subs(d) = mod(rem, dims(d)) + 1;
+        rem     = floor(rem / dims(d));
     end
 end
 
@@ -455,21 +557,42 @@ function score = scoreFold(mdlObj, tVar, isCont, nTime)
         return;
     end
 
-    dn    = char(mdlObj.domain.DN(1));
-    dnDim = STAT_test.ptr(1).(dn).dim;
-
-    if dnDim == 1
-        X_test = cell2mat(STAT_test.df);
+    dn = char(mdlObj.domain.DN(1));
+    if strcmp(dn, "None")
+        % No training-domain axis. nexOp_stackSTAT has no notion of
+        % domain.DN at all — it always keeps dim 2 of each trial's df as
+        % the feature axis and flattens every OTHER dim (including whatever
+        % dim 1 naturally is) into stacked rows. For a genuinely
+        % already-collapsed source that's a no-op (one row per trial); for
+        % a raw, not-yet-embedded source it still expands dim 1 into many
+        % rows per trial, same as training does via stat2dm_supervised.
+        % Training doesn't care about that multiplier because it builds X
+        % AND Y from the same stacking, so they stay self-consistent
+        % regardless — pull Y from that same G_stack here too instead of
+        % assuming one row per trial, so X_test/Y_trial/nTest can't diverge
+        % from whatever predict() actually sees.
+        [X_test, G_test] = nexOp_stackSTAT(STAT_test);
+        Y_trial = G_test.(tVar);
+        if iscell(Y_trial), Y_trial = [Y_trial{:}]'; end
+        nTest = size(X_test, 1);
+        nTime = 1;
     else
-        order  = [dnDim, setdiff(1:ndims(STAT_test.df{1}), dnDim)];
-        X_test = cell2mat(cellfun(@(df) permute(df, order), ...
-                          STAT_test.df, 'UniformOutput', false));
+        dnDim = STAT_test.ptr(1).(dn).dim;
+        if dnDim == 1
+            X_test = cell2mat(STAT_test.df);
+        else
+            order  = [dnDim, setdiff(1:ndims(STAT_test.df{1}), dnDim)];
+            X_test = cell2mat(cellfun(@(df) permute(df, order), ...
+                              STAT_test.df, 'UniformOutput', false));
+        end
+        X_test = reshape(X_test, nTest * nTime, []);
     end
-    X_test = reshape(X_test, nTest * nTime, []);
 
     try
         Y_pred_flat = mdlObj.predict(X_test);
-    catch
+    catch e
+        fprintf('[nexAnalysis_cvPermute] scoreFold: predict() failed — X_test is %s.\n', mat2str(size(X_test)));
+        disp(getReport(e));
         keyboard
     end
 

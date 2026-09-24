@@ -1,30 +1,47 @@
-function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel)
+function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel, precompiled)
     % for each DF in DF_col, use dim selection (bus) to slice coordinate of
     % interest and arrange a multi-factoral column-wise grouping/labeling
     % for downstream analysis/visualization
     % extract grouping columns (for every selection that is not empty)
     % for each category (use items)
+    %
+    % precompiled (optional, mdlObj callers only): struct(TF, idxSel, drop)
+    % as returned via the 4th output `aligned` from an earlier call. When
+    % supplied, skips straight past raw-compile + CO-AXIS ALIGNMENT below —
+    % including the fitSentinel/refreshPointerFromPool side effects —
+    % reusing that earlier alignment's TF/idxSel/drop verbatim. This is
+    % what mdlObject.precompileSTAT()/compileSTAT() use to let a Pointer
+    % subselection made AFTER canonicalizing survive into pooling instead
+    % of being wiped by a second refreshPointerFromPool call (see
+    % mdlObject.invalidatePrecompile() for when this cache gets cleared).
 
+    if nargin < 6, precompiled = []; end
     nexon = nexObj.nexon;
+
+    if ~isempty(precompiled)
+        TF     = precompiled.TF;
+        idxSel = precompiled.idxSel;
+        drop   = precompiled.drop;
+    else
     % READ DATA / RESPONSE VARIABLE
     if isempty(idxSel)
             % GLOBAL FILTER
             S = nex_returnSelectionMask(nexon.console.BASE.controlPanel.averagingSelection);
             idxSel = nex_applySelectionMask(nexon.console.BASE.DTS,S);
-            % TF = dtsIO_readTF(nexon, dfID, idxSel);               
+            % TF = dtsIO_readTF(nexon, dfID, idxSel);
             try
-                S_items = nex_returnSelectionMask(nexObj.Origin.selectionBus.items);                    
+                S_items = nex_returnSelectionMask(nexObj.Origin.selectionBus.items);
             catch
                 keyboard
             end
             S_categories = nex_returnSelectionMask(nexObj.Origin.selectionBus.categories);
             S_merge = nexOp_mergeSelections_categorical(S_categories, S_items);
-            idxSel = [idxSel & nex_applySelectionMask(nexon.console.BASE.DTS, S_merge)];                    
-    end    
+            idxSel = [idxSel & nex_applySelectionMask(nexon.console.BASE.DTS, S_merge)];
+    end
     % Build ptr from ax-- category selections for hyperslab reads.
     ptr_filter = nexOp_buildPtrFromAxSel(S_categories, S_items, nexObj);
     [TF, drop] = nexOp_compileTF(nexObj.nexon, idxSel, dfID, ptr_filter);
-    
+
     % CO-AXIS ALIGNMENT — canonicalize FTR axis across sessions, on the RAW
     % TF, before any pooling. Must happen first: positional (axID) pooling
     % computes bin edges from each trial's own raw axis extent, which is
@@ -50,18 +67,30 @@ function [STAT, idxSel, drop] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_
             if ismember('fitSentinel', fieldnames(nexObj))
                 nexObj.fitSentinel = struct('regAxis', char(nexObj.domain.REG), ...
                                              'canonReg', canonReg, 'ftrAxis', ftrAxis);
-                % The Pointer bus's option list for this axis may still be
-                % built from a narrower, pre-canonicalization reference —
-                % refresh it so "select all" actually means the full
-                % canonical set (see refreshPointerFromSentinel).
-                if ismethod(nexObj, 'refreshPointerFromSentinel')
-                    nexObj.refreshPointerFromSentinel();
-                end
             end
         end
     catch e
         fprintf('[nexOp_compileSTAT] alignCoAxes skipped: %s\n', e.message);
     end
+
+    % Seed/refresh the Pointer bus from THIS alignment's own axis layout
+    % (canonicalized if REG was set, else just TF's current — un-cached —
+    % layout), pooled through mdlObj's CURRENT pMap: cheap, label-only (see
+    % refreshPointerFromPool — never touches .df), so "select all" in the
+    % UI actually means all of what Fit/CV will really see. Runs once per
+    % fresh alignment (Compile press, or a cold Fit that skipped Compile)
+    % — this whole branch is skipped on a cache-reusing compileSTAT() call
+    % (see the `if ~isempty(precompiled)` above), so a Pointer/pMap
+    % subselection made after this survives into repeated Fits untouched.
+    if ismethod(nexObj, 'refreshPointerFromPool') && ~isempty(TF)
+        try
+            nexObj.refreshPointerFromPool(TF{1});
+        catch e
+            fprintf('[nexOp_compileSTAT] refreshPointerFromPool skipped: %s\n', e.message);
+        end
+    end
+    end
+    aligned = struct('TF', {TF}, 'idxSel', idxSel, 'drop', drop);
 
     % AXIS POOLING
     try
