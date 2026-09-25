@@ -55,7 +55,17 @@ classdef nexObj_bar < nexObject
 
             obj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_bar"));
 
-            % Wire to source and pull existing results
+            % Wire to source and register STUBS for its existing results —
+            % same lazy pattern as nexObject.discoverResults()/applySRC:
+            % RESULTS.(id) = [] populates the SRC list immediately (cheap —
+            % just names), the real table is pulled from the live source
+            % only when that key is actually selected (see applySRC below).
+            % A cvPermute RESULTS table can be a genuinely large N-D score
+            % array (nFolds × (1+nPermute) × nTime × nSWP), and a source
+            % mdlObj can accumulate several of these over a session — eager
+            % deep-copying every one of them here (the old behavior) is
+            % real, avoidable startup cost when only one is ever shown
+            % first.
             if ~isempty(source) && ~isa(source, 'Nexon')
                 obj.source = source;
                 if ~isstruct(source.Partners), source.Partners = struct(); end
@@ -63,7 +73,7 @@ classdef nexObj_bar < nexObject
                 if isstruct(source.RESULTS) && ~isempty(fieldnames(source.RESULTS))
                     ids = string(fieldnames(source.RESULTS))';
                     for i = 1:numel(ids)
-                        obj.RESULTS.(ids(i)) = source.RESULTS.(ids(i));
+                        obj.RESULTS.(ids(i)) = [];
                     end
                 end
             end
@@ -109,6 +119,25 @@ classdef nexObj_bar < nexObject
         % aggregated — see class header — never individually
         % Pointer-windowed); rebuild CTG/VW/Pointer; visualize.
             if ~isfield(obj.RESULTS, srcKey), return; end
+
+            % Lazy-load stub on first selection — mirrors nexObject's own
+            % discoverResults()/applySRC stub convention, sourced from the
+            % live mdlObj instead of nexRESULTS.h5 (see constructor comment).
+            % try/catch guards against obj.source having been deleted since
+            % the stub was registered — isvalid() alone isn't enough since
+            % property access on an already-deleted handle throws.
+            if isempty(obj.RESULTS.(srcKey))
+                try
+                    if isempty(obj.source) || ~isvalid(obj.source) ...
+                            || ~isfield(obj.source.RESULTS, srcKey)
+                        return;   % source gone, or result no longer there
+                    end
+                    obj.RESULTS.(srcKey) = obj.source.RESULTS.(srcKey);
+                catch
+                    return;
+                end
+            end
+
             bus = obj.collector.View;
             idx = find(string(bus.selKeys.SRC) == string(srcKey), 1);
             if ~isempty(idx)
@@ -136,6 +165,19 @@ classdef nexObj_bar < nexObject
             obj.domain = obj.inferDomain();
             obj.initPointerBus();
             obj.rebuildPointerPanel();
+
+            % Seed ax--<field> CLR options from this result's own axis
+            % fields — mirrors nexObject.initCollectorView's own ax--
+            % seeding, which nexObj_bar doesn't call (its CTG/VW come from
+            % the RESULTS table's own columns, not a categorical
+            % selectionBus, so the rest of that method doesn't fit here).
+            % refreshCLR() below only PRESERVES existing ax-- keys across
+            % refreshes — it never adds new ones — so this has to run
+            % before it. Selecting one only actually colors a bar when the
+            % axis name is also a real column on R (true for the CTG
+            % columns and for nexVisualization_bar's own expand-axis
+            % column); resolveGroupColors silently skips any other ax--key.
+            bus.selKeys.CLR = union(bus.selKeys.CLR, "ax--" + string(axFields)', 'stable');
 
             obj.refreshCTG_bar(R);
             obj.refreshVW();

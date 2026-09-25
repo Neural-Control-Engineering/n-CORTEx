@@ -236,4 +236,178 @@ instead of an assembled `DM`), and a caching-lifetime decision mirroring
 existence of a working alternative (Phase 1/2 split) for the case that
 surfaced it.
 
+**Update:** superseded — actually needed after all (region-blocked unit
+reduction is itself the analysis, not incidental preprocessing, so the
+Phase 1/2 workaround above doesn't give per-region blocks the way `nexHR`'s
+own layout does). Now being implemented for real; see entry 4.
+
+---
+
+## 4. `nexOp_stackByFTR` (and `fitReduce`/`applyReduce` built on it) only support a single FTR axis
+
+**Status:** In progress, as part of implementing entry 3's real fix.
+`nexOp_stackByFTR.m` is written and deliberately scoped to exactly one FTR
+axis for now.
+
+**Context:** `nexHR_fit`/`nexHR_transform` support a genuinely hierarchical,
+multi-axis layout (recursing block-PCA across more than one feature axis at
+once — see their own docstrings). `nexOp_stackByFTR(STAT, ftrAxis)`, needed
+to feed them raw (pre-pool) stacked data so reduction happens before a
+pool-mode axis collapses anything, currently takes a *single* axis name and
+explicitly documents multi-axis FTR as unsupported. This matches every
+actual caller today — `domain.FTR` has only ever been one axis in this
+codebase — so it's not a regression, just a narrower implementation than
+`nexHR_fit` itself is capable of.
+
+**Design (when generalized):** `ftrAxis` becomes `ftrAxes` (ordered string
+array, outermost-first — same convention `buildFTRLayout` already uses).
+Per trial: resolve each axis's own `.ptr.(axis).dim` (still always by name,
+never positional), move *all* of them to the trailing dimensions (in
+`ftrAxes` order) instead of just one, fold every remaining dim into the
+leading sample dimension exactly as now. The per-sample companion table `G`
+construction (expand each folded-in axis's values, Nbefore/Nafter) doesn't
+change in kind, just needs to skip every `ftrAxes` member instead of one.
+
+**Touches:** `nexOp_stackByFTR.m`, and whatever in `mdlObject.m`
+(`fitReduce`/`applyReduce`, once those land) passes it a single axis name
+today.
+
+**Depends on:** Entry 3 landing first (this is a narrowing within that
+work, not a separate feature) — and an actual use case with more than one
+reduce-mode FTR axis to design/test against, which doesn't exist yet.
+
+---
+
+## 5. `needsHR` reduce-then-pool is only wired up for `dmCfg.format == "supervised"`
+
+**Status:** Not started beyond the `"supervised"` case. Surfaced while fixing
+entry 3/4's plain-`fit()` path (the "Fit" button / `nexFigure_lda_visualize`'s
+transform call) for `mdlObj_lda`.
+
+**Context:** `nexOp_compileSTAT` skips *all* pMap pooling for a `needsHR`
+mdlObj, unconditionally — the skip isn't gated on `dmCfg.format`. Two
+consumers were updated to compensate with an explicit reduce-then-pool
+sequence (`fitReduce`/`applyReduce` + `nexOp_poolStackedDM` +
+`nexOp_quantizeY` + `nexOp_buildSupervisedDM`): `nexAnalysis_cvPermute.m`
+(per fold/SWP) and `mdlObject.getDesignMatrix()`/`flattenInput()` (for a
+plain, non-CV fit). Both gate the new path on
+`strcmp(mdlObj.cfg.dmCfg.format, "supervised")` — `nexOp_buildSupervisedDM`'s
+Y-encoding (`nexOp_labelEncode`, quantile bins via `nexOp_quantizeY`, `DM.K`)
+is specific to that format, and `"supervised"` (LDA/logistic) is the only
+format this sequence has actually been built and exercised against. Any
+`mdlObj` with `dmCfg.format` = `"stack"`, `"batch"`, or `"regression"` *and*
+a `needsHR` pMap (e.g. an SSM or CEBRA model with a reduce-mode FTR axis
+coexisting with a pool-mode axis) still falls through to the old
+`dmFcn`/`buildFTRLayout`/`initReducer` path — which, since
+`nexOp_compileSTAT`'s pooling skip isn't format-gated either, still sees a
+fully unpooled pool-mode axis for those formats. Same underlying bug as
+entry 3, just not yet fixed outside `"supervised"`.
+
+**Design (when generalized):** The reduce+pool half
+(`fitReduce`/`applyReduce` → `nexOp_poolStackedDM`) is already format-agnostic
+— it only produces `{X, G}`, no `Y`/label handling at all. What's
+format-specific is exactly the DM-assembly tail: `"supervised"` needs
+`nexOp_buildSupervisedDM` (X, quantized Y, K); `"stack"`/`"batch"` (SSM/CEBRA,
+unsupervised) would need nothing more than `DM = X` directly, no Y step at
+all; `"regression"` would need something between the two (continuous Y, no
+quantization/label-encoding) — check `stat2dm_regression.m`'s own DM shape
+before assuming `nexOp_buildSupervisedDM` can just be reused as-is. The
+`strcmp(..., "supervised")` gates in `getDesignMatrix()`/`flattenInput()`/
+`nexAnalysis_cvPermute.m` would become a dispatch on format instead (mirroring
+how `dmFcn = str2func(sprintf("stat2dm_%s", ...))` already dispatches today).
+
+**Touches:** `mdlObject.m` (`getDesignMatrix`, `flattenInput` — the
+`strcmp(...,"supervised")` gates), `nexAnalysis_cvPermute.m` (same gate, if
+it has one at the point this is read — check its needsHR branch), a new
+format-specific DM-assembly helper per non-supervised format that needs one
+(alongside `nexOp_buildSupervisedDM.m`).
+
+**Depends on:** An actual `needsHR` use case in a non-`"supervised"` format
+to design/test against — doesn't exist yet (this codebase's reduce-mode +
+pool-mode combination has only been exercised via `mdlObj_lda`).
+
+---
+
+## 6. `nexObj_bar`: true 3D ("lego") nesting across two Pointer axes at once
+
+**Status:** Not started. `nexVisualization_bar`/`nexOp_barStatFromScores`
+now support nesting exactly ONE Pointer axis's multi-item selection as an
+extra CTG-style tier (2D nested/clustered bars — `resolveExpandAxis` picks
+the first qualifying axis by field order); any *other* axis with a
+multi-item Pointer selection still collapses via mean, same as before this
+landed.
+
+**Context:** Came up discussing why multi-selecting a Pointer axis on the
+bar chart just averaged the selected items together instead of showing them
+as separate bars. The 2D case (one expanded axis, nested alongside CTG) was
+implemented; a true two-axis version — bars arranged on an X×Y categorical
+grid with height as Z, informally a "lego plot" — was explicitly deferred
+as a bigger step: `bar3`/`bar3h` (MATLAB's own 3D-bar primitive) don't
+support per-bar `FaceColor='flat'` + error bars the way the current
+persistent `bar()`/`errorbar()`/`yline()` handle set does, so this would
+mean hand-drawing 3D bars from patches — and the error-bar/null-band
+comparison that's this chart's whole point gets much harder to read in 3D
+regardless.
+
+**Design (if pursued):** `resolveExpandAxis` would need to return up to two
+axes instead of one; `nexOp_barStatFromScores` would need to expand along
+both simultaneously (nested loop over both axes' kept indices, rather than
+the current single `for j = 1:nItems` loop) instead of collapsing every
+axis beyond the first; and the rendering side would need an actual 3D
+drawing path (patches or `bar3`) plus a decision on how to still show
+error/null-band information in that view — none of which exists today.
+
+**Touches (anticipated):** `nexVisualization_bar.m` (`resolveExpandAxis`,
+the rendering section — would likely become a real branch: 2D `bar()` path
+vs. a new 3D path), `nexOp_barStatFromScores.m` (generalize the single
+`expandAxis` to up to two).
+
+**Depends on:** Nothing architecturally — deferred purely because the 2D
+case covers the immediate need and the 3D rendering/error-display questions
+above aren't resolved yet.
+
+---
+
+## 7. `nexObj_fitScope`: `readSlice()` doesn't check its own previously-saved output patch
+
+**Status:** Not started. Surfaced while making `saveFit()`'s output format
+robust (the unified `df`/`ax`/`df_fit`/`ax_fit`/`kernel` sibling patch,
+keyed by the user-typed output label).
+
+**Context:** `saveFit()` already reads-before-writes its OWN output patch
+(`specparam_<label>`) so repeated saves — today, or reopening the same
+label in a later session — accumulate into one growing `df_fit` volume
+instead of clobbering each other. But `readSlice()` (which seeds the
+spinner panel's starting values, at construction and nowhere else per the
+"Pointer nav shouldn't reset hand-tuning" fix) only ever checks `dfID_ap`/
+`dfID_pe` — the *pre-existing*, `nexFit_specParam`-produced batch patches
+passed into the constructor. It never looks at whatever the user has
+already saved under their own output label. So reopening `fitScope` on a
+label you've been building up over several sessions currently starts every
+slice back at the kernel's bare defaults (or the batch fit, if any) even
+for a chan/t you already hand-tuned and saved last time — your own saved
+work isn't visible until you happen to re-tune and re-save that exact slot
+again.
+
+**Design (if pursued):** Add a `dfID_fit` constructor arg/property (the
+label-derived `specparam_<label>` patch — the SAME one `saveFit` writes,
+not `dfID_ap`/`dfID_pe`) that's optional (empty until the first save, or
+passed in directly to resume an existing label). `readSlice()` would check
+it FIRST (highest priority — "what I already saved here" should win over
+"what the batch pipeline produced"), falling through to the existing
+`dfID_ap`/`dfID_pe` check, then the kernel's bare defaults, same as today.
+Reading a slot out of `df_fit` just means indexing
+`DF_fit.df_fit(ci, ti, :)` against `DF_fit.ax_fit.param` and building a
+kernel_args struct from the name/value pairs — the literal inverse of
+`spcpmIO_kernel2vector`, small enough it may not even need its own helper
+file.
+
+**Touches (anticipated):** `nexObj_fitScope.m` (`readSlice`, constructor —
+new `dfID_fit` property/arg), `nexLaunchAdapt_fitScope.m` (would need to
+pass/derive `dfID_fit` too, or leave it empty for a fresh launch).
+
+**Depends on:** Nothing architecturally — deferred because the immediate
+ask was making the SAVE side robust, not resuming a label across sessions
+yet.
+
 ---

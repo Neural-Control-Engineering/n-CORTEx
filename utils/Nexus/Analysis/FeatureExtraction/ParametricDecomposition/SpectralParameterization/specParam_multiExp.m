@@ -1,5 +1,14 @@
-function [specs, kernel_args, psd_fit] = specParam_multiExp(f_psd, df_psd, args)
-    
+function [specs, kernel_args, psd_fit] = specParam_multiExp(f_psd, df_psd, args, df_cf)
+% df_cf (optional): caller-supplied segment-boundary corner frequencies —
+% same shape psdIO_readCornerFrequencies itself returns (real detected
+% corners only, NOT including f_psd(end) — that's still appended below
+% either way). When supplied, corner AUTO-detection and the near-line-
+% noise (55-65 Hz) push-away are both skipped entirely: the caller is
+% asserting these boundaries are already deliberate (e.g. nexObj_
+% fitScope's Fit_pe reusing the current FC2/FC3 from an existing
+% aperiodic fit to re-segment for a peaks-only re-fit — FC1 itself is
+% just fRange_start, not a real corner, see spcpmIO_multiSpecs2vector).
+
     % CFG HEADER
     peakWidth_min = args.peakWidth_min; % default = 4
     peakWidth_max = args.peakWidth_max; % default = 8  
@@ -18,12 +27,14 @@ function [specs, kernel_args, psd_fit] = specParam_multiExp(f_psd, df_psd, args)
     min_peak_height = py.int(args.peakHeight_min);
     peak_threshold = py.int(args.peakThreshold);
 
-    % locate corner frequencies
-    df_cf = psdIO_readCornerFrequencies(f_psd, df_psd);
-    % push cornerfrequencies away from line freq (60 Hz)
-    lineFreqCond = (df_cf>55)&(df_cf<65);
-    % df_cf(lineFreqCond)=df_cf(lineFreqCond)+20;
-    df_cf(lineFreqCond)=65;
+    if nargin < 4 || isempty(df_cf)
+        % locate corner frequencies
+        df_cf = psdIO_readCornerFrequencies(f_psd, df_psd);
+        % push cornerfrequencies away from line freq (60 Hz)
+        lineFreqCond = (df_cf>55)&(df_cf<65);
+        % df_cf(lineFreqCond)=df_cf(lineFreqCond)+20;
+        df_cf(lineFreqCond)=65;
+    end
     df_cf = [df_cf, f_psd(end)];
     specParam = py.importlib.import_module('specparam');               
     mode_PE='gaussian';
@@ -57,17 +68,33 @@ function [specs, kernel_args, psd_fit] = specParam_multiExp(f_psd, df_psd, args)
             f_start = df_cf(i-1)+tol_Hz;            
         end
         fCond = (f_psd>=f_start)&(f_psd<=f_end);
-        f_i = py.numpy.array(f_psd(fCond));
         psd_i = df_psd(fCond);
-        psd_i_deLog = py.numpy.array(10.^((psd_i)/10));
-        fg.fit(f_i,psd_i_deLog);
-        % specs = fg.results.params;
-        specs.aperiodic_params=fg.results.params.aperiodic;
-        specs.periodic_params=fg.results.params.periodic;
-        specs.metrics=fg.results.metrics;
-        [specs_out, scores] = formatSpecParamOutputs(specs, args);
-        % specs_out(2) = fitEXP_segment(f_psd(fCond), psd_i, specs_out);
-        psd_fit      = spec2psd(f_psd(fCond), specs_out, 'fixed', 'gaussian');
+        % A degenerate segment (f_start beyond the data's actual range —
+        % e.g. a caller-supplied corner frequency, like fitPeriodic's own
+        % FC2/FC3 reuse, landing past f_psd(end)) selects zero points here.
+        % Python's specparam errors opaquely ("Inputs are not the right
+        % dimensions") on an empty fit — skip the fit and fill zeros
+        % instead of crashing; SPEC still gets a row so the caller's
+        % fixed-3-segment assumption (spcpmIO_multiSpecs2vector/
+        % spcpmIO_specs2kernel) isn't broken.
+        if sum(fCond) < 3
+            warning(['specParam_multiExp: segment %d [%.2f, %.2f] Hz has too ' ...
+                     'few samples (%d) to fit — filling zeros for this segment.'], ...
+                    i, f_start, f_end, sum(fCond));
+            specs_out = zeros(1, 2 + numPeaks_max*3);
+            psd_fit   = zeros(1, numel(psd_i));
+        else
+            f_i = py.numpy.array(f_psd(fCond));
+            psd_i_deLog = py.numpy.array(10.^((psd_i)/10));
+            fg.fit(f_i,psd_i_deLog);
+            % specs = fg.results.params;
+            specs.aperiodic_params=fg.results.params.aperiodic;
+            specs.periodic_params=fg.results.params.periodic;
+            specs.metrics=fg.results.metrics;
+            [specs_out, scores] = formatSpecParamOutputs(specs, args);
+            % specs_out(2) = fitEXP_segment(f_psd(fCond), psd_i, specs_out);
+            psd_fit      = spec2psd(f_psd(fCond), specs_out, 'fixed', 'gaussian');
+        end
         f_all = [f_all, f_psd(fCond)];
         psd_all = [psd_all, psd_i];
         psd_fit_all = [psd_fit_all, psd_fit];

@@ -319,11 +319,14 @@ classdef nexObj_channelGram < handle
             writeArgs.labelMode = "manual";
             switch writeArgs.labelMode
                 case "manual"
-                    % Figure_fitScope.UserData = [];
-                    % start a labelScope figure
-                    fitFcn = ('kernel_specparam_skewed_multiexp');
-                    % writeArgs.fitScope = nexObj_fitScope(fitFcn);
-                    nexObj.Children.fitScp = nexObj_fitScope(nexObj, nexObj.DF_postOp, fitFcn);
+                    % start a labelScope figure — modernized nexObj_fitScope
+                    % reads dfID_source directly (dtsIO, not a DF handed in)
+                    % plus whatever existing AP/PE fit patches share its
+                    % naming stem; adjust dfID_ap/dfID_pe here if this
+                    % channelGram's fits live under different patch names.
+                    dfID_ap = "specparam_ap_" + string(nexObj.dfID_source);
+                    dfID_pe = "specparam_pe_" + string(nexObj.dfID_source);
+                    nexObj.Children.fitScp = nexObj_fitScope(nexObj, nexObj.dfID_source, dfID_ap, dfID_pe);
                 case "auto"
             end
             MLIO_writeDS(DTS, DFID, writeFcn, writeArgs)

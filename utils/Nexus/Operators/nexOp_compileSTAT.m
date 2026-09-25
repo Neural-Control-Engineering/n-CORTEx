@@ -100,7 +100,22 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
             ptr = nexObj.Origin.DF_postOp.ptr;
         end
         pm = nexObj.pMap;
+        % When any pMap axis is reduce-mode (divsPerBin < 0), skip ALL
+        % pooling/relabeling here entirely — not just that axis's own
+        % no-op — and defer everything to fitReduce/applyReduce (raw-time
+        % block-PCA) + nexOp_poolStackedDM (pooling AFTER reduction, on the
+        % reduced output). Pooling any OTHER axis here first would still
+        % decimate the samples reduction needs to see at full resolution
+        % (see WIP.md #3) — the reduce-mode axis's own no-op alone isn't
+        % enough once a pool-mode axis coexists with it.
+        needsHR = false;
         if ~isempty(pm)
+            pmFields = fieldnames(pm);
+            needsHR  = any(arrayfun(@(i) pm.(pmFields{i}).divsPerBin < 0, 1:numel(pmFields)));
+        end
+        if needsHR
+            TF_pooled = TF;
+        elseif ~isempty(pm)
             try
                 TF_pooled = cellfun(@(DF) nexOp_poolAxes(pm, DF, ptr), TF, "UniformOutput",false);
             catch

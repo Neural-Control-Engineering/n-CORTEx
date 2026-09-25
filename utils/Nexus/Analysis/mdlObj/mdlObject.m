@@ -130,6 +130,7 @@ classdef mdlObject < handle
                 figFcn = str2func(sprintf("nexFigure_%s", mdlObj.modelID));
                 figFcn(mdlObj);
                 mdlObj.applyHeadline();
+                nexRegister_figure(mdlObj.nexon, mdlObj);   % reachable registry for router traversal + closeFcn cleanup
             end
         end
 
@@ -362,9 +363,14 @@ classdef mdlObject < handle
                 mdlObj.collector.View.Listeners.CTGSource = addlistener( ...
                     mdlObj.Origin.selectionBus.categories, 'selections', 'PostSet', ...
                     @(~,~) mdlObj.refreshCTG());
-            catch
+            catch err
                 % Origin/selectionBus.categories unavailable (e.g. headless
-                % agent reconstruction) — CTG just won't live-refresh.
+                % agent reconstruction) — CTG just won't live-refresh. Was a
+                % silent catch; surfaced because it's otherwise
+                % indistinguishable from the listener firing but bailing
+                % out inside refreshCTG() itself.
+                fprintf(['[mdlObject] initViewBus: CTGSource listener NOT wired (%s) ' ...
+                         '— this mdlObj''s CTG bus will not live-refresh from Origin.\n'], err.message);
             end
         end
 
@@ -376,12 +382,21 @@ classdef mdlObject < handle
         % every Predictor-family mdlObj figure (pca, lda, logistic,
         % linear) stays in sync when the parent nexObj_categorical's
         % active categories change after this figure was already built.
-            if ~isfield(mdlObj.collector, 'View') || ~isfield(mdlObj.collector.View, 'listBoxes') ...
-                    || ~isfield(mdlObj.collector.View.listBoxes, 'CTG')
-                return;
+        %
+        % collector.View is a nexObj_selectionBus HANDLE object, not a
+        % struct — isfield() on it directly always returns false (same
+        % pitfall documented in nexObj/CLAUDE.md for DF_postOp), which is
+        % why this used to bail out unconditionally on every call. Direct
+        % property access in try/catch, same as everywhere else in this
+        % codebase that touches a selectionBus instance.
+            try
+                lb = mdlObj.collector.View.listBoxes.CTG;
+            catch
+                return;   % View bus (or its CTG listbox) not built yet
             end
-            lb = mdlObj.collector.View.listBoxes.CTG;
-            if ~isvalid(lb), return; end
+            if isempty(lb) || ~isvalid(lb)
+                return;   % figure closed
+            end
 
             try
                 S_cat  = nex_returnSelectionMask(mdlObj.Origin.selectionBus.categories);
@@ -519,6 +534,57 @@ classdef mdlObject < handle
             if ~isempty(mdlObj.headline) && isfield(mdlObj.Figure, 'fh') && isvalid(mdlObj.Figure.fh)
                 mdlObj.Figure.fh.Name = mdlObj.headline;
             end
+            if isfield(mdlObj.Figure, 'fh') && isvalid(mdlObj.Figure.fh)
+                mdlObj.Figure.fh.CloseRequestFcn = @(~,~) mdlObj.closeFcn();
+            end
+        end
+
+        function closeFcn(mdlObj)
+        % Mirrors nexObject.closeFcn: unregister from the launcher registry
+        % and close the figure. Additionally clears this mdlObj's stale
+        % per-fit working data — STAT/DM/TRAIN/TEST and the nexHR reduction
+        % artifacts are large arrays (and, for HR, a Python model tree) tied
+        % to whatever was last compiled/fit; nothing outside this mdlObj
+        % needs them once its figure is gone. cfg/domain/collector/fitPath/
+        % model/RESULTS are left untouched — those are either persisted
+        % config or the fit artifact itself (saveFit'd separately), not
+        % per-compile working state.
+            try
+                figs = mdlObj.nexon.UserData.launchedFigures;
+                mdlObj.nexon.UserData.launchedFigures = ...
+                    figs(~cellfun(@(f) isequal(f, mdlObj), figs));
+            catch
+            end
+            % Drop the precompile PostSet listeners on Origin's
+            % selectionBus — each closure captures mdlObj itself
+            % (invalidatePrecompile), which would otherwise keep mdlObj
+            % (and the STAT/DM arrays cleared below) alive indefinitely via
+            % Origin's listener list even after this figure is closed.
+            try
+                if isstruct(mdlObj.precompileListeners)
+                    lf = fieldnames(mdlObj.precompileListeners);
+                    for i = 1:numel(lf)
+                        try, delete(mdlObj.precompileListeners.(lf{i})); catch, end
+                    end
+                end
+            catch
+            end
+            mdlObj.STAT               = [];
+            mdlObj.STAT_postOp        = [];
+            mdlObj.DM                 = [];
+            mdlObj.TRAIN              = [];
+            mdlObj.TEST               = [];
+            mdlObj.trainMask          = [];
+            mdlObj.HR                 = [];
+            mdlObj.FTR_layout         = [];
+            mdlObj.precompiledAligned = [];
+            mdlObj.precompileWatchersWired = false;
+            try
+                if isfield(mdlObj.Figure, 'fh') && isvalid(mdlObj.Figure.fh)
+                    delete(mdlObj.Figure.fh);
+                end
+            catch
+            end
         end
 
         function locateDataset(mlObj)
@@ -546,6 +612,48 @@ classdef mdlObject < handle
             % Pooling is handled by nexOp_compileSTAT before getDesignMatrix is called.
             mdlObj.TEST.STAT  = STAT_test;
             mdlObj.TRAIN.STAT = STAT_train;
+
+            % needsHR mdlObjs defer ALL pMap pooling to here — nexOp_compileSTAT
+            % skips it entirely (TF_pooled = TF) so a reduce-mode FTR axis
+            % (e.g. unit) sees full temporal resolution before a coexisting
+            % pool-mode axis (e.g. t) collapses it (WIP.md #3). Mirrors
+            % nexAnalysis_cvPermute's own reduce-then-pool sequence exactly
+            % (its "re-fit on full CTG data" step) — just on STAT_train
+            % directly, no folds/SWP/permutation. "supervised" dmCfg format
+            % only for now: nexOp_buildSupervisedDM's Y-encoding is specific
+            % to that format, and it's the only format this reduce-then-pool
+            % path has actually been exercised against. Other dmCfg formats
+            % combined with needsHR still fall through to the dmFcn/
+            % buildFTRLayout/initReducer path below, which — since
+            % nexOp_compileSTAT's pooling skip applies regardless of format —
+            % still sees an unpooled pool-mode axis for those formats.
+            needsHR = false;
+            if ~isempty(mdlObj.pMap)
+                pmFields = fieldnames(mdlObj.pMap);
+                needsHR  = any(arrayfun(@(i) mdlObj.pMap.(pmFields{i}).divsPerBin < 0, 1:numel(pmFields)));
+            end
+            if needsHR && strcmp(mdlObj.cfg.dmCfg.format, "supervised") && ~isempty(STAT_train)
+                poolAxis = nexOp_resolvePoolAxis(mdlObj.pMap);
+                [~, ~, ~, X_train_r, G_train] = mdlObj.fitReduce(STAT_train);
+                if poolAxis ~= ""
+                    [X_train_p, G_train_p] = nexOp_poolStackedDM(X_train_r, G_train, mdlObj.pMap, poolAxis);
+                else
+                    X_train_p = X_train_r; G_train_p = G_train;
+                end
+                tVar = char(mdlObj.dfID_target);
+                nBinsY = Inf;
+                try
+                    nBinsY = mdlObj.collector.Target.nBins;
+                catch
+                end
+                Y_train_raw = G_train_p.(tVar);
+                if iscell(Y_train_raw), Y_train_raw = [Y_train_raw{:}]'; end
+                [Y_train_q, edgesY] = nexOp_quantizeY(Y_train_raw, nBinsY);
+                mdlObj.DM = nexOp_buildSupervisedDM(X_train_p, Y_train_q, tVar, edgesY);
+                fprintf('[getDesignMatrix] needsHR: reduced+pooled train X %s\n', mat2str(size(X_train_p)));
+                return;
+            end
+
             % compile design matrix (ND: first dim = samples, rest = FTR axes)
             dmFcn     = str2func(sprintf("stat2dm_%s", mdlObj.cfg.dmCfg.format));
             mdlObj.DM = dmFcn(mdlObj);
@@ -605,7 +713,19 @@ classdef mdlObject < handle
         function initReducer(mdlObj)
         % Base: fit nexHR when any FTR axis has negative divsPerBin.
         % Otherwise flatten DM to 2D. Subclasses may override (SSM does).
+        % dmCfg formats differ in shape: "stack"/"batch"/"regression" leave
+        % DM a plain numeric array; "supervised" (stat2dm_supervised) makes
+        % DM a struct {X,Y,K}. nexHR_fit/reshape only ever operate on the
+        % numeric part — resolve it once here so both shapes are handled
+        % identically instead of silently reducing/reshaping a struct.
             if isempty(mdlObj.DM), return; end
+            isStructDM = isstruct(mdlObj.DM) && isfield(mdlObj.DM, 'X');
+            if isStructDM
+                X_in = mdlObj.DM.X;
+            else
+                X_in = mdlObj.DM;
+            end
+            if isempty(X_in), return; end
             layout   = mdlObj.FTR_layout;
             needsHR  = ~isempty(layout) && ~isempty(mdlObj.pMap) && ...
                 any(arrayfun(@(e) isfield(mdlObj.pMap, e.axID) && ...
@@ -615,10 +735,90 @@ classdef mdlObject < handle
                          isfield(mdlObj.cfg.fitCfg, 'entryParams') && ...
                          isfield(mdlObj.cfg.fitCfg.entryParams, 'useGPU') && ...
                          mdlObj.cfg.fitCfg.entryParams.useGPU;
-                [mdlObj.DM, mdlObj.HR] = nexHR_fit(mdlObj.DM, layout, mdlObj.pMap, useGPU);
+                [X_out, mdlObj.HR] = nexHR_fit(X_in, layout, mdlObj.pMap, useGPU);
             else
-                mdlObj.DM = reshape(mdlObj.DM, size(mdlObj.DM, 1), []);
+                X_out = reshape(X_in, size(X_in, 1), []);
             end
+            if isStructDM
+                mdlObj.DM.X = X_out;
+            else
+                mdlObj.DM = X_out;
+            end
+        end
+
+        function [HR, layout, blockColRanges, X_reduced, G] = fitReduce(mdlObj, STAT_fit)
+        % Fit a nexHR block-PCA reduction basis on STAT_fit's RAW (pre-pool)
+        % data, and return the reduced output for STAT_fit itself (avoids a
+        % redundant extra applyReduce(STAT_fit,...) call at the caller).
+        % CV-agnostic — "STAT_fit" is whatever the caller considers the
+        % fit-on set (one CV fold's training trials, a plain fit()'s whole
+        % TRAIN.STAT, anything else); this method has no notion of folds.
+        % Single-FTR-axis only for now (see WIP.md #4).
+            ftrAxis = char(mdlObj.domain.FTR(1));
+            [X_raw, G] = nexOp_stackByFTR(STAT_fit, ftrAxis);
+            % Terminal NaN resolution — same reason/placement as
+            % getDesignMatrix()'s own: nexOp_alignCoAxes NaN-pads
+            % structurally-absent canonical positions (by design, so
+            % upstream cropping stays unbiased); no fit function downstream
+            % (nexHR_fit's block-PCA included) handles NaN input. Zero-fill
+            % right before it, once, same as every other path already does.
+            X_raw(isnan(X_raw)) = 0;
+            fprintf('[fitReduce] stacked raw X: %s (ftrAxis=%s)\n', mat2str(size(X_raw)), ftrAxis);
+
+            % pMap is typically configured on whichever co-indexed sibling
+            % is "primary" for binning purposes (e.g. domain.REG='chans',
+            % physical channel position — what region boundaries are
+            % actually defined against), not necessarily domain.FTR itself
+            % (e.g. 'unit', a cross-session identity axis with no
+            % meaningful position of its own to bin by, even though it's
+            % what owns the real array dimension nexOp_stackByFTR just
+            % resolved above — that resolution is unaffected by any of
+            % this, since it goes through .ptr, not pMap). layout.axID
+            % must be the PMAP KEY for nexHR_fit/nexHR_transform's own
+            % isfield(pMap, current.axID) lookup to find it; layout.axVals
+            % must be that primary axis's OWN values, not FTR's.
+            ax0 = STAT_fit.ax(1);
+            [pm_ftr, pmKey] = nexOp_resolvePMapEntry(mdlObj.pMap, ftrAxis, ax0);
+            if isempty(pm_ftr)
+                error('mdlObject:fitReduce:noPMapEntry', ...
+                    'FTR axis "%s" has no pMap entry, directly or via a co-indexed sibling.', ftrAxis);
+            end
+            layout = struct('axID', pmKey, 'n', double(numel(ax0.(pmKey))), ...
+                             'axVals', ax0.(pmKey));
+
+            useGPU = isfield(mdlObj, 'cfg') && isfield(mdlObj.cfg, 'fitCfg') && ...
+                     isfield(mdlObj.cfg.fitCfg, 'entryParams') && ...
+                     isfield(mdlObj.cfg.fitCfg.entryParams, 'useGPU') && ...
+                     mdlObj.cfg.fitCfg.entryParams.useGPU;
+            [X_reduced, HR] = nexHR_fit(X_raw, layout, mdlObj.pMap, useGPU);
+            fprintf('[fitReduce] reduced X: %s\n', mat2str(size(X_reduced)));
+
+            % Side effect, mirroring initReducer()'s own convention: leaves
+            % mdlObj.HR/.FTR_layout set to whichever fitReduce call ran most
+            % recently, so flattenInput()/inference-time consumers see a
+            % usable model without the caller having to wire this manually.
+            % In a CV loop that's the final full-data re-fit (see nexAnalysis_
+            % cvPermute's own "re-fit on full CTG data" step), same as today.
+            mdlObj.HR         = HR;
+            mdlObj.FTR_layout = layout;
+
+            blockColRanges = nexHR_blockColRanges(pm_ftr, layout.axVals, size(X_raw, 1));
+            fprintf('[fitReduce] %d block(s): %s\n', numel(blockColRanges), ...
+                    strjoin(arrayfun(@(r) sprintf('%s[%d:%d]', string(r.label), r.cols(1), r.cols(end)), ...
+                                      blockColRanges, 'UniformOutput', false), ', '));
+        end
+
+        function [X_reduced, G] = applyReduce(mdlObj, STAT, HR, layout)
+        % Apply an already-fitted nexHR model tree (from fitReduce) to
+        % STAT's raw data. CV-agnostic — reusable for a fold's held-out
+        % trials, a plain fit()'s test split, or a future inference path.
+            ftrAxis = char(mdlObj.domain.FTR(1));
+            [X_raw, G] = nexOp_stackByFTR(STAT, ftrAxis);
+            % Terminal NaN resolution — see fitReduce's own comment.
+            X_raw(isnan(X_raw)) = 0;
+            fprintf('[applyReduce] stacked raw X: %s (ftrAxis=%s)\n', mat2str(size(X_raw)), ftrAxis);
+            X_reduced = nexHR_transform(X_raw, layout, mdlObj.pMap, HR);
+            fprintf('[applyReduce] reduced X: %s\n', mat2str(size(X_reduced)));
         end
 
         function X_flat = flattenInput(mdlObj, DF_X)
@@ -626,6 +826,35 @@ classdef mdlObject < handle
         % Uses nexHR_transform when an HR model is fitted; otherwise plain reshape.
         % Called at the top of every subclass transform — subclasses need not know
         % whether nexHR was used.
+            needsHR = false;
+            if ~isempty(mdlObj.pMap)
+                pmFields = fieldnames(mdlObj.pMap);
+                needsHR  = any(arrayfun(@(i) mdlObj.pMap.(pmFields{i}).divsPerBin < 0, 1:numel(pmFields)));
+            end
+            if needsHR && strcmp(mdlObj.cfg.dmCfg.format, "supervised") && ~isempty(mdlObj.HR)
+                % DF_X here is still raw/unpooled (nexOp_compileSTAT skips
+                % pooling entirely for needsHR — WIP.md #3), so it must go
+                % through the SAME reduce-then-pool sequence getDesignMatrix()
+                % used to fit mdlObj.HR, not the raw nexHR_transform call
+                % below — that call assumes DF_X is already at the pooled
+                % granularity HR was actually fitted at, which is no longer
+                % true once pooling is deferred this far. applyReduce needs a
+                % STAT-shaped table (nexOp_stackByFTR indexes STAT.df{i} as a
+                % cell) — DF_X is a single-trial struct with df as a plain
+                % array, so wrap it the same way STAT's own df column is
+                % stored before reconstructing the table.
+                row = DF_X;
+                row.df = {DF_X.df};
+                STAT_1 = struct2table(row);
+                [X_r, G_r] = mdlObj.applyReduce(STAT_1, mdlObj.HR, mdlObj.FTR_layout);
+                poolAxis = nexOp_resolvePoolAxis(mdlObj.pMap);
+                if poolAxis ~= ""
+                    X_flat = nexOp_poolStackedDM(X_r, G_r, mdlObj.pMap, poolAxis);
+                else
+                    X_flat = X_r;
+                end
+                return;
+            end
             X = DF_X.df;
             if ~isempty(mdlObj.HR)
                 if mdlObj.domain.DN(1) == "None"
@@ -1165,8 +1394,43 @@ classdef mdlObject < handle
             axFields = fieldnames(bus.selections);
             anyChanged = false;
 
+            % needsHR mdlObjs defer FTR-axis (reduce-mode) and pool-axis
+            % narrowing to the DM level (applyPointerDM, driven by
+            % nexAnalysis_cvPermute's swpAxes construction) instead of
+            % here. Block-PCA (nexHR_fit) needs every raw unit within a
+            % region to fit its per-block model, and any later
+            % nexHR_transform call (flattenInput included) expects data at
+            % that SAME full width the model was fitted against — slicing
+            % chans/unit (or the pool axis) here, pre-reduction, breaks
+            % both, even when Pointer's selKeys happen to type-match
+            % STAT's raw values (the case the pre-existing type-mismatch
+            % skip below doesn't catch). Same needsHR formula as
+            % nexOp_compileSTAT/initReducer/nexAnalysis_cvPermute.
+            needsHR = false;
+            skipAxes = strings(0);
+            if ~isempty(mdlObj.pMap)
+                pmFields = fieldnames(mdlObj.pMap);
+                needsHR  = any(arrayfun(@(i) mdlObj.pMap.(pmFields{i}).divsPerBin < 0, 1:numel(pmFields)));
+                if needsHR
+                    ftrAxis  = string(char(mdlObj.domain.FTR(1)));
+                    skipAxes = ftrAxis;
+                    coIdx    = nexOp_coIndexPairs(STAT.ax(1));
+                    for p = 1:numel(coIdx)
+                        if ismember(ftrAxis, string(coIdx{p}))
+                            skipAxes = [skipAxes, string(coIdx{p})]; %#ok<AGROW>
+                        end
+                    end
+                    for i = 1:numel(pmFields)
+                        if mdlObj.pMap.(pmFields{i}).divsPerBin > 0
+                            skipAxes = [skipAxes, string(pmFields{i})]; %#ok<AGROW>
+                        end
+                    end
+                end
+            end
+
             for i = 1:numel(axFields)
                 f      = axFields{i};
+                if needsHR && any(skipAxes == string(f)), continue; end
                 selIdx = bus.selections.(f);
 
                 % Default (scalar 1) or single item → skip
@@ -1194,6 +1458,10 @@ classdef mdlObject < handle
                     % stale relative to the current pMap config. Skip windowing
                     % for this axis rather than crashing on an incomparable
                     % ismember call; surface it so it's visible, not silent.
+                    % (needsHR mdlObjs are expected to hit this — that path
+                    % filters via SWP/Pointer-selection intersection at the
+                    % reduced/pooled DM level instead, see
+                    % nexAnalysis_cvPermute's swpAxes construction.)
                     fprintf(['[mdlObject] applyPointer: axis "%s" type mismatch ' ...
                              '(Pointer=%s vs STAT=%s) — Pointer bus is likely stale ' ...
                              'relative to current pooling; skipping windowing for this axis.\n'], ...
@@ -1332,6 +1600,82 @@ classdef mdlObject < handle
             end
             if anyChanged
                 DF = nex_initAxisPointer_v2(DF);
+            end
+        end
+
+        function vals = applyPointerDM(mdlObj, axisName, vals, ax)
+        % DM-level counterpart to applyPointer: narrows a caller-supplied
+        % candidate SWP value list (already resolved to reduce/pool
+        % granularity — one label per block, or one bin-ID per window) down
+        % to whatever the user currently has selected in the Pointer bus,
+        % instead of slicing raw STAT/DF positions.
+        %
+        % applyPointer itself can't do this narrowing for a needsHR axis,
+        % because STAT is still fully raw (unreduced/unpooled) at the point
+        % applyPointer runs — its own type-mismatch guard always skips
+        % these axes for that reason (see applyPointer's comment above).
+        % Filtering here instead, against values already at the SAME
+        % granularity as the SWP sweep itself, avoids that mismatch
+        % entirely rather than patching around it. Used by
+        % nexAnalysis_cvPermute's swpAxes construction.
+        %
+        %   axisName : SWP axis name (char/string) — checked directly
+        %              against the Pointer bus, then via its co-indexed
+        %              sibling (e.g. FTR's "unit" -> Pointer's "chans"),
+        %              the same registry nexOp_resolvePMapEntry uses
+        %              (nexOp_coIndexPairs).
+        %   vals     : candidate SWP values for this axis (block labels or
+        %              window bin-IDs), already resolved to post-reduce/
+        %              post-pool granularity by the caller.
+        %   ax       : a representative STAT.ax struct, for
+        %              nexOp_coIndexPairs.
+        %
+        %   vals     : narrowed to the Pointer selection's intersection
+        %              with the input; unchanged if Pointer has no
+        %              non-default selection for this axis (or no matching
+        %              field at all).
+            bus = mdlObj.collector.Pointer;
+            f = char(axisName);
+            if ~isfield(bus.selections, f)
+                coIdx = nexOp_coIndexPairs(ax);
+                for p = 1:numel(coIdx)
+                    pair = coIdx{p};
+                    if ~ismember(f, pair), continue; end
+                    for m = 1:numel(pair)
+                        cand = char(pair{m});
+                        if strcmp(cand, f), continue; end
+                        if isfield(bus.selections, cand)
+                            f = cand;
+                            break;
+                        end
+                    end
+                    if isfield(bus.selections, f), break; end
+                end
+            end
+            if ~isfield(bus.selections, f), return; end
+
+            selIdx = bus.selections.(f);
+            if numel(selIdx) <= 1, return; end  % default (scalar 1) -> no-op
+
+            allVals      = bus.selKeys.(f);
+            selectedVals = allVals(selIdx);
+            if numel(selectedVals) == numel(allVals), return; end  % select-all -> no-op
+
+            if isnumeric(vals) && isnumeric(selectedVals)
+                keep = ismember(vals, selectedVals);
+            else
+                keep = ismember(string(vals), string(selectedVals));
+            end
+            if ~any(keep)
+                fprintf(['[mdlObject] applyPointerDM: axis "%s" Pointer selection ' ...
+                         'matched none of the candidate values — leaving sweep ' ...
+                         'unfiltered.\n'], f);
+                return;
+            end
+            if ~all(keep)
+                vals = vals(keep);
+                fprintf('[mdlObject] applyPointerDM: axis "%s" narrowed to Pointer selection (%s)\n', ...
+                        f, strjoin(string(vals), ', '));
             end
         end
 

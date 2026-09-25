@@ -30,9 +30,14 @@ Key base methods:
 | Method | Purpose |
 |--------|---------|
 | `compileSTAT()` | Build trial table from nexObj_ctg selection → reads from DTS/HDF5 |
-| `getDesignMatrix()` | Split STAT by trainMask → TRAIN/TEST; call `stat2dm_*` |
+| `getDesignMatrix()` | Split STAT by trainMask → TRAIN/TEST; call `stat2dm_*` (or, for a `needsHR` mdlObj, the reduce-then-pool sequence — see below) |
 | `fit()` | compileSTAT → getDesignMatrix → `cfg.fitCfg.fcn(mdlObj, args)` |
+| `fitReduce(STAT_fit)` | Fit a `nexHR` block-PCA basis on raw (pre-pool) STAT; CV-agnostic. See "Reduce-Then-Pool" below. |
+| `applyReduce(STAT, HR, layout)` | Apply an already-fitted `nexHR` model tree to raw STAT. CV-agnostic counterpart to `fitReduce`. |
+| `flattenInput(DF_X)` | Convert a single-trial DF to a 2D feature matrix — `nexHR_transform` directly, or the reduce-then-pool sequence when `needsHR` |
 | `transformSTAT(STAT)` | Apply fitted transform to every row in STAT → returns STAT_tf |
+| `applyPointer(STAT)` / `applyPointerDF(DF)` | Slice STAT/a single DF along axes where `collector.Pointer` has a non-trivial selection. Skips the FTR/pool axes entirely when `needsHR` — see "Reduce-Then-Pool" below. |
+| `applyPointerDM(axisName, vals, ax)` | DM-level counterpart to `applyPointer` — narrows an already-resolved SWP candidate list (not raw STAT) by the Pointer bus selection. `needsHR`-only; used by `nexAnalysis_cvPermute`. |
 | `scaleApply_transform()` | Row-by-row transform over DTS selection; writes dfID_target to manifest |
 | `saveState()` | Dehydrate to plain struct (see below) |
 | `saveFit(uniqueID)` | Save Python model weights to `fitPath` (subclass override) |
@@ -48,6 +53,102 @@ Key base methods:
 | `"batch"` | `stat2dm_batch` | Batch-mode unsupervised fitting |
 | `"supervised"` | `stat2dm_supervised` | LDA, logistic — stacks X, encodes Y from `dfID_target` |
 | `"regression"` | `stat2dm_regression` | Linear regression — stacks X, Y is continuous |
+
+---
+
+## Reduce-Then-Pool for Hierarchical Block-PCA (`needsHR`)
+
+A pMap axis is **reduce-mode** when its `divsPerBin < 0` — deferred to
+`nexHR_fit`'s hierarchical block-PCA instead of collapsed immediately. A
+mdlObj is `needsHR` whenever *any* axis in `mdlObj.pMap` is reduce-mode. The
+same one-line check (`any(pMap.(f).divsPerBin < 0)` over `fieldnames(pMap)`)
+is duplicated at every site that needs it: `nexOp_compileSTAT.m`,
+`mdlObject.getDesignMatrix`/`flattenInput`/`applyPointer`, and
+`nexAnalysis_cvPermute.m`.
+
+### Why ordering matters
+
+A **pool-mode** axis (`divsPerBin > 0`, e.g. `t` windowed into time bins)
+collapses immediately at STAT-compile time via `nexOp_poolAxes`/
+`nexObj_poolMap.pool()`. If a reduce-mode FTR axis (e.g. `unit`, block-PCA'd
+per anatomical region) coexists with a pool-mode axis, pooling *before*
+reduction starves the block-PCA basis of resolution — it would only ever see
+already-time-averaged samples instead of full raw-timepoint variance.
+`nexOp_compileSTAT` avoids this by skipping **all** pMap pooling/relabeling
+when `needsHR` (`TF_pooled = TF`), unconditionally — deferring both
+reduction and pooling to whichever consumer builds the design matrix.
+
+### The reduce-then-pool sequence
+
+Every `needsHR` consumer runs the same three steps, in order, on raw (still
+fully unpooled) STAT:
+
+1. **Stack raw** — `nexOp_stackByFTR(STAT, ftrAxis)` → `[X_raw, G]`. Keeps
+   only the FTR axis as feature columns; folds every other axis (including
+   the still-raw pool axis) into rows, via each row's own `.ptr` (never a
+   positional dim assumption). Single-FTR-axis only today — `domain.FTR`
+   has only ever been one axis in practice, but this is a real scoping limit
+   if that changes (see `nexOp_stackByFTR.m`'s own docstring / `WIP.md` #4).
+2. **Reduce** — `mdlObj.fitReduce(STAT_fit)` (fit) or
+   `mdlObj.applyReduce(STAT, HR, layout)` (apply an already-fitted model) →
+   `[X_reduced, G]`. CV-agnostic — neither method has any notion of folds;
+   `STAT_fit`/`STAT` is whatever the caller considers the fit-on/apply-to
+   set. `fitReduce` also computes `blockColRanges` (each block's column
+   range in the concatenated reduced output, via `nexHR_blockColRanges`) and
+   sets `mdlObj.HR`/`mdlObj.FTR_layout` as a side effect, mirroring
+   `initReducer()`'s own convention — so `flattenInput()`/later inference
+   calls see a usable model without the caller wiring it manually. pMap is
+   resolved via `nexOp_resolvePMapEntry`, which checks the FTR axis's
+   co-indexed sibling too (pMap is typically configured on the *primary*
+   sibling, e.g. `chans`'s physical position, not `unit`'s cross-session
+   identity — see `nexOp_coIndexPairs`).
+3. **Pool** — `nexOp_poolStackedDM(X_reduced, G, pMap, poolAxis)` →
+   `[X_pooled, G_pooled]`. Groups rows by `(trialIdx, window-bin-of
+   G.(poolAxis))` and mean-pools (position-based binning per trial, matching
+   `nexOp_poolAxes`'s own convention exactly). `poolAxis` is resolved via
+   `nexOp_resolvePoolAxis(pMap)` (the one field with `divsPerBin > 0`, or
+   `""` if none).
+
+Terminal NaN resolution (`X_raw(isnan(X_raw)) = 0`) happens inside
+`fitReduce`/`applyReduce` themselves, right after stacking — same convention
+as `getDesignMatrix()`'s own zero-fill, since `nexOp_alignCoAxes` NaN-pads
+structurally-absent canonical positions and nothing downstream (block-PCA
+included) handles NaN input.
+
+### Where this runs
+
+| Consumer | Runs on | Notes |
+|----------|---------|-------|
+| `nexAnalysis_cvPermute.m` | Once per fold (train/test split via `fitReduce`/`applyReduce` separately), then sliced per SWP combo | SWP resolves dual-mode post-reduce: the FTR axis sweeps by **column-block** (`blockColRanges`, matched by block label), a pool-mode SWP axis sweeps by **row-group** (matched by window bin-ID) — see the local function `resolveSWPMaskHR`. Also re-fits on the full CTG data (no train/test split) after the fold loop so the transform path (`flattenInput`) stays valid against the full canonical width. |
+| `mdlObject.getDesignMatrix()` | Once, on `STAT_train` (no folds) | For a plain, non-CV `fit()`. Gated on `strcmp(mdlObj.cfg.dmCfg.format, "supervised")` — other formats still fall through to the old `dmFcn`/`buildFTRLayout`/`initReducer` path, which does *not* handle `needsHR` pooling correctly (see `WIP.md` #5). |
+| `mdlObject.flattenInput(DF_X)` | Once, on a single-trial `DF_X` | Wraps `DF_X` into a 1-row STAT-shaped table (cell-wraps `.df` to match `STAT.df`'s own storage convention, since `nexOp_stackByFTR` indexes `STAT.df{i}`) before calling `applyReduce`. Used by every subclass `transform()` (e.g. `nexFigure_lda_visualize`'s per-trial scatter). Same `"supervised"`-format gate as `getDesignMatrix()`. |
+
+Y-handling (quantile quantization via `nexOp_quantizeY`, label encoding,
+`DM.K.(tVar)`) is assembled separately via `nexOp_buildSupervisedDM(X, Y,
+tVar, edges)` — factored out specifically because it's
+`"supervised"`-format-specific, while the reduce+pool steps above are
+format-agnostic (shared by `nexAnalysis_cvPermute.m` and `mdlObject.m`).
+
+### Pointer filtering at the DM level (`applyPointerDM`)
+
+`applyPointer(STAT)` — the usual mechanism for narrowing STAT by the Pointer
+bus's current axis selection — **skips the FTR axis (and its co-indexed
+siblings) and the pool axis entirely when `needsHR`**, regardless of whether
+the Pointer bus's selection type happens to match STAT's raw values. This
+isn't the older type-mismatch skip (which only fires on a genuine type
+mismatch) — it's unconditional, because slicing those axes on raw STAT
+*before* reduction breaks the block-PCA basis (which needs every raw unit
+within a region to fit its per-block model) and any later `nexHR_transform`
+call (which expects data at the exact width the model was fitted against).
+
+Instead, `mdlObj.applyPointerDM(axisName, vals, ax)` narrows a
+caller-supplied candidate value list — already resolved to post-reduce/
+post-pool granularity (block labels or window bin-IDs) — against the Pointer
+bus's current selection, with the same co-indexed-sibling resolution
+`nexOp_resolvePMapEntry` uses. `nexAnalysis_cvPermute.m`'s `swpAxes`
+construction calls it right after resolving each `needsHR` axis's candidate
+`vals`, so a Pointer selection like "STN, HY only" actually narrows the SWP
+sweep instead of being silently ignored.
 
 ---
 

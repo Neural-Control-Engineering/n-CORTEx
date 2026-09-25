@@ -13,20 +13,19 @@ function DM = stat2dm_supervised(mdlObj)
     % Quantize a continuous Y into nBins quantile groups, mirroring the
     % reportAverage convention (nexFigure_addAvgControls.m): nBins default
     % Inf disables binning (today's unquantized passthrough behavior).
+    % edges (empty when not quantized) is stashed in DM.K.(tVar) below so
+    % scoreFold can discretize TEST Y with the exact same bin boundaries —
+    % quantizing train and never touching test silently scores as ~random
+    % (predictions land in bin-ID space, compared against raw continuous
+    % test values that essentially never match).
+    edges = [];
     if ~strcmp(tVar,"all")
         nBins = Inf;
         try
             nBins = mdlObj.collector.Target.nBins;
         catch
         end
-        yRaw = STAT.(tVar);
-        if isnumeric(yRaw) && isfinite(nBins) && nexOp_isContinuousVar(yRaw) && ...
-                numel(unique(yRaw(~isnan(yRaw)))) > nBins
-            vals  = yRaw(~isnan(yRaw));
-            edges = quantile(vals, linspace(0, 1, nBins + 1));
-            edges(end) = edges(end) + abs(edges(end)) * 1e-10 + 1e-10;
-            STAT.(tVar) = discretize(yRaw, edges);
-        end
+        [STAT.(tVar), edges] = nexOp_quantizeY(STAT.(tVar), nBins);
     end
 
     STAT_cell = table2cell(STAT);
@@ -39,6 +38,7 @@ function DM = stat2dm_supervised(mdlObj)
         labels_unique = unique(STAT.(tVar));
         key.code=[1:length(labels_unique)];
         key.label=labels_unique;
+        key.edges=edges;
     end
     % label encoding
     L = varfun(@(var) nexOp_labelEncode(var), G);

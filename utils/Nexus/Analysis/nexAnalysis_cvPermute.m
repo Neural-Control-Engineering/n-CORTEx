@@ -58,6 +58,21 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
         STAT_full.(tVar) = Y_tmp;
     end
 
+    % Coerce a numeric-looking non-double tVar (e.g. read back as a string
+    % array) to double once, here, so it propagates correctly to
+    % everything downstream: isCont below, stat2dm_supervised/
+    % nexOp_quantizeY's own isnumeric gates, and G_train_p.(tVar) (which
+    % just reads through whatever type STAT_full.(tVar) was, via
+    % nexOp_stackByFTR). Same coercion convention nexObject.reportAverage
+    % already uses for STAT columns. isnumeric(string(...)) is always
+    % false regardless of content, so this can't be caught downstream by
+    % "is it numeric" checks alone — it has to be fixed at the source.
+    rawTVar = STAT_full.(tVar);
+    if ~isnumeric(rawTVar)
+        numTry = str2double(string(rawTVar));
+        if any(~isnan(numTry)), STAT_full.(tVar) = numTry; end
+    end
+
     fitArgs = mdlObj.cfg.fitCfg.entryParams;
     dmFcn   = str2func(sprintf('stat2dm_%s', mdlObj.cfg.dmCfg.format));
 
@@ -140,6 +155,27 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
         if ~isempty(cands), swpIDs = cands(1); end
     end
 
+    % A reduce-mode FTR axis means dimensionality reduction must run before
+    % any pool-mode axis collapses samples it needs at full resolution (see
+    % WIP.md #3) — nexOp_compileSTAT already skips ALL pMap pooling/
+    % relabeling when this is true, so STAT_full's df/ax are still fully
+    % raw for every pMap axis, INCLUDING the reduce-mode axis's own labels
+    % (normally relabeled to region names by nexOp_poolAxes; here it never
+    % ran, so those axis values are still raw unit IDs). Detected the same
+    % way initReducer/nexOp_compileSTAT already do.
+    needsHR = false;
+    if ~isempty(mdlObj.pMap)
+        pmFields = fieldnames(mdlObj.pMap);
+        needsHR  = any(arrayfun(@(i) mdlObj.pMap.(pmFields{i}).divsPerBin < 0, 1:numel(pmFields)));
+    end
+    ftrAxisStr = string(mdlObj.domain.FTR(1));
+    poolAxis   = "";
+    if needsHR
+        poolAxis = nexOp_resolvePoolAxis(mdlObj.pMap);
+        fprintf(['[nexAnalysis_cvPermute] needsHR: FTR axis "%s" is reduce-mode; ' ...
+                 'deferring pool axis "%s" until after reduction.\n'], ftrAxisStr, poolAxis);
+    end
+
     % Resolve each candidate axis to its unique values + df dimension.
     % Iterate by unique label value, not raw positional index — axis
     % granularity (one-position-per-unit vs repeated-region-labels vs
@@ -167,8 +203,57 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
             continue;
         end
         dimsUsed(end+1) = dim; %#ok<AGROW>
-        swpAxes(end+1) = struct('id', id, 'raw', raw, 'vals', unique(raw, 'stable'), ...
-                                 'dim', dim, 'n', numel(unique(raw, 'stable'))); %#ok<AGROW>
+        if needsHR && id == ftrAxisStr
+            % This SWP axis IS the reduce-mode FTR axis. Its real SWP
+            % granularity, post-reduction, is one value per BLOCK
+            % (pm.getBinEdges' own binLabels — e.g. one per region), not
+            % one per raw unit ID — raw is still fully raw here since
+            % needsHR skipped relabeling entirely. Must match
+            % nexHR_blockColRanges' own labeling exactly, or SWP combo
+            % selection can never find its block downstream.
+            %
+            % pMap is typically configured on FTR's co-indexed PRIMARY
+            % sibling (e.g. domain.REG='chans', physical position — what
+            % region boundaries are defined against), not FTR itself (e.g.
+            % 'unit', identity only) — same resolution fitReduce uses, and
+            % binning must use the PRIMARY axis's own values, not raw
+            % (which is FTR's/unit's).
+            [pm_id, pmKey] = nexOp_resolvePMapEntry(mdlObj.pMap, char(id), STAT_full.ax(1));
+            if isempty(pm_id)
+                warning('[nexAnalysis_cvPermute] SWP axis "%s" has no pMap entry, directly or via a co-indexed sibling — dropping it from the sweep.', id);
+                continue;
+            end
+            primaryVals = STAT_full.ax(1).(pmKey);
+            [~, ~, blockLabels] = pm_id.getBinEdges(primaryVals, abs(pm_id.divsPerBin));
+            vals = unique(blockLabels, 'stable');
+            % Narrow to whatever the user currently has selected in the
+            % Pointer bus for this axis (e.g. "STN, HY" only) — this is
+            % what makes the sweep actually respect Pointer, rather than
+            % always sweeping every detected block. applyPointerDM is the
+            % DM-level counterpart to mdlObject.applyPointer: it filters
+            % candidate SWP values already resolved to reduce/pool
+            % granularity, instead of slicing raw STAT positions (which is
+            % what applyPointer itself does, and why it can't do this job
+            % for needsHR — see its own type-mismatch-skip comment).
+            vals = mdlObj.applyPointerDM(id, vals, STAT_full.ax(1));
+        elseif needsHR && poolAxis ~= "" && id == poolAxis
+            % This SWP axis IS the deferred pool-mode axis. Its real SWP
+            % granularity, post-pooling, is one value per WINDOW
+            % (pm.getBinEdges' own binIDs — axID-mode bin-start
+            % representative), not one per raw timepoint — raw is still
+            % fully raw here since needsHR defers pooling entirely. Must
+            % match nexOp_poolStackedDM's own binIDs assignment to
+            % G.(poolAxis) exactly, or SWP combo selection can never find
+            % its window downstream.
+            pm_id = mdlObj.pMap.(char(id));
+            [~, binIDs] = pm_id.getBinEdges(raw, abs(pm_id.divsPerBin));
+            vals = unique(binIDs, 'stable');
+            vals = mdlObj.applyPointerDM(id, vals, STAT_full.ax(1));
+        else
+            vals = unique(raw, 'stable');
+        end
+        swpAxes(end+1) = struct('id', id, 'raw', raw, 'vals', vals, ...
+                                 'dim', dim, 'n', numel(vals)); %#ok<AGROW>
     end
     hasSwp = ~isempty(swpAxes);
     if hasSwp
@@ -239,71 +324,128 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
             trainMasks = nexStat_allocateFolds(Y_flat, nFolds);
         end
 
-        % ── 5c. SWP × fold × permute loop ────────────────────────────────────
+        % ── 5c. fold × SWP × permute loop ────────────────────────────────────
+        % fold is outermost (not nested inside SWP) so that, when needsHR,
+        % the reduction basis is fit exactly once per fold — using ONLY
+        % that fold's own training trials (no leakage) — and reused as-is
+        % across every SWP combo and every permutation for that fold,
+        % rather than refitting per SWP/permutation (which would both leak
+        % and explode computationally; see WIP.md #3). trainMasks was
+        % already computed once per CTG combo above and never depended on
+        % SWP, so for the ~needsHR path this reorder changes iteration
+        % order only — same computations, same results, bit-identical.
         scores    = nan(nFolds, 1 + nPermute, nTime, nSwp);
         sentinels = cell(1, nSwp);
 
-        for si = 1:nSwp
-            if hasSwp
-                % Decompose the flat combo index into one subscript per SWP
-                % axis (column-major — axis 1 varies fastest, matching how
-                % `scores` gets reshaped back to N-D in step 5e), then slice
-                % STAT_ctg down each axis's own dimension in turn. Select
-                % every position whose raw label matches that axis's chosen
-                % unique value — a single index when labels are already
-                % unique per-position (raw chans, or region+sub-bin), or
-                % multiple indices when several positions share a label
-                % (e.g. per-element region labels via groupBy='region',
-                % nDivsPerBin=0). sliceDim/sliceSTAT need no changes for
-                % this: MATLAB indexing already accepts a vector here.
-                subs       = swpLinToSubs(si, nSwpPerAxis);
-                STAT_si    = STAT_ctg;
-                comboParts = strings(1, numel(swpAxes));
-                for a = 1:numel(swpAxes)
-                    val           = swpAxes(a).vals(subs(a));
-                    swpIdx        = find(matchesSWPValue(swpAxes(a).raw, val));
-                    STAT_si       = sliceSTAT(STAT_si, swpAxes(a).dim, swpIdx);
-                    comboParts(a) = sprintf('%s=%s(%d feature(s))', swpAxes(a).id, string(val), numel(swpIdx));
+        if ~needsHR
+            % Precompute each SWP combo's sliced STAT once per CTG combo —
+            % same timing/cost as before the reorder, just sitting one
+            % level further out relative to fold (a cache, not new work).
+            STAT_si_all = cell(1, nSwp);
+            for si = 1:nSwp
+                [STAT_si_all{si}, sentinels{si}] = sliceSWPCombo( ...
+                    STAT_ctg, si, nSwp, swpAxes, nSwpPerAxis, hasSwp, regDim);
+            end
+        end
+        % needsHR path: no REG/DF cropping applies (SWP is a column/row
+        % select on the already-reduced+pooled {X,G}, not STAT slicing) —
+        % sentinels stays {1×nSwp} of empty structs, same shape as before.
+
+        for k = 1:nFolds
+            mdlObj.trainMask = logical(trainMasks{k});
+
+            if needsHR
+                % ── Reduce (once per fold, train-only) + pool (after) ────────
+                STAT_train = STAT_ctg(mdlObj.trainMask == 1, :);
+                STAT_test  = STAT_ctg(mdlObj.trainMask == 0, :);
+                fprintf(['[nexAnalysis_cvPermute] fold %d/%d: fitReduce on %d train ' ...
+                         'trial(s), %d test trial(s)\n'], k, nFolds, height(STAT_train), height(STAT_test));
+                [HR, layout, blockColRanges, X_train_r, G_train] = mdlObj.fitReduce(STAT_train);
+                [X_test_r, G_test] = mdlObj.applyReduce(STAT_test, HR, layout);
+
+                if poolAxis ~= ""
+                    [X_train_p, G_train_p] = nexOp_poolStackedDM(X_train_r, G_train, mdlObj.pMap, poolAxis);
+                    [X_test_p,  G_test_p]  = nexOp_poolStackedDM(X_test_r,  G_test,  mdlObj.pMap, poolAxis);
+                else
+                    X_train_p = X_train_r; G_train_p = G_train;
+                    X_test_p  = X_test_r;  G_test_p  = G_test;
                 end
-                fprintf('[nexAnalysis_cvPermute]   combo %d/%d: %s\n', si, nSwp, strjoin(comboParts, ', '));
-            else
-                STAT_si = STAT_ctg;
-            end
+                fprintf('[nexAnalysis_cvPermute] fold %d/%d: pooled train X %s, test X %s\n', ...
+                        k, nFolds, mat2str(size(X_train_p)), mat2str(size(X_test_p)));
 
-            % Tighten to this iteration's own canonical support: drop REG
-            % positions that are NaN (structurally absent) for every trial
-            % in this CTG combo × SWP value, then record which canonical
-            % labels survived as this iteration's fitSentinel. Cheaper than
-            % re-deriving from HDF5 and lossless — the global alignment in
-            % compileSTAT already pooled real duplicates trial-locally; this
-            % only removes positions no trial here ever had data for.
-            sentinel = struct();
-            if ~isempty(regDim)
-                [STAT_si, sentinel] = cropCanonicalREG(STAT_si, regDim);
-            end
-            sentinels{si} = sentinel;
+                % Quantize Y from TRAIN only, apply the SAME edges to TEST
+                % (see nexOp_quantizeY / WIP quantization fix) — edges=[]
+                % (nBins=Inf default) is a pass-through, same as today.
+                nBinsY = Inf;
+                try
+                    nBinsY = mdlObj.collector.Target.nBins;
+                catch
+                end
+                % tVar can come back cell-wrapped (same reason Y_ctg/Y_flat
+                % and scoreFold's own Y_trial unwrap it elsewhere in this
+                % file) — nexOp_quantizeY's isnumeric guard silently skips
+                % quantization on an unwrapped cell column.
+                Y_train_raw = G_train_p.(tVar);
+                if iscell(Y_train_raw), Y_train_raw = [Y_train_raw{:}]'; end
+                Y_test_raw = G_test_p.(tVar);
+                if iscell(Y_test_raw), Y_test_raw = [Y_test_raw{:}]'; end
 
-            % Terminal fill: no fit function downstream handles NaN input.
-            % NaN only needed to exist to keep pooling/cropping unbiased —
-            % resolve any still-scattered NaN (partial, not fully-absent,
-            % positions) back to 0 right before building the design matrix.
-            STAT_si.df = cellfun(@zeroFillRemainingNaN, STAT_si.df, 'UniformOutput', false);
+                [Y_train_q, edgesY] = nexOp_quantizeY(Y_train_raw, nBinsY);
+                Y_test_q = Y_test_raw;
+                if ~isempty(edgesY), Y_test_q = discretize(double(Y_test_q), edgesY); end
+                isCont_fold = isCont && isempty(edgesY);
+                fprintf(['[nexAnalysis_cvPermute] fold %d/%d: nBinsY=%s, edgesY=%s, ' ...
+                         'unique(Y_train_q)=%s (n=%d), isCont_fold=%d\n'], ...
+                        k, nFolds, mat2str(nBinsY), mat2str(edgesY), ...
+                        mat2str(unique(Y_train_q)'), numel(unique(Y_train_q)), isCont_fold);
 
-            for k = 1:nFolds
-                mdlObj.trainMask = logical(trainMasks{k});
-                mdlObj.STAT      = STAT_si;
+                for si = 1:nSwp
+                    [keepColsTrain, keepColsTest, keepRowsTrain, keepRowsTest, comboLabel] = ...
+                        resolveSWPMaskHR(si, nSwpPerAxis, swpAxes, hasSwp, ftrAxisStr, poolAxis, ...
+                                          blockColRanges, G_train_p, G_test_p);
+                    fprintf('[nexAnalysis_cvPermute]   fold %d/%d combo %d/%d: %s\n', ...
+                            k, nFolds, si, nSwp, comboLabel);
 
-                % Real fold
-                mdlObj.getDesignMatrix();
-                mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
-                scores(k, 1, :, si) = scoreFold(mdlObj, tVar, isCont, nTime);
+                    X_tr = X_train_p(keepRowsTrain, keepColsTrain);
+                    Y_tr = Y_train_q(keepRowsTrain);
+                    X_te = X_test_p(keepRowsTest, keepColsTest);
+                    Y_te = Y_test_q(keepRowsTest);
+                    fprintf('[nexAnalysis_cvPermute]     X_tr %s, X_te %s\n', mat2str(size(X_tr)), mat2str(size(X_te)));
 
-                % Permutation null
-                for p = 1:nPermute
-                    mdlObj.TRAIN.STAT = shuffleTrialLabels(mdlObj.TRAIN.STAT, tVar);
-                    mdlObj.DM         = dmFcn(mdlObj);
+                    % Real fold — DM already built (X/Y in hand), bypass
+                    % dmFcn/getDesignMatrix entirely.
+                    mdlObj.DM = nexOp_buildSupervisedDM(X_tr, Y_tr, tVar, edgesY);
                     mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
-                    scores(k, 1+p, :, si) = scoreFold(mdlObj, tVar, isCont, nTime);
+                    scores(k, 1, :, si) = scoreFoldDM(mdlObj, X_te, Y_te, isCont_fold);
+
+                    % Permutation null — reuse the SAME X_tr (never rebuilt;
+                    % reduction is unsupervised, independent of Y), only Y
+                    % gets reshuffled.
+                    for p = 1:nPermute
+                        Y_tr_p = Y_tr(randperm(numel(Y_tr)));
+                        mdlObj.DM = nexOp_buildSupervisedDM(X_tr, Y_tr_p, tVar, edgesY);
+                        mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+                        scores(k, 1+p, :, si) = scoreFoldDM(mdlObj, X_te, Y_te, isCont_fold);
+                    end
+                end
+            else
+                % ── Existing path, unchanged, visited per (fold, then SWP) ───
+                for si = 1:nSwp
+                    STAT_si     = STAT_si_all{si};
+                    mdlObj.STAT = STAT_si;
+
+                    % Real fold
+                    mdlObj.getDesignMatrix();
+                    mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+                    scores(k, 1, :, si) = scoreFold(mdlObj, tVar, isCont, nTime);
+
+                    % Permutation null
+                    for p = 1:nPermute
+                        mdlObj.TRAIN.STAT = shuffleTrialLabels(mdlObj.TRAIN.STAT, tVar);
+                        mdlObj.DM         = dmFcn(mdlObj);
+                        mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+                        scores(k, 1+p, :, si) = scoreFold(mdlObj, tVar, isCont, nTime);
+                    end
                 end
             end
         end
@@ -313,11 +455,30 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
         % the artifact future inference projects onto, so it keeps the wide
         % canonical axis rather than any one SWP iteration's tightened crop.
         % Still needs terminal NaN resolution since alignCoAxes NaN-fills.
-        STAT_ctg.df      = cellfun(@zeroFillRemainingNaN, STAT_ctg.df, 'UniformOutput', false);
-        mdlObj.STAT      = STAT_ctg;
-        mdlObj.trainMask = true(nTrials, 1);
-        mdlObj.getDesignMatrix();
-        mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+        STAT_ctg.df = cellfun(@zeroFillRemainingNaN, STAT_ctg.df, 'UniformOutput', false);
+        if needsHR
+            [~, ~, ~, X_full_r, G_full] = mdlObj.fitReduce(STAT_ctg);
+            if poolAxis ~= ""
+                [X_full_p, G_full_p] = nexOp_poolStackedDM(X_full_r, G_full, mdlObj.pMap, poolAxis);
+            else
+                X_full_p = X_full_r; G_full_p = G_full;
+            end
+            nBinsY = Inf;
+            try
+                nBinsY = mdlObj.collector.Target.nBins;
+            catch
+            end
+            Y_full_raw = G_full_p.(tVar);
+            if iscell(Y_full_raw), Y_full_raw = [Y_full_raw{:}]'; end
+            [Y_full_q, edgesY_full] = nexOp_quantizeY(Y_full_raw, nBinsY);
+            mdlObj.DM = nexOp_buildSupervisedDM(X_full_p, Y_full_q, tVar, edgesY_full);
+            mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+        else
+            mdlObj.STAT      = STAT_ctg;
+            mdlObj.trainMask = true(nTrials, 1);
+            mdlObj.getDesignMatrix();
+            mdlObj.cfg.fitCfg.fcn(mdlObj, fitArgs);
+        end
         mdlObj.trainMask = [];
 
         % ── 5e. Pack result DF ────────────────────────────────────────────────
@@ -502,6 +663,99 @@ function A = zeroFillRemainingNaN(A)
 end
 
 
+% ── Slice STAT_ctg down to one SWP combo (~needsHR path only) ────────────────
+% Factored out of the old inline SWP loop body unchanged — same slicing,
+% same REG cropping, same terminal NaN fill — just callable once per (CTG
+% combo, SWP combo) from the fold-outer precompute loop instead of inline.
+function [STAT_si, sentinel] = sliceSWPCombo(STAT_ctg, si, nSwp, swpAxes, nSwpPerAxis, hasSwp, regDim)
+    if hasSwp
+        subs       = swpLinToSubs(si, nSwpPerAxis);
+        STAT_si    = STAT_ctg;
+        comboParts = strings(1, numel(swpAxes));
+        for a = 1:numel(swpAxes)
+            val           = swpAxes(a).vals(subs(a));
+            swpIdx        = find(matchesSWPValue(swpAxes(a).raw, val));
+            STAT_si       = sliceSTAT(STAT_si, swpAxes(a).dim, swpIdx);
+            comboParts(a) = sprintf('%s=%s(%d feature(s))', swpAxes(a).id, string(val), numel(swpIdx));
+        end
+        fprintf('[nexAnalysis_cvPermute]   combo %d/%d: %s\n', si, nSwp, strjoin(comboParts, ', '));
+    else
+        STAT_si = STAT_ctg;
+    end
+
+    sentinel = struct();
+    if ~isempty(regDim)
+        [STAT_si, sentinel] = cropCanonicalREG(STAT_si, regDim);
+    end
+
+    STAT_si.df = cellfun(@zeroFillRemainingNaN, STAT_si.df, 'UniformOutput', false);
+end
+
+
+% ── SWP resolution for the needsHR path ───────────────────────────────────────
+% A reduce-mode FTR axis (e.g. unit) sweeps by COLUMN-BLOCK — blockColRanges,
+% keyed by each block's own region/bin label (matching the block labels
+% resolved into swpAxes(a).vals up in section 4 for this same axis). A
+% pool-mode axis (e.g. t) sweeps by ROW-GROUP, keyed by the pooled G table's
+% own window-representative value for that axis. Any other SWP axis isn't
+% resolvable against the reduced/pooled representation and is dropped with
+% a warning rather than guessed at.
+function [keepColsTrain, keepColsTest, keepRowsTrain, keepRowsTest, comboLabel] = ...
+        resolveSWPMaskHR(si, nSwpPerAxis, swpAxes, hasSwp, ftrAxisStr, poolAxis, ...
+                          blockColRanges, G_train, G_test)
+    nColsFull     = max([blockColRanges.cols]);
+    keepColsTrain = true(1, nColsFull);
+    keepColsTest  = keepColsTrain;
+    keepRowsTrain = true(height(G_train), 1);
+    keepRowsTest  = true(height(G_test), 1);
+    comboLabel    = 'all';
+
+    if ~hasSwp, return; end
+
+    subs       = swpLinToSubs(si, nSwpPerAxis);
+    comboParts = strings(1, numel(swpAxes));
+    for a = 1:numel(swpAxes)
+        val = swpAxes(a).vals(subs(a));
+        if swpAxes(a).id == ftrAxisStr
+            bi   = find(strcmp(string({blockColRanges.label}), string(val)), 1);
+            cols = false(1, nColsFull);
+            if ~isempty(bi), cols(blockColRanges(bi).cols) = true; end
+            keepColsTrain = keepColsTrain & cols;
+            keepColsTest  = keepColsTest  & cols;
+            comboParts(a) = sprintf('%s=%s(%d component(s))', swpAxes(a).id, string(val), nnz(cols));
+        elseif poolAxis ~= "" && swpAxes(a).id == poolAxis
+            rTr = G_train.(char(poolAxis)) == val;
+            rTe = G_test.(char(poolAxis))  == val;
+            keepRowsTrain = keepRowsTrain & rTr;
+            keepRowsTest  = keepRowsTest  & rTe;
+            comboParts(a) = sprintf('%s=%s(%d/%d row(s))', swpAxes(a).id, string(val), nnz(rTr), nnz(rTe));
+        else
+            warning(['[nexAnalysis_cvPermute] SWP axis "%s" is not resolvable against the ' ...
+                     'reduced/pooled representation (needsHR path) — ignoring it for this combo.'], swpAxes(a).id);
+            comboParts(a) = sprintf('%s=%s(unresolved)', swpAxes(a).id, string(val));
+        end
+    end
+    comboLabel = strjoin(comboParts, ', ');
+end
+
+
+% ── Score a fold's held-out set directly from an already-built X/Y ───────────
+% needsHR path counterpart to scoreFold — no STAT/.ptr/dn resolution needed
+% (X_te/Y_te are already the exact test matrix/labels), and always a single
+% aggregate score (this path requires domain.DN(1)=="None", per the SWP
+% dn-exclusion rule in section 4, so there is no per-timepoint axis left to
+% resolve scores over).
+function score = scoreFoldDM(mdlObj, X_te, Y_te, isCont)
+    Y_pred = mdlObj.predict(X_te);
+    if isCont
+        cc    = corrcoef(double(Y_te(:)), double(Y_pred(:)));
+        score = cc(1,2)^2;
+    else
+        score = balancedAccuracy(string(Y_te(:)), Y_pred);
+    end
+end
+
+
 % ── Match raw SWP labels against one unique value (cell/string/numeric) ──────
 function mask = matchesSWPValue(vals, target)
     if iscell(target), target = target{1}; end
@@ -594,6 +848,21 @@ function score = scoreFold(mdlObj, tVar, isCont, nTime)
         fprintf('[nexAnalysis_cvPermute] scoreFold: predict() failed — X_test is %s.\n', mat2str(size(X_test)));
         disp(getReport(e));
         keyboard
+    end
+
+    % If Y was quantized for training (see stat2dm_supervised/
+    % nexOp_quantizeY), apply the SAME bin edges to test Y before scoring —
+    % Y_pred comes back decoded to bin-ID space via mdlObj.W.labelKey, so
+    % comparing it against raw continuous test values would silently score
+    % as ~random regardless of true model quality.
+    edges = [];
+    try
+        edges = mdlObj.DM.K.(tVar).edges;
+    catch
+    end
+    if ~isempty(edges)
+        Y_trial = discretize(double(Y_trial), edges);
+        isCont  = false;
     end
 
     if isCont
