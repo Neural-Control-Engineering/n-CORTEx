@@ -4,7 +4,16 @@ function nexFigure_monoGram(nexObj)
     BLACK = [0 0 0];
 
     % ── Layout constants ─────────────────────────────────────────────────
-    xRight = 810;  wRight = 190;  wInner = 180;  xInner = 5;  gap = 5;
+    % wRight/wInner standardized to nexFigure_stateSpace's sidebar width
+    % (same selectionBus panel content — Collector/Domain/Pointer — was
+    % cramped at the old 190/180). Figure width grows by the same delta so
+    % the canvas panel's own geometry (xRight, canvas width) is untouched.
+    % wRight/wInner widened again for Domain's 3rd listbox (REG, added
+    % alongside D1/ANI) — nexObj_listCfgPanel now divides panel width by
+    % (nKeys+0.3) instead of a fixed 2.3, so a 3rd column at the OLD width
+    % squeezed all three into what used to fit two. Scaled by that same
+    % ratio (3.3/2.3) to restore each listbox's original per-box width.
+    xRight = 810;  wRight = 430;  wInner = 420;  xInner = 5;  gap = 5;
 
     hVis  = 150;
     hWin  = 155;
@@ -13,15 +22,20 @@ function nexFigure_monoGram(nexObj)
     hColl = 220;
     hDom  = 200;
 
+    % Bottom-to-top stacking order matches nexFigure_stateSpace: Pointer,
+    % then Domain, then Collector (Collector sits directly below Pool),
+    % with Pool at the very top rather than sandwiched below Pointer —
+    % Pool is the axis-shape control, so it reads more naturally above the
+    % buses whose contents it determines.
     yVis  = xInner;
     yWin  = yVis  + hVis  + gap;
-    yPool = yWin  + hWin  + gap;
-    yPtr  = yPool + hPool + gap;
-    yColl = yPtr  + hPtr  + gap;
-    yDom  = yColl + hColl + gap;
+    yPtr  = yWin  + hWin  + gap;
+    yDom  = yPtr  + hPtr  + gap;
+    yColl = yDom  + hDom  + gap;
+    yPool = yColl + hColl + gap;
 
     % ── Figure ───────────────────────────────────────────────────────────
-    nexObj.Figure.fh = uifigure("Position", [100, 200, 1005, 900], "Color", BLACK);
+    nexObj.Figure.fh = uifigure("Position", [100, 200, 1245, 900], "Color", BLACK);
 
     % ── Canvas panel ─────────────────────────────────────────────────────
     nexObj.Figure.panel0.ph = uipanel(nexObj.Figure.fh, ...
@@ -117,6 +131,13 @@ function nexFigure_monoGram(nexObj)
         nexObj.collector.Domain.listBoxes.ANI.Max      = 1;
         nexObj.collector.Domain.listBoxes.ANI.Callback = @(s,~) nexObj.onANIChanged(s);
     end
+    % REG: single-select, cross-sample registration identity axis for
+    % nexOp_compileSTAT's co-axis alignment (default "None" = no-op)
+    if isfield(nexObj.collector.Domain.listBoxes, 'REG') ...
+            && ~isempty(nexObj.collector.Domain.listBoxes.REG)
+        nexObj.collector.Domain.listBoxes.REG.Max      = 1;
+        nexObj.collector.Domain.listBoxes.REG.Callback = @(s,~) nexObj.onREGChanged(s);
+    end
 
     % ── Top-bar controls ─────────────────────────────────────────────────
     nexObj.Figure.playButton = uibutton("state", ...
@@ -134,13 +155,22 @@ function nexFigure_monoGram(nexObj)
         "ValueChangedFcn", @(src,evt) nexUpdate_dfID(src, evt, nexObj.nexon, nexObj));
 
     nexFigure_addAvgControls(nexObj, nexObj.Figure.fh, 35, 878, 20);
-
+    % addAvgControls consumes 140px (60 spinner + 5 gap + 75 button)
+    % starting at x=35, i.e. through x=175 — reloadButton must start past
+    % that, not at x=130 (which overlapped the Report AVG button outright).
     nexObj.Figure.reloadButton = uibutton(nexObj.Figure.fh, ...
-        "Position",        [130, 878, 70, 20], ...
+        "Position",        [185, 878, 70, 20], ...
         "BackgroundColor", BLACK, "FontColor", GREEN, ...
         "Text",            "Reload DF", ...
         "Tooltip",         "Re-read DF from router and refresh", ...
         "ButtonPushedFcn", @(~,~) nexObj.reloadFromRouter());
+
+    nexObj.Figure.homeButton = uibutton(nexObj.Figure.fh, ...
+        "Position",        [265, 878, 60, 20], ...
+        "BackgroundColor", BLACK, "FontColor", GREEN, ...
+        "Text",            "Home", ...
+        "Tooltip",         "Set Z/C limits to the current surface's actual data range", ...
+        "ButtonPushedFcn", @(~,~) nexObj.homeLimits());
 
     nexObj.applyHeadline();
 end

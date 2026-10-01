@@ -411,3 +411,162 @@ ask was making the SAVE side robust, not resuming a label across sessions
 yet.
 
 ---
+
+## 8. Migrate DTSIO's storage backend from HDF5 to Zarr (write fresh, don't convert old data)
+
+**Status:** Not started, deliberately deferred — decided to stay on
+single-writer/single-reader HDF5 for now and revisit this soon, rather than
+adopt SWMR as the concurrency fix. Surfaced by a real bug: a second `nexon`
+session (writing patches via `scaleApply_transform`) caused a first session's
+INSPECT launcher "Refresh sources" to silently lose all *base* dfIDs (`lfp`,
+`RTS_spk_activity`, ...) while patch dfIDs survived — and the same pattern
+was independently observed in `nexObj_categorical`'s h5-backed category
+listing.
+
+**Context — what was actually verified before landing on this decision:**
+- Root cause traced to `dtsIO_readDFIDs.m`: patch dfIDs come from parsing
+  `h5_path_<dfID>` column names already on the DTS table (no I/O, can't
+  fail); base dfIDs come *only* from a live `h5info` scan of the main file,
+  wrapped in a silent `catch` (now fixed to log — see that file's current
+  code — but the underlying cause was left as this entry, not patched away).
+- Confirmed via an actual two-separate-MATLAB-process test (not just docs):
+  plain `h5info`/`h5read` (no SWMR flag — this codebase's pattern
+  everywhere) fails against a file another process has open for writing.
+  This is expected, correct HDF5 behavior, not a bug in this codebase's use
+  of it — HDF5 enforces exclusive-ish file locking by default absent SWMR.
+- Scoped SWMR as the fix and confirmed it's technically viable here:
+  installed HDF5 is 1.14.4 (well above the 1.10 SWMR minimum);
+  `dtsIO_writeDF_toHDF5.m` and `dtsIO_readHDF5.m` are *already* on the
+  low-level `H5F`/`H5D`/`H5P` API (for an unrelated fd-leak reason), so
+  adding SWMR there is small; only 4 call sites
+  (`dtsIO_readDFIDs.m`, `dtsIO_findSentinelRow.m` ×2, `mdlObject.m`'s
+  `scaleApply_transform` skip-check) still use the high-level `h5info`,
+  which has no SWMR flag and would each need a small low-level
+  group-listing replacement. Verified the writer must flush once
+  immediately after `H5F.start_swmr_write` before concurrent readers can
+  reliably open the file (a real timing gotcha, not just a formality).
+- Decided against SWMR anyway: it's fundamentally Single-**Writer**/Multiple-
+  Reader — it would fix "one nexon writes, others browse," but does nothing
+  for genuine multi-writer, and existing `.h5` files aren't retroactively
+  SWMR-capable (libver bounds are a creation-time property — old files would
+  need re-export regardless). Zarr was identified as the alternative that
+  gets true multi-writer *and* multi-reader for free, structurally — each
+  chunk is its own file/object, so concurrent writers touching different
+  chunks never conflict at the filesystem level, no single-writer exception
+  needed.
+
+**Design — the key simplifying decision:** old data is being re-extracted
+anyway right now, so **write newly-extracted data straight into Zarr and
+leave existing HDF5-backed DTS manifests as-is** — no HDF5→Zarr conversion
+path needed for old data. This sidesteps what would otherwise be the
+hardest part of this migration (a lossless converter preserving `dim_order`,
+per-axis attributes, chunking, and the `h5_path`/`h5_root`/`h5_path_<dfID>`
+routing-column semantics for every existing session). A DTS row's storage
+backend becomes a property of *when it was extracted*, not something that
+needs unifying retroactively — old sessions keep reading through the
+existing HDF5 path (`dtsIO_readHDF5.m`, unchanged), new sessions get a
+parallel Zarr path. Whether DTSIO dispatches between the two backends by a
+new manifest column (e.g. `zarr_path`/`zarr_root`, mirroring `h5_path`/
+`h5_root`) or by some other per-row marker is an open question for when this
+is actually scoped — not decided yet.
+
+**Open questions to resolve before implementation (not yet scoped):**
+1. No first-party MATLAB Zarr reader/writer exists. Two paths: (a) write a
+   minimal native MATLAB Zarr implementation (the format itself — plain
+   directories, JSON metadata (`.zarray`/`.zgroup`), raw/compressed binary
+   chunks — is simple enough that a *minimal* reader/writer covering this
+   codebase's actual access patterns is plausible, not a full spec
+   implementation), or (b) route through `py.zarr` via the Python interop
+   this codebase already leans on for CEBRA/sklearn — needs `zarr` added to
+   the `nexus` conda env and a decision on whether per-trial-read
+   performance through the Python bridge is acceptable for the real-time
+   paths that currently read HDF5 directly in MATLAB.
+2. Chunking/layout scheme: does each (trial, dfID) become its own Zarr
+   array (closest mapping to today's per-trial HDF5 groups), or does this
+   restructure toward one Zarr array per dfID with trial as a chunked
+   dimension (fewer, larger arrays; different concurrency/access tradeoffs)?
+3. How much of the *existing* DTSIO abstraction (`dtsIO_readDF`,
+   `dtsIO_composeDF`, `dtsIO_listDFIDs`/`dtsIO_readDFIDs`, the `ptr`-based
+   hyperslab-read convention) can be reused by writing a Zarr-backed sibling
+   to `dtsIO_readHDF5.m`/`dtsIO_writeDF_toHDF5.m` behind the same interface,
+   versus how much is HDF5-shaped enough (group hierarchy, `dim_order`
+   attribute convention) to need rethinking for Zarr's own metadata model.
+
+**Touches (anticipated):** new `dtsIO_writeDF_toZarr.m` / `dtsIO_readZarr.m`
+(siblings to the existing HDF5 read/write pair), `dtsIO_readDF.m`/
+`dtsIO_composeDF.m` (backend dispatch), `dtsIO_listDFIDs.m`/
+`dtsIO_readDFIDs.m` (Zarr-side enumeration), `nexus_exportDTS.m` or
+wherever the extraction pipeline currently calls into DTSIO's write path
+(this is specifically about the *extraction* write target, not a DTS-wide
+conversion), and `Setup/` (conda env — `zarr` package) if the Python-interop
+route is chosen over a native reader.
+
+**Depends on:** A concrete decision between the native-MATLAB-reader and
+`py.zarr`-interop approaches (item 1 above) before any of the rest can be
+scoped file-by-file the way SWMR was. The SWMR investigation above is the
+direct predecessor context — same underlying problem, this is the chosen
+long-term fix instead.
+
+---
+
+## 9. `nexObject.source` vs. `nexObject.Origin`/`Parent` — possible redundant reference pair
+
+**Status:** Not started — parked as an open question, not a bug. Surfaced
+while generalizing `nexObj_bar`'s mdlObj-source constructor wiring
+(`resolveNexonFromSource`/`wireModelSource`) up to the `nexObject` base
+class, which is what gave `source` its own first-class property there.
+
+**Context:** `nexObject` now carries three properties that can each point
+"outward" from an instance: `Parent` (the categorical/nexObject hub an
+instance was built from), `Origin` (set alongside `Parent` in the usual
+construction path — e.g. `nexObj_monoGram`'s constructor does
+`nexObj.Origin = Parent.Origin` when `Parent` is non-empty, or
+`nexObj.Origin = nexObj` when building from a bare `dfID_source`), and the
+new `source` (set only via `wireModelSource`, when a viewer is constructed
+directly off a live `mdlObject` instance rather than off a categorical
+`Parent`/`dfID_source`). On the surface `source` reads like it could just be
+another value `Origin` takes — one property, either shape.
+
+**Why they were kept separate (analysis done, not yet revisited):**
+- `Origin`/`Parent` carry a real, load-bearing type contract elsewhere in
+  the codebase: always nexObject-family or occasionally the raw manifest
+  `Nexon`, always compileSTAT-capable, always exposing `selectionBus`/
+  `DF_postOp`. Existing call sites (e.g. `mdlObj.Origin.selectionBus.categories`)
+  assume this shape unconditionally, with no type check first.
+- `source` points at an `mdlObject` — a genuinely different class hierarchy
+  that exposes none of that shape (no `selectionBus`, no `DF_postOp` in the
+  same sense). Repurposing `Origin` to sometimes hold an mdlObj would
+  silently break every existing `Origin.selectionBus...`-style call site the
+  first time it happened to hold one.
+- Checked whether they're ever populated simultaneously for the same
+  instance today: they aren't. `nexObj_bar`'s constructor explicitly passes
+  `Parent=[]` (and never sets `Origin`) on the source-watching path — so
+  today `source` and `Origin`/`Parent` are mutually exclusive alternates for
+  two different construction modes (built-from-categorical-hub vs.
+  built-from-live-mdlObj), not two overlapping references describing the
+  same mode. That made "just merge them" not obviously a net win: it would
+  trade one property for a type-checked union plus defensive guards at every
+  existing `Origin.<nexObject-only-member>` call site.
+
+**Design (deferred — this is the actual open question):** whether a more
+parsimonious contract exists once there's more than one construction mode
+relying on this pattern — e.g. a single "source" concept typed as a tagged
+union/duck-typed dispatch (nexObject-family vs. mdlObject-family), with
+`Origin`'s current call sites updated to check shape before assuming
+nexObject members — versus leaving them as two deliberately separate,
+mutually-exclusive properties (current state) on the grounds that the
+type contracts are different enough that merging just relocates the
+type-checking rather than removing it. Revisit once there's a second
+source-typed construction path (beyond mdlObj) to see whether the pattern
+generalizes or whether mdlObj really is a one-off.
+
+**Touches (anticipated, if ever merged):** `nexObject.m` (`Origin`/`source`
+properties, `resolveNexonFromSource`/`wireModelSource`), every current
+`Origin.<member>` call site across nexObj subclasses (would need shape
+guards), `nexObj_bar.m`/`nexObj_monoGram.m` constructors (the two current
+`source`-path callers).
+
+**Depends on:** Nothing architecturally — deferred purely because it's a
+"revisit once there's more evidence" question, not a known-wrong design.
+
+---

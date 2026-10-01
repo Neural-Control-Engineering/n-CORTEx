@@ -1,10 +1,18 @@
 function nexFigure_stateSpace(nexObj)
     C = nexObj.nexon.settings.Colors;
 
-    % Right-column geometry (all panels share this width)
+    % Right-column geometry (all panels share this width). wRight (the
+    % outer scrollable container's own on-screen footprint) is back to
+    % its original pre-REG width — a compact, fixed viewport, NOT scaled
+    % up for Domain's extra key. wInner (each sub-panel's own width, e.g.
+    % pan_dom.ph) is sized wider instead — comfortably fitting Domain's 4
+    % keys (F/D1/ANI/REG) — deliberately EXCEEDING wRight. ctrl.ph is
+    % built with Scrollable="on" below, so the wider sub-panels simply
+    % extend past its narrow visible bounds and scroll into view; the
+    % figure's own width is untouched by any of this.
     xRight  = 610;
     wRight  = 355;   % outer scrollable container width
-    wInner  = 340;   % inner panel width (wRight - 2*pad)
+    wInner  = 635;   % inner panel width — wider than wRight, by design
     xInner  = 5;
 
     % Panel heights
@@ -94,12 +102,16 @@ function nexFigure_stateSpace(nexObj)
         nexObj.collector.View.listBoxes.SRC.Callback = @(s, ~) nexObj.onSRCChanged(s);
     end
 
-    %% Domain — selectionBus (F / D1 / ANI)
+    %% Domain — selectionBus (F / D1 / ANI / REG)
     % F: multi-select, Max=3 (scatter3 X/Y/Z).  D1: single.  ANI: single.
+    % REG: single (cross-sample registration identity axis for
+    % nexOp_compileSTAT's co-axis alignment). No per-listbox Callback
+    % needed for any of these — applyDomainBus() (wired to the Refresh
+    % button) reads the whole bus at once via nex_returnSelectionMask.
     pan_dom.ph = uipanel(ctrl.ph, ...
         "Position", [xInner, yDom, wInner, hBus], "BackgroundColor", [0,0,0], "Scrollable", "on");
     nexObj.Figure.panel_domain = nexObj_listCfgPanel(nexObj.nexon, pan_dom, ...
-        nexObj.collector.Domain, [3, 1, 1]);
+        nexObj.collector.Domain, [3, 1, 1, 1]);
 
     %% Pointer — selectionBus (one listbox per DF.ax dimension)
     % maxSels = [] → full multi-select per axis (needed for animated axis and

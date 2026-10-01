@@ -1,4 +1,4 @@
-function [TF_aligned, canonReg, ftrAxis] = nexOp_alignCoAxes(TF, regAxis, poolFn, canonRegOverride)
+function [TF_aligned, canonReg, ftrAxis] = nexOp_alignCoAxes(TF, regAxis, poolFn, canonRegOverride, trialLabels)
 % Canonicalize a co-registered FTR axis across all DFs in TF.
 %
 % THE PROBLEM THIS SOLVES
@@ -116,6 +116,13 @@ function [TF_aligned, canonReg, ftrAxis] = nexOp_alignCoAxes(TF, regAxis, poolFn
     fprintf('[nexOp_alignCoAxes] aligning co-registered axes: REG=%s across %d DFs\n', regAxis, numel(TF));
     if nargin < 3 || isempty(poolFn), poolFn = @mean; end
     if nargin < 4, canonRegOverride = []; end
+    % trialLabels (optional): one identifying string per TF entry (e.g.
+    % "<sessionLabel>_trial<N>"), same length/order as TF — lets the
+    % skip-diagnostic below name which actual trial is missing ax.(regAxis)
+    % instead of just an opaque TF-relative index. Callers that don't have
+    % per-trial identity handy (e.g. mdlObject's single-DF inference-time
+    % call) simply omit it.
+    if nargin < 5, trialLabels = []; end
     regAxis = char(regAxis);
 
     % ── Find first non-empty DF ───────────────────────────────────────────
@@ -216,8 +223,55 @@ function [TF_aligned, canonReg, ftrAxis] = nexOp_alignCoAxes(TF, regAxis, poolFn
     TF_aligned = TF;
     nSkipped = 0;
     for i = 1:numel(TF)
-        if isempty(TF{i}) || ~isfield(TF{i}.ax, regAxis)
+        if isempty(TF{i})
             nSkipped = nSkipped + 1;
+            continue;
+        end
+        if ~isfield(TF{i}.ax, regAxis)
+            % This DF never recorded the REG axis at all (e.g. a trial with
+            % no sortable spikes) — structurally-absence-fill it to the
+            % SAME canonical shape every aligned DF below gets, rather than
+            % handing it back untouched. Untouched means its .ax keeps a
+            % DIFFERENT field set than every aligned DF (missing regAxis,
+            % and never getting ftrAxis reslotted to the canonical width
+            % either) — harmless on its own, but fatal once this DF's row
+            % and an aligned DF's row both need to sit in one STAT table:
+            % table() stores a struct-valued column (.ax) as a struct
+            % array, which requires every row's struct to share the exact
+            % same fieldnames, so the mismatch surfaces later as a
+            % "Number of fields... do not match" vertcat error at
+            % STAT = cat(1, M{:}) — far from this actual cause. Filling
+            % every canonical position as an absence (same as CASE 1 in
+            % the main loop below, just for all of them at once) keeps
+            % every DF's .ax shape identical while still correctly
+            % representing "this trial has no REG data" as all-NaN.
+            nSkipped = nSkipped + 1;
+            if ~isempty(trialLabels) && numel(trialLabels) >= i
+                trialID = char(trialLabels(i));
+            else
+                trialID = sprintf('TF{%d}', i);
+            end
+            axFieldsHave = strjoin(fieldnames(TF{i}.ax)', ', ');
+            fprintf('[nexOp_alignCoAxes] SKIP (no ax.%s): %s — df size [%s], ax fields present: [%s]\n', ...
+                regAxis, trialID, strjoin(string(size(TF{i}.df)), 'x'), axFieldsHave);
+            DF     = TF{i};
+            sz     = size(DF.df);
+            nDims  = max(ndims(DF.df), ftrDim);
+            sz_out = sz;
+            if numel(sz_out) < nDims, sz_out(end+1:nDims) = 1; end
+            sz_out(ftrDim) = nCanon;
+            if isfloat(DF.df)
+                DF.df = nan(sz_out, 'like', DF.df);
+            else
+                DF.df = zeros(sz_out, 'like', DF.df);
+            end
+            if isnumeric(canonReg)
+                DF.ax.(ftrAxis) = zeros(nCanon, 1, class(canonReg));
+            else
+                DF.ax.(ftrAxis) = repmat("", nCanon, 1);
+            end
+            DF.ax.(regAxis) = canonReg;
+            TF_aligned{i}   = DF;
             continue;
         end
         DF      = TF{i};

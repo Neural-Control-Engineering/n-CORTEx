@@ -90,6 +90,24 @@ function nexVisualization_polyGraph(nexObj, args)
         [C_traces, axLabels] = nexObj.resolveCLRColors(nexObj.DF_postOp, clrCols, nT);
         T_color = toc(t_);
 
+        % Drop stacked traces that are entirely NaN — e.g. after REG
+        % cross-session canonicalization (nexOp_alignCoAxes), most
+        % canonical stack positions are legitimately never-recorded for
+        % this DF and come back all-NaN; plotting them adds invisible
+        % lines and can leave the view looking empty when only a few
+        % positions actually have data. traces/sems/C_traces/axLabels are
+        % all still positionally aligned at this point (same nT, nothing
+        % reordered) — filtering all four together here, in one place,
+        % keeps them aligned rather than risking desync by filtering
+        % nexVis_extractD1D2's output independently of resolveCLRColors'.
+        keepMask = ~cellfun(@(t) all(isnan(t)), traces);
+        traces   = traces(keepMask);
+        sems     = sems(keepMask);
+        C_traces = C_traces(keepMask, :);
+        if ~isempty(axLabels) && numel(axLabels) == numel(keepMask)
+            axLabels = axLabels(keepMask);
+        end
+
         t_ = tic;
         h_all = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth, maxDisplayPts);
         T_draw = toc(t_);
@@ -102,6 +120,29 @@ function nexVisualization_polyGraph(nexObj, args)
     else
         [rowLabels, ~] = nexVis_rowLabels(RESULT, rowIdx);
         [rowBaseColors, axClrCols] = nexObj.splitResultsColors(RESULT, rowIdx, clrCols);
+
+        % Union keep-mask across every overlaid row — a canonical stack
+        % position is dropped only when EVERY row is all-NaN there. Each
+        % row filtering its OWN NaN positions independently would compact
+        % that row's surviving indices differently per row, so the same
+        % canonical channel/unit would land at a different (i-1)*ySpacing
+        % offset in different overlaid groups even though ySpacing itself
+        % is shared. Only the (cheap) trace extraction is repeated here —
+        % color/legend work happens once per row in the main loop below.
+        unionKeepMask = [];
+        for gi0 = 1:numel(rowIdx)
+            DF_g0 = nexVis_transformDF(nexVis_rowToDF(RESULT, rowIdx(gi0)), component, scale);
+            DF_g0.ptr = nexOp_syncPtrFromBus(DF_g0.ptr, ptrBus);
+            [traces0, ~, ~] = nexVis_extractD1D2(DF_g0, xKey, stackKey, ptrBus);
+            rowMask = ~cellfun(@(t) all(isnan(t)), traces0);
+            if isempty(unionKeepMask)
+                unionKeepMask = rowMask;
+            else
+                n = max(numel(unionKeepMask), numel(rowMask));
+                unionKeepMask(end+1:n) = false; rowMask(end+1:n) = false; %#ok<AGROW>
+                unionKeepMask = unionKeepMask | rowMask;
+            end
+        end
 
         axLegendDone = false;
         for gi = 1:numel(rowIdx)
@@ -128,6 +169,25 @@ function nexVisualization_polyGraph(nexObj, args)
             [C_traces, axLabels] = nexObj.resolveCLRColors(DF_g, axClrCols, nT);
             C_traces = nexVis_blendColors(C_traces, axClrCols, rowBaseColors, gi, nT);
             T_color = T_color + toc(t_);
+
+            % Drop all-NaN stacked traces using the UNION mask computed
+            % above (not this row's own NaN pattern) — see that block's
+            % comment for why: keeps a given canonical position at the
+            % same stack index, and therefore the same y-offset, across
+            % every overlaid row. traces/sems/C_traces/axLabels are still
+            % positionally aligned here (same nT), so filtering all four
+            % together keeps them aligned rather than risking desync.
+            keepMask = unionKeepMask;
+            if numel(keepMask) ~= numel(traces)
+                keepMask(end+1:numel(traces)) = false;
+                keepMask = keepMask(1:numel(traces));
+            end
+            traces   = traces(keepMask);
+            sems     = sems(keepMask);
+            C_traces = C_traces(keepMask, :);
+            if ~isempty(axLabels) && numel(axLabels) == numel(keepMask)
+                axLabels = axLabels(keepMask);
+            end
 
             t_ = tic;
             h_all = pgph_drawGroup(ax, xAxis, traces, sems, ySpacing, C_traces, alphaVal, lineWidth, maxDisplayPts);

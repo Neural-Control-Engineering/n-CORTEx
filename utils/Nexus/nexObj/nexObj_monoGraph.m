@@ -65,12 +65,16 @@ classdef nexObj_monoGraph < nexObject
             %% Domain
             nexObj.domain = nexObj.inferDomain();
 
-            %% Collector — Domain (D1 = display axis, ANI = animate axis)
+            %% Collector — Domain (D1 = display axis, ANI = animate axis,
+            % REG = cross-sample registration identity axis — consumed by
+            % nexOp_compileSTAT's co-axis alignment; see nexObject.refreshREG)
             axisKeys = string(fieldnames(nexObj.DF_postOp.ax))';
             if isempty(axisKeys), axisKeys = ""; end
             domainDict.D1  = axisKeys;
             domainDict.ANI = axisKeys;
+            domainDict.REG = nexOp_computeREGOptions(axisKeys, nexObj.DF_postOp.ax);
             nexObj.collector.Domain = buildSelection(nexObj, domainDict);
+            nexObj.collector.Domain.selections.REG = 1;   % default = "None"
             if ~isequal(axisKeys, "")
                 sweepAx = nexObj.domain.D2(1);
                 d1Idx = find(ismember(axisKeys, sweepAx), 1);

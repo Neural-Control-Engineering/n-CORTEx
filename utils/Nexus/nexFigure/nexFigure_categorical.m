@@ -5,6 +5,23 @@ function nexFigure_categorical(nexObj)
     H_panel = 275;
     gap     = 5;
 
+    % categories/items key counts are dynamic — one key per available
+    % category (session label + signal types + task vars + h5 fields +
+    % DF dims), easily 10-20+ — unlike the small fixed key sets (2-4)
+    % the other selectionBus panels carry. nexObj_listCfgPanel's own
+    % per-key width (panelWidth/(nKeys+0.3), floored so it never goes
+    % non-positive) shrinks to that floor whenever the CONTAINER isn't
+    % sized for the actual key count, producing uncomfortably narrow
+    % listboxes. So size panel3/panel4's own width here, per bus, to
+    % keep each listbox at a comfortable ~150px — the same slot width
+    % the original fixed /2.3 divisor gave for 2 keys — and let them
+    % overflow past panel1's width into its existing horizontal scroll.
+    slotWidth = 150;
+    nCatKeys  = max(numel(fieldnames(nexObj.selectionBus.categories.selKeys)), 1);
+    nItemKeys = max(numel(fieldnames(nexObj.selectionBus.items.selKeys)), 1);
+    wCategories = max(wInner - 2*gap, slotWidth * (nCatKeys + 0.3));
+    wItems      = max(wInner - 2*gap, slotWidth * (nItemKeys + 0.3));
+
     nexObj.Figure.fh = uifigure("Position",[100,1260,900,720],"Color",[0,0,0]);
     % graphics panel
     nexObj.Figure.panel0.ph = uipanel(nexObj.Figure.fh,"Position",[5,5,700,680],"BackgroundColor",[0,0,0]);
@@ -29,11 +46,11 @@ function nexFigure_categorical(nexObj)
     panel5.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 285, wInner-2*gap, H_panel],"BackgroundColor",[0,0,0]);
 
     %% items selection panel
-    panel4.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 565, wInner-2*gap, H_panel],"BackgroundColor",[0,0,0],"Scrollable","on");
+    panel4.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 565, wItems, H_panel],"BackgroundColor",[0,0,0],"Scrollable","on");
     nexObj.Figure.panel4 = nexObj_listCfgPanel(nexObj.nexon, panel4, nexObj.selectionBus.items, []);
 
     %% categories selection panel
-    panel3.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 845, wInner-2*gap, H_panel],"BackgroundColor",[0,0,0],"Scrollable","on");
+    panel3.ph = uipanel(nexObj.Figure.panel1.ph,"Position",[gap, 845, wCategories, H_panel],"BackgroundColor",[0,0,0],"Scrollable","on");
     nexObj.Figure.panel3 = nexObj_listCfgPanel(nexObj.nexon, panel3, nexObj.selectionBus.categories, []);
 
     %% SRC / CLR / CMP / GRP panel — source + compare selector

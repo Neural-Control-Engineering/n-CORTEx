@@ -1,4 +1,4 @@
-function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel, precompiled)
+function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categories, S_items, idxSel, precompiled, withinSubject)
     % for each DF in DF_col, use dim selection (bus) to slice coordinate of
     % interest and arrange a multi-factoral column-wise grouping/labeling
     % for downstream analysis/visualization
@@ -16,6 +16,7 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     % mdlObject.invalidatePrecompile() for when this cache gets cleared).
 
     if nargin < 6, precompiled = []; end
+    if nargin < 7 || isempty(withinSubject), withinSubject = true; end
     nexon = nexObj.nexon;
 
     if ~isempty(precompiled)
@@ -42,6 +43,41 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     ptr_filter = nexOp_buildPtrFromAxSel(S_categories, S_items, nexObj);
     [TF, drop] = nexOp_compileTF(nexObj.nexon, idxSel, dfID, ptr_filter);
 
+    % Per-TF-row subject ID, aligned to TF's own row order — same read +
+    % (~drop) filtering pattern the category loop below uses for every
+    % other categoryID, just pulled forward so co-axis alignment (next)
+    % can scope canonicalization to within-subject.
+    subjID = string.empty;
+    if withinSubject
+        try
+            subjID = dtsIO_readTF_category(nexon, "sessionLabel--subj", idxSel);
+            subjID = subjID(~drop);
+        catch
+            subjID = string.empty;
+        end
+    end
+
+    % Per-TF-row human-readable trial identity (sessionLabel + trial
+    % number), same alignment as subjID above — passed into
+    % nexOp_alignCoAxes purely so its skip-diagnostic can name which real
+    % trial is missing the REG axis, instead of an opaque TF-relative index.
+    trialLabels = string.empty;
+    try
+        sessLbl = string(nexon.console.BASE.DTS.sessionLabel(idxSel));
+        trialNum = nexon.console.BASE.DTS.trialNumber(idxSel);
+        sessLbl  = sessLbl(~drop);
+        trialNum = trialNum(~drop);
+        trialLabels = sessLbl + "_trial" + string(trialNum);
+    catch
+        trialLabels = string.empty;
+    end
+
+    % DF used to seed the Pointer bus below (refreshPointerFromPool) — set
+    % to the cross-subject union representative inside the per-subject
+    % canonicalization branch just below; falls back to the (post-
+    % alignment, if REG was set) TF{1} otherwise, right before it's used.
+    pointerSeedDF = [];
+
     % CO-AXIS ALIGNMENT — canonicalize FTR axis across sessions, on the RAW
     % TF, before any pooling. Must happen first: positional (axID) pooling
     % computes bin edges from each trial's own raw axis extent, which is
@@ -56,17 +92,73 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
         % which works for both structs and objects.
         hasRegField = ismember('domain', fieldnames(nexObj)) && isfield(nexObj.domain, 'REG');
         if hasRegField && ~isempty(nexObj.domain.REG) && ~strcmp(char(nexObj.domain.REG), 'None')
-            [TF, canonReg, ftrAxis] = nexOp_alignCoAxes(TF, char(nexObj.domain.REG));
-            % Cache the canonical set this compileSTAT call established, so
-            % scaleApply_transform can later project each new raw per-trial
-            % DF onto these SAME canonical positions at inference time
-            % (CoRegistration_Design.md, "Inference-Time Projection"). Only
-            % mdlObj instances carry this property — nexObject subclasses
-            % (which also route through nexOp_compileSTAT) don't, hence the
-            % fieldnames guard rather than a direct property check.
-            if ismember('fitSentinel', fieldnames(nexObj))
-                nexObj.fitSentinel = struct('regAxis', char(nexObj.domain.REG), ...
-                                             'canonReg', canonReg, 'ftrAxis', ftrAxis);
+            uniqSubj = string.empty;
+            if ~isempty(subjID), uniqSubj = unique(subjID); end
+            if numel(uniqSubj) > 1
+                % Per-subject canonicalization — canonicalizing a REG
+                % identity (e.g. 'chans') across DIFFERENT subjects'
+                % probes/geometry is semantically wrong (subject A's
+                % "chan 5" isn't subject B's "chan 5"). Run
+                % nexOp_alignCoAxes once per subject's own TF subset and
+                % scatter the results back into TF's original row order.
+                TF_aligned = TF;
+                canonRegBySubject = containers.Map('KeyType','char','ValueType','any');
+                ftrAxis = "";
+                repDFs = cell(1, numel(uniqSubj));
+                for si = 1:numel(uniqSubj)
+                    subjMask = (subjID == uniqSubj(si));
+                    labels_s = string.empty;
+                    if numel(trialLabels) == numel(subjMask), labels_s = trialLabels(subjMask); end
+                    [TF_s, canonReg_s, ftrAxis_s] = nexOp_alignCoAxes(TF(subjMask), char(nexObj.domain.REG), [], [], labels_s);
+                    TF_aligned(subjMask) = TF_s;
+                    canonRegBySubject(char(uniqSubj(si))) = canonReg_s;
+                    ftrAxis = ftrAxis_s;
+                    % One already-canonicalized trial per subject, kept as
+                    % a representative for the SECOND (across-subject)
+                    % canonicalization pass just below — every trial
+                    % within a subject already shares that subject's own
+                    % canonical shape, so any one of them is as good as
+                    % another here.
+                    repDFs{si} = TF_s{1};
+                end
+                TF = TF_aligned;
+
+                % SECOND pass: canonicalize ACROSS the per-subject
+                % canonical sets themselves (one representative DF per
+                % subject) to get the TRUE global union — reusing
+                % nexOp_alignCoAxes one level up, exactly like the first
+                % pass, just over subjects instead of trials. This is ONLY
+                % used to seed the Pointer bus below (pointerSeedDF) — TF
+                % itself stays per-subject-canonicalized (never pooled
+                % across subjects), so this never affects what STAT
+                % actually contains, only what Pointer OFFERS as options.
+                pointerSeedDF = TF{1};
+                try
+                    [TF_global, ~, ~] = nexOp_alignCoAxes(repDFs, char(nexObj.domain.REG));
+                    pointerSeedDF = TF_global{1};
+                catch e
+                    fprintf('[nexOp_compileSTAT] cross-subject Pointer union skipped: %s\n', e.message);
+                end
+                % Cache per-subject canonical sets so scaleApply_transform
+                % can later project each new raw per-trial DF onto the
+                % SAME canonical positions its own subject was fit with
+                % (CoRegistration_Design.md, "Inference-Time Projection").
+                % Only mdlObj instances carry this property — nexObject
+                % subclasses (which also route through nexOp_compileSTAT)
+                % don't, hence the fieldnames guard rather than a direct
+                % property check.
+                if ismember('fitSentinel', fieldnames(nexObj))
+                    nexObj.fitSentinel = struct('regAxis', char(nexObj.domain.REG), ...
+                                                 'ftrAxis', ftrAxis, 'bySubject', true, ...
+                                                 'canonReg', canonRegBySubject);
+                end
+            else
+                [TF, canonReg, ftrAxis] = nexOp_alignCoAxes(TF, char(nexObj.domain.REG), [], [], trialLabels);
+                if ismember('fitSentinel', fieldnames(nexObj))
+                    nexObj.fitSentinel = struct('regAxis', char(nexObj.domain.REG), ...
+                                                 'ftrAxis', ftrAxis, 'bySubject', false, ...
+                                                 'canonReg', canonReg);
+                end
             end
         end
     catch e
@@ -82,9 +174,15 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     % — this whole branch is skipped on a cache-reusing compileSTAT() call
     % (see the `if ~isempty(precompiled)` above), so a Pointer/pMap
     % subselection made after this survives into repeated Fits untouched.
-    if ismethod(nexObj, 'refreshPointerFromPool') && ~isempty(TF)
+    % pointerSeedDF is TF{1} in the common (single-subject or
+    % withinSubject=false) case, but the cross-subject UNION
+    % representative when per-subject canonicalization ran above — so
+    % Pointer's options span every subject's own canonical set, not just
+    % whichever subject happened to compile first.
+    if isempty(pointerSeedDF) && ~isempty(TF), pointerSeedDF = TF{1}; end
+    if ismethod(nexObj, 'refreshPointerFromPool') && ~isempty(pointerSeedDF)
         try
-            nexObj.refreshPointerFromPool(TF{1});
+            nexObj.refreshPointerFromPool(pointerSeedDF);
         catch e
             fprintf('[nexOp_compileSTAT] refreshPointerFromPool skipped: %s\n', e.message);
         end

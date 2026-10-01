@@ -11,6 +11,10 @@ function [out, slrt] = extractEXT_SLRT(filename)
     % load slrt data, get logged  signals
     slrt = load(filename);
     try
+        close(realtimeLog.session.sense.sense1.calibrationFigure)
+    catch         
+    end
+    try
         logsout = slrt.realtimeLog.data;
     catch
         try

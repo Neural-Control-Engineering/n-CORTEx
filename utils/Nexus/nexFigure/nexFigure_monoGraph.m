@@ -3,10 +3,14 @@ function nexFigure_monoGraph(nexObj)
     GREEN = C.cyberGreen;
     BLACK = [0 0 0];
 
-    % Right panel geometry
+    % Right panel geometry. wRight/wInner widened for Domain's 3rd listbox
+    % (REG, added alongside D1/ANI) — nexObj_listCfgPanel divides panel
+    % width by (nKeys+0.3), so a 3rd column at the old width squeezed all
+    % three into what used to fit two. Scaled by that ratio (3.3/2.3) to
+    % restore each listbox's original per-box width.
     xRight = 810;
-    wRight = 250;
-    wInner = 240;
+    wRight = 355;
+    wInner = 345;
     xInner = 5;
     gap    = 5;
 
@@ -26,7 +30,7 @@ function nexFigure_monoGraph(nexObj)
     yDom  = yColl + hColl + gap;
 
     %% Figure
-    nexObj.Figure.fh = uifigure("Position", [100, 1060, 1005, 420], "Color", BLACK);
+    nexObj.Figure.fh = uifigure("Position", [100, 1060, 1110, 420], "Color", BLACK);
 
     %% panel0 — main plot canvas
     nexObj.Figure.panel0.ph = uipanel(nexObj.Figure.fh, ...
@@ -110,6 +114,11 @@ function nexFigure_monoGraph(nexObj)
             && ~isempty(nexObj.collector.Domain.listBoxes.ANI)
         nexObj.collector.Domain.listBoxes.ANI.Max      = 1;
         nexObj.collector.Domain.listBoxes.ANI.Callback = @(s, ~) nexObj.onANIChanged(s);
+    end
+    if isfield(nexObj.collector.Domain.listBoxes, 'REG') ...
+            && ~isempty(nexObj.collector.Domain.listBoxes.REG)
+        nexObj.collector.Domain.listBoxes.REG.Max      = 1;
+        nexObj.collector.Domain.listBoxes.REG.Callback = @(s, ~) nexObj.onREGChanged(s);
     end
 
     %% Top-bar controls

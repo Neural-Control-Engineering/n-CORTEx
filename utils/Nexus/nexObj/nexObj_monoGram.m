@@ -21,13 +21,86 @@ classdef nexObj_monoGram < nexObject
 
         % ── Constructor ───────────────────────────────────────────────────
         function nexObj = nexObj_monoGram(nexon, Parent, dfID_source, opCfgFcn, domain, headline)
-            if ~isempty(Parent)
+            if nargin < 6, headline = []; end
+            if nargin < 5, domain   = []; end
+
+            % mdlObj-sourced construction — watches a live mdlObject's
+            % RESULTS directly (accuracy/weights facets), bypassing the
+            % categorical-hub DF/DTS pull entirely. Parallel to
+            % nexObj_bar's own source-watching constructor path; see
+            % nexObject.resolveNexonFromSource/wireModelSource. Args to
+            % the (unconditional — MATLAB disallows a conditionalized
+            % superclass constructor call) obj@nexObject(...) call below
+            % are resolved here; the rest of this branch's setup runs
+            % after that call, ending in an early return.
+            isMdlSource = ~isempty(Parent) && isa(Parent, 'mdlObject');
+            if isMdlSource
+                if isempty(headline), headline = 'monoGram'; end
+                [nexon, source] = nexObject.resolveNexonFromSource(Parent);
+                Parent      = [];
+                dfID_source = "";
+            elseif ~isempty(Parent)
                 nexon = Parent.nexon;
             end
-            if nargin < 5, domain   = []; end
-            if nargin < 6, headline = []; end
+
             nexObj = nexObj@nexObject(nexon, Parent, dfID_source, headline);
             nexObj.classID = "mgm";
+
+            if isMdlSource
+                % No DTS pull — seed empty DF_postOp, mirrors nexObj_bar.
+                nexObj.DF_postOp = struct('df', [], 'ax', struct(), 'ptr', struct());
+                % nexObj.pMap is never populated on this path (no
+                % nexInit_pMap call — there's no DF to pool yet). Must be a
+                % real (if empty-fieldnames) struct, not the property's
+                % default [] — nexFigure_monoGram unconditionally builds a
+                % pool panel via nexObj_poolCfgPanel_v2, which falls back to
+                % nexObj.pMap and calls fieldnames(pMap) on it with no
+                % isstruct guard; fieldnames([]) errors outright (wrong
+                % type), unlike fieldnames(struct()) which cleanly yields
+                % an empty list.
+                nexObj.pMap = struct();
+
+                nexObj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_monoGram"));
+                nexObj.cfg.aniCfg = nex_generateCfgObj(str2func("nexObject.stepAnimate"));
+
+                % View bus: SRC = result IDs (+ weights facet via
+                % refreshSRC/applySRC), VW = row filter, CLR = empty — same
+                % shape nexObj_bar uses; no CTG (monoGram has no
+                % categorical grouping concept of its own).
+                viewDict.SRC = "";
+                viewDict.CTG = "";
+                viewDict.VW  = "";
+                viewDict.CLR = "";
+                nexObj.collector.View = nexInit_collectorView(nexObj, viewDict);
+
+                % Domain/Pointer seeded with placeholder single-item keys —
+                % genuinely populated once a RESULTS row is selected via
+                % applySRC -> remodelDomain, which only MUTATES an
+                % already-live bus object and never builds one from
+                % scratch (see remodelDomain's own header comment). Fully
+                % overwritten on first real selection; same fallback shape
+                % construction-time seeding uses elsewhere in this class.
+                domainDict.D1  = "";
+                domainDict.ANI = "";
+                domainDict.REG = "None";
+                nexObj.collector.Domain  = buildSelection(nexObj, domainDict);
+                nexObj.collector.Pointer = buildSelection(nexObj, struct('placeholder', ""));
+
+                nexObj.wireModelSource(source);
+
+                isHeadless = ~isempty(nexon) && isfield(nexon, 'settings') && ...
+                             isfield(nexon.settings, 'headless') && nexon.settings.headless;
+                if ~isHeadless
+                    nexObj.buildFigure();
+                    nexObj.player = timer('Period', 0.2, 'BusyMode', 'drop', ...
+                        'ExecutionMode', 'fixedRate', ...
+                        'TimerFcn', @(~,~) nexObj.stepAnimate(nexObj.cfg.aniCfg.entryParams));
+                    if isstruct(nexObj.RESULTS) && ~isempty(fieldnames(nexObj.RESULTS))
+                        nexObj.refreshSRC();
+                    end
+                end
+                return;
+            end
 
             %% DF loading
             if ~isempty(Parent)
@@ -67,12 +140,16 @@ classdef nexObj_monoGram < nexObject
             %% Collector — View (SRC / VW / CLR with ax-- keys)
             nexObj.initCollectorView();
 
-            %% Collector — Domain (D1 = two display axes, ANI = animation axis)
+            %% Collector — Domain (D1 = two display axes, ANI = animation axis,
+            % REG = cross-sample registration identity axis — consumed by
+            % nexOp_compileSTAT's co-axis alignment; see nexObject.refreshREG)
             axisKeys = string(fieldnames(nexObj.DF_postOp.ax))';
             if isempty(axisKeys), axisKeys = ""; end
             domainDict.D1  = axisKeys;
             domainDict.ANI = axisKeys;
+            domainDict.REG = nexOp_computeREGOptions(axisKeys, nexObj.DF_postOp.ax);
             nexObj.collector.Domain = buildSelection(nexObj, domainDict);
+            nexObj.collector.Domain.selections.REG = 1;   % default = "None"
 
             % Seed selections from inferred domain
             if ~isequal(axisKeys, "")
@@ -189,11 +266,74 @@ classdef nexObj_monoGram < nexObject
             nexVisualization_monoGram(nexObj, nexObj.cfg.visCfg.entryParams);
         end
 
-        function applySRC(nexObj, srcKey)
-            applySRC@nexObject(nexObj, srcKey);
+        function homeLimits(nexObj)
+        % "Home" — set zLim/cLim to the CURRENTLY RENDERED surface's actual
+        % data range (min/max of the live canvas's ZData, NaN/Inf ignored),
+        % mirroring MATLAB's own axis-reset icon: entryParams is never
+        % touched by an ordinary visualize() call (only by a direct
+        % spinner edit or this method), so a manual zLim/cLim edit persists
+        % across re-visualizes exactly as before — this is purely an
+        % explicit "go find the real range for me" action, not something
+        % that runs automatically on every frame (would fight a manual
+        % override the user just made, and would jitter the scale on every
+        % animation step).
+        %
+        % Reads ZData off the live canvas rather than re-deriving/re-
+        % slicing DF_src itself — nexVisualization_monoGram already wrote
+        % the exact post-transform Z there this call, so this is a single
+        % source of truth instead of a second slicing path that could
+        % drift out of sync with it.
+            try
+                canvas = nexObj.Figure.panel0.tiles.graphics.canvas;
+            catch
+                return;
+            end
+            if isempty(canvas) || ~isvalid(canvas), return; end
+            Z = double(canvas.ZData);
+            Z = Z(isfinite(Z));
+            if isempty(Z), return; end
+            zLo = min(Z); zHi = max(Z);
+            if zLo == zHi
+                % Degenerate (single-valued) surface — MATLAB rejects a
+                % zero-span ZLim/CLim outright, so pad a bit either way.
+                zLo = zLo - 0.5; zHi = zHi + 0.5;
+            else
+                % Pad by 5% of the span each way rather than capping
+                % exactly at the data extrema — a peak/trough sitting
+                % right on the boundary reads as clipped/cut-off
+                % otherwise, especially on a colorbar.
+                padFrac = 0.05;
+                pad     = padFrac * (zHi - zLo);
+                zLo = zLo - pad; zHi = zHi + pad;
+            end
+
+            ep = nexObj.cfg.visCfg.entryParams;
+            ep.zLim_low  = zLo;  ep.zLim_high  = zHi;
+            ep.cLim_low  = zLo;  ep.cLim_high  = zHi;
+            nexObj.cfg.visCfg.entryParams = ep;   % cfgObj is a handle — in-place mutation
+
+            % Sync the Vis cfg panel's own spinners — they only push
+            % UI->entryParams (cfgEntryChanged_v2), never the reverse, so
+            % without this the spinners would silently disagree with what
+            % just got applied.
+            try
+                ef = nexObj.Figure.panel_vis.editFields;
+                for f = ["zLim_low", "zLim_high", "cLim_low", "cLim_high"]
+                    if isfield(ef, f) && isvalid(ef.(f).uiField)
+                        ef.(f).uiField.Value = ep.(f);
+                    end
+                end
+            catch
+            end
+
             nexObj.visualize();
         end
 
+        % refreshSRC / applySRC / rebuildPointerPanel: no override needed —
+        % monoGram uses the base nexObject versions directly (promoted
+        % there since every OTHER current subclass already has its own
+        % override, making this a zero-risk place for the shared,
+        % facet-aware (accuracy/weights) logic to live — see nexObject.m).
 
     end
 end

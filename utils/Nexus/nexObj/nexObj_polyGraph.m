@@ -61,13 +61,17 @@ classdef nexObj_polyGraph < nexObject
             %% Collector — View (SRC / CTG / VW / CLR)
             nexObj.initCollectorView();
 
-            %% Collector — Domain (D1 = x-axis, D2 = stacking axis, ANI single)
+            %% Collector — Domain (D1 = x-axis, D2 = stacking axis, ANI single,
+            % REG = cross-sample registration identity axis — consumed by
+            % nexOp_compileSTAT's co-axis alignment; see nexObject.refreshREG)
             axisKeys = string(fieldnames(nexObj.DF_postOp.ax))';
             if isempty(axisKeys), axisKeys = ""; end
             domainDict.D1  = axisKeys;
             domainDict.D2  = axisKeys;
             domainDict.ANI = axisKeys;
+            domainDict.REG = nexOp_computeREGOptions(axisKeys, nexObj.DF_postOp.ax);
             nexObj.collector.Domain = buildSelection(nexObj, domainDict);
+            nexObj.collector.Domain.selections.REG = 1;   % default = "None"
 
             % Seed defaults: D1 = sweep axis (e.g. t), D2 = first complement (e.g. chans)
             if ~isequal(axisKeys, "")

@@ -161,11 +161,27 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
         end
 
         % 6. COMPRESS — block_feat is already a C-contiguous Python array
-        nComp_actual  = min(nComp, min([N_ctx, n_feat]));
-        reducer       = model_pca(nComp_actual, useGPU);
-        block_outs{b} = double(pym.fit_transform_traced(reducer, block_feat));   % (N_ctx, nComp_actual)
+        nComp_actual = min(nComp, min([N_ctx, n_feat]));
+        reducer      = model_pca(nComp_actual, useGPU);
+        % fit_transform_traced returns the (now-fitted) estimator alongside
+        % the transformed data — reducer MUST be reassigned from that
+        % return value, not left pointing at the pre-call handle, or its
+        % fitted attributes (explained_variance_ratio_, etc.) come back
+        % unreadable on the MATLAB side even though the object was fitted
+        % (confirmed empirically: reading them off the original handle,
+        % right after this same call, raised "Unrecognized property" —
+        % same reassign-after-fit convention nexFit_lda.m already uses for
+        % mdlObj.model = mdlObj.model.fit(...)).
+        % MATLAB doesn't auto-unpack a Python tuple return into multiple
+        % nargout — it comes back as one py.tuple, indexed with {}.
+        outTuple      = pym.fit_transform_traced(reducer, block_feat);
+        block_outs{b} = double(outTuple{1});   % (N_ctx, nComp_actual)
+        reducer       = outTuple{2};
 
-        block_models{b} = struct('reducer', reducer, 'inner_models', {inner_m});
+        evr = double(py.numpy.array(reducer.explained_variance_ratio_));
+
+        block_models{b} = struct('reducer', reducer, 'inner_models', {inner_m}, ...
+                                  'explained_variance_ratio', evr);
     end
 
     % Concatenate all blocks: (N_ctx, nBlocks * nComp_actual)

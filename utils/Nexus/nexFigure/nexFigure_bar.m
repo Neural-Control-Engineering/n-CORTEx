@@ -45,18 +45,47 @@ function nexFigure_bar(obj)
     viewMaxSels.SRC = 1;
     nex_buildCollectorViewPanel(obj, pan_view, hView, viewMaxSels);
 
-    % Pointer container — rebuilt by rebuildPointerPanel on SRC change.
-    % Freed-up height from collapsing the four stacked View panels into
-    % one row above goes here.
+    % Pointer panel — outer shell holds the title bar (with the reverse-
+    % order checkbox right-justified into it, below) plus an INNER content
+    % panel that rebuildPointerPanel actually clears/rebuilds on SRC
+    % change. obj.Figure.ptrContainer points at the inner panel, not this
+    % outer one, specifically so rebuildPointerPanel's delete(ph.Children)
+    % clears only the listboxes — the checkbox lives as a sibling at the
+    % outer level and is never touched by that rebuild.
     yPtr = 5;
     hPtr = yView - gap - yPtr;
     pan_ptr = uipanel(fh, ...
         'Position',        [xRight, yPtr, wRight, hPtr], ...
         'BackgroundColor', BLACK, ...
         'Title',           'Pointer', ...
-        'ForegroundColor', GREEN, ...
+        'ForegroundColor', GREEN);
+
+    % Reverse expand-axis tier order — flips region/chans vs time (or
+    % whichever Pointer-driven axes are currently multi-selected) without
+    % touching CTG's own tier order, which stays controlled by its own
+    % listbox item order (see nexObj_bar.reverseExpandOrder /
+    % resolveExpandAxes in nexVisualization_bar.m). Right-justified into
+    % the "Pointer" title-bar row — a uipanel's title text occupies only
+    % the top ~20px of its local coordinate space, leaving room alongside
+    % it for a right-aligned control.
+    cbW = 75; cbH = 15;
+    obj.Figure.reverseExpandCB = uicheckbox(pan_ptr, ...
+        'Position',        [wRight - cbW - 1, hPtr - 18, cbW, cbH], ...
+        'Text',            'Reverse', ...
+        'Tooltip',         ['Reverse the outer/inner order of region/chans ' ...
+                             'vs time (and any other Pointer-driven expand-' ...
+                             'axis) tiers. CTG tier order is unaffected.'], ...
+        'FontColor',       GREEN, ...
+        'FontSize',        9, ...
+        'Value',           obj.reverseExpandOrder, ...
+        'ValueChangedFcn', @(src,~) onReverseExpandOrder(obj, src));
+
+    pan_ptr_inner = uipanel(pan_ptr, ...
+        'Position',        [1, 1, wRight - 2, hPtr - 23], ...
+        'BackgroundColor', BLACK, ...
+        'BorderType',      'none', ...
         'Scrollable',      'on');
-    obj.Figure.ptrContainer = pan_ptr;
+    obj.Figure.ptrContainer = pan_ptr_inner;
 
     % ── Left: canvas ────────────────────────────────────────────────────────
     wLeft = xRight - 10;
@@ -82,6 +111,11 @@ end
 
 
 % ── Helpers ───────────────────────────────────────────────────────────────────
+
+function onReverseExpandOrder(obj, src)
+    obj.reverseExpandOrder = logical(src.Value);
+    obj.visualize();
+end
 
 function GREEN = resolveGreen(obj)
     try

@@ -18,24 +18,23 @@ classdef nexObj_bar < nexObject
 %   viewer.push('cv_1', R)        % add / update a result (R = STAT-shaped table)
 
     properties
-        source   % mdlObj this viewer watches; may be empty
+        % source: now inherited from nexObject (promoted there so
+        % nexObj_monoGram and future subclasses share the same
+        % mdlObj-watching construction path — see
+        % nexObject.resolveNexonFromSource/wireModelSource).
+        reverseExpandOrder = false   % flip the OUTER<->INNER order of
+            % Pointer-driven expand-axis tiers only (e.g. region/chans vs
+            % time) — CTG tier order is untouched, still controlled by its
+            % own listbox item order. See resolveExpandAxes/
+            % nexVisualization_bar.
     end
 
     methods
         function obj = nexObj_bar(source, headline)
             if nargin < 1 || isempty(source), source = []; end
-            if nargin < 2 || isempty(headline), headline = 'Bar Viewer'; end
+            if nargin < 2 || isempty(headline), headline = 'Bar'; end
 
-            % Resolve nexon from source
-            if isempty(source)
-                nexon_ = [];
-            elseif isprop(source, 'nexon') || isfield(source, 'nexon')
-                nexon_ = source.nexon;
-            elseif isa(source, 'Nexon')
-                nexon_ = source; source = [];
-            else
-                nexon_ = [];
-            end
+            [nexon_, source] = nexObject.resolveNexonFromSource(source);
 
             obj = obj@nexObject(nexon_, [], "", headline);
             obj.classID = "bar";
@@ -55,28 +54,10 @@ classdef nexObj_bar < nexObject
 
             obj.cfg.visCfg = nex_generateCfgObj(str2func("nexVisualization_bar"));
 
-            % Wire to source and register STUBS for its existing results —
-            % same lazy pattern as nexObject.discoverResults()/applySRC:
-            % RESULTS.(id) = [] populates the SRC list immediately (cheap —
-            % just names), the real table is pulled from the live source
-            % only when that key is actually selected (see applySRC below).
-            % A cvPermute RESULTS table can be a genuinely large N-D score
-            % array (nFolds × (1+nPermute) × nTime × nSWP), and a source
-            % mdlObj can accumulate several of these over a session — eager
-            % deep-copying every one of them here (the old behavior) is
-            % real, avoidable startup cost when only one is ever shown
-            % first.
-            if ~isempty(source) && ~isa(source, 'Nexon')
-                obj.source = source;
-                if ~isstruct(source.Partners), source.Partners = struct(); end
-                source.Partners.viewer = obj;
-                if isstruct(source.RESULTS) && ~isempty(fieldnames(source.RESULTS))
-                    ids = string(fieldnames(source.RESULTS))';
-                    for i = 1:numel(ids)
-                        obj.RESULTS.(ids(i)) = [];
-                    end
-                end
-            end
+            % Wire to source and register lazy RESULTS stubs — see
+            % nexObject.wireModelSource for the full rationale (why
+            % lazy, why Partners.viewer).
+            obj.wireModelSource(source);
 
             isHeadless = ~isempty(nexon_) && isfield(nexon_, 'settings') && ...
                          isfield(nexon_.settings, 'headless') && nexon_.settings.headless;
@@ -163,7 +144,18 @@ classdef nexObj_bar < nexObject
             catch
             end
             obj.domain = obj.inferDomain();
-            obj.initPointerBus();
+            % Preserve existing Pointer selections (esp. across different
+            % RESULTS whose axes largely overlap) instead of resetting to
+            % "select all" on every SRC switch — makes it possible to
+            % toggle between results and compare them by eye without
+            % having to manually re-seat the view each time. Only a truly
+            % first build (collector.Pointer not built yet) goes through
+            % the full initPointerBus rebuild.
+            if ~isfield(obj.collector, 'Pointer') || isempty(obj.collector.Pointer)
+                obj.initPointerBus();
+            else
+                obj.refreshPointerAxes_(ptrAx);
+            end
             obj.rebuildPointerPanel();
 
             % Seed ax--<field> CLR options from this result's own axis
@@ -195,7 +187,7 @@ classdef nexObj_bar < nexObject
         % (outer tier first). All columns selected by default.
             if ~isfield(obj.collector, 'View'), return; end
             bus       = obj.collector.View;
-            structCols = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel"];
+            structCols = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W"];
             cols      = string(R.Properties.VariableNames)';
             groupCols = cols(~ismember(cols, structCols))';
             bus.selKeys.CTG    = groupCols;

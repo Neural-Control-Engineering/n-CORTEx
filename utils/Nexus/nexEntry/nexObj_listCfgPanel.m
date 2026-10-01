@@ -15,12 +15,33 @@ classdef nexObj_listCfgPanel < handle
             obj.listPanels = struct;
             obj.panelCount = 1;
             obj.xPosPointer = 5;
-            w_ph = panelObj.ph.Position(3)/2.3;
             h_ph = panelObj.ph.Position(4);
             d_inner_listBox = 25; % subtractor
             % for each selBus key
             % removeStrs = ["listBoxes","selIdxs"]
             keyFields = convertCharsToStrings(fieldnames(selectionBus.selKeys));
+            % Per-listbox slot width, scaled to THIS panel's own key count
+            % (panelWidth/(nKeys+0.3) — the "+0.3" is the same headroom
+            % ratio the original divisor used for exactly 2 keys). Each
+            % selectionBus panel (Collector/Domain/Pointer/...) is sized
+            % by its OWN caller to comfortably fit its OWN key count —
+            % overflow, when a panel is deliberately narrower than its
+            % content needs to be, is handled one level up by that
+            % panel's own PARENT (a Scrollable="on" container the caller
+            % builds around it), not by shrinking listboxes here.
+            %
+            % Floored at MIN_SLOT_WIDTH: some buses have a key count the
+            % caller never sized its panel for at all (e.g. the control
+            % panel's averagingSelection — subj/phase/date/site plus one
+            % key per signal-tag type found in the DTS, easily 6-10+,
+            % against a fixed 255px panel) — the unfloored formula drove
+            % w_ph below d_inner_listBox there, producing a negative
+            % uicontrol width and crashing startNexus outright. Flooring
+            % instead lets those extra keys overflow horizontally (same
+            % "parent's own Scrollable container" fallback as above)
+            % rather than shrinking every listbox to nothing.
+            MIN_SLOT_WIDTH = 80;
+            w_ph = max(panelObj.ph.Position(3) / (max(length(keyFields), 1) + 0.3), MIN_SLOT_WIDTH);
             for i=1:length(keyFields)
                 key = keyFields{i};
                 % listID = sprintf("%s",selectionBus.selKeys.(key));
@@ -31,7 +52,26 @@ classdef nexObj_listCfgPanel < handle
                 else
                     maxSel = maxSels(i);
                 end
-                obj.listPanels.(listID).listBox = uicontrol(obj.listPanels.(listID).ph, "Style","listbox","Position",[2,2,w_ph-30,h_ph-30],"String",selectionBus.selKeys.(key),'Max',maxSel,'BackgroundColor','black',"ForegroundColor",nexon.settings.Colors.cyberGreen,'Callback',@(src,event)listCfgEntryChanged(src, event, key, selectionBus));
+                % Seed the listbox's initial Value from the bus's own
+                % current selection instead of leaving it at uicontrol's
+                % implicit default of 1 — this class rebuilds its widgets
+                % from scratch on every call (e.g. nexObj_bar's
+                % rebuildPointerPanel on every SRC switch), and without
+                % this the fresh widget always shows "item 1 highlighted"
+                % regardless of what selectionBus.selections actually
+                % holds, desyncing the visible selection from the one
+                % actually driving the plot. No-op for a genuinely fresh
+                % bus (buildSelection also defaults selections.(key) to 1),
+                % so this only changes behavior for a rebuild where the
+                % selection has since moved.
+                initSel = 1;
+                try
+                    sel = selectionBus.selections.(key);
+                    sel = sel(sel >= 1 & sel <= numel(selectionBus.selKeys.(key)));
+                    if ~isempty(sel), initSel = sel; end
+                catch
+                end
+                obj.listPanels.(listID).listBox = uicontrol(obj.listPanels.(listID).ph, "Style","listbox","Position",[2,2,w_ph-30,h_ph-30],"String",selectionBus.selKeys.(key),'Max',maxSel,'Value',initSel,'BackgroundColor','black',"ForegroundColor",nexon.settings.Colors.cyberGreen,'Callback',@(src,event)listCfgEntryChanged(src, event, key, selectionBus));
                 selectionBus.listBoxes.(key) = obj.listPanels.(listID).listBox;
                 obj.xPosPointer = obj.xPosPointer + w_ph - d_inner_listBox;
             end

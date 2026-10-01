@@ -23,6 +23,18 @@ classdef nexObject < handle
         player
         Listeners    = struct()
         resultLabels = struct()   % structKey → human-readable display label
+        source                    % live model/data source this nexObject
+            % watches (e.g. an mdlObj) when constructed via
+            % resolveNexonFromSource/wireModelSource instead of the usual
+            % categorical-Parent/dfID path — empty otherwise. Promoted
+            % from nexObj_bar, which originated this pattern.
+        viewFacet    = "accuracy"   % which per-row array/ax/ptr triple a
+            % RESULTS-backed SRC selection currently pulls from (e.g. "df"
+            % vs mdlObject-family "W" — feature weights, or any future
+            % faculty a model-results viewer adds). "accuracy" is the
+            % default/only-ever-present faculty (df), so this is inert for
+            % any nexObject that never grows a second one. See
+            % remodelDomain / applySRC overrides that consume it.
     end
 
     methods
@@ -34,6 +46,51 @@ classdef nexObject < handle
             if nargin >= 4 && ~isempty(headline)
                 nexObj.headline = headline;
             end
+        end
+
+        function wireModelSource(nexObj, source)
+        % Watch a live model/data source (e.g. an mdlObj) and register
+        % lazy RESULTS stubs — extracted from nexObj_bar's own
+        % constructor (which originated this pattern) so any subclass
+        % gets it by calling this instead of duplicating it. Call AFTER
+        % obj@nexObject(...) — needs a live nexObj to wire Partners.viewer
+        % onto. Pair with the Static resolveNexonFromSource, which runs
+        % BEFORE the superclass constructor (no instance exists yet at
+        % that point, so that half can't be a regular method).
+        %
+        % RESULTS.(id) = [] populates the SRC list immediately (cheap —
+        % just names); the real table is pulled only when that key is
+        % actually selected (applySRC's own lazy-load). Avoids eager
+        % deep-copying every one of a source's RESULTS tables up front —
+        % a cvPermute RESULTS table can be a genuinely large N-D score
+        % array, and a source can accumulate several over a session.
+            if isempty(source) || isa(source, 'Nexon'), return; end
+            nexObj.source = source;
+            if ~isstruct(source.Partners), source.Partners = struct(); end
+            source.Partners.viewer = nexObj;
+            if isstruct(source.RESULTS) && ~isempty(fieldnames(source.RESULTS))
+                ids = string(fieldnames(source.RESULTS))';
+                for i = 1:numel(ids)
+                    nexObj.RESULTS.(ids(i)) = [];
+                end
+            end
+        end
+
+        function push(nexObj, resultID, R)
+        % Companion to wireModelSource — a source's storeResult calls this
+        % on Partners.viewer to keep an already-attached, already-loaded
+        % viewer in sync on every re-run under the SAME resultID (the
+        % lazy-load stub in wireModelSource only fires once, on first
+        % selection, so without this a viewer's cached copy goes stale the
+        % moment the source re-fits and overwrites that resultID).
+        % Extracted verbatim from nexObj_bar's own push (which originated
+        % this pattern and keeps its own identical override, unaffected by
+        % this promotion) — fully generic, no bar-specific behavior here
+        % at all, so any other mdlObj-sourced viewer (e.g. nexObj_monoGram)
+        % gets it for free instead of erroring with "Unrecognized method
+        % ... 'push'" the first time a source tries to notify it.
+            nexObj.RESULTS.(resultID) = R;
+            nexObj.refreshSRC();
         end
 
         function applyHeadline(nexObj)
@@ -108,6 +165,23 @@ classdef nexObject < handle
 
             % D1 always recomputed as complement of full D2 array
             domain.D1 = string(setdiff(axFields, domain.D2, "stable"));
+
+            % REG: respect existing if set; otherwise default to "None" —
+            % same convention mdlObject.domain.REG uses. nexObject.domain
+            % never had a REG field before, which meant nexOp_compileSTAT's
+            % own co-axis-alignment gate (isfield(nexObj.domain,'REG'))
+            % was always false for a plain nexObject — canonicalization
+            % could never run at all for e.g. reportAverage, regardless of
+            % configuration, since there was nowhere to even hold the
+            % selection. "None" here is a no-op default (matches
+            % nexOp_compileSTAT's own ~strcmp(...,'None') gate) — this
+            % only makes REG reachable, it doesn't turn alignment on by
+            % itself.
+            if isfield(nexObj.domain, 'REG') && ~isempty(nexObj.domain.REG)
+                domain.REG = nexObj.domain.REG;
+            else
+                domain.REG = "None";
+            end
         end
 
         function setAnimateAxis(nexObj, axKey)
@@ -133,6 +207,56 @@ classdef nexObject < handle
                 nexObj.clearAnimatePointer();
             end
             nexObj.visualize();
+        end
+
+        function refreshREG(nexObj)
+            % Recompute REG listbox candidates (if a subclass has wired a
+            % REG key into its own collector.Domain) from every axis in
+            % the current DF. Reuses nexOp_computeREGOptions — same
+            % co-indexed-pair registry and candidate logic mdlObj.refreshREG
+            % uses — but with no single FTR-equivalent axis to derive from
+            % (nexObject has no unified "feature axis" concept the way
+            % mdlObject does), every axis is offered as a candidate input;
+            % nexOp_computeREGOptions unions in whichever co-indexed
+            % partners are actually present regardless of which axis they
+            % came from. No-op for any subclass that hasn't added a REG
+            % key to collector.Domain.selKeys.
+            try
+                srcAx = nexObj.DF_postOp.ax;
+            catch
+                return;
+            end
+            if ~isfield(nexObj.collector, 'Domain') || isempty(nexObj.collector.Domain)
+                return;
+            end
+            bus = nexObj.collector.Domain;
+            if ~isfield(bus.selKeys, 'REG'), return; end
+            axNames = string(fieldnames(srcAx))';
+            regOpts = nexOp_computeREGOptions(axNames, srcAx);
+            bus.selKeys.REG = regOpts;
+            if isfield(bus.listBoxes, 'REG') && ~isempty(bus.listBoxes.REG) ...
+                    && isvalid(bus.listBoxes.REG)
+                lb = bus.listBoxes.REG;
+                lb.String = cellstr(regOpts);
+                curIdx = find(string(regOpts) == string(nexObj.domain.REG), 1);
+                if isempty(curIdx)
+                    nexObj.domain.REG = "None";
+                    lb.Value = 1;
+                else
+                    lb.Value = curIdx;
+                end
+            end
+        end
+
+        function onREGChanged(nexObj, lb)
+            % Wire a REG listbox's Callback to this, same pattern as
+            % onD1Changed/onANIChanged above — any subclass that adds a
+            % REG key to its own collector.Domain can reuse this directly.
+            if ~isfield(nexObj.collector.Domain.selKeys, 'REG'), return; end
+            regOpts = nexObj.collector.Domain.selKeys.REG;
+            if isempty(lb.Value) || isempty(regOpts), return; end
+            nexObj.collector.Domain.selections.REG = lb.Value;
+            nexObj.domain.REG = string(regOpts(lb.Value(end)));
         end
 
         function clearAnimatePointer(nexObj)
@@ -339,9 +463,13 @@ classdef nexObject < handle
         % side-effects (e.g. rebuildTrackers, visualize) by calling the base
         % via nexObject.method(nexObj, ...) before or after the extra logic.
 
-        function compileSTAT(nexObj)
+        function compileSTAT(nexObj, withinSubject)
             % Compile STAT from Parent categorical using current selections.
             % Requires nexObj.dfID_source to be a real data ID (not a placeholder).
+            % withinSubject (optional): passed through to nexOp_compileSTAT's
+            % own REG-canonicalization scope — omit/leave empty to use its
+            % default (true, per-subject).
+            if nargin < 2, withinSubject = []; end
             if isempty(nexObj.Parent) || ~strcmp(nexObj.Parent.classID, 'ctg') ...
                     || isempty(nexObj.dfID_source)
                 return;
@@ -349,7 +477,7 @@ classdef nexObject < handle
             S_cat   = nex_returnSelectionMask(nexObj.Parent.selectionBus.categories);
             S_items = nex_returnSelectionMask(nexObj.Parent.selectionBus.items);
             try
-                nexObj.STAT = nexOp_compileSTAT(nexObj, nexObj.dfID_source, S_cat, S_items, []);
+                nexObj.STAT = nexOp_compileSTAT(nexObj, nexObj.dfID_source, S_cat, S_items, [], [], withinSubject);
             catch e
                 disp(getReport(e));
             end
@@ -362,7 +490,7 @@ classdef nexObject < handle
             % parent is available (legacy / standalone objects).
             % ax-- entries are excluded from grpKeys: they are ptr filters,
             % not grouping columns, and never appear as STAT table columns.
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","fitSentinel"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","fitSentinel","W","ax_W","ptr_W"];
             grpKeys = "";
             ctgResolved = false;
             if ~isempty(nexObj.Parent) && isvalid(nexObj.Parent) && ...
@@ -486,7 +614,23 @@ classdef nexObject < handle
             if nargin < 4 || isempty(STAT)
                 if ~isempty(nexObj.Parent) && isvalid(nexObj.Parent) && ...
                         strcmp(nexObj.Parent.classID, 'ctg')
-                    nexObj.compileSTAT();
+                    % Gate REG canonicalization scope on whether subject is
+                    % itself one of THIS report's CTG grouping columns: when
+                    % it is, every group below is subject-pure by
+                    % construction, so per-subject canonicalization
+                    % (withinSubject=true) keeps each subject's own REG
+                    % identity correct; when it isn't, groups are meant to
+                    % span subjects (e.g. "average this channel across
+                    % every subject/session"), so one global
+                    % canonicalization pass (withinSubject=false) is what
+                    % makes that pooling meaningful. Either way, every DF
+                    % landing in one group below already shares one
+                    % canonical layout, which is what keeps the group
+                    % averaging step's positional trim (nexOp_trimTF) safe
+                    % without needing to be REG-aware itself.
+                    viewSel0 = nex_returnSelectionMask(nexObj.collector.View);
+                    withinSubject = ismember("sessionLabel_subj", string(viewSel0.CTG));
+                    nexObj.compileSTAT(withinSubject);
                 end
                 STAT = nexObj.STAT;
             end
@@ -964,8 +1108,17 @@ classdef nexObject < handle
         end
 
         function vwKeys = getCTGGroupKeys(nexObj)
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel"];
-            srcKey = nexObj.getCurrentSRC();
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W"];
+            % Strip the "__W" weights-facet suffix refreshSRC/applySRC add
+            % to selKeys.SRC — RESULTS itself is always keyed on the real
+            % (unsuffixed) result ID. Without this, isfield() below always
+            % fails for a weights-facet selection, VW silently comes back
+            % "" for it, and nexVisualization_monoGram's useResults check
+            % (which requires a non-empty VW) falls through to the
+            % permanently-empty DF_postOp for a source-watching nexObject
+            % — same stripping applySRC/nexVisualization_monoGram already
+            % do, just missing here too.
+            srcKey = erase(nexObj.getCurrentSRC(), "__W");
             if strcmp(srcKey, 'DF') || ~isfield(nexObj.RESULTS, srcKey)
                 vwKeys = ""; return;
             end
@@ -988,7 +1141,7 @@ classdef nexObject < handle
             % Buckets selected labels by which group column they belong to,
             % then requires each row to match in every constrained column.
             % Returns all row indices when vwLabels is empty.
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W"];
             allCols  = string(RESULT.Properties.VariableNames);
             grpCols  = allCols(~ismember(allCols, DF_STRUCT_FIELDS));
             vwLabels = string(vwLabels);
@@ -1021,7 +1174,7 @@ classdef nexObject < handle
             if ~isfield(nexObj.collector, 'View'), return; end
             bus = nexObj.collector.View;
 
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W"];
 
             % Separate existing CLR keys into group keys and ax-- keys
             existing = string(bus.selKeys.CLR);
@@ -1093,7 +1246,8 @@ classdef nexObject < handle
 
             bus.selKeys.VW    = newKeys;
             bus.selections.VW = newSel;
-            if isfield(bus.listBoxes, 'VW') && ~isempty(bus.listBoxes.VW)
+            if isfield(bus.listBoxes, 'VW') && ~isempty(bus.listBoxes.VW) ...
+                    && isvalid(bus.listBoxes.VW)
                 bus.listBoxes.VW.String = newKeys;
                 bus.listBoxes.VW.Max    = nVW;
                 bus.listBoxes.VW.Value  = newSel;
@@ -1134,7 +1288,8 @@ classdef nexObject < handle
             end
             bus.selKeys.CTG    = newKeys;
             bus.selections.CTG = newSel;
-            if isfield(bus.listBoxes, 'CTG') && ~isempty(bus.listBoxes.CTG)
+            if isfield(bus.listBoxes, 'CTG') && ~isempty(bus.listBoxes.CTG) ...
+                    && isvalid(bus.listBoxes.CTG)
                 bus.listBoxes.CTG.String = newKeys;
                 bus.listBoxes.CTG.Max    = nCTG;
                 bus.listBoxes.CTG.Value  = newSel;
@@ -1146,7 +1301,7 @@ classdef nexObject < handle
             % Called when SRC changes to a RESULT so the visualization mask can
             % map VW group labels (values) to the correct column (e.g. "stimSite").
             DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","cov","labels", ...
-                                 "trialNumber","sampleNumber","fitSentinel"];
+                                 "trialNumber","sampleNumber","fitSentinel","W","ax_W","ptr_W"];
             tbl = nexObj.AVG;
             if isempty(tbl) || ~istable(tbl)
                 nexObj.refreshCTG(); return;
@@ -1158,7 +1313,8 @@ classdef nexObject < handle
             nCTG = numel(grpCols);
             bus.selKeys.CTG    = grpCols;
             bus.selections.CTG = 1:nCTG;
-            if isfield(bus.listBoxes, 'CTG') && ~isempty(bus.listBoxes.CTG)
+            if isfield(bus.listBoxes, 'CTG') && ~isempty(bus.listBoxes.CTG) ...
+                    && isvalid(bus.listBoxes.CTG)
                 bus.listBoxes.CTG.String = grpCols;
                 bus.listBoxes.CTG.Max    = max(1, nCTG);
                 bus.listBoxes.CTG.Value  = 1:nCTG;
@@ -1190,24 +1346,49 @@ classdef nexObject < handle
         end
 
         function refreshSRC(nexObj)
-            % Rebuild SRC selKeys from base key + all RESULTS keys; select last.
-            % selKeys.SRC holds struct keys (for RESULTS access); the listbox
-            % shows display labels from resultLabels when available.
+            % Rebuild SRC selKeys as one entry per (RESULTS-key x faculty)
+            % pair actually present, BLOCKED by faculty (every accuracy
+            % entry, then every weights entry) rather than interleaved per
+            % key — sweeping CTG-combo rows for weights vs for scores
+            % stays visually separate instead of alternating. selKeys.SRC
+            % holds the REAL lookup key (suffixed "__W" for the weights
+            % facet — see applySRC, which parses it back off); the listbox
+            % shows a human label instead (resultLabels when available,
+            % plus " · weights" for the weights block). Degrades to
+            % exactly today's behavior for any RESULTS table with no W
+            % column at all — the weights block is simply empty then.
             if ~isfield(nexObj.collector, 'View'), return; end
-            bus     = nexObj.collector.View;
-            baseKey = bus.selKeys.SRC(1);
-            keys    = [baseKey; string(fieldnames(nexObj.RESULTS))];
-            labels  = keys;
-            for ki = 2:numel(keys)
-                k = char(keys(ki));
-                if isfield(nexObj.resultLabels, k)
-                    labels(ki) = string(nexObj.resultLabels.(k));
+            bus        = nexObj.collector.View;
+            baseKey    = bus.selKeys.SRC(1);
+            resultKeys = string(fieldnames(nexObj.RESULTS));
+
+            accKeys = string.empty(1,0); accLbls = string.empty(1,0);
+            wKeys   = string.empty(1,0); wLbls   = string.empty(1,0);
+            for i = 1:numel(resultKeys)
+                k   = resultKeys(i);
+                lbl = k;
+                if isfield(nexObj.resultLabels, char(k))
+                    lbl = string(nexObj.resultLabels.(char(k)));
+                end
+                accKeys(end+1) = k;   accLbls(end+1) = lbl; %#ok<AGROW>
+                R = nexObj.RESULTS.(char(k));
+                % Lazy stubs (R == []) are optimistically offered too —
+                % real emptiness is only checkable once loaded, same
+                % convention applySRC's own lazy-load already uses.
+                if isempty(R) || (istable(R) && ismember('W', string(R.Properties.VariableNames)) ...
+                        && any(~cellfun(@isempty, R.W)))
+                    wKeys(end+1) = k + "__W";                 %#ok<AGROW>
+                    wLbls(end+1) = lbl + " " + char(183) + " weights"; %#ok<AGROW>
                 end
             end
+            keys   = [baseKey; accKeys(:); wKeys(:)];
+            labels = [baseKey; accLbls(:); wLbls(:)];
+
             bus.selKeys.SRC    = keys;
             bus.selections.SRC = numel(keys);
-            if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
-                bus.listBoxes.SRC.String = labels;
+            if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC) ...
+                    && isvalid(bus.listBoxes.SRC)
+                bus.listBoxes.SRC.String = cellstr(labels);
                 bus.listBoxes.SRC.Max    = 1;
                 bus.listBoxes.SRC.Value  = numel(keys);
             end
@@ -1251,36 +1432,149 @@ classdef nexObject < handle
         end
 
         function applySRC(nexObj, srcKey)
-            % Update the SRC bus selection and refresh the VW bus.
-            % Stubs (RESULTS.(key) = []) are lazily loaded on first selection.
+            % Update the SRC bus selection and refresh the VW bus, then
+            % re-point Domain/Pointer to whichever axis shape is now
+            % active. Stubs (RESULTS.(key) = []) are lazily loaded on
+            % first selection.
+            %
+            % srcKey may carry the "__W" facet suffix refreshSRC adds for
+            % the weights block — parsed off here (nexObj.viewFacet set
+            % accordingly) before any RESULTS lookup, which always uses
+            % the real (stripped) key. The SRC selection-INDEX lookup,
+            % though, stays keyed on the ORIGINAL (possibly suffixed)
+            % srcKey — searching selKeys.SRC for the stripped key instead
+            % would silently re-select the accuracy row even when weights
+            % was actually clicked, since both exist as separate entries.
+            %
+            % Deliberately does NOT call visualize() itself — onSRCChanged
+            % already does, gated by ismethod — calling it again here
+            % would double-render for every subclass using this base
+            % version unchanged.
+            srcKey  = string(srcKey);
+            isW     = endsWith(srcKey, "__W");
+            realKey = char(erase(srcKey, "__W"));
+            nexObj.viewFacet = "accuracy";
+            if isW, nexObj.viewFacet = "weights"; end
+
             if ~isfield(nexObj.collector, 'View')
                 return;
             end
-            if ~strcmp(srcKey, 'DF') && ~strcmp(srcKey, 'DTS') ...
-                    && ~isfield(nexObj.RESULTS, srcKey)
+            if ~strcmp(realKey, 'DF') && ~strcmp(realKey, 'DTS') ...
+                    && ~isfield(nexObj.RESULTS, realKey)
                 return;
             end
-            % Lazy-load stub on first selection
-            if isfield(nexObj.RESULTS, srcKey) && isempty(nexObj.RESULTS.(srcKey))
-                fprintf('[%s] loading %s ...\n', class(nexObj), nexObj.getResultLabel(srcKey));
-                try
-                    nexObj.loadResult(srcKey);
-                catch ME
-                    warning('[%s.applySRC] lazy load failed for %s: %s', ...
-                        class(nexObj), srcKey, ME.message);
-                    return;
+            % Lazy-load stub on first selection. Two conventions, mutually
+            % exclusive: a source-backed stub (registered by
+            % wireModelSource, e.g. a live mdlObj) pulls straight from
+            % nexObj.source.RESULTS — nexRESULTS.h5 was never involved and
+            % nexObj.loadResult's disk path fails outright against it (no
+            % such resultID on disk). A disk-backed stub (registered by
+            % discoverResults) goes through loadResult as before. Ported
+            % from nexObj_bar's own applySRC, which originated the
+            % source-backed half of this — this base version previously
+            % only had the disk half, which is why nexObj_monoGram (the
+            % first subclass to use the base applySRC WITH a source) hit
+            % an HDF5 "not a file ID" error selecting a source-backed
+            % result.
+            if isfield(nexObj.RESULTS, realKey) && isempty(nexObj.RESULTS.(realKey))
+                if ~isempty(nexObj.source)
+                    try
+                        if ~isvalid(nexObj.source) || ~isfield(nexObj.source.RESULTS, realKey)
+                            return;   % source gone, or result no longer there
+                        end
+                        nexObj.RESULTS.(realKey) = nexObj.source.RESULTS.(realKey);
+                    catch
+                        return;
+                    end
+                else
+                    fprintf('[%s] loading %s ...\n', class(nexObj), nexObj.getResultLabel(realKey));
+                    try
+                        nexObj.loadResult(realKey);
+                    catch ME
+                        warning('[%s.applySRC] lazy load failed for %s: %s', ...
+                            class(nexObj), realKey, ME.message);
+                        return;
+                    end
                 end
             end
             bus  = nexObj.collector.View;
-            idx  = find(string(bus.selKeys.SRC) == string(srcKey), 1);
+            idx  = find(string(bus.selKeys.SRC) == srcKey, 1);
             if isempty(idx)
                 return;
             end
             bus.selections.SRC = idx;
-            if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC)
+            if isfield(bus.listBoxes, 'SRC') && ~isempty(bus.listBoxes.SRC) ...
+                    && isvalid(bus.listBoxes.SRC)
                 bus.listBoxes.SRC.Value = idx;
             end
             nexObj.refreshVW();
+
+            % Re-point Domain/Pointer to whichever axis shape is now
+            % active — raw DF for "DF"/"DTS", else the matched RESULTS
+            % row's df-facet or W-facet axes (same VW row-matching
+            % nexVisualization_monoGram's useResults branch — and
+            % anything else built the same way — already uses). A no-op
+            % for any nexObject without collector.Domain/Pointer at all
+            % (both remodelDomain and rebuildPointerPanel are internally
+            % gated), and for any RESULTS table with no ax_W column
+            % (falls through to the df-facet axes regardless of
+            % viewFacet).
+            newAx = [];
+            if strcmp(realKey, 'DF') || strcmp(realKey, 'DTS')
+                try, newAx = nexObj.DF_postOp.ax; catch, end
+            elseif isfield(nexObj.RESULTS, realKey) && ~isempty(nexObj.RESULTS.(realKey))
+                RESULT = nexObj.RESULTS.(realKey);
+                if istable(RESULT) && height(RESULT) > 0
+                    viewSel  = nex_returnSelectionMask(nexObj.collector.View);
+                    vwGroups = string(viewSel.VW);
+                    matchingRows = nexObj.filterResultsByVW(RESULT, vwGroups);
+                    if ~isempty(matchingRows)
+                        % Union Pointer's candidate axis across EVERY
+                        % currently-displayed (VW-matching) row — e.g. one
+                        % row per subject from a subject-pure reportAverage
+                        % grouping — instead of only the first matching
+                        % row. Reading only matchingRows(1) here meant
+                        % Pointer only ever offered whichever row happened
+                        % to land first, hiding every value the OTHER
+                        % displayed rows have that row doesn't. Each row's
+                        % own rendering already only shows its own real
+                        % data regardless (see nexVisualization_polyGraph's
+                        % union-keepMask handling) — this only changes what
+                        % Pointer OFFERS as selectable options.
+                        newAx = struct();
+                        for mi = 1:numel(matchingRows)
+                            r = matchingRows(mi);
+                            useW = strcmp(nexObj.viewFacet, "weights") && ...
+                                   ismember('ax_W', string(RESULT.Properties.VariableNames)) && ...
+                                   ~isempty(RESULT.ax_W{r});
+                            if useW
+                                axRow = RESULT.ax_W{r};
+                            else
+                                axRow = RESULT.ax{r};
+                            end
+                            if isempty(fieldnames(newAx))
+                                newAx = axRow;
+                                continue;
+                            end
+                            fn = fieldnames(axRow);
+                            for fi = 1:numel(fn)
+                                f = fn{fi};
+                                if isfield(newAx, f)
+                                    newAx.(f) = union(newAx.(f), axRow.(f));
+                                else
+                                    newAx.(f) = axRow.(f);
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            if ~isempty(newAx) && ismethod(nexObj, 'remodelDomain')
+                nexObj.remodelDomain(newAx);
+                if ismethod(nexObj, 'rebuildPointerPanel')
+                    nexObj.rebuildPointerPanel();
+                end
+            end
         end
 
         function C = resolveGroupColors(nexObj, dataTable, clrCols)
@@ -1503,6 +1797,218 @@ classdef nexObject < handle
             end
         end
 
+        function refreshPointer(nexObj)
+        % Refresh collector.Pointer listboxes from DF_postOp.ax, PRESERVING
+        % existing selections where possible instead of resetting to
+        % "select all" — mirrors mdlObject.refreshPointer/refreshPointerAxes_
+        % (see Analysis/mdlObj/mdlObject.m). Requires collector.Pointer to
+        % already exist (built once via initPointerBus); a genuinely first
+        % build still goes through initPointerBus, which has no selections
+        % to preserve yet anyway.
+            if ~isfield(nexObj.collector, 'Pointer') || isempty(nexObj.collector.Pointer)
+                return;
+            end
+            try
+                newAx = nexObj.DF_postOp.ax;
+            catch
+                return;
+            end
+            nexObj.refreshPointerAxes_(newAx);
+        end
+
+        function refreshPointerAxes_(nexObj, newAx)
+        % Shared remap-or-select-all logic behind refreshPointer: for each
+        % axis field newAx shares with collector.Pointer, remap the current
+        % selection onto the new values (by numeric range) when both old
+        % and new are numeric, else fall back to "select all" (this
+        % codebase's established no-op/pass-through convention). Ported
+        % verbatim from mdlObject.refreshPointerAxes_ — same bus shape,
+        % same problem (switching SRC/result shouldn't silently wipe a
+        % Pointer subselection the user made to compare results by eye).
+            if ~isfield(nexObj.collector, 'Pointer') || isempty(nexObj.collector.Pointer)
+                return;
+            end
+            bus = nexObj.collector.Pointer;
+            axFields = fieldnames(newAx);
+            axFields = axFields(~strcmp(axFields, 'latent'));
+            for i = 1:numel(axFields)
+                ax = axFields{i};
+                if ~isfield(bus.selKeys, ax), continue; end
+                newVals = newAx.(ax);
+                oldVals = bus.selKeys.(ax);
+                if isequal(newVals, oldVals), continue; end
+                nVals    = numel(newVals);
+                curSel   = bus.selections.(ax);
+                validSel = curSel(curSel >= 1 & curSel <= numel(oldVals));
+                if ~isempty(validSel) && isnumeric(oldVals) && isnumeric(newVals)
+                    selRange = oldVals(validSel);
+                    newSel   = find(newVals >= min(selRange) & newVals <= max(selRange));
+                else
+                    newSel = [];
+                end
+                if isempty(newSel), newSel = 1:nVals; end
+                bus.selKeys.(ax)    = newVals;
+                bus.selections.(ax) = newSel;
+                lb = [];
+                if isfield(bus.listBoxes, ax), lb = bus.listBoxes.(ax); end
+                if ~isempty(lb) && isvalid(lb)
+                    lb.String = newVals;
+                    lb.Max    = nVals;
+                    lb.Value  = newSel;
+                end
+            end
+        end
+
+        function remodelDomain(nexObj, newAx)
+        % Live-repoint this object's Domain and Pointer buses to a
+        % genuinely DIFFERENT axis shape (e.g. switching which array a
+        % RESULTS row's viewer looks at — df vs W, or any future
+        % dfID_source swap) — without tearing down the object or its
+        % figure. Distinct from refreshPointerAxes_/refreshPointer, which
+        % assume the axis SET stays fixed and only values shifted (a pMap
+        % edit) — those skip any field that doesn't already exist. This
+        % handles fields being added AND dropped, which that guard was
+        % never meant to do.
+        %
+        % Mutates collector.Domain/collector.Pointer's own .selKeys/
+        % .selections STRUCT PROPERTIES in place — never reassigns the
+        % bus OBJECTS themselves. nexObj_selectionBus is a handle class
+        % with selKeys/selections as ordinary (non-dynamicprops)
+        % properties (verified directly), so this is a safe, normal
+        % property write — but reassigning the BUS OBJECT wholesale
+        % (e.g. via buildSelection) would silently orphan any already-
+        % built listbox's callback closure, which captured the ORIGINAL
+        % bus object by reference (nexObj_listCfgPanel's
+        % @(src,event)listCfgEntryChanged(src,event,key,selectionBus)) —
+        % same risk already documented elsewhere in this codebase for
+        % cfg.fitCfg reassignment. selections is SetObservable, so this
+        % correctly fires any already-wired PostSet listeners too.
+        %
+        % Pointer's WIDGET PANEL still needs a real rebuild after this
+        % call — the axis FIELD SET changed, not just values, so the
+        % number/identity of listboxes genuinely changes (unlike Domain,
+        % below, where the widget COUNT is fixed and only options change,
+        % so this method updates those widgets directly). That rebuild is
+        % left to the caller since panel layout is subclass-specific
+        % (e.g. nexObj_bar's own split outer/inner panel construction).
+            axisKeys = string(fieldnames(newAx))';
+            axisKeys = axisKeys(axisKeys ~= "latent");
+            if isempty(axisKeys), return; end
+
+            % ── Pointer: bus data only (widgets rebuilt by caller) ──────────
+            if isfield(nexObj.collector, 'Pointer') && ~isempty(nexObj.collector.Pointer)
+                bus           = nexObj.collector.Pointer;
+                oldSelKeys    = bus.selKeys;
+                oldSelections = bus.selections;
+                newSelKeys    = struct();
+                newSelections = struct();
+                for i = 1:numel(axisKeys)
+                    f    = char(axisKeys(i));
+                    vals = newAx.(f);
+                    if isempty(vals), continue; end
+                    newSelKeys.(f) = vals;
+                    % Preserve by name + remap-by-value-range where the
+                    % field already existed (same convention
+                    % refreshPointerAxes_ uses), else fresh SINGLE-ITEM
+                    % default (index 1) — buildSelection's own true
+                    % default (initSel=1), matching initPointerBus's own
+                    % "single-item default = pass-through" convention. NOT
+                    % select-all: a brand-new field (e.g. fold/perm, never
+                    % in the construction-time placeholder bus) left fully
+                    % multi-selected never reduces to a singleton, so
+                    % nexOp_sliceAndCollapse can never collapse it down to
+                    % a 2D surface — every axis besides the 2 chosen for
+                    % D1 and the 1 for ANI has to land on exactly one
+                    % value for the canvas to render at all.
+                    newSel = 1;
+                    if isfield(oldSelKeys, f)
+                        oldVals  = oldSelKeys.(f);
+                        curSel   = oldSelections.(f);
+                        validSel = curSel(curSel >= 1 & curSel <= numel(oldVals));
+                        if ~isempty(validSel) && isnumeric(oldVals) && isnumeric(vals)
+                            selRange = oldVals(validSel);
+                            remapped = find(vals >= min(selRange) & vals <= max(selRange));
+                            if ~isempty(remapped), newSel = remapped; end
+                        end
+                    end
+                    newSelections.(f) = newSel;
+                end
+                bus.selKeys    = newSelKeys;
+                bus.selections = newSelections;
+            end
+
+            % ── Domain: bus data AND widgets (widget count is fixed — ───────
+            % D1/ANI/etc. stay the same keys, only their OPTIONS change,
+            % so a direct .String/.Value update suffices here, generic
+            % over whatever Domain keys this subclass actually has. REG is
+            % deliberately excluded from this generic pass — its candidate
+            % list is "None" + co-indexed siblings (nexOp_computeREGOptions),
+            % not the plain full axis list every other Domain key here
+            % wants; it's refreshed separately, below, via refreshREG().
+            if isfield(nexObj.collector, 'Domain') && ~isempty(nexObj.collector.Domain)
+                bus     = nexObj.collector.Domain;
+                domKeys = fieldnames(bus.selKeys);
+                domKeys = domKeys(~strcmp(domKeys, 'REG'));
+                for i = 1:numel(domKeys)
+                    dk = domKeys{i};
+                    % Reference for "what should still be selected" is the
+                    % CURRENT live selection's own names — not the static
+                    % construction-time domain.(dk) struct, which reflects
+                    % the ORIGINAL raw DF and rarely means anything for
+                    % either side of a repoint. Same fallback SHAPE as
+                    % construction-time seeding otherwise: try a name
+                    % match, else the bare single-item default (matching
+                    % buildSelection's own default) if nothing carries over.
+                    try
+                        prevNames = string(bus.selKeys.(dk)(bus.selections.(dk)));
+                    catch
+                        prevNames = string.empty(1,0);
+                    end
+                    keepIdx = find(ismember(axisKeys, prevNames));
+                    if isempty(keepIdx), keepIdx = 1; end
+                    bus.selKeys.(dk)    = axisKeys;
+                    bus.selections.(dk) = keepIdx;
+                    if isfield(bus.listBoxes, dk) && ~isempty(bus.listBoxes.(dk)) ...
+                            && isvalid(bus.listBoxes.(dk))
+                        lb = bus.listBoxes.(dk);
+                        lb.String = cellstr(axisKeys);
+                        lb.Value  = keepIdx;
+                    end
+                end
+            end
+
+            % ── CLR: ax-- keys refreshed to match the new axis shape ────────
+            % Same "ax--" + fieldnames(...) construction initCollectorView
+            % already uses at construction time — just triggered here
+            % instead, since DF_postOp.ax isn't known yet at construction
+            % for a source-watching nexObject (same reason Domain/Pointer,
+            % above, need this method rather than construction-time-only
+            % seeding). refreshCLR() alone can't do this on its own: it only
+            % PRESERVES whatever ax-- keys already exist and never adds or
+            % drops any — the same "axis fields added AND dropped" gap this
+            % method already exists to fix for Pointer/Domain. Group-column
+            % keys (from RESULTS tables) are left for refreshCLR's own,
+            % already-correct merge/selection-preservation logic rather
+            % than duplicated here.
+            if isfield(nexObj.collector, 'View') && ~isempty(nexObj.collector.View) ...
+                    && ismethod(nexObj, 'refreshCLR')
+                bus      = nexObj.collector.View;
+                existing = string(bus.selKeys.CLR);
+                grpKeys  = existing(existing ~= "" & ~startsWith(existing, "ax--"));
+                bus.selKeys.CLR = [grpKeys(:); ("ax--" + axisKeys)'];
+                nexObj.refreshCLR();
+            end
+
+            % ── REG: candidates recomputed from the new axis set ────────────
+            % Excluded from the generic Domain loop above for the reason
+            % noted there; refreshREG() derives the correct "None" +
+            % co-indexed-siblings candidate list instead of the plain axis
+            % list. No-op if this subclass never added a REG key at all.
+            if ismethod(nexObj, 'refreshREG')
+                nexObj.refreshREG();
+            end
+        end
+
         % ── Selection import / export ──────────────────────────────────────
 
         function exportSelection(nexObj, busID, varName)
@@ -1601,6 +2107,31 @@ classdef nexObject < handle
                 nexObj.nexon, pan_ptr, nexObj.collector.Pointer, []);
         end
 
+        function rebuildPointerPanel(nexObj)
+        % Delete and rebuild pointer controls inside Figure.panel_pointer
+        % — the container buildPointerPanel (above) stores its
+        % nexObj_listCfgPanel instance in. Companion to that method: this
+        % is what applySRC calls after remodelDomain changes the axis
+        % SET (not just values), since the widget count/identity itself
+        % needs to change, not just String/Value on existing widgets.
+        % Subclasses with a different panel-container convention (e.g.
+        % nexObj_bar's own split outer/inner panel, built to protect a
+        % sibling control from this method's own child-delete) override
+        % this instead of using the base version.
+            if ~isfield(nexObj.Figure, 'panel_pointer') || isempty(nexObj.Figure.panel_pointer)
+                return;
+            end
+            ph = nexObj.Figure.panel_pointer.ph;
+            if isempty(ph) || ~isvalid(ph), return; end
+            delete(ph.Children);
+            if isempty(nexObj.collector.Pointer) || isempty(nexObj.nexon), return; end
+            try
+                nexObj.Figure.panel_pointer = nexObj_listCfgPanel( ...
+                    nexObj.nexon, struct('ph', ph), nexObj.collector.Pointer, []);
+            catch
+            end
+        end
+
         function TF = applyPointerTF(nexObj, TF)
         % Slice each DF cell in TF along axes where collector.Pointer has a
         % non-trivial selection (fewer than all values selected).
@@ -1691,6 +2222,30 @@ classdef nexObject < handle
         end
 
 
+    end
+
+    methods (Static)
+        function [nexon_, source] = resolveNexonFromSource(source)
+        % Extracted verbatim from nexObj_bar's own constructor (which
+        % originated this pattern) — generic across any nexObject
+        % subclass wanting to be constructed FROM a live model/data
+        % source (an mdlObj today, anything nexon-bearing later) rather
+        % than a categorical Parent or bare dfID. Runs BEFORE
+        % obj@nexObject(...) — no instance exists yet at that point, so
+        % this can't be a regular instance method. Pair with the
+        % instance method wireModelSource, called right after the
+        % superclass constructor, for the rest of the wiring (Partners,
+        % lazy RESULTS stubs) that DOES need a live nexObj to attach to.
+            if isempty(source)
+                nexon_ = [];
+            elseif isprop(source, 'nexon') || isfield(source, 'nexon')
+                nexon_ = source.nexon;
+            elseif isa(source, 'Nexon')
+                nexon_ = source; source = [];
+            else
+                nexon_ = [];
+            end
+        end
     end
 
 end

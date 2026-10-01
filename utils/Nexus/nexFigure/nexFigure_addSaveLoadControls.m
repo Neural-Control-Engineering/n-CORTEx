@@ -26,7 +26,7 @@ function [btnSave, btnLoad] = nexFigure_addSaveLoadControls(parent, mdlObj, rowP
         else
             suffix = char(datetime("now", "Format", "HHmmss"));
         end
-        mdlObj.saveFit(sprintf('%s_%s', dateStamp, suffix));
+        mdlObj.saveFitAll(sprintf('%s_%s', dateStamp, suffix));
     end
 
     btnLoad = uibutton(parent, ...
@@ -34,5 +34,5 @@ function [btnSave, btnLoad] = nexFigure_addSaveLoadControls(parent, mdlObj, rowP
         "Text",            "Load", ...
         "BackgroundColor", bgColor, ...
         "FontColor",       fgColor, ...
-        "ButtonPushedFcn", @(~,~) mdlObj.loadFit([]));
+        "ButtonPushedFcn", @(~,~) mdlObj.loadFitAll([]));
 end

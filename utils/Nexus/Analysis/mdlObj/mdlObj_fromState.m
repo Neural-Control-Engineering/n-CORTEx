@@ -43,6 +43,19 @@ function mdlObj = mdlObj_fromState(state, Parent, Origin)
     if isfield(state, 'collector') && ~isempty(state.collector)
         restoreCollector(mdlObj, state.collector);
     end
+
+    % ── Restore comboFits (fitByCombo children) ────────────────────────────
+    % Same Parent/Origin as this top-level object — fitByCombo's children
+    % are constructed that way too. Weights are NOT auto-loaded here, same
+    % as the top-level contract above (mdlObj.loadFit(state.fitPath)) —
+    % populates mdlObj.comboFits(k).child so a caller can loadFit each one.
+    mdlObj.comboFits = struct('key', {}, 'child', {});
+    if isfield(state, 'comboFits')
+        for k = 1:numel(state.comboFits)
+            child = mdlObj_fromState(state.comboFits(k).state, Parent, Origin);
+            mdlObj.comboFits(k) = struct('key', state.comboFits(k).key, 'child', child);
+        end
+    end
 end
 
 

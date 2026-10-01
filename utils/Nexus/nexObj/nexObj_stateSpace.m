@@ -116,10 +116,14 @@ classdef nexObj_stateSpace < nexObject
             else
                 fKeys = "";
             end
+            % REG = cross-sample registration identity axis — consumed by
+            % nexOp_compileSTAT's co-axis alignment; see nexObject.refreshREG
             domainDict.F   = fKeys;
             domainDict.D1  = axisKeys;
             domainDict.ANI = axisKeys;
+            domainDict.REG = nexOp_computeREGOptions(axisKeys, nexObj.DF_postOp.ax);
             nexObj.collector.Domain = buildSelection(nexObj, domainDict);
+            nexObj.collector.Domain.selections.REG = 1;   % default = "None"
 
             %% Collector — Pointer selection bus (one key per DF.ax dimension)
             % Candidate values are the actual axis values (human-readable).
@@ -805,6 +809,12 @@ classdef nexObj_stateSpace < nexObject
             % F — applied last so inferDomain() cannot overwrite the user's selection
             if ~isequal(domSel.F, "")
                 nexObj.domain.F = domSel.F(:)';
+            end
+            % REG — cross-sample registration identity axis for
+            % nexOp_compileSTAT's co-axis alignment; independent of F/D1/D2/ANI,
+            % no ordering concern here.
+            if isfield(domSel, 'REG') && ~isequal(domSel.REG, "")
+                nexObj.domain.REG = string(domSel.REG);
             end
             nexObj.updateScope();
         end

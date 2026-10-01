@@ -51,7 +51,16 @@ function dfIDs = dtsIO_readDFIDs(DTS)
             if ~isempty(info.Datasets)
                 h5IDs = [h5IDs, string({info.Datasets.Name})]; %#ok<AGROW>
             end
-        catch
+        catch e
+            % Was a silent catch — base dfIDs (lfp, RTS_spk_activity, ...)
+            % come ONLY from this scan (patch dfIDs above are pure column-
+            % name parsing, immune to any h5 failure), so a swallowed
+            % error here silently drops every base source from the
+            % launcher's list with zero trace. Logged so a stale/invalid
+            % h5_path or h5_root on the sampled row is visible instead of
+            % looking like the base sources just vanished.
+            fprintf('[dtsIO_readDFIDs] h5info failed for row %d (%s, root %s): %s\n', ...
+                    sRow, h5File, h5Root, e.message);
         end
     end
     dfIDs = unique([dfIDs, h5IDs], "stable");
