@@ -44,6 +44,11 @@
                 exp_template = strrep(exp_template,' ','');
                 sessionLabel = exp_template;
                 if sessionExists(params, exp_template, "NPXLS","RAW")
+                    logRow = extractionLog(contains(extractionLog.SessionName, exp_template), :);
+                    if ~isempty(logRow) && logRow.Extracted_npxls == 1
+                        fprintf('[extractRAW_NPXLS] %s already extracted (Extracted_npxls=1) — skipping\n', sessionLabel);
+                        continue;
+                    end
                     % Initialize extraction containers
                     ks = [];
                     metrics = [];
@@ -69,10 +74,14 @@
                         % params.paths.rawData.(modality).nidq = fullfile(nidq_dir(1).folder);
                         % params.paths.rawData.(modality).imec = params.paths.Data.RAW.(modality).local;
                     end
+                    if isempty(nidq_dir)
+                        warning('extractRAW_NPXLS:noNIDQ', '[%s] no NIDQ data found — skipping', sessionLabel);
+                        continue;
+                    end
                     if loc.imec
-                        params.paths.raw_neuropixel_data = params.paths.Data.RAW.(modality).local; 
+                        params.paths.raw_neuropixel_data = params.paths.Data.RAW.(modality).local;
                     else
-                        params.paths.raw_neuropixel_data = params.paths.Data.RAW.(modality).cloud; 
+                        params.paths.raw_neuropixel_data = params.paths.Data.RAW.(modality).cloud;
                     end
                     % Process each imec
                     % try
@@ -217,7 +226,7 @@
                                 sync.lines.sync_1Hz_imec=extractSyncLine(synch2,[],Fs2,1,"RE-end","world",args.groupSize,0,0);
                                 % [IPD_A, IPD_B, PC_B] = validate_temporalPrecision(synch1, synch2, Fs1, Fs2, F_synch1, F_synch2, args);
                                 try
-                                    plot_temporalPrecision(sync.lines.sync_1Hz_imec.IPD, sync.lines.sync_1Hz_nidq.IPD, []);
+                                    % plot_temporalPrecision(sync.lines.sync_1Hz_imec.IPD, sync.lines.sync_1Hz_nidq.IPD, []);
                                 catch e
                                     disp(getReport(e));
                                 end
