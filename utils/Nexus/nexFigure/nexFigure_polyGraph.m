@@ -1,10 +1,17 @@
 function nexFigure_polyGraph(nexObj)
     C = nexObj.nexon.settings.Colors;
 
-    % Right-column geometry
+    % Right-column geometry. wRight (ctrl.ph's own on-screen footprint) is
+    % back to its original pre-REG width — a compact, fixed viewport, NOT
+    % scaled up for Domain's extra key. wInner (each sub-panel's own
+    % width, e.g. pan_dom.ph) is sized wider instead — comfortably fitting
+    % Domain's 4 keys (D1/D2/ANI/REG) — deliberately EXCEEDING wRight.
+    % ctrl.ph is built with Scrollable="on" below, so the wider sub-panels
+    % simply extend past its narrow visible bounds and scroll into view;
+    % the figure's own width is untouched by any of this.
     xRight = 810;
     wRight = 355;
-    wInner = 340;
+    wInner = 635;
     xInner = 5;
 
     % Panel heights
@@ -92,13 +99,23 @@ function nexFigure_polyGraph(nexObj)
         nexObj.collector.View.listBoxes.SRC.Callback = @(s,~) nexObj.onSRCChanged(s);
     end
 
-    %% Domain bus (D1 max=1, D2 max=1, ANI max=1)
+    %% Domain bus (D1 max=1, D2 max=1, ANI max=1, REG max=1)
     pan_dom.ph = uipanel(ctrl.ph, ...
         'Position',        [xInner, yDom, wInner, hBus], ...
         'BackgroundColor', [0, 0, 0], ...
         'Scrollable',      'on');
     nexObj.Figure.panel_domain = nexObj_listCfgPanel( ...
-        nexObj.nexon, pan_dom, nexObj.collector.Domain, [1, 1, 1]);
+        nexObj.nexon, pan_dom, nexObj.collector.Domain, [1, 1, 1, 1]);
+    % D1/D2/ANI have no domain-sync callback override here (this class
+    % relies on nexVisualization_polyGraph reading collector.Domain
+    % selections directly at render time) — REG needs one regardless,
+    % since nexOp_compileSTAT reads nexObj.domain.REG specifically, not
+    % the bus selection, and the generic listCfgEntryChanged callback
+    % nexObj_listCfgPanel wires by default only updates the bus itself.
+    if isfield(nexObj.collector.Domain.listBoxes, 'REG') ...
+            && ~isempty(nexObj.collector.Domain.listBoxes.REG)
+        nexObj.collector.Domain.listBoxes.REG.Callback = @(s,~) nexObj.onREGChanged(s);
+    end
 
     %% Pointer bus
     if ~isempty(nexObj.collector.Pointer)

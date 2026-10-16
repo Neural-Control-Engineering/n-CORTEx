@@ -12,13 +12,27 @@ function [btnSave, btnLoad] = nexFigure_addSaveLoadControls(parent, mdlObj, rowP
         "Text",            "Save", ...
         "BackgroundColor", bgColor, ...
         "FontColor",       fgColor, ...
-        "ButtonPushedFcn", @(~,~) mdlObj.saveFit( ...
-            char(datetime("now", "Format", "yyyyMMdd_HHmmss"))));
+        "ButtonPushedFcn", @(~,~) onSave());
+
+    function onSave()
+        % uniqueID is "<datestamp>_<suffix>" — suffix is normally the
+        % current time, but if the last Transform used a patch-ID label
+        % (mdlObj.lastOutputLabel), use that instead so the saved fit's
+        % folder name reflects what conditions it was last transformed
+        % under rather than an opaque timestamp.
+        dateStamp = char(datetime("now", "Format", "yyyyMMdd"));
+        if isprop(mdlObj, 'lastOutputLabel') && strlength(mdlObj.lastOutputLabel) > 0
+            suffix = char(mdlObj.lastOutputLabel);
+        else
+            suffix = char(datetime("now", "Format", "HHmmss"));
+        end
+        mdlObj.saveFitAll(sprintf('%s_%s', dateStamp, suffix));
+    end
 
     btnLoad = uibutton(parent, ...
         "Position",        [x + wHalf + 5, y, wHalf, h], ...
         "Text",            "Load", ...
         "BackgroundColor", bgColor, ...
         "FontColor",       fgColor, ...
-        "ButtonPushedFcn", @(~,~) mdlObj.loadFit([]));
+        "ButtonPushedFcn", @(~,~) mdlObj.loadFitAll([]));
 end

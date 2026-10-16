@@ -81,7 +81,14 @@ function extractDTS(params)
                     fprintf("WARNING: DTS_extraction_log has unexpected columns (header missing?) — skipping log update for %s\n", session);
                 else
                     extractionLog(contains(extractionLog.SessionName, session), :).Extracted = 1;
-                    writetable(extractionLog, logPath);
+                    % writetableAtomic (temp file + movefile) instead of
+                    % writetable() directly — this is exactly the write
+                    % (once per session, in a loop) that left the log
+                    % truncated/header-clipped whenever interrupted
+                    % partway (crash, timeout, parallel pool teardown
+                    % mid-run); the header-missing check above was a
+                    % band-aid for the symptom, not a fix for the cause.
+                    writetableAtomic(extractionLog, logPath);
                 end
             catch e
                 fprintf("WARNING: could not update extraction log for %s — %s\n", session, e.message);

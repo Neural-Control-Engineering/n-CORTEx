@@ -27,12 +27,14 @@ function nexFigure_pca(mdlObj)
     hView    = 175;
     hBtn     = 30;
     gap      = 5;
+    hTransLbl = 22;  % nexFigure_addTransformControls draws its label field in this much space above yTrans
 
     % Bottom-to-top y positions inside the scrollable sidebar
-    yFit     = xInner;
+    yCompile = xInner;
+    yFit     = yCompile + hBtn   + gap;
     ySave    = yFit    + hBtn    + gap;
     yTrans   = ySave   + hBtn    + gap;
-    yVis     = yTrans  + hBtn    + gap;
+    yVis     = yTrans  + hBtn    + hTransLbl + gap;
     yState   = yVis    + hBtn    + gap;
     yFitCfg  = yState  + hBtn    + gap;
     yDomain  = yFitCfg + hFitCfg + gap;
@@ -178,6 +180,9 @@ function nexFigure_pca(mdlObj)
         "FontColor",       BLACK, ...
         "FontWeight",      "bold", ...
         "ButtonPushedFcn", @(~,~) mdlObj.fit());
+
+    mdlObj.Figure.compileButton = nexFigure_addCompileControl( ...
+        mdlObj.Figure.panel1.ph, mdlObj, [xInner, yCompile, wInner, hBtn], BLACK, GREEN);
 end
 
 

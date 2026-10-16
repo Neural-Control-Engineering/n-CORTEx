@@ -5,6 +5,11 @@ function [cmap, matched] = nex_axisColorFromRegistry(nexon, axisID, axisVals)
 % and are looked up directly in regMap.region.
 % For 'chans', axis values are channel indices; the function builds an
 % inverse map (channel → region) then looks up colors.
+% For 'f', axis values are frequency (Hz); colored by named band
+% (nexon.console.BASE.params.bands) with a continuous within-band hue
+% rotation — see colorByFrequency below. Doesn't need a subject regMap at
+% all (bands are a global param, not per-subject atlas data), so it's
+% routed before the regMap fetch.
 % Any other axisID is not registry-backed and returns matched=false immediately.
 %
 % Colors in the registry are stored as 6-char hex strings (RRGGBB, no '#').
@@ -23,60 +28,47 @@ nVals   = numel(axisVals);
 matched = false;
 cmap    = lines(nVals);   % fallback
 
-% ── Access registry ───────────────────────────────────────────────────────
-try
-    reg = nexon.console.BASE.registry;
-catch
-    return;
-end
-if ~isfield(reg, 'SUBJ'), return; end
-allSubjKeys = string(fieldnames(reg.SUBJ))';
-if isempty(allSubjKeys), return; end
-
-% ── Determine selected subjects from controlPanel averagingSelection ──────
-selectedSubjKeys = {};
-try
-    avgSel  = nexon.console.BASE.controlPanel.averagingSelection;
-    subjAll = avgSel.selKeys.subj;           % all subject strings
-    subjIdx = avgSel.selections.subj;        % selected indices (may be multi-select)
-    selSubjs = string(subjAll(subjIdx));     % selected subject name(s)
-    for i = 1:numel(selSubjs)
-        k = sprintf('subj_%s', strrep(char(selSubjs(i)), '-', '_'));
-        if ismember(string(k), allSubjKeys)
-            selectedSubjKeys{end+1} = k; %#ok<AGROW>
-        end
-    end
-catch
-end
-% Fall back to first registry subject if nothing resolved
-if isempty(selectedSubjKeys)
-    selectedSubjKeys = {char(allSubjKeys(1))};
-end
-
-% ── Load and combine regMaps from all selected subjects ───────────────────
-regMap = [];
-for i = 1:numel(selectedSubjKeys)
-    try
-        rm = reg.SUBJ.(selectedSubjKeys{i}).regMap;
-        if isempty(regMap)
-            regMap = rm;
-        else
-            regMap = vertcat(regMap, rm);
-        end
-    catch
-    end
-end
-if isempty(regMap), return; end
-
 % ── Route by axis keyword ─────────────────────────────────────────────────
 % Normalise: strip leading 'region' prefix so 'regionDropout' → 'dropout'
 axID = lower(char(axisID));
 axID = regexprep(axID, '^region', '');
+
+if axID == "f"
+    [colors, anyHit] = colorByFrequency(nexon, axisVals);
+    if ~isempty(colors) && anyHit
+        cmap = colors; matched = true;
+    end
+    return;
+end
+
+% ── Access registry / selected-subjects' pooled regMap ─────────────────────
+% Shared with nexOp_regionDepthOrder.m (bar-chart region ordering) — same
+% "which subjects' atlas data applies right now" resolution either way.
+regMap = nexOp_selectedSubjectsRegMap(nexon);
+if isempty(regMap), return; end
+
 switch axID
     case 'dropout'
         [colors, anyHit] = colorByRegionName(regMap, string(axisVals));
     case 'chans'
-        [colors, anyHit] = colorByChannel(regMap, double(axisVals));
+        % "chans" values are either raw numeric channel indices (a genuine
+        % physical-channel DF, e.g. LFP — colorByChannel's inverse
+        % channel->region lookup) OR already-relabeled region-name strings
+        % (a needsHR/block-reduced result, where "chans" was duplicated
+        % from a co-indexed reduce-mode sweep — see nexAnalysis_cvPermute's
+        % resolveCoIndexedSiblingIfLabeled). The caller (nexOp_
+        % resolveGroupColors) always stringifies axisVals before this call,
+        % so the two cases can't be told apart by MATLAB type here — route
+        % by whether the VALUES themselves parse as numbers instead: a
+        % region-labeled "chans" silently misses every lookup in
+        % colorByChannel (double("STN") is NaN, matches nothing) and falls
+        % through to the same generic HSV fallback "unit" already uses.
+        numVals = str2double(axisVals);
+        if ~isempty(numVals) && all(~isnan(numVals))
+            [colors, anyHit] = colorByChannel(regMap, numVals);
+        else
+            [colors, anyHit] = colorByRegionName(regMap, string(axisVals));
+        end
     case 'map'
         % "ax--regionMAP" — values are MAP region acronyms from atlas posterior
         [colors, anyHit] = colorByRegionName(regMap, string(axisVals));
@@ -152,6 +144,80 @@ function [colors, anyHit] = colorByChannel(regMap, chanVals)
     catch
         colors = [];
     end
+end
+
+
+% ── axis values are frequency (Hz) → named-band hue rotation ─────────────
+% Not a flat one-color-per-band scheme like colorByRegionName — within a
+% band, individual frequencies rotate continuously through hue space (a
+% true mini-spectrum), band-to-band the hue keeps rotating too (each
+% band owns a contiguous 1/nBands arc of the wheel, in band-definition
+% order — delta,theta,alpha,beta,gamma today), so adjacent bands blend
+% into each other overall, while saturation resets high at each band's
+% own low edge and eases across the band — that reset is what still
+% reads as a clear seam at each boundary even though hue itself never
+% jumps. A frequency outside every band's range fades from its nearest
+% band-edge color toward the base/accent color (nexon.settings.Colors.
+% cyberGreen) over roughly one band-width, rather than looking undefined.
+function [colors, anyHit] = colorByFrequency(nexon, freqVals)
+    colors = [];
+    anyHit = false;
+    try
+        bands = nexon.console.BASE.params.bands;
+        bandNames = fieldnames(bands);
+        nBands = numel(bandNames);
+        if nBands == 0, return; end
+        edges = cell2mat(struct2cell(bands));   % [nBands x 2], band-definition order
+        lo = edges(:, 1); hi = edges(:, 2);
+
+        BASE = [0.16 0.80 0.20];
+        try
+            BASE = nexon.settings.Colors.cyberGreen;
+        catch
+        end
+
+        fv     = str2double(string(freqVals(:)));
+        nVals  = numel(fv);
+        colors = repmat(BASE, nVals, 1);
+
+        for i = 1:nVals
+            f = fv(i);
+            if isnan(f), continue; end
+            bi = find(f >= lo & f <= hi, 1);
+            if ~isempty(bi)
+                frac = (f - lo(bi)) / max(hi(bi) - lo(bi), eps);
+                colors(i, :) = bandHueAt(bi, min(max(frac, 0), 1), nBands);
+                anyHit = true;
+                continue;
+            end
+            % Outside every band — fade from the nearest edge color to BASE
+            if f < lo(1)
+                edgeColor = bandHueAt(1, 0, nBands);
+                span      = max(hi(1) - lo(1), eps);
+                d         = lo(1) - f;
+            else
+                edgeColor = bandHueAt(nBands, 1, nBands);
+                span      = max(hi(end) - lo(end), eps);
+                d         = f - hi(end);
+            end
+            t = min(1, d / span);
+            colors(i, :) = (1 - t) * edgeColor + t * BASE;
+            anyHit = true;
+        end
+    catch
+        colors = [];
+    end
+end
+
+% Contiguous per-band hue arc: band bi (1-indexed) owns hue range
+% [(bi-1)/nBands, bi/nBands); frac (0-1) is position within that band's
+% own frequency range. Saturation resets to 1 at frac=0 and eases to
+% ~0.65 by frac=1 — the visible "seam" at each new band's start.
+function rgb = bandHueAt(bi, frac, nBands)
+    hue = (bi - 1 + frac) / nBands;
+    sat = 1.0 - 0.35 * frac;
+    val = 0.90;
+    rgb = hsv2rgb([hue, sat, val]);
 end
 
 

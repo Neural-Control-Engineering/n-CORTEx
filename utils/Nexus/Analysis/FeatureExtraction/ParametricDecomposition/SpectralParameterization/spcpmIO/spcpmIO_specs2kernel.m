@@ -10,13 +10,16 @@ function kArgs = spcpmIO_specs2kernel(specs)
     kArgs.FC2 = specs(6);
     kArgs.FC3 = specs(7);
     % PERIODIC (triplets)
+    peakNum = 0;   % increments once per triplet — i itself steps by 3, so
+                    % deriving peakNum from i (as this used to) numbers
+                    % peaks 1,4,7,10,... instead of 1,2,3,4,...
     for i = 8:3:length(specs)
         if i < (length(specs)-2)
-            idx_peak = [i:i+2];        
+            idx_peak = [i:i+2];
             CF = specs(idx_peak(1));
             PW = specs(idx_peak(2));
-            BW = specs(idx_peak(3));        
-            peakNum = i - (8 - 1);
+            BW = specs(idx_peak(3));
+            peakNum = peakNum + 1;
             CFID = sprintf("CF%d",peakNum);
             PWID = sprintf("PW%d",peakNum);
             BWID = sprintf("BW%d",peakNum);

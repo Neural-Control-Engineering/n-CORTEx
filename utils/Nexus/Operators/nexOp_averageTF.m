@@ -28,12 +28,38 @@ function DF_avg = nexOp_averageTF(TF, ptr, dimSel)
     % ax_avg.(axDim) = ax_tririm{1};    
     catDim = ndims(dfCol_trim{1})+1;
     dfCol_avg = cat(catDim,dfCol_trim{:});
-    % dfCol_sem = std(dfCol_avg,0,catDim) ./ sqrt(size(dfCol_avg,1));
-    dfCol_sem = std(dfCol_avg,0,catDim) ./ sqrt(size(dfCol_trim,1));
-    dfCol_avg = mean(dfCol_avg,catDim);
+    % omitnan on both: after nexOp_alignCoAxes NaN-pads each trial to a
+    % shared canonical width (e.g. REG='chans' union across sessions), any
+    % one trial only covers a SUBSET of that width — a plain mean/std here
+    % required EVERY trial in the group to have real data at a given
+    % canonical position (intersection), so almost every position came
+    % back NaN once the union was wider than any single trial's own
+    % coverage. omitnan makes a position survive whenever ANY trial
+    % recorded it (union), matching what nexOp_alignCoAxes's NaN-fill is
+    % actually meant to represent ("this trial never recorded this
+    % identity" — not "exclude this identity from every average"). SEM's
+    % denominator uses the per-position valid-trial count (nValid), not
+    % the group's total trial count — different canonical positions have
+    % different numbers of contributing trials once coverage varies.
+    nValid = sum(~isnan(dfCol_avg), catDim);
+    dfCol_sem = std(dfCol_avg,0,catDim,'omitnan') ./ sqrt(nValid);
+    dfCol_avg = mean(dfCol_avg,catDim,'omitnan');
     DF_avg.df = dfCol_avg;
     DF_avg.sem = dfCol_sem;
     % DF_avg.ax = ax_avg;
+    % 'unit' no longer carries one meaningful real ID once this DF is an
+    % average across a group — each canonical position (see
+    % nexOp_alignCoAxes) has already blended together whichever different
+    % real unit IDs happened to land there across sessions, or is a
+    % structural-absence placeholder (0) for a channel most of the group
+    % never recorded. ax_trim.unit, inherited from a single representative
+    % trial, would otherwise read as a mostly-zero label list in any
+    % selection bus built from it. Same fix nexAtlas_recomputePosteriors.m
+    % already uses for the analogous "unit has no real per-position
+    % identity here" case: a plain positional index instead.
+    if isfield(ax_trim, 'unit')
+        ax_trim.unit = (1:numel(ax_trim.unit))';
+    end
     DF_avg.ax = ax_trim;
-    
+
 end

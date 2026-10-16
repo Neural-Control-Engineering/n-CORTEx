@@ -1,9 +1,14 @@
 function nexFigure_lda(mdlObj)
 % Interactive figure for mdlObj_lda.
 %   panel0 — LD scatter canvas (populated by Visualize)
-%   panel1 — sidebar (scrollable): Target / View (CTG/SWP/SRC/VW/CLR) /
-%             Pool / Pointer / Domain / FitCfg / Visualize / Open Viewer /
+%   panel1 — sidebar (scrollable): Pool / View (CTG/SWP/SRC/VW/CLR) /
+%             Target / Pointer / Domain / FitCfg / Visualize / Open Viewer /
 %             CV cfg / Result ID / Run CV / Transform / Save·Load / Fit
+%             Pool is topmost (not mid-stack) so a large pMap — more axes
+%             than the panel's nominal 165px allows — can grow upward
+%             (nexObj_poolCfgPanel_v3 resizes its own panel to fit every
+%             axis row) without overlapping another panel above it, same
+%             convention nexFigure_stateSpace/nexFigure_monoGram use.
 
     BLACK = [0 0 0];
     nexon = mdlObj.nexon;
@@ -25,12 +30,14 @@ function nexFigure_lda(mdlObj)
     hCvCfg   = 80;
     hResultID= 55;
     gap      = 5;
+    hTransLbl = 22;  % nexFigure_addTransformControls draws its label field in this much space above yTrans
 
     % Bottom-to-top y positions inside the scrollable sidebar
-    yFit      = xInner;
+    yCompile  = xInner;
+    yFit      = yCompile   + hBtn      + gap;
     ySave     = yFit       + hBtn      + gap;
     yTrans    = ySave      + hBtn      + gap;
-    yRunCV    = yTrans     + hBtn      + gap;
+    yRunCV    = yTrans     + hBtn      + hTransLbl + gap;
     yResultID = yRunCV     + hBtn      + gap;
     yCvCfg    = yResultID  + hResultID + gap;
     yViewer   = yCvCfg     + hCvCfg   + gap;
@@ -38,9 +45,9 @@ function nexFigure_lda(mdlObj)
     yFitCfg   = yVis       + hBtn      + gap;
     yDomain   = yFitCfg    + hFitCfg   + gap;
     yPtr      = yDomain    + hDomain   + gap;
-    yPool     = yPtr       + hPtr      + gap;
-    yTarget   = yPool      + hPool     + gap;
+    yTarget   = yPtr       + hPtr      + gap;
     yView     = yTarget    + hTarget   + gap;
+    yPool     = yView      + hView     + gap;
 
     % ── Figure ────────────────────────────────────────────────────────────
     mdlObj.Figure.fh = uifigure( ...
@@ -86,20 +93,22 @@ function nexFigure_lda(mdlObj)
         "Title",           "Target (Y)", ...
         "ForegroundColor", GREEN);
     mdlObj.Figure.targetDropdown = uidropdown(pan_target.ph, ...
-        "Position",        [5, 5, wInner-10, 25], ...
+        "Position",        [5, 5, wInner-70, 25], ...
         "Items",           targetOptions, ...
         "Value",           char(mdlObj.collector.Target.Y), ...
         "BackgroundColor", BLACK, ...
         "FontColor",       GREEN, ...
         "ValueChangedFcn", @(src,~) nexFigure_lda_onTargetChange(src, mdlObj));
 
-    % ── Pool panel ────────────────────────────────────────────────────────
-    pan_pool.ph = uipanel(mdlObj.Figure.panel1.ph, ...
-        "Position",        [xInner, yPool, wInner, hPool], ...
+    mdlObj.Figure.targetNBinsSpinner = uispinner(pan_target.ph, ...
+        "Position",        [wInner-60, 5, 55, 25], ...
+        "Limits",          [2, Inf], ...
+        "Value",           mdlObj.collector.Target.nBins, ...
+        "Step",            1, ...
         "BackgroundColor", BLACK, ...
-        "Scrollable",      "on");
-    mdlObj.Figure.panel_pMap = nexObj_poolCfgPanel_v3( ...
-        mdlObj, pan_pool, @poolCfgEntryChanged_v3);
+        "FontColor",       GREEN, ...
+        "Tooltip",         "nBins — quantile groups for a continuous Y (Inf = no binning)", ...
+        "ValueChangedFcn", @(src,~) nexFigure_lda_onTargetNBinsChange(src, mdlObj));
 
     % ── Pointer + Domain panels ───────────────────────────────────────────
     mdlObj.setupDomain();   % builds Domain + Pointer + CTG + SWP buses
@@ -141,11 +150,23 @@ function nexFigure_lda(mdlObj)
         "Scrollable",      "on", ...
         "Title",           "View", ...
         "ForegroundColor", GREEN);
-    viewMaxSels.SWP = 1;
+    % SWP is multi-select — nested cross-product sweep (e.g. region x time)
+    % in nexAnalysis_cvPermute — so it gets the full listbox, same as CTG.
+    viewMaxSels.SWP = numel(mdlObj.collector.View.selKeys.SWP);
     nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels);
     bus = mdlObj.collector.View;
     bus.listBoxes.CTG.Callback = @(src,ev) nexFigure_lda_onViewChange(src, ev, 'CTG', mdlObj);
     bus.listBoxes.SWP.Callback = @(src,ev) nexFigure_lda_onViewChange(src, ev, 'SWP', mdlObj);
+
+    % ── Pool panel ────────────────────────────────────────────────────────
+    % Topmost — see header comment on why (a large pMap grows this panel
+    % upward; nothing above it here to overlap).
+    pan_pool.ph = uipanel(mdlObj.Figure.panel1.ph, ...
+        "Position",        [xInner, yPool, wInner, hPool], ...
+        "BackgroundColor", BLACK, ...
+        "Scrollable",      "on");
+    mdlObj.Figure.panel_pMap = nexObj_poolCfgPanel_v3( ...
+        mdlObj, pan_pool, @poolCfgEntryChanged_v3);
 
     % ── FitCfg panel ─────────────────────────────────────────────────────
     pan_fitCfg.ph = uipanel(mdlObj.Figure.panel1.ph, ...
@@ -164,13 +185,9 @@ function nexFigure_lda(mdlObj)
         "FontColor",       GREEN, ...
         "ButtonPushedFcn", @(~,~) nexFigure_lda_visualize(mdlObj));
 
-    % ── Open Viewer button ────────────────────────────────────────────────
-    mdlObj.Figure.viewerButton = uibutton(mdlObj.Figure.panel1.ph, ...
-        "Position",        [xInner, yViewer, wInner, hBtn], ...
-        "Text",            "Open Results Viewer", ...
-        "BackgroundColor", BLACK, ...
-        "FontColor",       GREEN, ...
-        "ButtonPushedFcn", @(~,~) nexFigure_lda_openViewer(mdlObj));
+    % ── Open Viewer controls — generic, any registered viewer type ───────
+    nexFigure_addLaunchControls(mdlObj.Figure.panel1.ph, mdlObj, ...
+        [xInner, yViewer, wInner, hBtn], BLACK, GREEN);
 
     % ── CV cfg panel — nFolds / nPermute ──────────────────────────────────
     pan_cv.ph = uipanel(mdlObj.Figure.panel1.ph, ...
@@ -234,6 +251,9 @@ function nexFigure_lda(mdlObj)
         "FontColor",       BLACK, ...
         "FontWeight",      "bold", ...
         "ButtonPushedFcn", @(~,~) mdlObj.fit());
+
+    mdlObj.Figure.compileButton = nexFigure_addCompileControl( ...
+        mdlObj.Figure.panel1.ph, mdlObj, [xInner, yCompile, wInner, hBtn], BLACK, GREEN);
 end
 
 
@@ -242,6 +262,11 @@ end
 function nexFigure_lda_onTargetChange(src, mdlObj)
     mdlObj.collector.Target.Y = src.Value;
     mdlObj.applyTargetBus();
+end
+
+
+function nexFigure_lda_onTargetNBinsChange(src, mdlObj)
+    mdlObj.collector.Target.nBins = src.Value;
 end
 
 function nexFigure_lda_onDomainChange(src, ev, key, mdlObj)
@@ -256,11 +281,6 @@ function nexFigure_lda_runCV(mdlObj)
     resultID = strtrim(mdlObj.Figure.resultIDField.Value);
     if isempty(resultID), resultID = sprintf('cv_%s', char(datetime('now','Format','HHmmss'))); end
     nexAnalysis_cvPermute(mdlObj, resultID);
-end
-
-function nexFigure_lda_openViewer(mdlObj)
-    if ~isstruct(mdlObj.Partners), mdlObj.Partners = struct(); end
-    mdlObj.Partners.viewer = nexObj_resultsViewer(mdlObj);
 end
 
 function nexFigure_lda_visualize(mdlObj)

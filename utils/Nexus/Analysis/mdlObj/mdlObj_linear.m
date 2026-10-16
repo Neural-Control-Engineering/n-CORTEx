@@ -39,6 +39,19 @@ classdef mdlObj_linear < mdlObject
                 end
             end
             mdlObj.applySRC(resultID);
+
+            % Push to any connected viewer (e.g. nexObj_bar) — this override
+            % otherwise silently drops the base mdlObject.storeResult's own
+            % propagation. Without it, a viewer that already lazy-loaded
+            % this resultID once (see wireModelSource/applySRC's stub
+            % convention) never sees a later re-run under the SAME
+            % resultID: its cached copy stays frozen at whatever it first
+            % loaded, since applySRC's lazy-load only fires when the entry
+            % is still empty.
+            if isstruct(mdlObj.Partners) && isfield(mdlObj.Partners, 'viewer') && ...
+                    ~isempty(mdlObj.Partners.viewer) && isvalid(mdlObj.Partners.viewer)
+                mdlObj.Partners.viewer.push(resultID, data);
+            end
         end
 
         function applySRC(mdlObj, srcKey)
@@ -109,7 +122,7 @@ classdef mdlObj_linear < mdlObject
             R = mdlObj.RESULTS.(resultID);
 
             if istable(R)
-                structural = ["df","ax","ptr","avgCfg"];
+                structural = ["df","ax","ptr","avgCfg","W","ax_W","ptr_W"];
                 groupCols  = setdiff(string(R.Properties.VariableNames), structural, 'stable');
                 if isempty(groupCols)
                     rowLabels = arrayfun(@(i) sprintf("row_%d", i), ...

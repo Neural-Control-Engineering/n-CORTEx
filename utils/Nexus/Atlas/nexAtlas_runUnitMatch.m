@@ -183,8 +183,46 @@ function ok = nexAtlas_runUnitMatch(subjectDir, sorterTag, progressFcn)
     sp0 = load(fullfile(KSDirs{1}, 'PreparedData.mat'), 'SessionParams');
     spikeWidth = sp0.SessionParams.spikeWidth;
 
+    % ── Mirror waveforms as double for UnitMatch, without touching the
+    % archival single-precision files ───────────────────────────────────────
+    % Our RawSpikes.npy files are single (deliberately, for disk space).
+    % UnitMatch's own ExtractParameters.m calls lsqcurvefit with data read
+    % straight from these files without casting; on this MATLAB/
+    % Optimization Toolbox version, lsqcurvefit requires double and throws
+    % on single — a throw the toolbox's own fit-failure try/catch silently
+    % swallows, turning every unit's spatial-decay fit into NaN and (via an
+    % unguarded downstream clamp) every unit's centroid into NaN, which is
+    % why matching finds zero candidate pairs. Rather than edit that
+    % vendored file, or permanently store waveforms as double, mirror each
+    % session's already-decompressed RawWaveforms into a scratch directory
+    % as double and point UnitMatch at the mirror. The real archive
+    % (single-precision, recompressed at the end via cleanupObj above) is
+    % never modified, not even transiently.
+    matchKSDirs = cell(nSess, 1);
+    mirrorRoot  = tempname();
+    mkdir(mirrorRoot);
+    cleanupMirror = onCleanup(@() rmdir(mirrorRoot, 's')); %#ok<NASGU>
+    progressFcn(0.3, 'Preparing double-precision waveform copies for UnitMatch...');
+    for i = 1:nSess
+        srcWfDir = fullfile(KSDirs{i}, 'RawWaveforms');
+        dstDir   = fullfile(mirrorRoot, sprintf('sess%d', i));
+        dstWfDir = fullfile(dstDir, 'RawWaveforms');
+        mkdir(dstWfDir);
+        npyFiles = dir(fullfile(srcWfDir, 'Unit*_RawSpikes.npy'));
+        for k = 1:numel(npyFiles)
+            w = readNPY(fullfile(npyFiles(k).folder, npyFiles(k).name));
+            writeNPY(double(w), fullfile(dstWfDir, npyFiles(k).name));
+        end
+        % AssignUniqueIDAlgorithm's optional ISI-violation refinement (run
+        % later, after UnitMatch itself) reopens param.KSDir{i}/PreparedData.mat
+        % for spike times — mirror it alongside the waveforms so that step
+        % doesn't silently skip itself for lack of a file it expects to find.
+        copyfile(fullfile(KSDirs{i}, 'PreparedData.mat'), fullfile(dstDir, 'PreparedData.mat'));
+        matchKSDirs{i} = dstDir;
+    end
+
     % param: set required fields then let DefaultParametersUnitMatch fill defaults
-    param.KSDir                  = KSDirs;
+    param.KSDir                  = matchKSDirs;
     param.AllChannelPos          = AllChannelPos;
     param.SaveDir                = umRootDir;
     param.nSyncChans             = 0;       % sync excluded in our channel layout
@@ -240,6 +278,30 @@ function ok = nexAtlas_runUnitMatch(subjectDir, sorterTag, progressFcn)
             msg = sprintf('UnitMatch failed: %s (see console for full stack)', e.message);
         end
         progressFcn(0.35, msg);
+        return;
+    end
+
+    % UnitMatch(...) itself NEVER merges matched units' IDs — its own
+    % UniqueIDConversion.UniqueID is always the trivial 1:nclus assignment
+    % (see UnitMatch.m line 71 and its unconditional save at line ~169;
+    % nothing in that file updates UniqueID from MatchProbability). The
+    % real merge — turning "unit A in session 3 matched unit B in session
+    % 7" into a shared ID — lives entirely in the separate AssignUniqueID
+    % function, which the toolbox's own example scripts
+    % (FromSpikeGLXToMatching/Helpers/RunUnitMatch.m) call as a distinct
+    % step after UnitMatch(...) returns. It reads back the UnitMatch.mat
+    % that UnitMatch(...) just saved into param.SaveDir, runs the actual
+    % merge algorithm, and overwrites that file with the real result.
+    % Skipping this step (as this wrapper originally did) silently writes
+    % every unit as its own unique ID, indistinguishable from "no matches
+    % found" even when UnitMatch's own MatchProbability matrix shows
+    % substantial real cross-session matching.
+    progressFcn(0.85, 'Assigning merged cross-session IDs...');
+    try
+        [UniqueIDConversion, ~, ~] = AssignUniqueID(param.SaveDir);
+    catch e
+        fprintf('[nexAtlas_runUnitMatch] AssignUniqueID failed:\n%s\n', getReport(e, 'extended'));
+        progressFcn(0.85, sprintf('AssignUniqueID failed: %s (see console for full stack)', e.message));
         return;
     end
     progressFcn(0.9, 'UnitMatch finished — writing results...');

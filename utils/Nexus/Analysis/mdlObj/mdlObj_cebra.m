@@ -23,6 +23,32 @@ classdef mdlObj_cebra < mdlObject
             % fit(). See mdlObj_ssm.m / mdlObj_pca.m.
             obj.cfg.dmCfg.format="cebra";
             % network, etc.
+            % Headless construction skips nexFigure_cebra (which calls
+            % setupDomain to build the Domain bus), so do it here in that
+            % case. Interactive builds run inside nexFigure_cebra during
+            % the base constructor — same split as mdlObj_pca/mdlObj_ssm.
+            isHeadless = isfield(obj.nexon, 'settings') && ...
+                         isfield(obj.nexon.settings, 'headless') && ...
+                         obj.nexon.settings.headless;
+            if isHeadless
+                obj.setupDomain();
+            end
+        end
+
+        function setupDomain(mdlObj)
+            % Narrow FTR to a single feature axis (D2(1), e.g. 'unit'); the
+            % residual axis (e.g. 'measure') is then governed by the Domain
+            % MSR selector. Builds collector.Domain (incl. REG) via
+            % initDomainBus, plus Pointer and View (SRC/VW/CLR) buses —
+            % same bundling as mdlObj_pca/mdlObj_lda's own setupDomain, so
+            % headless construction gets the full bus set without depending
+            % on the interactive figure to build them piecemeal.
+            if isfield(mdlObj.domain, 'D2') && numel(mdlObj.domain.D2) >= 1
+                mdlObj.domain.FTR = mdlObj.domain.D2(1);
+            end
+            mdlObj.initDomainBus();
+            mdlObj.initPointerBus();
+            mdlObj.initViewBus();
         end
 
         function locateDataset(mdlObj)
@@ -73,29 +99,40 @@ classdef mdlObj_cebra < mdlObject
         % end
 
         function DF_Z = transform(mdlObj, DF_X)
-            % Use learned weights to project emission into state-space
+            % Use learned weights to project emission into state-space.
+            % Mirrors mdlObj_pca.transform's own robustness fixes: NaN-fill
+            % (nexOp_alignCoAxes deliberately NaN-pads canonical positions
+            % this trial has no real data for; sklearn's/CEBRA's transform
+            % rejects NaN outright), loop over a residual MSR slice when
+            % present (size(X,3)==1 degenerates to a single pass, so this
+            % is a no-op for the common 2D case), and a clean output ax
+            % (only the axes that remain real dimensions of Z survive).
             disp("transforming cebra...");
-            DF_Z = DF_X;
-            DF_Z = rmfield(DF_Z,"ptr");
-            DF_Z = rmfield(DF_Z,"ax");
             X = DF_X.df;
-            % chanCond = [1:10]; % TEMP
-            % tCond = [1600:2250]; % TEMP
+            X(isnan(X)) = 0;
             if ~isempty(X)
-                % X = X(:,chanCond);
-                np = py.importlib.import_module('numpy');
-                % X_py = mdlObj.py.np.array(X);
-                X_py = np.array(X);
-                X_scaled = mdlObj.py.stdScaler.transform(X_py);
-                % Z_py = mdlObj.model.fit_transform(X_scaled);
-                Z_py = mdlObj.model.transform(X_scaled);
-                Z = double(Z_py);
-                % DF_Z=DF_X;
-                DF_Z.df=Z;
-                % DF_Z.ax=struct;
-                DF_Z.ax.(mdlObj.domain.DN(1))=DF_X.ax.(mdlObj.domain.DN(1));
-                % DF_Z.ax.t=DF_Z.ax.t(tCond); % TEMP
-                DF_Z.ax.latent=[1:size(Z,2)];
+                nSlices  = size(X, 3);
+                Z_slices = cell(1, nSlices);
+                for k = 1:nSlices
+                    X_k      = X(:, :, k);
+                    X_k_py   = mdlObj.py.np.array(X_k);
+                    X_scaled = mdlObj.py.stdScaler.transform(X_k_py);
+                    Z_k      = double(mdlObj.model.transform(X_scaled));
+                    Z_slices{k} = Z_k;
+                end
+                Z = cat(3, Z_slices{:});
+                DF_Z.df = Z;
+                DN = char(mdlObj.domain.DN(1));
+                DF_Z.ax = struct();
+                DF_Z.ax.(DN)   = DF_X.ax.(DN);
+                DF_Z.ax.latent = 1:size(Z, 2);
+                if ndims(Z) >= 3
+                    ra = "";
+                    try, ra = char(mdlObj.domain.MSRaxis); catch, end
+                    if strlength(ra) > 0 && isfield(DF_X.ax, ra)
+                        DF_Z.ax.(ra) = DF_X.ax.(ra);
+                    end
+                end
                 DF_Z = nex_initAxisPointer_v2(DF_Z);
             else
                 DF_Z = [];

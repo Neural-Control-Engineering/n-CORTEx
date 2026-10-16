@@ -27,21 +27,35 @@ function out = nexHR_transform(data, layout, pMap, models)
     end
     pm = pMap.(current.axID);
 
-    % Clamp blockSize to match nexHR_fit exactly; use stored model count for nBlocks
     actual_n = size(data, nd);
     if actual_n <= 1
         out = nexHR_transform(data, inner_layout, pMap, models);
         return;
     end
-    blockSize = round(abs(pm.divsPerBin));
-    if ~isfinite(blockSize) || blockSize >= actual_n
-        blockSize = actual_n;
+
+    % Block boundaries must match nexHR_fit's own EXACTLY — pm.getBinEdges,
+    % not a fixed stride. A uniform blockSize=round(abs(divsPerBin)) is
+    % only correct for axID (fixed-stride) mode; mapID (region-boundary)
+    % mode produces variable-width blocks (real region sizes differ), and
+    % assuming a fixed width there silently extracts the wrong columns —
+    % PCA then either errors on a feature-count mismatch or, worse, "works"
+    % on the wrong data. current.axVals is the SAME reference values used
+    % at fit time (stored in layout, not re-derived from this call's own
+    % data), so bin edges are identical for train and any later transform
+    % call, regardless of which trials happen to be passed in here.
+    if numel(current.axVals) ~= actual_n
+        error('nexHR_transform:axisMismatch', ...
+            ['Axis "%s" block-transform: axVals length (%d) does not match ' ...
+             'data''s last dim (%d) at this recursion depth — layout.axVals is stale.'], ...
+            current.axID, numel(current.axVals), actual_n);
     end
-    nBlocks = numel(models);
-    if nBlocks == 0
+    binEdges = pm.getBinEdges(current.axVals, abs(pm.divsPerBin));
+    nBlocks  = numel(binEdges) - 1;
+    if nBlocks ~= numel(models)
         error('nexHR_transform:modelMismatch', ...
-            'axis="%s": stored nBlocks=0 but actual_n=%d > 1 — fit and transform data have different structure.\nsize(data)=%s  numel(models)=%d', ...
-            current.axID, actual_n, mat2str(size(data)), numel(models));
+            ['axis="%s": stored nBlocks=%d but recomputed nBlocks=%d from ' ...
+             'layout.axVals — fit and transform data/layout have different structure.'], ...
+            current.axID, numel(models), nBlocks);
     end
 
     np  = py.importlib.import_module('numpy');
@@ -57,17 +71,19 @@ function out = nexHR_transform(data, layout, pMap, models)
     for b = 1:nBlocks
         m = models{b};
 
-        % Extract block along last dim
-        idx        = (b-1)*blockSize + (1:blockSize);
-        S          = repmat({':'}, 1, nd);
-        S{nd}      = idx;
-        data_block = data(S{:});
+        % Extract block along last dim — this block's own (possibly
+        % different-width) range from binEdges, not a shared fixed stride.
+        idx          = binEdges(b) : (binEdges(b+1) - 1);
+        curBlockSize = numel(idx);
+        S            = repmat({':'}, 1, nd);
+        S{nd}        = idx;
+        data_block   = data(S{:});
 
-        % Move last dim to position 2: (N_ctx, blockSize, inner_dims...)
+        % Move last dim to position 2: (N_ctx, curBlockSize, inner_dims...)
         order      = [1, nd, 2:nd-1];
         data_block = permute(data_block, order);
 
-        % Merge blockSize into N_ctx: (N_ctx*blockSize, inner_dims...)
+        % Merge curBlockSize into N_ctx: (N_ctx*curBlockSize, inner_dims...)
         sz    = size(data_block);
         new_n = sz(1) * sz(2);
         if numel(sz) > 2
@@ -82,7 +98,7 @@ function out = nexHR_transform(data, layout, pMap, models)
         % Unmerge in Python (order='F' = MATLAB column-major) to avoid lazy-reshape
         % stride corruption — same fix as nexHR_fit step 5.
         n_inner_feat  = size(inner_out, 2);
-        n_feat        = blockSize * n_inner_feat;
+        n_feat        = curBlockSize * n_inner_feat;
         try
             block_feat = np.ascontiguousarray( ...
                 np.array(inner_out).reshape(int32(N_ctx), int32(n_feat), pyargs('order', 'F')));

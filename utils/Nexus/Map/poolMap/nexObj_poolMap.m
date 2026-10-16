@@ -53,6 +53,18 @@ classdef nexObj_poolMap < handle
                     mapColors = {};
                     if ~isempty(poolMap.Map.color)
                         mapColors = poolMap.Map.color(sortIdx);
+                        % Normalize to cell here, once — downstream branches
+                        % mix curly-brace assignment (allColors{end+1}=...,
+                        % tolerant of any RHS type) with paren-range
+                        % assignment (allColors(end+1:end+nR)=..., which
+                        % requires a cell RHS). Map.color comes from
+                        % map_regions2chans (passes through regMap.color,
+                        % already cell) for the chans case, but from
+                        % buildLUT_map (a native string array) for the
+                        % freqs/band case — the paren-assignment branch
+                        % below throws "value of type 'string' is not
+                        % convertible to 'cell'" without this.
+                        if ~iscell(mapColors), mapColors = cellstr(mapColors); end
                     end
                     axMax = double(max(axis(:)));
                     keep = mapAxID <= axMax;

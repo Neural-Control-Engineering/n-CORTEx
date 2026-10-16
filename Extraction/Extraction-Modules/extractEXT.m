@@ -116,9 +116,15 @@ function extractEXT(params)
                 end 
                 if all(modPassed)
                     % LOG SESSION AS EXTRACTED
-                    extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));                
-                    extractionLog(contains(extractionLog.SessionName,session),:).Extracted = 1;       
-                    writetable(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+                    % writetableAtomic (temp file + movefile) instead of
+                    % writetable() directly — a plain writetable() here,
+                    % called once per successfully-extracted session, left
+                    % the log truncated/header-clipped whenever the write
+                    % was interrupted partway (crash, timeout, parallel
+                    % pool teardown mid-run).
+                    extractionLog = readtable(fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
+                    extractionLog(contains(extractionLog.SessionName,session),:).Extracted = 1;
+                    writetableAtomic(extractionLog, fullfile(params.paths.projDir_cloud,"Experiments",params.extractCfg.experiment,"Extraction-Logs",sprintf("%s_extraction_log.csv","EXT")));
                 end
             end
     end
