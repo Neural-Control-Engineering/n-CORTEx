@@ -1,0 +1,10 @@
+[theme]
+base = "light"
+primaryColor = "#3E8E5E"
+backgroundColor = "#FAF7EF"
+secondaryBackgroundColor = "#E3F1E6"
+textColor = "#1D1D1F"
+font = "sans serif"
+
+[server]
+maxUploadSize = 2048  # MB; recordings can be large

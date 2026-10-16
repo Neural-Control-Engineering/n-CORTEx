@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "rttrain": "./rtt/graph.py:graph"
+  },
+  "env": "../.env"
+}

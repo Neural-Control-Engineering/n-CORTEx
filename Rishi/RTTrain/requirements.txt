@@ -1,0 +1,12 @@
+anthropic
+langgraph
+langgraph-checkpoint-sqlite
+pydantic>=2
+python-dotenv
+streamlit>=1.46
+plotly
+numpy
+scipy
+h5py
+matplotlib
+pillow

@@ -1,0 +1,13 @@
+# run outputs (created by the app)
+uploads/
+normalized/
+training/
+gold/
+review/
+runs/
+figures/
+checkpoints.sqlite*
+*.h5
+.venv/
+__pycache__/
+.DS_Store
