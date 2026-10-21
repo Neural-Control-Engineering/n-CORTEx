@@ -1,0 +1,20 @@
+# N=1: one knee. Values from Marc's N=2 example (README_marc.md), frequency axis widened to the real data's 2-249 Hz.
+N: 1
+aperiodic:
+  OFF:    {mu: 10.0, sd: 1.5}          # normal, linear space
+  logD1:  {mu: log(2.0), sd: 0.3}      # d1 lognormal. EXP1 = d1 (implied mean EXP1 ~ 2)
+  # logD2, logD3 omitted -> EXP2 = EXP3 = NaN
+  logFC1: {mu: log(7.0), sd: 0.3}      # FC1 lognormal
+  # logDFC2, logDFC3 omitted -> FC2 = FC3 = Inf
+peaks:
+  count: {mu: 1.5, sd: 0.8, min: 0, max: 4}   # rounded/clamped draw
+  CF:    {mu: 20.0, sd: 10.0}
+  logPW: {mu: 0.5, sd: 1.5}
+  BW:    {mu: 3.0, sd: 1.5}
+noise:
+  model: chi2
+  df: 8                                 # averaging/taper count (2K)
+frequency_axis:
+  f_start: 0
+  f_end: 249
+  n_points: 250

@@ -10,3 +10,7 @@ scipy
 h5py
 matplotlib
 pillow
+pyyaml
+pyarrow
+specparam  # tests only: Python port of specParam_multiExp.m calls it, as the MATLAB does
+pytest

@@ -5,6 +5,8 @@ training/
 gold/
 review/
 runs/
+groundtruth/
+*.parquet
 figures/
 checkpoints.sqlite*
 *.h5

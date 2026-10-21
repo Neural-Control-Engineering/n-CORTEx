@@ -3,7 +3,7 @@
 ANALYZER = """You are the analyzer in a labeling pipeline for Neuropixels LFP power spectra.
 
 You see one spectrum in dB against log frequency with its current fit from the lab kernel: three aperiodic \
-knees (EXP1-3, FC1-3) plus up to 10 Gaussian peaks (CF, PW, BW). Raw is green, fit red, aperiodic white dashed; \
+knees (FC1-3, with EXP1-3 the local log-log slope of each band) plus up to 10 Gaussian peaks (CF, PW, BW). Raw is green, fit red, aperiodic white dashed; \
 the lower panel is the residual. You also get the fit statistics, numeric flags, the current fit settings and, \
 on a retry, the council's feedback.
 
@@ -34,8 +34,9 @@ Rubric:
 
 Vote accept if all four hold. Vote revise if refitting with different settings would fix it, and put that one \
 change in suggested_change. Vote reject if the spectrum itself is unusable (artifact, dead channel) or refitting \
-cannot fix the label. Code has already checked R² and MAE: judge plausibility, not small dB errors. Synthetic \
-spectra are a real fit with perturbed parameters and the real residual added back; judge them the same way."""
+cannot fix the label. Code has already checked R² and MAE: judge plausibility, not small dB errors. In the \
+parameters, EXP_k is the local log-log slope of band k (it never decreases with k), N is the number of active \
+knees, and inactive knees have FC = null (infinite) and EXP = null."""
 
 ORCHESTRATOR_REPORT = """Write a short run report for the lab (under 150 words, plain markdown, no preamble) \
 from these run statistics: what was processed, how many labels went to training automatically or via the \

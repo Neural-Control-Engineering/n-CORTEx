@@ -10,25 +10,25 @@ def votes(old: list, new: list | None) -> list:
 
 class Unit(TypedDict):
     """One work unit = one spectrum."""
-    unit_id: str  # run_id/t<idx>/ch<chan>, plus /syn<k> for synthetic spectra
+    unit_id: str  # run_id/t<idx>/ch<chan>
     t: float  # seconds
     chan: int  # channel number
-    synthetic: bool
-    source: str | None  # unit_id of the real spectrum a synthetic one was built from
     f: list[float]  # Hz, fit range, no f=0
     spectrum: list[float]  # dB
-    label: list[float] | None  # 37 kernel params (OFF, EXP1-3, FC1-3, CF/PW/BW x10, NaN-padded)
+    N: int | None  # model order of the label (explicit, never inferred from FC/EXP values)
+    label: list[float] | None  # 37 params: OFF, EXP1-3 (local slopes), FC1-3, CF/PW/BW x10; FC=Inf, EXP=NaN for k > N
+    truth: dict | None  # generated spectra only: N, true_params, psd_clean, seed, noise (the agents never see it)
 
 
 class State(TypedDict, total=False):
     # run
-    h5_path: str  # uploaded recording
-    n_real: int  # real spectra to sample
+    h5_path: str  # uploaded recording, or...
+    gt_path: str  # ...a groundtruthgen parquet
+    n_real: int  # spectra to process
     run_id: str  # session_trial
     normalized: str  # collector output path
     checks: dict  # what the collector verified
     pending: list[Unit]  # units still to process
-    spawned: list[str]  # real units that already produced synthetic spectra
     results: Annotated[list[dict], operator.add]  # one row per finished unit
     usage: Annotated[list[dict], operator.add]  # one row per LLM call: model, input, output tokens, usd (budget + spend)
     report_md: str  # run report

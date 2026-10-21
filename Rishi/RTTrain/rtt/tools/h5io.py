@@ -54,4 +54,5 @@ def write_label(path, unit, label, provenance):
         if unit["unit_id"] in h: del h[unit["unit_id"]]
         g = h.create_group(unit["unit_id"])
         g["label"], g["f"], g["spectrum"] = np.asarray(label, float), unit["f"], unit["spectrum"]
+        g["N"] = unit["N"]  # model order, its own field (README_marc.md)
         g.attrs["provenance"] = json.dumps(provenance)

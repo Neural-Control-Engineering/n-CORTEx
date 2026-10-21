@@ -12,7 +12,7 @@ FIG_DIR = HERE / "figures"  # all output plots
 
 REF_T_IDX, REF_CHAN = 9, 10  # reference spectrum: time index (0-based, t=-2.598 s), channel number (1-based)
 
-# Seed aperiodic shape [OFF, EXP1, EXP2, EXP3, log10 FC1, log10 FC2, log10 FC3] for the segmented kernel,
+# Seed aperiodic shape [OFF, d1, d2, d3, log10 FC1, log10 FC2, log10 FC3] (kernel increments d, not EXP) for the segmented kernel,
 # converted from the fitparams.mat seed (plateau -113 dB; knees at 3.2, 8.7, 60 Hz; slopes -1, -8.5, -59 dB/decade)
 SEED_AP = [-11.3, 0.1, 0.85, 5.9, 0.5, 0.94, 1.78]
 

@@ -35,11 +35,12 @@ def analyzer(state: State) -> dict:
     label = u["label"] or fit(f, y, {})[0]  # first pass: look at a default fit
     qc = score(f, y, label)
     flags = compute_flags(f, y, label, qc)
+    if not CONFIG.agents_enabled: return {"notes": "agents off: default fit settings", "flags": flags}
     if over_budget(state, 1): return {"notes": "LLM budget reached; kept current settings", "flags": flags}
 
     current = {k: CFG[k] for k in HINT_KEYS} | state.get("hints", {})
     feedback = [f"{v['model']}: {v['vote']}. {' '.join(v['reasons'])} {v['suggested_change']}" for v in state.get("council") or []]
-    facts = {"qc": qc, "flags": flags, "current_settings": current, "council_feedback": feedback, "synthetic": u["synthetic"]}
+    facts = {"qc": qc, "flags": flags, "current_settings": current, "council_feedback": feedback}
     h, usage = ask(CONFIG.analyzer_model, prompts.ANALYZER,
                    [image_block(fit_png(f, y, label, u["unit_id"])), {"type": "text", "text": json.dumps(clean(facts), indent=1)}], Hints)
     if h is None: return {"notes": "analyzer declined; kept current settings", "flags": flags, "usage": [usage]}

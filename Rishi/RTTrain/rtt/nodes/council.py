@@ -33,7 +33,7 @@ def context_pack(u, qc, flags, near) -> list[dict]:
         pack += [{"type": "text", "text": f"Gold example {g['unit_id']} (shape distance {g['distance']:.1f} dB):"},
                  image_block(fit_png(g["f"], g["spectrum"], g["label"]))]
     if not near: pack.append({"type": "text", "text": "No gold examples yet: judge on rubric items 1-3."})
-    facts = {"params": dict(zip(sp.PARAM_LABELS, u["label"])), "qc": qc, "flags": flags, "synthetic": u["synthetic"]}
+    facts = {"N": u["N"], "params": dict(zip(sp.PARAM_LABELS, u["label"])), "qc": qc, "flags": flags}
     return pack + [{"type": "text", "text": json.dumps(clean(facts), indent=1)}]
 
 
@@ -41,15 +41,17 @@ def gate(state: State) -> dict:
     """Gate 1 (free): decides clean and failed fits in code; only unclear ones go to the judges."""
     u, attempts = state["unit"], state.get("attempts", 0)
     f, y = np.asarray(u["f"]), np.asarray(u["spectrum"])
-    qc = state.get("qc") or score(f, y, u["label"])  # synthetic units arrive without qc
+    qc = state.get("qc") or score(f, y, u["label"])
     near = nearest(f, y)
     qc = qc | {"gold_distance": near[0]["distance"] if near else None}
     flags = compute_flags(f, y, u["label"], qc, qc["gold_distance"])
     out = {"qc": qc, "flags": flags, "council": None, "pack": None}
     serious = sorted(set(flags) - {"line_noise"})
-    if not np.isfinite(qc["r2"]): return out | revise_or_human(attempts, "fit failed")
+    if not np.isfinite(qc["r2"]):  # without agents a refit would only repeat the same settings
+        return out | (revise_or_human(attempts, "fit failed") if CONFIG.agents_enabled else dict(verdict="human", reason="fit failed"))
     audit = random.random() < CONFIG.audit_rate
     if not serious and not audit: return out | dict(verdict="accept", reason="gate pass")
+    if not CONFIG.agents_enabled: return out | dict(verdict="human", reason=", ".join(serious) or "audit")  # no council: a human decides
     if over_budget(state, len(CONFIG.judges)): return out | dict(verdict="human", reason="over budget")
     return out | dict(verdict="unclear", reason=", ".join(serious) or "audit", pack=context_pack(u, qc, flags, near))
 

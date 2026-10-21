@@ -1,18 +1,20 @@
 """Spectral parameterization (Donoghue et al. 2020) using the lab kernel kernel_specparam_segmented_multiexp, fit in dB.
-Parameter layout follows spcpmIO_paramNames: OFF, EXP1-3, FC1-3, then CF/PW/BW for each of 10 peaks (37 params)."""
+Parameter layout follows spcpmIO_paramNames: OFF, EXP1-3, FC1-3, then CF/PW/BW for each of 10 peaks (37 params).
+Labels report EXP_k as local slopes (= d_1 + ... + d_k, README_marc.md); the fit itself works in the kernel's increments d."""
 import h5py  # HDF5 I/O
 import numpy as np  # arrays
 from scipy.optimize import least_squares  # bounded nonlinear least squares
+from groundtruthgen import paramspec  # fixed layout + EXP <-> d conversion
+from groundtruthgen.kernel import aperiodic, kernel  # shared kernel port
 from sp_config import SRC_H5, SRC_GROUP, CFG  # paths and fit settings
 
-LN10 = np.log(10.0)  # ln(10), converts natural log <-> log10
 N_KNEES, N_PEAKS = CFG["n_knees"], CFG["max_n_peaks"]  # kernel sizes (3 knees, 10 peaks)
-PARAM_LABELS = ["OFF"] + [f"EXP{i}" for i in range(1, N_KNEES + 1)] + [f"FC{i}" for i in range(1, N_KNEES + 1)] \
-    + [f"{p}{i}" for i in range(1, N_PEAKS + 1) for p in ("CF", "PW", "BW")]  # kernel parameter order (37 params)
+PARAM_LABELS = paramspec.param_names(N_PEAKS)  # kernel parameter order (37 params)
 KERNEL = dict(  # metadata describing how params become a curve
     name="kernel_specparam_segmented_multiexp",  # MATLAB kernel this mirrors
-    formula="fit = 10*OFF - 5*sum_k EXP_k*log10(1+(f/FC_k).^2) + 10*sum_n PW_n*exp(-(f-CF_n).^2/(2*BW_n^2))",  # model (real part of the MATLAB form)
-    units="fit in dB; OFF and PW in log10 power (x10 = dB); FC, CF, BW (Gaussian sigma) in Hz; unused peak slots are NaN",  # units
+    formula="fit = 10*OFF - 5*sum_k d_k*log10(1+(f/FC_k).^2) + 10*sum_n PW_n*exp(-(f-CF_n).^2/(2*BW_n^2)), d_k = EXP_k - EXP_{k-1}",  # model
+    units="fit in dB; OFF and PW in log10 power (x10 = dB); EXP_k = local slope of band k; FC, CF, BW (Gaussian sigma) in Hz; "
+          "unused peak slots are NaN; inactive knees FC = Inf, EXP = NaN",  # units
 )
 COL = dict(bg="black", raw="#3df075", fit="#ff546b", ap="white", axis="#3df075")  # fitScope colors
 
@@ -27,11 +29,8 @@ def load(path=SRC_H5, group=SRC_GROUP):
 
 
 def ap_curve(f, ap):
-    """Aperiodic curve in dB. ap = [OFF, EXP1, EXP2, EXP3, log10 FC1, log10 FC2, log10 FC3]."""
-    y = np.full(len(f), 10.0 * ap[0])  # low-frequency plateau 10*OFF dB
-    for E, lfc in zip(ap[1:1 + N_KNEES], ap[1 + N_KNEES:]):  # each knee
-        y -= 5.0 * E * np.logaddexp(0.0, 2.0 * (np.log(f) - lfc * LN10)) / LN10  # subtract 5*E*log10(1 + (f/FC)^2), overflow-safe
-    return y  # aperiodic dB
+    """Aperiodic curve in dB. ap = [OFF, d1, d2, d3, log10 FC1, log10 FC2, log10 FC3] (kernel increments, not EXP)."""
+    return aperiodic(f, ap[0], ap[1:1 + N_KNEES], 10.0 ** np.asarray(ap[1 + N_KNEES:]))  # shared kernel port
 
 
 def pk_curve(f, pk):
@@ -42,37 +41,35 @@ def pk_curve(f, pk):
 
 
 def to_kernel(ap, pk):
-    """Internal (ap, pk with PW in dB) -> 37-element lab kernel vector, peaks sorted by CF, NaN-padded."""
-    v = [ap[0], *ap[1:1 + N_KNEES], *10.0 ** np.asarray(ap[1 + N_KNEES:])]  # OFF, EXP1-3, FC1-3 (Hz)
+    """Internal (ap with d, pk with PW in dB) -> 37-element label: EXP as local slopes, peaks sorted by CF, NaN-padded."""
     pk = np.asarray(pk, float).reshape(-1, 3) * [1.0, 0.1, 1.0]  # peaks as rows, PW dB -> log10 power
     pk = pk[np.argsort(pk[:, 0])]  # sort by CF (as spcpmIO_sortFitParams); NaN rows go last
     slots = np.full((N_PEAKS, 3), np.nan)  # NaN-padded slots
     slots[:len(pk)] = pk[:N_PEAKS]  # fill used slots
-    return np.r_[v, slots.ravel()]  # kernel vector
+    return paramspec.to_vector(ap[0], paramspec.d_to_exp(ap[1:1 + N_KNEES], N_KNEES), 10.0 ** np.asarray(ap[1 + N_KNEES:]), slots)
 
 
 def from_kernel(v):
-    """Lab kernel vector -> internal (ap, pk with PW in dB). Reads every CF/PW/BW triplet (no dropped last peak)."""
-    v = np.asarray(v, float)
-    ap = np.r_[v[:1 + N_KNEES], np.log10(v[1 + N_KNEES:1 + 2 * N_KNEES])]  # OFF, EXP1-3, log10 FC1-3
-    pk = v[1 + 2 * N_KNEES:].reshape(-1, 3) * [1.0, 10.0, 1.0]  # PW log10 power -> dB
-    return ap, pk.ravel()  # aperiodic, peaks
+    """37-element label -> internal (ap with d, pk with PW in dB). Reads every CF/PW/BW triplet (no dropped last peak)."""
+    OFF, EXP, FC, peaks = paramspec.from_vector(v)
+    ap = np.r_[OFF, paramspec.exp_to_d(EXP), np.log10(FC)]  # OFF, d1-3, log10 FC1-3 (Inf for inactive knees)
+    return ap, (peaks * [1.0, 10.0, 1.0]).ravel()  # PW log10 power -> dB
 
 
 def kernel_eval(f, v):
-    """Port of the MATLAB kernel; returns (full fit, aperiodic only) in dB."""
-    ap, pk = from_kernel(v)  # internal form
-    a = ap_curve(f, ap)  # aperiodic
-    return a + pk_curve(f, pk), a  # full curve, aperiodic curve
+    """Label -> (full fit, aperiodic only) in dB, through the shared kernel port."""
+    OFF, EXP, FC, peaks = paramspec.from_vector(v)
+    d = paramspec.exp_to_d(EXP)
+    return kernel(f, OFF, d, FC, peaks), aperiodic(f, OFF, d, FC)
 
 
 def ap_bounds(shape=None, cfg=CFG):
     """Bounds for internal aperiodic params; with `shape`, knees stay near that reference shape."""
-    if shape is None: return [-30.0] + [0.0] * N_KNEES + [-1.0] * N_KNEES, [5.0] + [30.0] * N_KNEES + [3.5] * N_KNEES  # loose: OFF, E >= 0, FC 0.1..3000 Hz
+    if shape is None: return [-50.0] + [0.0] * N_KNEES + [-1.0] * N_KNEES, [50.0] + [30.0] * N_KNEES + [3.5] * N_KNEES  # loose: OFF, E >= 0, FC 0.1..3000 Hz
     e, l = cfg["ap_exp_tol"], np.log10(cfg["ap_fk_tol"])  # relative exponent tolerance, log10 knee tolerance
     E, lfc = np.asarray(shape[1:1 + N_KNEES]), np.asarray(shape[1 + N_KNEES:])  # reference exponents and log knees
-    lo = np.r_[-30.0, E * (1 - e), lfc - l]  # lower bounds
-    hi = np.r_[5.0, E * (1 + e), lfc + l]  # upper bounds
+    lo = np.r_[-50.0, E * (1 - e), lfc - l]  # lower bounds (OFF wide: real data ~ -11, generated priors ~ +10)
+    hi = np.r_[50.0, E * (1 + e), lfc + l]  # upper bounds
     return lo, np.maximum(hi, lo + 1e-6)  # tight bounds, every interval non-empty
 
 

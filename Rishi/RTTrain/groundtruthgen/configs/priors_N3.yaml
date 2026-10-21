@@ -1,0 +1,22 @@
+# N=3: Marc's N=2 example plus a third knee (d3 from the kernel default 25; FC3 placed ~150 Hz so band 3 is inside 2-249 Hz).
+N: 3
+aperiodic:
+  OFF:     {mu: 10.0, sd: 1.5}         # normal, linear space
+  logD1:   {mu: log(2.0), sd: 0.3}     # EXP1 = d1 (implied mean ~ 2)
+  logD2:   {mu: log(12.0), sd: 0.4}    # EXP2 = d1 + d2 (implied mean ~ 14)
+  logD3:   {mu: log(25.0), sd: 0.4}    # EXP3 = d1 + d2 + d3 (implied mean ~ 39)
+  logFC1:  {mu: log(7.0), sd: 0.3}     # FC1 ~ 7 Hz
+  logDFC2: {mu: log(56.0), sd: 0.5}    # FC2 ~ 63 Hz
+  logDFC3: {mu: log(87.0), sd: 0.3}    # FC3 ~ 150 Hz
+peaks:
+  count: {mu: 1.5, sd: 0.8, min: 0, max: 4}
+  CF:    {mu: 20.0, sd: 10.0}
+  logPW: {mu: 0.5, sd: 1.5}
+  BW:    {mu: 3.0, sd: 1.5}
+noise:
+  model: chi2
+  df: 8
+frequency_axis:
+  f_start: 0
+  f_end: 249
+  n_points: 250
