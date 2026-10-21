@@ -19,10 +19,30 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     if nargin < 7 || isempty(withinSubject), withinSubject = true; end
     nexon = nexObj.nexon;
 
+    % Which subjects went through the PER-SUBJECT alignment branch below
+    % (set only there, fresh-compile path only) — drives the POST-POOLING
+    % Pointer-seed union further down (Nexus WIP.md #10, point 4), which
+    % runs unconditionally (regardless of precompiled), so this must be
+    % initialized unconditionally too, not just on the fresh-compile path.
+    uniqSubjAligned = string.empty;
+
     if ~isempty(precompiled)
         TF     = precompiled.TF;
         idxSel = precompiled.idxSel;
         drop   = precompiled.drop;
+        % subjID is needed below regardless of whether alignment was
+        % freshly run or reused from cache — per-DF pooling threading and
+        % the subj_internal STAT column both run unconditionally further
+        % down (Nexus WIP.md #10). The cache-reuse path skips straight
+        % past the fresh-compile branch below (where this is otherwise
+        % computed), so it must be computed here too, the same way.
+        subjID = string.empty;
+        try
+            subjID = dtsIO_readTF_category(nexon, "sessionLabel--subj", idxSel);
+            subjID = subjID(~drop);
+        catch
+            subjID = string.empty;
+        end
     else
     % READ DATA / RESPONSE VARIABLE
     if isempty(idxSel)
@@ -46,15 +66,17 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     % Per-TF-row subject ID, aligned to TF's own row order — same read +
     % (~drop) filtering pattern the category loop below uses for every
     % other categoryID, just pulled forward so co-axis alignment (next)
-    % can scope canonicalization to within-subject.
+    % can scope canonicalization to within-subject. Always computed (not
+    % gated on withinSubject) — besides scoping REG canonicalization below,
+    % it's now also needed for per-DF region-mode pooling (threaded into
+    % nexOp_poolAxes further down) and for the subj_internal STAT column
+    % (Nexus WIP.md #10), neither of which depends on withinSubject.
     subjID = string.empty;
-    if withinSubject
-        try
-            subjID = dtsIO_readTF_category(nexon, "sessionLabel--subj", idxSel);
-            subjID = subjID(~drop);
-        catch
-            subjID = string.empty;
-        end
+    try
+        subjID = dtsIO_readTF_category(nexon, "sessionLabel--subj", idxSel);
+        subjID = subjID(~drop);
+    catch
+        subjID = string.empty;
     end
 
     % Per-TF-row human-readable trial identity (sessionLabel + trial
@@ -72,12 +94,6 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
         trialLabels = string.empty;
     end
 
-    % DF used to seed the Pointer bus below (refreshPointerFromPool) — set
-    % to the cross-subject union representative inside the per-subject
-    % canonicalization branch just below; falls back to the (post-
-    % alignment, if REG was set) TF{1} otherwise, right before it's used.
-    pointerSeedDF = [];
-
     % CO-AXIS ALIGNMENT — canonicalize FTR axis across sessions, on the RAW
     % TF, before any pooling. Must happen first: positional (axID) pooling
     % computes bin edges from each trial's own raw axis extent, which is
@@ -93,7 +109,7 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
         hasRegField = ismember('domain', fieldnames(nexObj)) && isfield(nexObj.domain, 'REG');
         if hasRegField && ~isempty(nexObj.domain.REG) && ~strcmp(char(nexObj.domain.REG), 'None')
             uniqSubj = string.empty;
-            if ~isempty(subjID), uniqSubj = unique(subjID); end
+            if withinSubject && ~isempty(subjID), uniqSubj = unique(subjID); end
             if numel(uniqSubj) > 1
                 % Per-subject canonicalization — canonicalizing a REG
                 % identity (e.g. 'chans') across DIFFERENT subjects'
@@ -104,7 +120,6 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
                 TF_aligned = TF;
                 canonRegBySubject = containers.Map('KeyType','char','ValueType','any');
                 ftrAxis = "";
-                repDFs = cell(1, numel(uniqSubj));
                 for si = 1:numel(uniqSubj)
                     subjMask = (subjID == uniqSubj(si));
                     labels_s = string.empty;
@@ -113,32 +128,15 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
                     TF_aligned(subjMask) = TF_s;
                     canonRegBySubject(char(uniqSubj(si))) = canonReg_s;
                     ftrAxis = ftrAxis_s;
-                    % One already-canonicalized trial per subject, kept as
-                    % a representative for the SECOND (across-subject)
-                    % canonicalization pass just below — every trial
-                    % within a subject already shares that subject's own
-                    % canonical shape, so any one of them is as good as
-                    % another here.
-                    repDFs{si} = TF_s{1};
                 end
                 TF = TF_aligned;
-
-                % SECOND pass: canonicalize ACROSS the per-subject
-                % canonical sets themselves (one representative DF per
-                % subject) to get the TRUE global union — reusing
-                % nexOp_alignCoAxes one level up, exactly like the first
-                % pass, just over subjects instead of trials. This is ONLY
-                % used to seed the Pointer bus below (pointerSeedDF) — TF
-                % itself stays per-subject-canonicalized (never pooled
-                % across subjects), so this never affects what STAT
-                % actually contains, only what Pointer OFFERS as options.
-                pointerSeedDF = TF{1};
-                try
-                    [TF_global, ~, ~] = nexOp_alignCoAxes(repDFs, char(nexObj.domain.REG));
-                    pointerSeedDF = TF_global{1};
-                catch e
-                    fprintf('[nexOp_compileSTAT] cross-subject Pointer union skipped: %s\n', e.message);
-                end
+                % Remembered for the POST-POOLING Pointer-seed union further
+                % down (Nexus WIP.md #10, point 4) — deliberately NOT built
+                % here anymore. Building it from TF_aligned (as before)
+                % would union raw channel numbers; the union now needs to
+                % happen on TF_pooled, after region-mode pooling has run,
+                % so Pointer reflects region NAMES instead.
+                uniqSubjAligned = uniqSubj;
                 % Cache per-subject canonical sets so scaleApply_transform
                 % can later project each new raw per-trial DF onto the
                 % SAME canonical positions its own subject was fit with
@@ -163,29 +161,6 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
         end
     catch e
         fprintf('[nexOp_compileSTAT] alignCoAxes skipped: %s\n', e.message);
-    end
-
-    % Seed/refresh the Pointer bus from THIS alignment's own axis layout
-    % (canonicalized if REG was set, else just TF's current — un-cached —
-    % layout), pooled through mdlObj's CURRENT pMap: cheap, label-only (see
-    % refreshPointerFromPool — never touches .df), so "select all" in the
-    % UI actually means all of what Fit/CV will really see. Runs once per
-    % fresh alignment (Compile press, or a cold Fit that skipped Compile)
-    % — this whole branch is skipped on a cache-reusing compileSTAT() call
-    % (see the `if ~isempty(precompiled)` above), so a Pointer/pMap
-    % subselection made after this survives into repeated Fits untouched.
-    % pointerSeedDF is TF{1} in the common (single-subject or
-    % withinSubject=false) case, but the cross-subject UNION
-    % representative when per-subject canonicalization ran above — so
-    % Pointer's options span every subject's own canonical set, not just
-    % whichever subject happened to compile first.
-    if isempty(pointerSeedDF) && ~isempty(TF), pointerSeedDF = TF{1}; end
-    if ismethod(nexObj, 'refreshPointerFromPool') && ~isempty(pointerSeedDF)
-        try
-            nexObj.refreshPointerFromPool(pointerSeedDF);
-        catch e
-            fprintf('[nexOp_compileSTAT] refreshPointerFromPool skipped: %s\n', e.message);
-        end
     end
     end
     aligned = struct('TF', {TF}, 'idxSel', idxSel, 'drop', drop);
@@ -215,7 +190,21 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
             TF_pooled = TF;
         elseif ~isempty(pm)
             try
-                TF_pooled = cellfun(@(DF) nexOp_poolAxes(pm, DF, ptr), TF, "UniformOutput",false);
+                % Indexed loop, not cellfun — each DF needs its OWN
+                % subject threaded into nexOp_poolAxes so region-mode
+                % (mapID) pooling resolves THAT subject's own registry
+                % regMap instead of the single construction-time Map every
+                % DF would otherwise share regardless of whose channels
+                % they actually are (Nexus WIP.md #10). TF's row order here
+                % still matches subjID's (nothing has reordered TF since
+                % subjID was read above), so subjID(ti) <-> TF{ti} is a
+                % direct positional match, no lookup needed.
+                TF_pooled = cell(size(TF));
+                for ti = 1:numel(TF)
+                    s = string.empty;
+                    if numel(subjID) == numel(TF), s = subjID(ti); end
+                    TF_pooled{ti} = nexOp_poolAxes(pm, TF{ti}, ptr, s);
+                end
             catch
                 keyboard
             end
@@ -224,6 +213,43 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
         end
     catch
         TF_pooled = TF;
+    end
+
+    % Seed/refresh the Pointer bus — from TF_pooled (AFTER region-mode
+    % pooling), not the pre-pooling TF, so a region-mode (mapID) axis shows
+    % region NAMES, not raw channel numbers, and the cross-subject union
+    % below (when per-subject alignment ran above) reflects region identity
+    % rather than raw channel identity (Nexus WIP.md #10, point 4). Cheap,
+    % label-only via refreshPointerFromPool — never touches real .df data,
+    % so "select all" in the UI actually means all of what Fit/CV will
+    % really see. Only on a FRESH alignment (precompiled was empty) — a
+    % cache-reusing compileSTAT() call must not re-refresh and wipe a
+    % Pointer/pMap subselection made since Compile was pressed.
+    if isempty(precompiled) && ismethod(nexObj, 'refreshPointerFromPool') && ~isempty(TF_pooled)
+        try
+            pointerSeedDF  = TF_pooled{1};
+            pointerSeedSubj = string.empty;
+            if numel(uniqSubjAligned) > 1
+                % Same two-tier pattern as the raw-channel alignment above,
+                % one level up: one already-region-pooled representative
+                % DF per subject, then union THOSE (by region name, since
+                % nexOp_alignCoAxes coerces non-numeric REG values to
+                % string) to get the Pointer bus's true cross-subject span.
+                repPooled = {};
+                for si = 1:numel(uniqSubjAligned)
+                    repIdx = find(subjID == uniqSubjAligned(si), 1);
+                    if ~isempty(repIdx), repPooled{end+1} = TF_pooled{repIdx}; end %#ok<AGROW>
+                end
+                if numel(repPooled) > 1
+                    [TF_global, ~, ~] = nexOp_alignCoAxes(repPooled, char(nexObj.domain.REG));
+                    pointerSeedDF = TF_global{1};
+                end
+                pointerSeedSubj = uniqSubjAligned;
+            end
+            nexObj.refreshPointerFromPool(pointerSeedDF, pointerSeedSubj);
+        catch e
+            fprintf('[nexOp_compileSTAT] refreshPointerFromPool skipped: %s\n', e.message);
+        end
     end
 
     % READ CATEGORY LABELS / FIXED+RANDOM VARIABLES
@@ -257,6 +283,16 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     end
     Y = Y(selMatch,:); % filter by intersection of all category selections
     TF_pooled = TF_pooled(selMatch); % filter selected data as well
+    % subj_internal companion — same selMatch filter, reordered alongside
+    % Y/TF_pooled by idx_sort below, so it lands in final STAT row order.
+    % Carried as a real STAT column (not a separately-tracked array) below
+    % specifically so every later row-reordering/subsetting STAT undergoes
+    % (fold masking, applyPointer, applyDomainMSR, ...) keeps it in
+    % lockstep automatically — see Nexus WIP.md #10, point 2, and the
+    % applyDomainMSR broadcast bug this session already found/fixed for
+    % exactly the class of desync a hand-maintained parallel array risks.
+    subjID_sel = string.empty;
+    if numel(subjID) == numel(selMatch), subjID_sel = subjID(selMatch); end
     % enumerate rows as trial numbers, relative to subject/phase combos
     % TF_trialNum = nexon.console.BASE.DTS.trialNumber(idxSel);
     try
@@ -273,6 +309,8 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     Y = Y(idx_sort,:); % sort Y by groups
     TF_pooled = TF_pooled(idx_sort,:); % sort TF by groups
     Y.trialNumber = TF_trialNum;
+    subjID_sorted = string.empty;
+    if numel(subjID_sel) == numel(idx_sort), subjID_sorted = subjID_sel(idx_sort); end
     
     % parallel parsing
     SS = outerjoinStructs(S_categories, S_items);
@@ -296,6 +334,25 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     %     % 
     % end
     STAT = cat(1, M{:});
+    if numel(subjID_sorted) == height(STAT)
+        STAT.subj_internal = subjID_sorted(:);
+    end
+    % Genuinely globally-unique per-row trial identifier -- STAT.trialNumber
+    % (the literal DTS per-session count) resets to 1 at the start of EVERY
+    % session, so it only disambiguates trials WITHIN one session, not
+    % across them. A single subject with multiple sessions inside the same
+    % CTG-combo/stratum (entirely normal) therefore has several real,
+    % DIFFERENT trials all sharing trialNumber==1 -- confirmed directly:
+    % find(STAT.sessionLabel_subj=="<subj>" & STAT.trialNumber==1) returned
+    % 4 separate STAT rows for one real subject/stratum. Any caller that
+    % needs "one real trial" (buildLongSTAT's per-trial quantization, a
+    % tooFewGroups-style guard, ...) must key on THIS column instead --
+    % trialUID is just STAT's own row index at compile time, which is
+    % unique across the WHOLE compiled STAT regardless of how many
+    % sessions/subjects it spans, and stays unique after any later row
+    % subset (e.g. fitByCombo's child.STAT = mdlObj.STAT(mask,:)) since a
+    % subset of distinct values is still distinct.
+    STAT.trialUID = (1:height(STAT))';
     % STAT = [];
 end
 

@@ -13,10 +13,13 @@ function nexFigure_categorical(nexObj)
     % non-positive) shrinks to that floor whenever the CONTAINER isn't
     % sized for the actual key count, producing uncomfortably narrow
     % listboxes. So size panel3/panel4's own width here, per bus, to
-    % keep each listbox at a comfortable ~150px — the same slot width
-    % the original fixed /2.3 divisor gave for 2 keys — and let them
-    % overflow past panel1's width into its existing horizontal scroll.
-    slotWidth = 150;
+    % keep each listbox at a comfortable slot width — originally the
+    % ~150px the fixed /2.3 divisor gave for 2 keys, bumped to ~190px
+    % (user-reported: these two buses were still too narrow even with
+    % this per-key container scaling in place, same ~25% bump as
+    % controlPanel's averagingSelection) — and let them overflow past
+    % panel1's width into its existing horizontal scroll.
+    slotWidth = 190;
     nCatKeys  = max(numel(fieldnames(nexObj.selectionBus.categories.selKeys)), 1);
     nItemKeys = max(numel(fieldnames(nexObj.selectionBus.items.selKeys)), 1);
     wCategories = max(wInner - 2*gap, slotWidth * (nCatKeys + 0.3));

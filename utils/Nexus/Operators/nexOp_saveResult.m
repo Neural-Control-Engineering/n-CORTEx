@@ -41,9 +41,22 @@ end
 
 function writeResultsHDF5(h5File, resultID, T, displayLabel)
     % resultID is guaranteed char here — all path concatenations stay char.
-    structCols = {'df','ax','ptr','sem'};
+    % W/ax_W/featureLabels are mdlObj RESULTS-specific (cvPermute's weight
+    % facet, Nexus WIP.md #11) — never present on a plain nexObject
+    % RESULTS row, so excluding them here is a no-op for every existing
+    % caller. ptr_W is skipped like ptr (reconstructed from W+ax_W on
+    % load). fitSentinel is NOT persisted at all — canonReg can be a
+    % containers.Map (fit-time projection state, not analysis output);
+    % round-tripping it isn't needed for anything this save/load pair is
+    % for, and silently mis-serializing a Map via string() would be worse
+    % than just not saving it.
+    structCols = {'df','ax','ptr','sem','W','ax_W','ptr_W','fitSentinel','featureLabels'};
     grpCols    = setdiff(T.Properties.VariableNames, structCols, 'stable');
     nRows      = height(T);
+    hasSem           = ismember('sem', T.Properties.VariableNames);
+    hasW             = ismember('W', T.Properties.VariableNames);
+    hasAxW           = ismember('ax_W', T.Properties.VariableNames);
+    hasFeatureLabels = ismember('featureLabels', T.Properties.VariableNames);
 
     fapl = H5P.create('H5P_FILE_ACCESS');
     H5P.set_fclose_degree(fapl, 'H5F_CLOSE_STRONG');
@@ -95,7 +108,6 @@ function writeResultsHDF5(h5File, resultID, T, displayLabel)
         for ri = 1:nRows
             rowPath = sprintf('%s/row_%04d', root, ri - 1);
             df  = T.df{ri};
-            sem = T.sem{ri};
             ax  = T.ax{ri};
 
             if ~isreal(df)
@@ -105,20 +117,45 @@ function writeResultsHDF5(h5File, resultID, T, displayLabel)
                 h5writeLL(fid, [rowPath '/df'], double(df), []);
             end
 
-            if ~isempty(sem)
-                h5writeLL(fid, [rowPath '/sem'], double(sem), []);
+            if hasSem
+                sem = T.sem{ri};
+                if ~isempty(sem)
+                    h5writeLL(fid, [rowPath '/sem'], double(sem), []);
+                end
             end
 
             if ~isempty(ax)
-                axFs = fieldnames(ax);
-                for ai = 1:numel(axFs)
-                    fn  = axFs{ai};
-                    val = ax.(fn);
-                    if isnumeric(val) && ~isempty(val)
-                        h5writeLL(fid, [rowPath '/ax/' fn], double(val), []);
-                    elseif (isstring(val) || iscellstr(val)) && ~isempty(val)
-                        h5writeStrLL(fid, [rowPath '/ax/' fn], string(val(:)));
+                writeAxStruct(fid, [rowPath '/ax'], ax);
+            end
+
+            % W/ax_W: mdlObj RESULTS' weights facet (Nexus WIP.md #11) —
+            % same df/ax pattern, own sub-path so a plain nexObject row
+            % (neither column present) writes nothing extra.
+            if hasW
+                W = T.W{ri};
+                if ~isempty(W)
+                    if ~isreal(W)
+                        h5writeLL(fid, [rowPath '/W_re'], double(real(W)), []);
+                        h5writeLL(fid, [rowPath '/W_im'], double(imag(W)), []);
+                    else
+                        h5writeLL(fid, [rowPath '/W'], double(W), []);
                     end
+                end
+            end
+            if hasAxW
+                axW = T.ax_W{ri};
+                if ~isempty(axW)
+                    writeAxStruct(fid, [rowPath '/ax_W'], axW);
+                end
+            end
+            if hasFeatureLabels
+                fl = T.featureLabels{ri};
+                if ~isempty(fl)
+                    % h5writeStrLL only takes 1-D — flatten column-major
+                    % and store the shape alongside so reshape() on load
+                    % recovers the real [nFeatures x nSwp] matrix.
+                    h5writeLL(fid, [rowPath '/featureLabels_shape'], double(size(fl)), []);
+                    h5writeStrLL(fid, [rowPath '/featureLabels'], string(fl(:)));
                 end
             end
         end
@@ -127,6 +164,21 @@ function writeResultsHDF5(h5File, resultID, T, displayLabel)
         rethrow(ME);
     end
     H5F.close(fid);
+end
+
+function writeAxStruct(fid, groupPath, ax)
+% Field-by-field writer shared by 'ax' and 'ax_W' — same per-field
+% numeric/string branch, just parameterized on the destination group.
+    axFs = fieldnames(ax);
+    for ai = 1:numel(axFs)
+        fn  = axFs{ai};
+        val = ax.(fn);
+        if isnumeric(val) && ~isempty(val)
+            h5writeLL(fid, [groupPath '/' fn], double(val), []);
+        elseif (isstring(val) || iscellstr(val)) && ~isempty(val)
+            h5writeStrLL(fid, [groupPath '/' fn], string(val(:)));
+        end
+    end
 end
 
 % ── Low-level helpers ─────────────────────────────────────────────────────

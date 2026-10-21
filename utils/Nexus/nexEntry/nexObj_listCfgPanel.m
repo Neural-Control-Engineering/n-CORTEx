@@ -10,7 +10,9 @@ classdef nexObj_listCfgPanel < handle
 
     methods
         % constructor
-        function obj =  nexObj_listCfgPanel(nexon, panelObj, selectionBus, maxSels)
+        function obj =  nexObj_listCfgPanel(nexon, panelObj, selectionBus, maxSels, extraWidth, widthScale)
+            if nargin < 5 || isempty(extraWidth), extraWidth = 0; end
+            if nargin < 6 || isempty(widthScale), widthScale = 1; end
             obj.ph = panelObj.ph;
             obj.listPanels = struct;
             obj.panelCount = 1;
@@ -40,8 +42,20 @@ classdef nexObj_listCfgPanel < handle
             % instead lets those extra keys overflow horizontally (same
             % "parent's own Scrollable container" fallback as above)
             % rather than shrinking every listbox to nothing.
-            MIN_SLOT_WIDTH = 80;
-            w_ph = max(panelObj.ph.Position(3) / (max(length(keyFields), 1) + 0.3), MIN_SLOT_WIDTH);
+            % MIN_SLOT_WIDTH raised 80->100 (user-requested global bump —
+            % the listbox-bus regression this session traced through
+            % nexObj_listCfgPanel/nex_buildCollectorViewPanel's related
+            % floor/formula drift). extraWidth/widthScale are optional,
+            % per-caller overrides for a bus that's "close but still a bit
+            % cramped" even above the floor (e.g. mdlObj's Domain/Pointer
+            % panels: +10px flat; controlPanel's averagingSelection: +25%
+            % scale) — applied AFTER the floor so they always have their
+            % stated effect regardless of whether the floor would
+            % otherwise have dominated. Default extraWidth=0, widthScale=1
+            % is a no-op for every pre-existing caller.
+            MIN_SLOT_WIDTH = 100;
+            w_ph = max(panelObj.ph.Position(3) / (max(length(keyFields), 1) + 0.3), MIN_SLOT_WIDTH) ...
+                   * widthScale + extraWidth;
             for i=1:length(keyFields)
                 key = keyFields{i};
                 % listID = sprintf("%s",selectionBus.selKeys.(key));

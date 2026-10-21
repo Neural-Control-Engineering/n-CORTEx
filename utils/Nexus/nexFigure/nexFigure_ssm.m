@@ -1,4 +1,21 @@
 function nexFigure_ssm(mdlObj)
+% Interactive figure for mdlObj_ssm. Mirrors nexFigure_pca (the correct
+% template -- both unsupervised, no Target/CV panels, which LDA has but
+% PCA/SSM don't need):
+%   panel0 — eigenspectrum canvas (populated by Eigenspectra button)
+%   panel1 — sidebar: Pointer (value windowing) / Pool (pMap: region
+%            grouping, block-PCA reduce mode) / Domain (DN·FTR·REG) /
+%            View (CTG·SWP·SRC·VW·CLR) / fit cfg / Compile · Fit ·
+%            Save·Load · Transform · Eigenspectra · ->StateSpace buttons
+%
+% Upgraded from the original (Domain + Pool + View + FitCfg + Eigenspectra
+% + Save/Load + Fit only) to add: Pointer panel, Transform controls,
+% Compile button, and a ->StateSpace pairing button -- same pieces
+% nexFigure_pca/_lda/_lme already have. Deliberately NOT added: Target
+% panel (SSM is unsupervised, same as PCA -- no Y to pick) and CV panel
+% (nexAnalysis_cvPermute's needsHR path isn't wired for non-"supervised"
+% dmCfg formats yet -- Nexus WIP.md #5 -- adding Run-CV UI here would
+% expose a control that doesn't actually work correctly).
 
     BLACK = [0 0 0];
     nexon = mdlObj.nexon;
@@ -10,20 +27,28 @@ function nexFigure_ssm(mdlObj)
     wInner  = 250;
     xInner  = 5;
 
+    hPtr     = 150;
     hDomain  = 155;
-    hPool    = 165;
     hFitCfg  = 170;
+    hPool    = 165;
     hView    = 175;
     hBtn     = 30;
     gap      = 5;
+    hTransLbl = 22;  % nexFigure_addTransformControls draws its label field in this much space above yTrans
 
-    % Bottom-to-top y positions inside the scrollable sidebar
-    yFit     = xInner;
+    % Bottom-to-top y positions inside the scrollable sidebar -- matches
+    % nexFigure_pca's own stacking order exactly, with Eigenspectra/
+    % ->StateSpace taking the slots PCA's Visualize/->StateSpace occupy.
+    yCompile = xInner;
+    yFit     = yCompile + hBtn   + gap;
     ySave    = yFit    + hBtn    + gap;
-    yEig     = ySave   + hBtn    + gap;
-    yDomain  = yEig    + hBtn    + gap;
-    yFitCfg  = yDomain + hDomain + gap;
-    yPool    = yFitCfg + hFitCfg + gap;
+    yTrans   = ySave   + hBtn    + gap;
+    yEig     = yTrans  + hBtn    + hTransLbl + gap;
+    yState   = yEig    + hBtn    + gap;
+    yFitCfg  = yState  + hBtn    + gap;
+    yDomain  = yFitCfg + hFitCfg + gap;
+    yPtr     = yDomain + hDomain + gap;
+    yPool    = yPtr    + hPtr    + gap;
     yView    = yPool   + hPool   + gap;
 
     %% Figure
@@ -109,17 +134,34 @@ function nexFigure_ssm(mdlObj)
         "Title",           "Domain", ...
         "ForegroundColor", GREEN);
     mdlObj.Figure.panel_domain = nexObj_listCfgPanel( ...
-        nexon, pan_domain, mdlObj.collector.Domain, [numel(axNames), numel(axNames), 1]);
+        nexon, pan_domain, mdlObj.collector.Domain, [numel(axNames), numel(axNames), 1], 10);
 
-    % Overwrite listbox callbacks so any selection change immediately
-    % applies the domain bus — no button press required.
+    % Reflect the programmatic default selections on the listboxes BEFORE
+    % wiring the callback -- same completeness fix nexFigure_pca/_lda
+    % already apply (without this, the listbox's own visual highlight can
+    % disagree with collector.Domain.selections until the user clicks
+    % something themselves).
     domainKeys = string(fieldnames(mdlObj.collector.Domain.listBoxes))';
     for i = 1:numel(domainKeys)
-        k  = domainKeys(i);
-        lb = mdlObj.collector.Domain.listBoxes.(k);
+        k   = domainKeys(i);
+        lb  = mdlObj.collector.Domain.listBoxes.(k);
+        sel = mdlObj.collector.Domain.selections.(k);
+        if ~isempty(sel) && all(sel >= 1) && all(sel <= numel(lb.String))
+            lb.Value = sel;
+        end
         lb.Callback = @(src, ev) nexFigure_ssm_onDomainChange( ...
             src, ev, k, mdlObj);
     end
+
+    %% Pointer panel — per-axis value windowing (single-select = pass-through)
+    % Previously missing entirely -- SSM had Domain but no Pointer bus/panel
+    % at all. initPointerBus/buildPointerPanel are generic mdlObject base
+    % methods (same primitives nexFigure_pca's setupDomain() calls
+    % internally), added directly here rather than refactoring SSM's own
+    % already-working inline Domain construction above into a setupDomain()
+    % wrapper -- surgical addition, not a restructure of working code.
+    mdlObj.initPointerBus();
+    mdlObj.buildPointerPanel(mdlObj.Figure.panel1.ph, [xInner, yPtr, wInner, hPtr]);
 
     %% pMap panel — pooling control
     pan_pool.ph = uipanel(mdlObj.Figure.panel1.ph, ...
@@ -130,15 +172,20 @@ function nexFigure_ssm(mdlObj)
         mdlObj, pan_pool, @poolCfgEntryChanged_v3);
 
     %% View panel — CTG / SWP / SRC / VW / CLR
-    mdlObj.initViewBus();   % Pointer bus not available for SSM; SWP defaults to "None"
+    mdlObj.initViewBus();
     pan_view.ph = uipanel(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yView, wInner, hView], ...
         "BackgroundColor", BLACK, ...
         "Scrollable",      "on", ...
         "Title",           "View", ...
         "ForegroundColor", GREEN);
-    viewMaxSels.SWP = 1;
-    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels);
+    % Multi-select, matching nexFigure_lda's own convention -- the
+    % listbox allowing multiple SWP values selected is correct/honest now
+    % that a real per-combo sweep mechanism for SSM is being built (see
+    % WIP.md #18); before that lands, a multi-selection here sits in
+    % domain.SWP unread by nexFit_ssm.m, same as it did at cap=1.
+    viewMaxSels.SWP = numel(mdlObj.collector.View.selKeys.SWP);
+    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels, 10);
     bus_v = mdlObj.collector.View;
     bus_v.listBoxes.CTG.Callback = @(src,ev) nexFigure_ssm_onViewChange(src, ev, 'CTG', mdlObj);
     bus_v.listBoxes.SWP.Callback = @(src,ev) nexFigure_ssm_onViewChange(src, ev, 'SWP', mdlObj);
@@ -153,9 +200,19 @@ function nexFigure_ssm(mdlObj)
         mdlObj.cfg.fitCfg.entryParams, str2func("cfgEntryChanged_v2"), []);
 
     %% Buttons
-    [mdlObj.Figure.saveButton, mdlObj.Figure.loadButton] = ...
-        nexFigure_addSaveLoadControls(mdlObj.Figure.panel1.ph, mdlObj, ...
-            [xInner, ySave, wInner, hBtn], BLACK, GREEN);
+
+    % ── ->StateSpace pairing button — launches nexObj_stateSpace on the
+    % SSM's own output dfID (mdlObj.dfID_target, auto-derived by the base
+    % mdlObject constructor as "ssm_<source>" -- same generic mechanism
+    % PCA's own dfID_target relies on, confirmed directly, no SSM-specific
+    % setup needed). Requires Fit -> Transform to have already written
+    % that dfID, same precondition nexFigure_pca's own button has.
+    mdlObj.Figure.stateButton = uibutton(mdlObj.Figure.panel1.ph, ...
+        "Position",        [xInner, yState, wInner, hBtn], ...
+        "Text",            "-> StateSpace", ...
+        "BackgroundColor", BLACK, ...
+        "FontColor",       GREEN, ...
+        "ButtonPushedFcn", @(~,~) nexFigure_ssm_launchStateSpace(mdlObj));
 
     mdlObj.Figure.eigButton = uibutton(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yEig, wInner, hBtn], ...
@@ -164,6 +221,19 @@ function nexFigure_ssm(mdlObj)
         "FontColor",       GREEN, ...
         "ButtonPushedFcn", @(~,~) nexFigure_ssm_updateEig(mdlObj));
 
+    % ── Transform controls — previously missing. mdlObj_ssm.transform()
+    % is a real, complete implementation (projects emissions into
+    % state-space via the fitted SSM) -- same shape as PCA's own
+    % transform, so the generic control wires in with zero SSM-specific
+    % changes needed.
+    [mdlObj.Figure.transformButton, mdlObj.Figure.cbOverwrite, ...
+     mdlObj.Figure.cbCurrentTrial] = nexFigure_addTransformControls( ...
+        mdlObj.Figure.panel1.ph, mdlObj, [xInner, yTrans, wInner, hBtn], BLACK, GREEN);
+
+    [mdlObj.Figure.saveButton, mdlObj.Figure.loadButton] = ...
+        nexFigure_addSaveLoadControls(mdlObj.Figure.panel1.ph, mdlObj, ...
+            [xInner, ySave, wInner, hBtn], BLACK, GREEN);
+
     mdlObj.Figure.fitButton = uibutton(mdlObj.Figure.panel1.ph, ...
         "Position",        [xInner, yFit, wInner, hBtn], ...
         "Text",            "Fit", ...
@@ -171,6 +241,13 @@ function nexFigure_ssm(mdlObj)
         "FontColor",       BLACK, ...
         "FontWeight",      "bold", ...
         "ButtonPushedFcn", @(~,~) mdlObj.fit());
+
+    % ── Compile button — previously missing. Directly relevant to the
+    % precompileSTAT/Pointer-bus-seeding work (Nexus WIP.md #16/#17) --
+    % lets Pointer options (incl. an epoch-pooled t axis) refresh to the
+    % canonical set without a full Fit.
+    mdlObj.Figure.compileButton = nexFigure_addCompileControl( ...
+        mdlObj.Figure.panel1.ph, mdlObj, [xInner, yCompile, wInner, hBtn], BLACK, GREEN);
 
 end
 
@@ -189,6 +266,26 @@ function nexFigure_ssm_onDomainChange(src, ev, key, mdlObj)
     if key == "FTR"
         mdlObj.refreshREG();
     end
+end
+
+
+% ── Local: launch the paired state-space on the ssm output dfID ──────────
+function nexFigure_ssm_launchStateSpace(mdlObj)
+% Open a nexObj_stateSpace on the projected output (mdlObj.dfID_target,
+% e.g. ssm_RTS_spiking_activity), scoped by the same categorical Parent.
+% Requires Fit -> Transform to have already written that dfID into the
+% DTS. Direct port of nexFigure_pca's own launchStateSpace -- same
+% pairing mechanism, SSM's dfID_target is auto-derived the identical way.
+    ctg = mdlObj.Parent;
+    if ~isa(ctg, 'nexObj_categorical')
+        fprintf(['[nexFigure_ssm] parent is not a categorical — cannot pair a ' ...
+                 'stateSpace (launch ssm via nexLaunchAdapt_ssm(ctg)).\n']);
+        return;
+    end
+    if ~isstruct(mdlObj.Partners), mdlObj.Partners = struct(); end
+    headline = sprintf("stateSpace - %s", mdlObj.dfID_target);
+    mdlObj.Partners.stateSpace = nexObj_stateSpace( ...
+        ctg.nexon, ctg, [], mdlObj.dfID_target, headline);
 end
 
 

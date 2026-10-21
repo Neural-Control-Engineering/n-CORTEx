@@ -101,7 +101,7 @@ function nexFigure_umap(mdlObj)
         "Title",           "Domain", ...
         "ForegroundColor", GREEN);
     mdlObj.Figure.panel_domain = nexObj_listCfgPanel( ...
-        nexon, pan_domain, mdlObj.collector.Domain, maxSels);
+        nexon, pan_domain, mdlObj.collector.Domain, maxSels, 10);
 
     for i = 1:numel(domKeys)
         k  = domKeys(i);

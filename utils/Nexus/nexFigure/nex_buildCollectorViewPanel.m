@@ -1,12 +1,17 @@
-function nex_buildCollectorViewPanel(nexObj, ph, H_panel, maxSels)
+function nex_buildCollectorViewPanel(nexObj, ph, H_panel, maxSels, extraWidth)
 % Build View bus listboxes inside a collector View panel.
 % Wires SRC with applySRC; all others with listCfgEntryChanged.
-% ph      — parent uipanel handle (already created by caller)
-% H_panel — height of ph (used to size listboxes)
-% maxSels — optional struct; maxSels.(key) overrides Max for that listbox.
-%           Keys absent from maxSels default to numel(vals) (multi-select).
+% ph         — parent uipanel handle (already created by caller)
+% H_panel    — height of ph (used to size listboxes)
+% maxSels    — optional struct; maxSels.(key) overrides Max for that listbox.
+%              Keys absent from maxSels default to numel(vals) (multi-select).
+% extraWidth — optional flat px added to each listbox AFTER the floor (see
+%              nexObj_listCfgPanel's matching param — same user-requested
+%              "close but still a bit cramped" bump, e.g. mdlObj's View
+%              bus: +10px). Default 0, a no-op for pre-existing callers.
 
     if nargin < 4, maxSels = struct(); end
+    if nargin < 5 || isempty(extraWidth), extraWidth = 0; end
 
     bus  = nexObj.collector.View;
     cyG  = nexObj.nexon.settings.Colors.cyberGreen;
@@ -15,7 +20,7 @@ function nex_buildCollectorViewPanel(nexObj, ph, H_panel, maxSels)
 
     inner_w = ph.Position(3);
     w_min   = 100;
-    w_list  = max(floor((inner_w - 5*(nK+1)) / nK), w_min);
+    w_list  = max(floor((inner_w - 5*(nK+1)) / nK), w_min) + extraWidth;
     h_list  = H_panel - 50;
 
     for i = 1:nK

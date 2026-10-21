@@ -111,7 +111,7 @@ function nexFigure_cebra(mdlObj)
         "Title",           "Domain", ...
         "ForegroundColor", GREEN);
     mdlObj.Figure.panel_domain = nexObj_listCfgPanel( ...
-        nexon, pan_domain, mdlObj.collector.Domain, maxSels);
+        nexon, pan_domain, mdlObj.collector.Domain, maxSels, 10);
 
     % Reflect the programmatic default selections on the listboxes and wire an
     % immediate-apply callback so any change syncs the domain (incl. MSR).
@@ -139,7 +139,7 @@ function nexFigure_cebra(mdlObj)
         "Title",           "View", ...
         "ForegroundColor", GREEN);
     viewMaxSels.SWP = 1;
-    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels);
+    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels, 10);
     bus_v = mdlObj.collector.View;
     bus_v.listBoxes.CTG.Callback = @(src,ev) nexFigure_cebra_onViewChange(src, ev, 'CTG', mdlObj);
     bus_v.listBoxes.TGT.Callback = @(src,ev) nexFigure_cebra_onViewChange(src, ev, 'TGT', mdlObj);

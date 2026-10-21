@@ -116,7 +116,7 @@ function nexFigure_linear(mdlObj)
         "Scrollable",      "on", ...
         "Title",           "View", ...
         "ForegroundColor", GREEN);
-    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView);
+    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, struct(), 10);
     bus = mdlObj.collector.View;
     bus.listBoxes.VW.Callback  = @(src,ev) nexFigure_linear_onViewChange(src, ev, 'VW',  mdlObj);
     bus.listBoxes.CLR.Callback = @(src,ev) nexFigure_linear_onViewChange(src, ev, 'CLR', mdlObj);
@@ -156,7 +156,7 @@ function nexFigure_linear(mdlObj)
         "Title",           "Domain", ...
         "ForegroundColor", GREEN);
     mdlObj.Figure.panel_domain = nexObj_listCfgPanel( ...
-        nexon, pan_domain, mdlObj.collector.Domain, [numel(axNames), numel(axNames)]);
+        nexon, pan_domain, mdlObj.collector.Domain, [numel(axNames), numel(axNames)], 10);
     domainKeys = string(fieldnames(mdlObj.collector.Domain.listBoxes))';
     for i = 1:numel(domainKeys)
         k  = domainKeys(i);

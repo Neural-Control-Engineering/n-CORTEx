@@ -88,7 +88,11 @@ classdef nexObj_monoGram < nexObject
 
                 nexObj.wireModelSource(source);
 
-                isHeadless = ~isempty(nexon) && isfield(nexon, 'settings') && ...
+                % isfield() never works on objects (handle or
+                % dynamicprops), only plain structs -- isprop() is
+                % correct here; .settings itself IS a plain struct, so
+                % isfield() on it stays correct.
+                isHeadless = ~isempty(nexon) && isprop(nexon, 'settings') && ...
                              isfield(nexon.settings, 'headless') && nexon.settings.headless;
                 if ~isHeadless
                     nexObj.buildFigure();
@@ -290,7 +294,24 @@ classdef nexObj_monoGram < nexObject
             end
             if isempty(canvas) || ~isvalid(canvas), return; end
             Z = double(canvas.ZData);
-            Z = Z(isfinite(Z));
+            % Exclude cells nexVisualization_monoGram patched from NaN to
+            % a finite placeholder (to stop surf() from dropping a
+            % neighbor's rendered face -- see its own comment) --
+            % stashed on canvas.UserData as a same-shape logical mask.
+            % Without this, Home fits zLim/cLim to include the patch
+            % value itself, dragging the scale toward whatever cLim_low
+            % happened to be at patch time instead of the real data's own
+            % range (confirmed directly as "Home scales badly, fitting
+            % those garbage entries").
+            nanMask = false(size(Z));
+            try
+                um = canvas.UserData;
+                if islogical(um) && isequal(size(um), size(Z))
+                    nanMask = um;
+                end
+            catch
+            end
+            Z = Z(isfinite(Z) & ~nanMask);
             if isempty(Z), return; end
             zLo = min(Z); zHi = max(Z);
             if zLo == zHi
@@ -334,6 +355,82 @@ classdef nexObj_monoGram < nexObject
         % there since every OTHER current subclass already has its own
         % override, making this a zero-risk place for the shared,
         % facet-aware (accuracy/weights) logic to live — see nexObject.m).
+
+        function [useResults, RESULT, r, DF_src, ok] = resolveActiveResultRow(nexObj)
+        % Resolve which RESULTS row (if any) is currently active for
+        % rendering -- factored out of nexVisualization_monoGram.m so the
+        % sigThreshold spinner's write-back callback (onSigThresholdChanged)
+        % resolves the SAME row the canvas is actually showing, instead of
+        % a second, independently-maintained copy of this logic that could
+        % drift out of sync with the real one.
+        %
+        %   useResults : true when SRC points at a RESULTS entry with at
+        %                least one VW-matching row
+        %   RESULT     : the RESULTS table (only meaningful when useResults)
+        %   r          : row index into RESULT actually displayed (only
+        %                meaningful when useResults)
+        %   DF_src     : struct('df','ax','ptr') for whichever source is
+        %                active -- nexObj.DF_postOp when ~useResults
+        %   ok         : false only in the "useResults would be true, but
+        %                no VW-matching row exists" case -- mirrors
+        %                nexVisualization_monoGram's own original early
+        %                "return" there; callers should bail out rather
+        %                than trust RESULT/r/DF_src when this is false.
+            srcKey   = erase(nexObj.getCurrentSRC(), "__W");
+            viewSel  = nex_returnSelectionMask(nexObj.collector.View);
+            vwGroups = string(viewSel.VW);
+
+            useResults = ~strcmp(srcKey, 'DF') ...
+                && isfield(nexObj.RESULTS, srcKey) ...
+                && ~isempty(nexObj.RESULTS.(srcKey)) ...
+                && ~isequal(vwGroups, "") ...
+                && ~isempty(vwGroups);
+
+            RESULT = [];
+            r      = [];
+            ok     = true;
+            if useResults
+                RESULT = nexObj.RESULTS.(srcKey);
+                matchingRows = nexObj.filterResultsByVW(RESULT, vwGroups);
+                if isempty(matchingRows)
+                    DF_src = nexObj.DF_postOp;
+                    ok     = false;
+                    return;
+                end
+                r = matchingRows(1);
+                useW = isprop(nexObj, 'viewFacet') && strcmp(nexObj.viewFacet, "weights") ...
+                    && ismember('ax_W', string(RESULT.Properties.VariableNames)) ...
+                    && ~isempty(RESULT.W{r});
+                if useW
+                    DF_src = struct('df', RESULT.W{r}, 'ax', RESULT.ax_W{r}, 'ptr', RESULT.ptr_W{r});
+                else
+                    DF_src = struct('df', RESULT.df{r}, 'ax', RESULT.ax{r}, 'ptr', RESULT.ptr{r});
+                end
+            else
+                DF_src = nexObj.DF_postOp;
+            end
+        end
+
+        function onSigThresholdChanged(nexObj, src)
+        % Live-titrate significance star overlay -- writes the new
+        % threshold straight back into RESULT.sigThreshold(r) for
+        % whichever row is currently displayed (per plan: threshold lives
+        % on the RESULTS row, not a separate cfg field, so switching VW to
+        % a different stratum later shows THAT stratum's own last-set
+        % threshold, not a shared global one). No-op when the active
+        % source isn't a RESULTS row with a sigThreshold column at all --
+        % the spinner is only meant to be visible/enabled in that case
+        % (see nexFigure_monoGram.m), but this guards the callback itself
+        % too, defensively.
+            [useResults, RESULT, r, ~, ok] = nexObj.resolveActiveResultRow();
+            if ~ok || ~useResults || isempty(RESULT) ...
+                    || ~ismember('sigThreshold', RESULT.Properties.VariableNames)
+                return;
+            end
+            srcKey = erase(nexObj.getCurrentSRC(), "__W");
+            nexObj.RESULTS.(srcKey).sigThreshold(r) = src.Value;
+            nexObj.visualize();
+        end
 
     end
 end

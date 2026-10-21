@@ -27,7 +27,10 @@ classdef mdlObj_pca < mdlObject
             % Headless construction skips nexFigure_pca (which calls setupDomain
             % to build the Domain bus), so do it here in that case. Interactive
             % builds run inside nexFigure_pca during the base constructor.
-            isHeadless = isfield(mdlObj.nexon, 'settings') && ...
+            % isfield() never works on objects (handle or dynamicprops),
+            % only plain structs -- isprop() is correct here; .settings
+            % itself IS a plain struct, so isfield() on it stays correct.
+            isHeadless = isprop(mdlObj.nexon, 'settings') && ...
                          isfield(mdlObj.nexon.settings, 'headless') && ...
                          mdlObj.nexon.settings.headless;
             if isHeadless

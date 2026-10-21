@@ -176,6 +176,22 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
         if ~isempty(cands), swpIDs = cands(1); end
     end
 
+    % Candidate-value discovery below (both getBinEdges calls just ahead)
+    % runs ONCE, globally, over the full (possibly multi-subject)
+    % STAT_full.ax(1) — i.e. whichever subject happens to be row 1. Pass
+    % every subject actually present so the candidate SWP value LIST
+    % (e.g. which regions exist to sweep over) is comprehensive across
+    % subjects, not just row 1's — resolveSubjectMap_ merges multiple
+    % subjects' regMaps the same way nexOp_selectedSubjectsRegMap.m
+    % already does (Nexus WIP.md #10). The actual per-combo/per-subject
+    % REGION ASSIGNMENT for real data stays correctly subject-scoped via
+    % fitReduce/applyReduce's own dispatch, unaffected by this — this is
+    % purely about not under-discovering candidate values to sweep.
+    swpSubjAll = string.empty;
+    if ismember('subj_internal', STAT_full.Properties.VariableNames)
+        swpSubjAll = unique(string(STAT_full.subj_internal));
+    end
+
     % A reduce-mode FTR axis means dimensionality reduction must run before
     % any pool-mode axis collapses samples it needs at full resolution (see
     % WIP.md #3) — nexOp_compileSTAT already skips ALL pMap pooling/
@@ -245,7 +261,7 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
                 continue;
             end
             primaryVals = STAT_full.ax(1).(pmKey);
-            [~, ~, blockLabels] = pm_id.getBinEdges(primaryVals, abs(pm_id.divsPerBin));
+            [~, ~, blockLabels] = pm_id.getBinEdges(primaryVals, abs(pm_id.divsPerBin), swpSubjAll);
             vals = unique(blockLabels, 'stable');
             % Narrow to whatever the user currently has selected in the
             % Pointer bus for this axis (e.g. "STN, HY" only) — this is
@@ -270,7 +286,7 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
             % G.(poolAxis) exactly, or SWP combo selection can never find
             % its window downstream.
             pm_id = mdlObj.pMap.(char(id));
-            [~, binIDs, binLabels] = pm_id.getBinEdges(raw, abs(pm_id.divsPerBin));
+            [~, binIDs, binLabels] = pm_id.getBinEdges(raw, abs(pm_id.divsPerBin), swpSubjAll);
             [uBinIDs, firstIdx] = unique(binIDs, 'stable');
             uBinLabels = binLabels(firstIdx);   % "start--end" per window, same
                                                  % order/alignment as uBinIDs —
@@ -852,7 +868,116 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
         % the match unambiguous even if two fields' lengths coincide.
         if hasW
             ax_W = struct();
-            ax_W.feature = (1:nFeatures)';
+            ftrIsSwept = hasSwp && ismember(ftrAxisStr, string({swpAxes.id}));
+            nSwpCols   = max(nSwp, 1);
+            R.featureLabels = strings(nFeatures, nSwpCols);
+            ax_W.feature    = (1:nFeatures)';   % fallback if blockColRanges_full unavailable
+
+            % Two structurally different cases (Nexus WIP.md #11):
+            %   - FTR not swept: there's exactly one combined feature
+            %     vector (every region's/band's components laid out once,
+            %     fixed order) — column k ALWAYS means the same identity,
+            %     so "feature" and "which identity fed this column" are two
+            %     names for the SAME index, the textbook coIdx case
+            %     (same relationship chans/unit already have). Embodied
+            %     labels on ax_W.feature are correct here, and a real
+            %     co-indexed sibling (ax_W.(ftrAxisStr), base identity
+            %     only, no _pcN) is set so nexOp_coIndexPairs'
+            %     {'feature',<name>} entries let a results viewer resolve
+            %     "feature" to real registry color automatically.
+            %   - FTR IS swept: ax_W.feature and ax_W.(ftrAxisStr) (set
+            %     below in the hasSwp loop) are two INDEPENDENT dimensions
+            %     of the same Wfull array (confirmed from its own
+            %     construction: [nFeatures x nFolds x nPerm x
+            %     nSwpPerAxis...]) — NOT two names for the same index, so
+            %     no coIdx pairing applies. Position 1 means "component 1"
+            %     for every swept value simultaneously (Wfull is
+            %     rectangular, not ragged), so only a combo-invariant ROLE
+            %     label ("f1","f2",...) can be honest on ax_W.feature;
+            %     the real per-(feature,combo) identity is inescapably 2-D
+            %     and lives in R.featureLabels instead.
+            hasBlockInfo = needsHR && exist('blockColRanges_full', 'var') && ~isempty(blockColRanges_full);
+            if ~ftrIsSwept
+                % Not swept — ALWAYS has a well-defined single identity per
+                % column (see the case analysis above), regardless of
+                % whether HR block-PCA reduction happened at all. Two
+                % sub-cases for WHERE that identity comes from:
+                try
+                    if hasBlockInfo
+                        % HR-reduced: multiple components per block, so the
+                        % embodied label needs the "_pcN" suffix to stay
+                        % unique — source is blockColRanges_full (the
+                        % full-CTG refit's own block structure).
+                        featLbl = strings(1, nFeatures);
+                        srcLbl  = strings(1, nFeatures);
+                        for b = 1:numel(blockColRanges_full)
+                            lbl  = string(blockColRanges_full(b).label);
+                            cols = blockColRanges_full(b).cols;
+                            for c = 1:numel(cols)
+                                if cols(c) > nFeatures, continue; end
+                                srcLbl(cols(c)) = lbl;
+                                if isscalar(cols)
+                                    featLbl(cols(c)) = lbl;
+                                else
+                                    featLbl(cols(c)) = sprintf('%s_pc%d', lbl, c);
+                                end
+                            end
+                        end
+                        ax_W.feature             = featLbl(:);
+                        ax_W.(char(ftrAxisStr))  = srcLbl(:);
+                        R.featureLabels(:, 1)    = featLbl(:);
+                    else
+                        % Plain (not HR-reduced) FTR axis — e.g. domain.FTR
+                        % = "f" with no reduce-mode pMap axis anywhere, so
+                        % needsHR is false and blockColRanges_full never
+                        % gets computed at all. nexOp_stackSTAT preserves
+                        % the FTR axis (dim 2) as columns 1:1, with no PCA
+                        % multiplicity — so each column's real identity is
+                        % simply that axis's own tick value, directly off
+                        % STAT_ctg (same convention line 747's
+                        % resolveAxisDim call already uses to read ax by
+                        % row), no blockColRanges_full/HR machinery
+                        % involved at all.
+                        srcVals = string(STAT_ctg.ax(1).(char(ftrAxisStr)));
+                        if numel(srcVals) == nFeatures
+                            ax_W.feature             = srcVals(:);
+                            ax_W.(char(ftrAxisStr))  = srcVals(:);
+                            R.featureLabels(:, 1)    = srcVals(:);
+                        end
+                    end
+                catch e
+                    fprintf('[nexAnalysis_cvPermute] feature labeling skipped: %s\n', e.message);
+                end
+            else
+                % Swept — see the case analysis above: ax_W.feature can
+                % only ever be a combo-invariant ROLE label here, with or
+                % without HR info (generic "f1","f2",...). The 2-D
+                % per-(feature,combo) identity in R.featureLabels still
+                % needs blockColRanges_full specifically (it's sourced from
+                % the HR block structure), so it's only filled when that's
+                % actually available — a swept FTR axis without any HR
+                % reduction isn't a configuration resolveSWPMaskHR supports
+                % today anyway (its column-block masking is itself
+                % HR-specific).
+                ax_W.feature = ("f" + (1:nFeatures))';
+                if hasBlockInfo
+                    try
+                        ftrAxisIdx = find(string({swpAxes.id}) == ftrAxisStr, 1);
+                        for si = 1:nSwp
+                            subs = swpLinToSubs(si, nSwpPerAxis);
+                            regionName = string(swpAxes(ftrAxisIdx).vals(subs(ftrAxisIdx)));
+                            bi = find(string({blockColRanges_full.label}) == regionName, 1);
+                            if isempty(bi), continue; end
+                            nComp = numel(blockColRanges_full(bi).cols);
+                            for c = 1:min(nComp, nFeatures)
+                                R.featureLabels(c, si) = sprintf('%s_pc%d', regionName, c);
+                            end
+                        end
+                    catch e
+                        fprintf('[nexAnalysis_cvPermute] feature labeling skipped: %s\n', e.message);
+                    end
+                end
+            end
             ax_W.fold    = R.ax.fold;
             ax_W.perm    = R.ax.perm;
             if hasSwp
@@ -871,6 +996,7 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
             R.W     = [];
             R.ax_W  = struct();
             R.ptr_W = struct();
+            R.featureLabels = strings(0, 0);
         end
 
         % ── 5f. Build result STAT row ─────────────────────────────────────────
@@ -929,26 +1055,10 @@ end
 % is struct-only). Must check membership against fieldnames(ptr) instead,
 % or this silently fails to resolve anything and always returns [].
 function dim = resolveAxisDim(ax, ptr, axisName)
-    axisName  = char(axisName);
-    dim       = [];
-    ptrFields = fieldnames(ptr);
-    if ismember(axisName, ptrFields) && ~isempty(ptr.(axisName).dim)
-        dim = ptr.(axisName).dim;
-        return;
-    end
-    coIdx = nexOp_coIndexPairs(ax);
-    for p = 1:numel(coIdx)
-        pair = coIdx{p};
-        if ~ismember(axisName, pair), continue; end
-        for m = 1:numel(pair)
-            cand = char(pair{m});
-            if strcmp(cand, axisName), continue; end
-            if ismember(cand, ptrFields) && ~isempty(ptr.(cand).dim)
-                dim = ptr.(cand).dim;
-                return;
-            end
-        end
-    end
+    % Extracted to nexOp_resolveAxisDim.m (DRY — also used by
+    % mdlObject.fitSWPGrid's single-axis SWP resolution). Kept as a thin
+    % forwarder here so every existing call site in this file is unchanged.
+    dim = nexOp_resolveAxisDim(ax, ptr, axisName);
 end
 
 
@@ -990,13 +1100,10 @@ end
 % subs(a) always referring to the same slice. Works for any number of axes,
 % including zero-length dims (single-axis SWP, or no SWP at all via si==1).
 function subs = swpLinToSubs(si, dims)
-    nd   = numel(dims);
-    subs = ones(1, nd);
-    rem  = si - 1;
-    for d = 1:nd
-        subs(d) = mod(rem, dims(d)) + 1;
-        rem     = floor(rem / dims(d));
-    end
+    % Extracted to nexOp_swpLinToSubs.m (DRY — also used by mdlObject.
+    % fitSWPGrid's multi-axis SWP grid). Kept as a thin forwarder here so
+    % every existing call site in this file is unchanged.
+    subs = nexOp_swpLinToSubs(si, dims);
 end
 
 
@@ -1169,30 +1276,19 @@ end
 
 % ── Match raw SWP labels against one unique value (cell/string/numeric) ──────
 function mask = matchesSWPValue(vals, target)
-    if iscell(target), target = target{1}; end
-    if iscell(vals)
-        mask = strcmp(vals, target);
-    else
-        mask = vals == target;
-    end
+    % Extracted to nexOp_matchesSWPValue.m (DRY — also used by mdlObject.
+    % fitSWPGrid's single-axis "raw" SWP narrowing). Kept as a thin
+    % forwarder here so every existing call site in this file is unchanged.
+    mask = nexOp_matchesSWPValue(vals, target);
 end
 
 
 % ── Slice all trial dfs along a given dimension at index si ──────────────────
 function STAT_out = sliceSTAT(STAT_in, dim, si)
-    STAT_out    = STAT_in;
-    STAT_out.df = cellfun(@(df) sliceDim(df, dim, si), STAT_in.df, 'UniformOutput', false);
-end
-
-function X = sliceDim(A, dim, idx)
-    % Deliberately not squeezed: collapsing this singleton would shift every
-    % higher dimension index down by one, invalidating any .ptr.(axis).dim
-    % computed against the pre-slice array (dnDim in scoreFold, regDim in
-    % cropCanonicalREG, etc). A leftover size-1 dim is inert for every
-    % dimension-name-relative consumer downstream (permute/reshape/cell2mat).
-    S      = repmat({':'}, 1, ndims(A));
-    S{dim} = idx;
-    X      = A(S{:});
+    % Extracted to nexOp_sliceSTAT.m (DRY — also used by mdlObject.
+    % fitSWPGrid's single-axis SWP narrowing). Kept as a thin forwarder
+    % here so every existing call site in this file is unchanged.
+    STAT_out = nexOp_sliceSTAT(STAT_in, dim, si);
 end
 
 

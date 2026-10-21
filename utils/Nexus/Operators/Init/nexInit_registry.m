@@ -50,9 +50,25 @@ function  nexInit_registry(nexon)
             lut   = table(raw.phase, raw.color, 'VariableNames', {'label', 'color'});
         end
 
-        nexon.console.BASE.registry.LUT.(fieldKey) = lut;      
+        nexon.console.BASE.registry.LUT.(fieldKey) = lut;
     end
-        
+
+    %% EPOCH LUT — fixed, NOT data-derived (unlike every entry above).
+    %       before/during/after is a closed, parameter-driven vocabulary
+    %       (see Map/map_epochs2time.m, WIP.md #16) -- same {label,color}
+    %       table shape as every other registry.LUT entry, so
+    %       nex_registryLUTColor.m's lookup (shared by
+    %       nexOp_resolveGroupColors.m and nex_axisColorFromRegistry.m's
+    %       "t" case) needs no special-casing to find it. Colors match
+    %       map_epochs2time.m's own (otherwise-unused) color column and
+    %       nex_axisColorFromRegistry.m's colorByEpochName fallback, kept
+    %       in sync deliberately -- seeding this here is what makes that
+    %       fallback dead code in practice, not just in theory.
+    nexon.console.BASE.registry.LUT.t = table( ...
+        ["before"; "during"; "after"], ...
+        ["808080"; "3DF075"; "808080"], ...
+        'VariableNames', {'label', 'color'});
+
     %% REGION MAPPINGS (MULTI-SUBJECT)
     subjects = nexon.console.BASE.registry.categories.subj;
     params = nexon.console.BASE.params;        

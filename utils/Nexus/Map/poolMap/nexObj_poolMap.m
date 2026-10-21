@@ -15,6 +15,11 @@ classdef nexObj_poolMap < handle
         axSel
         cfg
         colors
+        % Meaningful only when mapID=="epoch" -- the "during" segment's
+        % width as a fraction of THIS TRIAL's own axis span (see
+        % map_epochs2time.m, WIP.md #16). Not consulted at all for any
+        % other mapID scheme (region/band/event).
+        epochWidthProportion
     end
 
     methods 
@@ -30,7 +35,7 @@ classdef nexObj_poolMap < handle
             poolMap.cfg.opCfg.fcn=@mean;
         end
 
-        function [binEdges, binIDs, binLabels, c_bins] = getBinEdges(poolMap, axis, divsPerBinOverride)
+        function [binEdges, binIDs, binLabels, c_bins] = getBinEdges(poolMap, axis, divsPerBinOverride, subjID)
             % divsPerBinOverride lets a caller ask for a different grouping
             % than poolMap.divsPerBin's own configured value without
             % mutating the (handle-class) poolMap object — used by
@@ -38,21 +43,51 @@ classdef nexObj_poolMap < handle
             % edges (Inf-style: one block per region, never subdivided)
             % regardless of what divsPerBin is actually set to for pooling.
             if nargin < 3, divsPerBinOverride = poolMap.divsPerBin; end
+            % subjID (optional, mapID binType only): one subject-ID string,
+            % or a string array of several — resolves a subject-correct
+            % Map from the nexon registry instead of poolMap.Map, which is
+            % a single table built once at construction time (nexInit_pMap)
+            % from whichever subject happened to be live in the NPXLS UI
+            % panel at that moment, then reused unchanged for every other
+            % subject this poolMap ever processes. See resolveSubjectMap_
+            % below — never mutates poolMap itself, falls back to
+            % poolMap.Map on any lookup failure (missing registry, unknown
+            % subject, non-registry-backed axis), same non-mutating
+            % contract divsPerBinOverride already has.
+            if nargin < 4, subjID = string.empty; end
+            % "epoch" resolves differently from every other mapID scheme:
+            % region/band/event all resolve to a Map that's correct for
+            % some SHARED context (a subject, a global config) and can be
+            % safely reused across many calls -- resolveSubjectMap_ above
+            % is built around exactly that assumption (subject-keyed,
+            % falls back to the construction-time poolMap.Map). Epoch's
+            % before/during/after boundaries are relative to THIS TRIAL's
+            % own axis span (WIP.md #16) and must never be cached or
+            % reused across a different trial's call -- `axis` (this
+            % function's own 2nd argument) already carries exactly the
+            % per-trial data needed, so no new context-threading is
+            % required, just routing epoch to use it directly instead of
+            % going through the subject-keyed path.
+            if string(poolMap.mapID) == "epoch"
+                mapToUse = map_epochs2time(axis, poolMap.epochWidthProportion);
+            else
+                mapToUse = poolMap.resolveSubjectMap_(subjID);
+            end
             switch poolMap.binType
                 case poolMap.mapID
-                    axID = poolMap.Map.axID;
+                    axID = mapToUse.axID;
                     switch class(axID)
                         case 'cell', mapAxID = double(cell2mat(axID(:)));
                         case 'double', mapAxID = double(axID(:));
                     end
-                    mapLabels = convertCharsToStrings(poolMap.Map.mapID(:));
+                    mapLabels = convertCharsToStrings(mapToUse.mapID(:));
 
                     % Sort by region start value and trim to axis range
                     [mapAxID, sortIdx] = sort(mapAxID);
                     mapLabels = mapLabels(sortIdx);
                     mapColors = {};
-                    if ~isempty(poolMap.Map.color)
-                        mapColors = poolMap.Map.color(sortIdx);
+                    if ~isempty(mapToUse.color)
+                        mapColors = mapToUse.color(sortIdx);
                         % Normalize to cell here, once — downstream branches
                         % mix curly-brace assignment (allColors{end+1}=...,
                         % tolerant of any RHS type) with paren-range
@@ -184,11 +219,12 @@ classdef nexObj_poolMap < handle
             end
         end
 
-        function DF_pooled =  pool(poolMap, DF, dim)
+        function DF_pooled =  pool(poolMap, DF, dim, subjID)
             % use pooling Map to bin along selected DF-axis
+            if nargin < 4, subjID = string.empty; end
             ax = DF.ax.(poolMap.axSel);
             axTicks = 1:length(ax);
-            [binEdges, binIDs, binLabels] = poolMap.getBinEdges(ax);
+            [binEdges, binIDs, binLabels] = poolMap.getBinEdges(ax, poolMap.divsPerBin, subjID);
             % bin the data
             try
                 bins = discretize(axTicks, binEdges);
@@ -243,6 +279,49 @@ classdef nexObj_poolMap < handle
             DF_pooled.df=df_pooled;
             DF_pooled.ax.(poolMap.axSel)=binIDs;
             DF_pooled.labels.(poolMap.axSel)=binLabels;
+        end
+
+        function mapOut = resolveSubjectMap_(poolMap, subjID)
+        % Resolve a subject-correct Map table from the nexon registry,
+        % without mutating poolMap.Map itself. Falls back to poolMap.Map
+        % (today's behavior) whenever subjID is empty, this axis isn't a
+        % registry-backed hook (today only 'chans' — mirrors
+        % nex_axisColorFromRegistry.m's own axis routing; generalizes to
+        % any future axis with a registry.SUBJ.* entry), or the lookup
+        % fails for any reason (missing registry, unknown subject key).
+        % subjID may be a single string or a string array of several —
+        % when several, their regMaps are vertically concatenated (same
+        % first-occurrence-wins convention nexOp_selectedSubjectsRegMap.m
+        % already uses for the color-lookup consumer of this same
+        % registry) — a known, accepted approximation for the
+        % multi-subject-pooled case (see Nexus WIP.md #10), not a bug.
+            mapOut = poolMap.Map;
+            if isempty(subjID) || string(poolMap.axID) ~= "chans"
+                return;
+            end
+            try
+                nexon = poolMap.Parent.nexon;
+                reg   = nexon.console.BASE.registry;
+                if ~isfield(reg, 'SUBJ'), return; end
+                subjID = string(subjID);
+                regMap = [];
+                for i = 1:numel(subjID)
+                    subjKey = sprintf('subj_%s', strrep(char(subjID(i)), '-', '_'));
+                    if ~isfield(reg.SUBJ, subjKey), continue; end
+                    rm = reg.SUBJ.(subjKey).regMap;
+                    if isempty(regMap), regMap = rm; else, regMap = vertcat(regMap, rm); end
+                end
+                if isempty(regMap)
+                    fprintf(['[nexObj_poolMap] resolveSubjectMap_: no registry regMap for ' ...
+                             'subject(s) %s — falling back to construction-time Map.\n'], ...
+                             strjoin(subjID, ', '));
+                    return;
+                end
+                mapOut = map_regions2chans(regMap);
+            catch e
+                fprintf(['[nexObj_poolMap] resolveSubjectMap_ skipped (%s) — falling back to ' ...
+                         'construction-time Map.\n'], e.message);
+            end
         end
 
     end

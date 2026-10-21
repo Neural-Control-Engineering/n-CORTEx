@@ -1,4 +1,4 @@
-function ranges = nexHR_blockColRanges(pm, axVals, N_ctx)
+function ranges = nexHR_blockColRanges(pm, axVals, N_ctx, subjID)
 % Recompute each block's own column range within nexHR_fit's single
 % concatenated (N_ctx, total_compressed_features) output, without changing
 % nexHR_fit/nexHR_transform themselves (both stay general-purpose,
@@ -20,7 +20,14 @@ function ranges = nexHR_blockColRanges(pm, axVals, N_ctx)
 %            block_outs): .label (this block's bin label, e.g. region
 %            name) and .cols (column indices into the reduced X)
 
-    [binEdges, ~, binLabels] = pm.getBinEdges(axVals, abs(pm.divsPerBin));
+    % subjID (optional, Nexus WIP.md #10): MUST match whatever subjID
+    % nexHR_fit was just called with to produce the reduction this is
+    % describing — a mismatch here silently recomputes a DIFFERENT bin-edge
+    % structure than what actually produced X_reduced's columns, which is
+    % exactly what caused resolveSWPMaskHR's "logical indices... outside
+    % array bounds" crash before this was threaded through.
+    if nargin < 4, subjID = string.empty; end
+    [binEdges, ~, binLabels] = pm.getBinEdges(axVals, abs(pm.divsPerBin), subjID);
     nBlocks  = numel(binEdges) - 1;
     ranges   = struct('label', {}, 'cols', {});
     colStart = 1;

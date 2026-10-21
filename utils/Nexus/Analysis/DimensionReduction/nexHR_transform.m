@@ -1,4 +1,4 @@
-function out = nexHR_transform(data, layout, pMap, models)
+function out = nexHR_transform(data, layout, pMap, models, subjID)
 % nexHR_transform  Apply a fitted nexHR model tree to new data.
 %
 %   data   : (N_ctx, inner_dims..., outermost_dim) — same layout as nexHR_fit input
@@ -7,6 +7,14 @@ function out = nexHR_transform(data, layout, pMap, models)
 %   models : nested cell array returned by nexHR_fit
 %
 %   out    : (N_ctx, total_compressed_features)  always 2D
+
+    % subjID (optional, Nexus WIP.md #10): MUST match whatever subjID
+    % nexHR_fit was called with to produce `models` — bin edges depend on
+    % which subject's regMap getBinEdges resolves, so passing a different
+    % (or no) subjID here than at fit time can silently shift block
+    % boundaries, surfacing as this file's own "nBlocks mismatch" guard
+    % below rather than a clean error at the actual cause.
+    if nargin < 5, subjID = string.empty; end
 
     % Base case: flatten all remaining dims except N_ctx
     if isempty(layout)
@@ -22,14 +30,14 @@ function out = nexHR_transform(data, layout, pMap, models)
 
     % Pass-through: no pMap entry for this axis, or already mean-pooled
     if ~isfield(pMap, current.axID) || pMap.(current.axID).divsPerBin >= 0
-        out = nexHR_transform(data, inner_layout, pMap, models);
+        out = nexHR_transform(data, inner_layout, pMap, models, subjID);
         return;
     end
     pm = pMap.(current.axID);
 
     actual_n = size(data, nd);
     if actual_n <= 1
-        out = nexHR_transform(data, inner_layout, pMap, models);
+        out = nexHR_transform(data, inner_layout, pMap, models, subjID);
         return;
     end
 
@@ -49,7 +57,7 @@ function out = nexHR_transform(data, layout, pMap, models)
              'data''s last dim (%d) at this recursion depth — layout.axVals is stale.'], ...
             current.axID, numel(current.axVals), actual_n);
     end
-    binEdges = pm.getBinEdges(current.axVals, abs(pm.divsPerBin));
+    binEdges = pm.getBinEdges(current.axVals, abs(pm.divsPerBin), subjID);
     nBlocks  = numel(binEdges) - 1;
     if nBlocks ~= numel(models)
         error('nexHR_transform:modelMismatch', ...
@@ -93,7 +101,7 @@ function out = nexHR_transform(data, layout, pMap, models)
         end
 
         % Recurse into inner axes using stored inner models
-        inner_out = nexHR_transform(data_for_recurse, inner_layout, pMap, m.inner_models);
+        inner_out = nexHR_transform(data_for_recurse, inner_layout, pMap, m.inner_models, subjID);
 
         % Unmerge in Python (order='F' = MATLAB column-major) to avoid lazy-reshape
         % stride corruption — same fix as nexHR_fit step 5.

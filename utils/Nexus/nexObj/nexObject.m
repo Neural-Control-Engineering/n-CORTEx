@@ -238,7 +238,21 @@ classdef nexObject < handle
                     && isvalid(bus.listBoxes.REG)
                 lb = bus.listBoxes.REG;
                 lb.String = cellstr(regOpts);
-                curIdx = find(string(regOpts) == string(nexObj.domain.REG), 1);
+                % domain.REG may not exist yet — remodelDomain calls
+                % refreshREG() without ever touching nexObj.domain itself,
+                % so the first automatic SRC-change at figure construction
+                % (before inferDomain() has ever run, before the user has
+                % touched anything) can reach here with domain still in
+                % whatever raw state the constructor left it in: not yet a
+                % struct at all ("Dot indexing is not supported..."), or a
+                % struct missing REG ("Unrecognized field name 'REG'").
+                % Same defensive read inferDomain already uses (above).
+                curReg = "None";
+                if isstruct(nexObj.domain) && isfield(nexObj.domain, 'REG') ...
+                        && ~isempty(nexObj.domain.REG)
+                    curReg = string(nexObj.domain.REG);
+                end
+                curIdx = find(string(regOpts) == curReg, 1);
                 if isempty(curIdx)
                     nexObj.domain.REG = "None";
                     lb.Value = 1;
@@ -490,7 +504,7 @@ classdef nexObject < handle
             % parent is available (legacy / standalone objects).
             % ax-- entries are excluded from grpKeys: they are ptr filters,
             % not grouping columns, and never appear as STAT table columns.
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","fitSentinel","W","ax_W","ptr_W"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","fitSentinel","W","ax_W","ptr_W","subj_internal"];
             grpKeys = "";
             ctgResolved = false;
             if ~isempty(nexObj.Parent) && isvalid(nexObj.Parent) && ...
@@ -1108,7 +1122,7 @@ classdef nexObject < handle
         end
 
         function vwKeys = getCTGGroupKeys(nexObj)
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W","subj_internal","T_long"];
             % Strip the "__W" weights-facet suffix refreshSRC/applySRC add
             % to selKeys.SRC — RESULTS itself is always keyed on the real
             % (unsuffixed) result ID. Without this, isfield() below always
@@ -1141,7 +1155,7 @@ classdef nexObject < handle
             % Buckets selected labels by which group column they belong to,
             % then requires each row to match in every constrained column.
             % Returns all row indices when vwLabels is empty.
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W","subj_internal","T_long"];
             allCols  = string(RESULT.Properties.VariableNames);
             grpCols  = allCols(~ismember(allCols, DF_STRUCT_FIELDS));
             vwLabels = string(vwLabels);
@@ -1174,7 +1188,7 @@ classdef nexObject < handle
             if ~isfield(nexObj.collector, 'View'), return; end
             bus = nexObj.collector.View;
 
-            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W"];
+            DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","cov","sem","labels","fitSentinel","W","ax_W","ptr_W","subj_internal","T_long"];
 
             % Separate existing CLR keys into group keys and ax-- keys
             existing = string(bus.selKeys.CLR);
@@ -1301,7 +1315,7 @@ classdef nexObject < handle
             % Called when SRC changes to a RESULT so the visualization mask can
             % map VW group labels (values) to the correct column (e.g. "stimSite").
             DF_STRUCT_FIELDS = ["df","ax","ptr","avgCfg","sem","cov","labels", ...
-                                 "trialNumber","sampleNumber","fitSentinel","W","ax_W","ptr_W"];
+                                 "trialNumber","sampleNumber","fitSentinel","W","ax_W","ptr_W","subj_internal"];
             tbl = nexObj.AVG;
             if isempty(tbl) || ~istable(tbl)
                 nexObj.refreshCTG(); return;
@@ -1508,17 +1522,34 @@ classdef nexObject < handle
                 bus.listBoxes.SRC.Value = idx;
             end
             nexObj.refreshVW();
+            nexObj.refreshPointerForSRC(realKey);
+        end
 
-            % Re-point Domain/Pointer to whichever axis shape is now
-            % active — raw DF for "DF"/"DTS", else the matched RESULTS
-            % row's df-facet or W-facet axes (same VW row-matching
-            % nexVisualization_monoGram's useResults branch — and
-            % anything else built the same way — already uses). A no-op
-            % for any nexObject without collector.Domain/Pointer at all
-            % (both remodelDomain and rebuildPointerPanel are internally
-            % gated), and for any RESULTS table with no ax_W column
-            % (falls through to the df-facet axes regardless of
-            % viewFacet).
+        function refreshPointerForSRC(nexObj, realKey)
+        % Re-point Domain/Pointer to whichever axis shape is now active --
+        % raw DF for "DF"/"DTS", else the matched RESULTS row's df-facet
+        % or W-facet axes (same VW row-matching
+        % nexVisualization_monoGram's useResults branch -- and anything
+        % else built the same way -- already uses). A no-op for any
+        % nexObject without collector.Domain/Pointer at all (both
+        % remodelDomain and rebuildPointerPanel are internally gated), and
+        % for any RESULTS table with no ax_W column (falls through to the
+        % df-facet axes regardless of viewFacet).
+        %
+        % Extracted out of applySRC (which still calls this once, after a
+        % SRC change) so a VW-only change (switching which RESULTS row(s)
+        % are displayed, e.g. a different CTG stratum) can call it too --
+        % onVWChanged does exactly that. Before this split, VW's default
+        % listCfgEntryChanged callback re-rendered via visualize() without
+        % ever re-syncing Pointer.selKeys to the newly-active row's own
+        % axis composition, silently desyncing a Pointer selection's
+        % displayed label from the index nexOp_sliceDF actually used
+        % whenever two VW-matching rows disagree on an axis's composition
+        % or order (e.g. two CTG strata with different region coverage --
+        % confirmed directly: switching VW without touching SRC left
+        % Pointer.selKeys.chans frozen from the prior SRC selection while
+        % DF_src.ax.chans came from the newly-selected stratum, so the
+        % same index pointed at two different region names).
             newAx = [];
             if strcmp(realKey, 'DF') || strcmp(realKey, 'DTS')
                 try, newAx = nexObj.DF_postOp.ax; catch, end
@@ -1560,7 +1591,24 @@ classdef nexObject < handle
                             for fi = 1:numel(fn)
                                 f = fn{fi};
                                 if isfield(newAx, f)
-                                    newAx.(f) = union(newAx.(f), axRow.(f));
+                                    % 'stable' is load-bearing, not cosmetic:
+                                    % union()'s default sorts ascending
+                                    % (alphabetical for strings), which
+                                    % silently reorders the Pointer
+                                    % listbox's displayed options away from
+                                    % the insertion order the underlying
+                                    % data (df/W + its own ax/ax_W) was
+                                    % actually built in. Both the data
+                                    % slice and the title string are read
+                                    % against THAT original order
+                                    % (nexOp_sliceAndCollapse/
+                                    % nexTract_axisTitle), so a sorted
+                                    % newAx desyncs listbox position from
+                                    % array position whenever >=2 matching
+                                    % rows reach this merge — e.g. perm's
+                                    % ["real","null_001",...] silently
+                                    % becoming ["null_001",...,"real"].
+                                    newAx.(f) = union(newAx.(f), axRow.(f), 'stable');
                                 else
                                     newAx.(f) = axRow.(f);
                                 end
@@ -1574,6 +1622,26 @@ classdef nexObject < handle
                 if ismethod(nexObj, 'rebuildPointerPanel')
                     nexObj.rebuildPointerPanel();
                 end
+            end
+        end
+
+        function onVWChanged(nexObj, lb)
+        % VW's default wiring (listCfgEntryChanged, the generic listbox
+        % callback every bus key gets unless overridden) updates the VW
+        % selection and re-renders via visualize(), but never re-syncs
+        % Pointer.selKeys to the newly-active row(s)' own axis shape --
+        % only applySRC did that, so switching VW without also touching
+        % SRC left Pointer silently stale (see refreshPointerForSRC's own
+        % header comment for the confirmed symptom). Mirrors
+        % onSRCChanged's shape: update the bus selection directly (not
+        % via listCfgEntryChanged, so this is the one and only Pointer
+        % refresh for this change, not a second one racing it), then
+        % refresh Pointer against whatever SRC is currently active, then
+        % redraw.
+            nexObj.collector.View.selections.VW = lb.Value;
+            nexObj.refreshPointerForSRC(erase(string(nexObj.getCurrentSRC()), "__W"));
+            if ismethod(nexObj, 'visualize')
+                nexObj.visualize();
             end
         end
 
@@ -1895,6 +1963,27 @@ classdef nexObject < handle
             axisKeys = axisKeys(axisKeys ~= "latent");
             if isempty(axisKeys), return; end
 
+            % Current display axis name(s) (Domain.D1) -- read BEFORE the
+            % Domain-bus update below, so this reflects which axes are
+            % ACTUALLY being rendered right now. Needed by the Pointer
+            % fallback just below: nexOp_sliceAndCollapse already ignores
+            % a single-item Pointer selection on a display axis entirely
+            % (falls through to full range -- see its own "a lone index...
+            % falls through to range/full" rule), so defaulting a display
+            % axis's Pointer listbox to "item 1 only" is functionally
+            % meaningless but visually indistinguishable from a genuine
+            % reset -- confirmed directly as the cause of "Pointer still
+            % looks reset to the first element" even though the
+            % backend selection and canvas were both already correct.
+            displayAxisNames = string.empty;
+            try
+                domBus = nexObj.collector.Domain;
+                if isfield(domBus.selKeys, 'D1')
+                    displayAxisNames = string(domBus.selKeys.D1(domBus.selections.D1));
+                end
+            catch
+            end
+
             % ── Pointer: bus data only (widgets rebuilt by caller) ──────────
             if isfield(nexObj.collector, 'Pointer') && ~isempty(nexObj.collector.Pointer)
                 bus           = nexObj.collector.Pointer;
@@ -1906,6 +1995,22 @@ classdef nexObject < handle
                     f    = char(axisKeys(i));
                     vals = newAx.(f);
                     if isempty(vals), continue; end
+                    % Skip entirely when this field's values are IDENTICAL
+                    % to what the bus already has -- same guard
+                    % refreshPointerAxes_ uses (isequal(newVals, oldVals)),
+                    % missing here before. Without it, every call (e.g.
+                    % onVWChanged firing on every VW switch) unconditionally
+                    % rebuilt every axis's selection from scratch, wiping a
+                    % user's existing Pointer narrowing even when that
+                    % axis's composition hadn't actually changed between
+                    % the old and new row (e.g. two CTG strata that happen
+                    % to share the same region list) -- confirmed directly
+                    % as the cause of "every View change resets Pointer."
+                    if isfield(oldSelKeys, f) && isequal(oldSelKeys.(f), vals)
+                        newSelKeys.(f)    = oldSelKeys.(f);
+                        newSelections.(f) = oldSelections.(f);
+                        continue;
+                    end
                     newSelKeys.(f) = vals;
                     % Preserve by name + remap-by-value-range where the
                     % field already existed (same convention
@@ -1920,7 +2025,19 @@ classdef nexObject < handle
                     % a 2D surface — every axis besides the 2 chosen for
                     % D1 and the 1 for ANI has to land on exactly one
                     % value for the canvas to render at all.
-                    newSel = 1;
+                    %
+                    % EXCEPT a currently-displayed axis (Domain.D1,
+                    % resolved above): nexOp_sliceAndCollapse already
+                    % ignores a single-item Pointer selection THERE
+                    % (falls through to full range regardless), so "item 1
+                    % only" has no rendering effect but looks exactly like
+                    % a reset in the listbox. Select-all instead, matching
+                    % what the canvas is actually showing.
+                    if ismember(string(f), displayAxisNames)
+                        newSel = 1:numel(vals);
+                    else
+                        newSel = 1;
+                    end
                     if isfield(oldSelKeys, f)
                         oldVals  = oldSelKeys.(f);
                         curSel   = oldSelections.(f);

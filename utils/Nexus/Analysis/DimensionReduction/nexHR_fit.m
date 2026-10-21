@@ -1,4 +1,4 @@
-function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
+function [out, models] = nexHR_fit(data, layout, pMap, useGPU, subjID)
 % nexHR_fit  Hierarchical recursive block-PCA across multiple feature axes.
 %
 % Mental model
@@ -61,6 +61,14 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
 %   models : cell of structs — {b}.mean_, {b}.V, {b}.inner_models
 
     if nargin < 4, useGPU = false; end
+    % subjID (optional, Nexus WIP.md #10): the subject(s) this stacked
+    % data belongs to — threaded into getBinEdges below so region-mode
+    % (mapID) binning resolves a subject-correct registry regMap instead
+    % of pMap.<axID>.Map's construction-time snapshot. No-op for any axis
+    % that isn't registry-backed (see nexObj_poolMap.resolveSubjectMap_),
+    % so passing it unconditionally through every recursive call below is
+    % safe even for axes with no per-subject table at all.
+    if nargin < 5, subjID = string.empty; end
 
     % Base case: no more feature axes — flatten everything into a feature row
     if isempty(layout)
@@ -77,7 +85,7 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
 
     % Pass-through: axis has no pMap entry, or was already mean-pooled upstream
     if ~isfield(pMap, current.axID) || pMap.(current.axID).divsPerBin >= 0
-        [out, models] = nexHR_fit(data, inner_layout, pMap, useGPU);
+        [out, models] = nexHR_fit(data, inner_layout, pMap, useGPU, subjID);
         return;
     end
     pm = pMap.(current.axID);
@@ -86,7 +94,7 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
     % (Also avoids MATLAB [N,1] → numpy 1D conversion that breaks sklearn.)
     actual_n = size(data, nd);
     if actual_n <= 1
-        [out, models] = nexHR_fit(data, inner_layout, pMap, useGPU);
+        [out, models] = nexHR_fit(data, inner_layout, pMap, useGPU, subjID);
         return;
     end
 
@@ -102,7 +110,7 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
              'layout.axVals is stale.'], ...
             current.axID, numel(current.axVals), actual_n);
     end
-    binEdges = pm.getBinEdges(current.axVals, abs(pm.divsPerBin));
+    binEdges = pm.getBinEdges(current.axVals, abs(pm.divsPerBin), subjID);
     nBlocks  = numel(binEdges) - 1;
     nComp    = pm.reducerDim;
 
@@ -141,7 +149,7 @@ function [out, models] = nexHR_fit(data, layout, pMap, useGPU)
         end
 
         % 4. RECURSE — compress inner axes; inner_out: (N_ctx*blockSize, n_inner_feat)
-        [inner_out, inner_m] = nexHR_fit(data_for_recurse, inner_layout, pMap, useGPU);
+        [inner_out, inner_m] = nexHR_fit(data_for_recurse, inner_layout, pMap, useGPU, subjID);
 
         % 5. UNMERGE — restore N_ctx, expose block × inner_feat as flat features
         % MATLAB reshape is lazy (returns a view). When inner_out originates from

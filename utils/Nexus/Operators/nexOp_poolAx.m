@@ -1,4 +1,4 @@
-function ax_out = nexOp_poolAx(pMap, DF, coReg)
+function ax_out = nexOp_poolAx(pMap, DF, coReg, subjID)
 % Pool each pMap axis down to bin labels and propagate to co-registered axes.
 %
 % coReg: struct mapping dependent axis → primary axis.
@@ -7,9 +7,16 @@ function ax_out = nexOp_poolAx(pMap, DF, coReg)
 %        the same positional grouping (same divsPerBin) but its own values,
 %        so unit gets unit-ID range labels rather than inheriting chan labels.
 %        For mapID (region) binType, dependents inherit the region labels.
-    if nargin < 3
+% subjID (optional): threaded straight into getBinEdges — see
+%        nexObj_poolMap.resolveSubjectMap_/Nexus WIP.md #10. May be a
+%        single subject or several (e.g. the cross-subject union
+%        representative DF refreshPointerFromPool seeds this with) — the
+%        resolver merges multiple subjects' regMaps the same way
+%        nexOp_selectedSubjectsRegMap.m already does for color lookups.
+    if nargin < 3 || isempty(coReg)
         coReg = struct('unit', 'chans');
     end
+    if nargin < 4, subjID = string.empty; end
 
     ax_out = DF.ax;
     coRegFields = fieldnames(coReg);
@@ -32,7 +39,7 @@ function ax_out = nexOp_poolAx(pMap, DF, coReg)
             % getBinEdges dispatch a positive (pool-mode) one would.
             isReduce = pm.divsPerBin < 0;
             isMapID  = string(pm.binType) == string(pm.mapID);
-            [binEdges, binIDs, binLabels] = pm.getBinEdges(axVals, abs(pm.divsPerBin));
+            [binEdges, binIDs, binLabels] = pm.getBinEdges(axVals, abs(pm.divsPerBin), subjID);
             if isempty(binLabels), continue; end
             if isReduce
                 % getBinEdges returns a COMPRESSED one-label-per-group list

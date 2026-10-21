@@ -132,7 +132,7 @@ function nexFigure_lda(mdlObj)
         "Title",           "Domain", ...
         "ForegroundColor", GREEN);
     mdlObj.Figure.panel_domain = nexObj_listCfgPanel( ...
-        nexon, pan_domain, mdlObj.collector.Domain, maxSels);
+        nexon, pan_domain, mdlObj.collector.Domain, maxSels, 10);
     for i = 1:numel(domKeys)
         k  = domKeys(i);
         lb = mdlObj.collector.Domain.listBoxes.(k);
@@ -153,7 +153,7 @@ function nexFigure_lda(mdlObj)
     % SWP is multi-select — nested cross-product sweep (e.g. region x time)
     % in nexAnalysis_cvPermute — so it gets the full listbox, same as CTG.
     viewMaxSels.SWP = numel(mdlObj.collector.View.selKeys.SWP);
-    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels);
+    nex_buildCollectorViewPanel(mdlObj, pan_view.ph, hView, viewMaxSels, 10);
     bus = mdlObj.collector.View;
     bus.listBoxes.CTG.Callback = @(src,ev) nexFigure_lda_onViewChange(src, ev, 'CTG', mdlObj);
     bus.listBoxes.SWP.Callback = @(src,ev) nexFigure_lda_onViewChange(src, ev, 'SWP', mdlObj);

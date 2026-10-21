@@ -1,4 +1,12 @@
-function DF_pooled = nexOp_poolAxes(pMap, DF, ptr)
+function DF_pooled = nexOp_poolAxes(pMap, DF, ptr, subjID)
+    % subjID (optional): this DF's own subject, threaded into every
+    % pm.getBinEdges/pm.pool call below so region-mode (mapID) pooling uses
+    % that subject's own registry regMap instead of poolMap.Map's
+    % construction-time snapshot — see nexObj_poolMap.resolveSubjectMap_
+    % and Nexus WIP.md #10. No-op (falls back to poolMap.Map) for any axis
+    % that isn't registry-backed, so passing it unconditionally here is
+    % safe even for axes (t, f) with no per-subject table at all.
+    if nargin < 4, subjID = string.empty; end
     fields_pMap = fieldnames(pMap);
     DF_pooled = DF;
     if ~isempty(DF_pooled.df)
@@ -96,7 +104,7 @@ function DF_pooled = nexOp_poolAxes(pMap, DF, ptr)
                     if hasCoIdx
                         ax_vals  = DF_pooled.ax.(char(ax));
                         nPos     = numel(ax_vals);
-                        [binEdges, ~, ~] = pm.getBinEdges(ax_vals, abs(pm.divsPerBin));
+                        [binEdges, ~, ~] = pm.getBinEdges(ax_vals, abs(pm.divsPerBin), subjID);
                         mBins    = discretize(1:nPos, binEdges);
                         % No end-of-vector +1 correction: binEdges already
                         % ends with [...; N+1], so discretize covers every
@@ -129,12 +137,12 @@ function DF_pooled = nexOp_poolAxes(pMap, DF, ptr)
                         % back to one label per position.
                         ax_vals = DF_pooled.ax.(char(ax));
                         nPos    = numel(ax_vals);
-                        [binEdges, ~, binLabels] = pm.getBinEdges(ax_vals, abs(pm.divsPerBin));
+                        [binEdges, ~, binLabels] = pm.getBinEdges(ax_vals, abs(pm.divsPerBin), subjID);
                         binLabels = nexOp_expandGroupLabels(binEdges, binLabels, nPos);
                         DF_pooled.ax.(char(ax))     = binLabels;
                         DF_pooled.labels.(char(ax)) = binLabels;
                     else
-                        DF_pooled = pm.pool(DF_pooled, dim);
+                        DF_pooled = pm.pool(DF_pooled, dim, subjID);
 
                         isMapID   = string(pm.binType) == string(pm.mapID);
                         hasLabels = isfield(DF_pooled, 'labels') && isfield(DF_pooled.labels, char(ax));

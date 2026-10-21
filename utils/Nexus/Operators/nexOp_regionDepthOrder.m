@@ -29,7 +29,9 @@ function orderedRegions = nexOp_regionDepthOrder(nexon, regionNames)
 
     try
         mapRegions = string(regMap.region);
-        mapDepths  = double(regMap.Y);
+        Yraw = regMap.Y;
+        if iscell(Yraw), Yraw = cell2mat(Yraw); end
+        mapDepths  = double(Yraw);
         depth      = nan(size(orderedRegions));
         for i = 1:numel(orderedRegions)
             m = mapRegions == orderedRegions(i);

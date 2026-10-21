@@ -60,9 +60,21 @@ function nexFigure_monoGram(nexObj)
     nexObj.Figure.panel0.tiles.graphics.canvas = surf(ax, X, Y, Z, "EdgeColor", "none");
     colorAx_green(ax);
 
-    load(fullfile(nexObj.nexon.console.BASE.params.paths.repo_path, ...
-        "Visualization/RealtimeVis/cmap-cyberGreen.mat"));
-    colormap(nexObj.Figure.fh, CT);
+    % Construction-time default -- the ORIGINAL monoGram colormap,
+    % reinstated for every source EXCEPT a sigThreshold-bearing (p-value)
+    % RESULTS row. nexVisualization_monoGram.m switches to the cleaner
+    % black->cyberGreen->white gradient (nexVis_sequentialColormap) on
+    % every render where hasSigThreshold is true, and back to this one
+    % otherwise -- this is just the safe default before that first render
+    % knows which case applies.
+    %
+    % Set on ax directly, NOT nexObj.Figure.fh: fh is a uifigure, and
+    % colormap(fig, cmap) does not reliably propagate down to a uifigure's
+    % child axes the way it does for a classic figure() -- confirmed
+    % directly (figure-level set alone left the canvas unchanged).
+    % colorAx_green(ax) above already styles THIS axes directly for the
+    % same underlying reason.
+    colormap(ax, nexVis_legacyCyberGreenColormap(nexObj.nexon));
 
     % ── Right scrollable panel ────────────────────────────────────────────
     ctrl.ph = uipanel(nexObj.Figure.fh, ...
@@ -76,6 +88,29 @@ function nexFigure_monoGram(nexObj)
         "BackgroundColor", BLACK, "Scrollable", "on");
     nexObj.Figure.panel_vis = nexObj_cfgPanel_v2(nexObj, nexObj.cfg.visCfg, pan_vis, ...
         nexObj.cfg.visCfg.entryParams, str2func("visCfgEntryChanged_v2"), []);
+
+    % Significance-threshold spinner -- manually added (not auto-generated
+    % via nexObj_cfgPanel_v2/visCfgEntryChanged_v2, since its backing
+    % store is a per-row RESULTS.sigThreshold column, not
+    % cfg.visCfg.entryParams -- see onSigThresholdChanged) but placed in
+    % the SAME scrollable panel, continuing breakoutCfgFields_v4's own
+    % label/spinner step convention (yStepScaler=25, entryHeight=20, m
+    % stepping by 2 per field; 7 fields above it -- zLim_low/high,
+    % cLim_low/high, component, scale, fScale -- end at m=15) so it reads
+    % as one more Vis control, not a bolted-on extra. Hidden until
+    % nexVisualization_monoGram finds a RESULTS row with a sigThreshold
+    % column (only meaningful then) and pushes both Visible and Value.
+    yStepSig = 25; entryHeightSig = 20; mSig = 15;
+    panelWVis = pan_vis.ph.Position(3);
+    nexObj.Figure.panel_vis.editFields.sigThreshold.Label = uitextarea(pan_vis.ph, ...
+        "Value",           "sigThreshold (p <)", ...
+        "Position",        [4, 5 + (mSig+1)*yStepSig, panelWVis*0.95, entryHeightSig], ...
+        "BackgroundColor", BLACK, "FontColor", GREEN, "Visible", "off");
+    nexObj.Figure.panel_vis.editFields.sigThreshold.uiField = uispinner(pan_vis.ph, ...
+        "Position",        [4, 5 + mSig*yStepSig, panelWVis*0.8, entryHeightSig], ...
+        "Value", 0.05, "Step", 0.005, "Limits", [0, 1], ...
+        "BackgroundColor", BLACK, "FontColor", GREEN, "Visible", "off", ...
+        "ValueChangedFcn", @(s,~) nexObj.onSigThresholdChanged(s));
 
     % Window — axis pointer
     pan_win.ph = uipanel(ctrl.ph, ...
@@ -110,6 +145,16 @@ function nexFigure_monoGram(nexObj)
             && ~isempty(nexObj.collector.View.listBoxes.SRC)
         nexObj.collector.View.listBoxes.SRC.Max      = 1;
         nexObj.collector.View.listBoxes.SRC.Callback = @(s,~) nexObj.onSRCChanged(s);
+    end
+    % VW: wired to onVWChanged, NOT the generic listCfgEntryChanged default --
+    % VW selects which RESULTS row(s) are displayed (e.g. a CTG stratum),
+    % and different rows can disagree on an axis's composition/order (e.g.
+    % region coverage differing by stratum). The generic default only
+    % re-renders; onVWChanged also re-syncs Pointer.selKeys to the newly-
+    % active row(s), which is what was missing (see onVWChanged's header).
+    if isfield(nexObj.collector.View.listBoxes, 'VW') ...
+            && ~isempty(nexObj.collector.View.listBoxes.VW)
+        nexObj.collector.View.listBoxes.VW.Callback = @(s,~) nexObj.onVWChanged(s);
     end
 
     % Collector — Domain (D1 multi-select, ANI single-select)

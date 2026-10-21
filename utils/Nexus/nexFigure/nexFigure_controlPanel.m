@@ -16,7 +16,7 @@ function nexFigure_controlPanel(nexObj)
     nexObj.nexon.console.BASE.router = nexObj.Figure.panel1; % assign handle to router slot
     nexObj.nexon.console.BASE.UserData.prevRouter.entryParams=nexObj.nexon.console.BASE.router.entryParams; % save previous router
     % CONTROL METHODS SETUP
-    nexObj.Figure.panel4 = nexObj_listCfgPanel(nexObj.nexon, panel4, nexObj.averagingSelection,[]);
+    nexObj.Figure.panel4 = nexObj_listCfgPanel(nexObj.nexon, panel4, nexObj.averagingSelection, [], 0, 1.25);
     % COMPUTE BUTTON
     nexObj.Figure.computeAvgButton = uibutton(nexObj.Figure.panel3.ph,"BackgroundColor",nexObj.nexon.settings.Colors.cyberGreen,"FontColor",[0,0,0],"Position",[10,10,100,150],"Text","","ButtonPushedFcn",@(~,~)nexCompute_nexonAverages(nexObj.nexon,[]));
     nexObj.Figure.computeAvgPanelTitle = uilabel(nexObj.Figure.panel3.ph, "Text","AVERAGE","Position",[10,162,100,20],"FontColor",nexObj.nexon.settings.Colors.cyberGreen,"HorizontalAlignment","center");

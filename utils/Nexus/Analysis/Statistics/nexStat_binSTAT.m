@@ -21,7 +21,16 @@ function [X, xTicks, xLabels] = nexStat_binSTAT(STAT, categories, orderMap)
     xTicks = [];
     xLabels = [];
     dimsPrev = [1];
-    for category = categories
+    % categories(:)' forces a row regardless of caller orientation --
+    % `for x = V` iterates COLUMNS of V, so a column-shaped `categories`
+    % (e.g. nexObj_violin's bus.selKeys.CTG, built with a trailing
+    % transpose) makes the WHOLE column a single iteration value instead
+    % of one category per iteration, once more than one category is
+    % selected -- confirmed directly as "Table variable names must be
+    % strings or character vectors" the moment a 2nd CTG column was
+    % picked (a 1-element "column" is indistinguishable from a scalar, so
+    % selecting exactly one never surfaced this).
+    for category = categories(:)'
         % disp(category);
         Y_category = STAT.(category);
         if isfield(orderMap, char(category)) && ~isempty(orderMap.(char(category)))

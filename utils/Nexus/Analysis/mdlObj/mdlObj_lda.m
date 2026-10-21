@@ -19,7 +19,10 @@ classdef mdlObj_lda < mdlObject
             % silently never reach fit(). See mdlObj_ssm.m / mdlObj_pca.m.
             mdlObj.cfg.dmCfg.format = "supervised";
             mdlObj.initTargetBus();
-            isHeadless = isfield(mdlObj.nexon, 'settings') && ...
+            % isfield() never works on objects (handle or dynamicprops),
+            % only plain structs -- isprop() is correct here; .settings
+            % itself IS a plain struct, so isfield() on it stays correct.
+            isHeadless = isprop(mdlObj.nexon, 'settings') && ...
                          isfield(mdlObj.nexon.settings, 'headless') && ...
                          mdlObj.nexon.settings.headless;
             if isHeadless

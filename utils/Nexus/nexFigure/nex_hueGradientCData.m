@@ -3,11 +3,10 @@ function cdataRGB = nex_hueGradientCData(Z, anchorRGB, cLim, dim)
 % anchored per row, per column, or per cell — so each part of the surface
 % rides its OWN hue instead of one shared colormap for the whole thing.
 %
-% Replaces the old cMap2Regions.m model (cdata = anchorColor .* val —
-% grades toward BLACK as val -> 0) with a near-white-to-anchor tint
-% gradient: the LIGHT end is a desaturated/brightened tint of the anchor
-% hue (not black), the DARK end is the anchor color itself — a standard
-% single-hue sequential palette (e.g. ColorBrewer "Blues").
+% Dark-to-anchor gradient: the LOW end is a dark/deep shade of the anchor
+% hue (brightness pushed low, same hue/saturation), the HIGH end is the
+% anchor color itself at full, vivid strength — low value reads as
+% dark/muted, high value reads as the region's own true, vivid color.
 %
 %   Z         : [M×N] data matrix (the heatmap's own values)
 %   anchorRGB : one of —
@@ -37,22 +36,22 @@ function cdataRGB = nex_hueGradientCData(Z, anchorRGB, cLim, dim)
     normZ = min(max(normZ, 0), 1);
     normZ(isnan(normZ)) = 0;
 
-    % ── Per-cell anchor grid — direct linear RGB blend (near-white ->
-    % anchor with only 2 control points IS linear; no need for
-    % buildColorMap's 256-stop pchip machinery per cell, which would be
-    % needlessly expensive at M*N calls).
+    % ── Per-cell anchor grid — direct linear RGB blend (dark -> anchor
+    % with only 2 control points IS linear; no need for buildColorMap's
+    % 256-stop pchip machinery per cell, which would be needlessly
+    % expensive at M*N calls).
     if ndims(anchorRGB) == 3
         if ~isequal([size(anchorRGB, 1), size(anchorRGB, 2)], [M, N])
             error('nex_hueGradientCData:sizeMismatch', ...
                 'Per-cell anchorRGB is %s but Z is %s.', mat2str(size(anchorRGB)), mat2str(size(Z)));
         end
-        nearWhiteGrid = zeros(M, N, 3);
+        darkGrid = zeros(M, N, 3);
         for i = 1:M
             for j = 1:N
-                nearWhiteGrid(i, j, :) = tintTowardWhite(squeeze(anchorRGB(i, j, :))');
+                darkGrid(i, j, :) = shadeTowardDark(squeeze(anchorRGB(i, j, :))');
             end
         end
-        cdataRGB = nearWhiteGrid + normZ .* (anchorRGB - nearWhiteGrid);
+        cdataRGB = darkGrid + normZ .* (anchorRGB - darkGrid);
         return;
     end
 
@@ -72,8 +71,8 @@ function cdataRGB = nex_hueGradientCData(Z, anchorRGB, cLim, dim)
     end
     cdataRGB = zeros(Mp, Np, 3);
     for i = 1:Mp
-        nearWhite = tintTowardWhite(anchorRGB(i, :));
-        CT  = buildColorMap([nearWhite; anchorRGB(i, :)]);   % 256×3, light -> dark
+        darkAnchor = shadeTowardDark(anchorRGB(i, :));
+        CT  = buildColorMap([darkAnchor; anchorRGB(i, :)]);   % 256×3, dark -> anchor
         idx = min(255, max(0, round(normZt(i, :) * 255))) + 1;
         cdataRGB(i, :, :) = reshape(CT(idx, :), 1, Np, 3);
     end
@@ -82,13 +81,13 @@ function cdataRGB = nex_hueGradientCData(Z, anchorRGB, cLim, dim)
     end
 end
 
-% ── Near-white tint of anchor's own hue ──────────────────────────────────
-% Same hue as the anchor, saturation dropped low and value pushed high —
-% a brightened tint, not a shade toward black. Tunable if the gradient
-% reads too washed-out or too saturated at the light end.
-function rgb = tintTowardWhite(anchor)
+% ── Dark/deep shade of anchor's own hue ──────────────────────────────────
+% Same hue AND saturation as the anchor, brightness/value pushed low — a
+% deep shade toward black, not a desaturated tint toward white/gray.
+% Tunable (the 0.12 floor) if the gradient reads too dark or not dark
+% enough at the low end.
+function rgb = shadeTowardDark(anchor)
     hsv    = rgb2hsv(anchor);
-    hsv(2) = 0.08;
-    hsv(3) = 0.97;
+    hsv(3) = 0.12;
     rgb    = hsv2rgb(hsv);
 end

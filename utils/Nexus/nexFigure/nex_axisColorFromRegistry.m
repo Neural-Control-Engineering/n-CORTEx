@@ -41,6 +41,24 @@ if axID == "f"
     return;
 end
 
+if axID == "t"
+    % Fixed, global LUT (before/during/after) -- same category as 'f'
+    % above, not subject-regMap-backed, so checked/returned here too,
+    % before the regMap fetch. Only fires when axisVals are actually
+    % epoch LABELS (the "epoch" mapID scheme -- see
+    % Map/map_epochs2time.m, WIP.md #16), never for a plain continuous
+    % time axis -- same numeric-vs-label disambiguation the 'chans' case
+    % below uses for its own two-shapes-one-axis-name ambiguity.
+    numVals = str2double(axisVals);
+    if isempty(numVals) || any(isnan(numVals))
+        [colors, anyHit] = colorByEpochName(nexon, string(axisVals));
+        if ~isempty(colors) && anyHit
+            cmap = colors; matched = true;
+        end
+    end
+    return;
+end
+
 % ── Access registry / selected-subjects' pooled regMap ─────────────────────
 % Shared with nexOp_regionDepthOrder.m (bar-chart region ordering) — same
 % "which subjects' atlas data applies right now" resolution either way.
@@ -83,6 +101,32 @@ if ~isempty(colors) && anyHit
     cmap    = colors;
     matched = true;
 end
+end
+
+
+% ── axis values ARE epoch labels (before/during/after) → fixed LUT ───────
+% Global/fixed, not subject-regMap-backed -- same category as
+% colorByFrequency's band LUT, not colorByRegionName's per-subject atlas
+% lookup. Same hex values as map_epochs2time.m's own (unused-downstream)
+% color column, kept in sync deliberately for visual consistency even
+% though the two are otherwise independent pathways (see WIP.md #16 --
+% confirmed no caller anywhere reads poolMap's own color output, so this
+% function is the only color resolution that actually reaches a
+% visualization).
+function [colors, anyHit] = colorByEpochName(names)
+    colors = [];
+    anyHit = false;
+    LUT = struct('before', [0.50 0.50 0.50], 'during', [0.24 0.94 0.46], ...
+                 'after',  [0.50 0.50 0.50]);
+    nVals  = numel(names);
+    colors = repmat([0.55 0.55 0.55], nVals, 1);
+    for i = 1:nVals
+        key = lower(char(names(i)));
+        if isfield(LUT, key)
+            colors(i,:) = LUT.(key);
+            anyHit = true;
+        end
+    end
 end
 
 

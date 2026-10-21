@@ -40,6 +40,14 @@ function axTitle = nexTract_axisTitle(nexObj, DF, dimList)
             axTitle = strcat(axTitle, ' |');
         end
     end
+    % Swap '_' for '-' before display -- MATLAB's default 'tex' title/
+    % label interpreter reads an underscore as "start subscript," which
+    % mangles real column/value names (e.g. "sessionLabel_subj",
+    % "h5_responseThreshold_g") into partially-subscripted text. Applied
+    % once here, globally, rather than per-caller, since every consumer
+    % of this title string (monoGram, monoGraph, stateSpace) hits the
+    % same underscore-heavy real column names.
+    axTitle = strrep(axTitle, '_', '-');
 end
 
 function s = nexTract_fmtSingle(s, d, binID)

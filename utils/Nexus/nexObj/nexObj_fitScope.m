@@ -72,7 +72,10 @@ classdef nexObj_fitScope < nexObject
             nexObj.initPointerBus();  % collector.Pointer: chans, t (f excluded)
             nexObj.readSlice();       % seeds fitCfg.entryParams from the current Pointer position
 
-            isHeadless = isfield(nexon, 'settings') && isfield(nexon.settings, 'headless') ...
+            % isfield() never works on objects (handle or dynamicprops),
+            % only plain structs -- isprop() is correct here; .settings
+            % itself IS a plain struct, so isfield() on it stays correct.
+            isHeadless = isprop(nexon, 'settings') && isfield(nexon.settings, 'headless') ...
                          && nexon.settings.headless;
             if ~isHeadless
                 nexFigure_fitScope(nexObj);

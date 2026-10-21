@@ -27,7 +27,10 @@ classdef mdlObj_cebra < mdlObject
             % setupDomain to build the Domain bus), so do it here in that
             % case. Interactive builds run inside nexFigure_cebra during
             % the base constructor — same split as mdlObj_pca/mdlObj_ssm.
-            isHeadless = isfield(obj.nexon, 'settings') && ...
+            % isfield() never works on objects (handle or dynamicprops),
+            % only plain structs -- isprop() is correct here; .settings
+            % itself IS a plain struct, so isfield() on it stays correct.
+            isHeadless = isprop(obj.nexon, 'settings') && ...
                          isfield(obj.nexon.settings, 'headless') && ...
                          obj.nexon.settings.headless;
             if isHeadless

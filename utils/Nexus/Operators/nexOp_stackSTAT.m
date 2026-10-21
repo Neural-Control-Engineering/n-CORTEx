@@ -43,8 +43,18 @@ function [Z_stack, G_stack, S_stack] = nexOp_stackSTAT(STAT)
     % D1 varies fastest. For ax field of length N matching dim k of df:
     %   col = repmat(repelem(axVals, Nbefore), Nafter, 1)
     % where Nbefore = prod of dims before k, Nafter = prod of dims after k.
-    if ismember('ax', STAT.Properties.VariableNames) && iscell(STAT.ax)
-        ax_ref   = STAT.ax{1};
+    % .ax is stored as a cell column by some producers, a plain struct
+    % ARRAY column by others (mdlObject.compileSTAT: "STAT.ax(ri).(f) = ..."
+    % — paren-indexed, confirmed directly in its own code) — this block
+    % silently no-op'd for every struct-array .ax until now, since nothing
+    % that reads G's PLAIN columns by name (stat2dm_supervised's G.(tVar),
+    % cvPermute's G_test) was affected by G simply lacking these EXTRA
+    % columns. A generic consumer that wants per-trial ax identity in G
+    % (Nexus WIP.md's MixedEffect scripts) needs it for either storage
+    % convention, so handle both rather than keep assuming cell.
+    axIsCell = iscell(STAT.ax);
+    if ismember('ax', STAT.Properties.VariableNames) && (axIsCell || isstruct(STAT.ax))
+        if axIsCell, ax_ref = STAT.ax{1}; else, ax_ref = STAT.ax(1); end
         axFields = fieldnames(ax_ref);
         % Exclude whichever axis(es) own dim 2 (F) — F is already fully
         % represented in Z_stack's columns and must never also appear as a
@@ -70,8 +80,19 @@ function [Z_stack, G_stack, S_stack] = nexOp_stackSTAT(STAT)
         axFields = axFields(~ismember(axFields, fAxes));
         for k = 1:numel(axFields)
             f = axFields{k};
-            axCols = cellfun(@(ax_i, df_i) expandAxCol(ax_i.(f), df_i), ...
-                STAT.ax, STAT.df, "UniformOutput", false);
+            if axIsCell
+                axCols = cellfun(@(ax_i, df_i) expandAxCol(ax_i.(f), df_i), ...
+                    STAT.ax, STAT.df, "UniformOutput", false);
+            else
+                % STAT.df is still a cell column either way (confirmed
+                % above, df_flat/df_perm already cellfun over it) — only
+                % .ax's own storage differs, so index it by position
+                % instead of cellfun-ing over it directly.
+                axCols = cell(height(STAT), 1);
+                for ii = 1:height(STAT)
+                    axCols{ii} = expandAxCol(STAT.ax(ii).(f), STAT.df{ii});
+                end
+            end
             G_stack  = [G_stack,  axCols];
             varNames = [varNames, string(f)];
         end
