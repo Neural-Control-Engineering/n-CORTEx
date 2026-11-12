@@ -118,11 +118,28 @@ function DF = readOneTrialHDF5(h5File, h5Root, DFID, axisKeyWords, ptr)
             info_k   = dsetInfos(k);
             isStrDset = strcmp(info_k.Datatype.Class, 'H5T_STRING');
 
-            if any(strcmp({'df','df_re','df_im'}, suffix))
+            if strcmp(suffix, 'df')
+                % Don't gate on info_k.Datatype.Class/isStrDset here --
+                % confirmed directly (debug print) that buildDatasetInfos'
+                % own H5T.get_class detection comes back empty for a
+                % variable-length string df dataset (root cause not
+                % pinned down further), making that signal unreliable
+                % for exactly the case that needs it. Read first, THEN
+                % check what actually came back: H5D.read on a
+                % variable-length string dataset returns a cell --
+                % unwrap it to a string in place (a per-trial category
+                % LABEL, e.g. from nexOp_quantizePerCombo, not a numeric
+                % measurement), same pattern tryReadFlatDataset already
+                % uses above (line ~177). A numeric df hyperslabs as
+                % before; a string df never needs one (no axis to slice).
+                [hs_start, hs_count] = dfHyperslab(ptr, dimAxes, info_k);
+                val = readDatasetLL(fid, dsetPath, hs_start, hs_count);
+                if iscell(val), val = string(val); end
+                DF.df = val;
+            elseif any(strcmp({'df_re','df_im'}, suffix))
                 [hs_start, hs_count] = dfHyperslab(ptr, dimAxes, info_k);
                 val = readDatasetLL(fid, dsetPath, hs_start, hs_count);
                 switch suffix
-                    case 'df',    DF.df    = val;
                     case 'df_re', DF.df_re = val;
                     case 'df_im', DF.df_im = val;
                 end

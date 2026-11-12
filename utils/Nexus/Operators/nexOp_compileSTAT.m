@@ -165,6 +165,21 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     end
     aligned = struct('TF', {TF}, 'idxSel', idxSel, 'drop', drop);
 
+    % Real DTS row index per surviving TF row, aligned to idxSel/drop the
+    % same way subjID is above -- the one thing a caller needs to write a
+    % per-trial value back to the right DTS row later (e.g.
+    % nexOp_quantizePerCombo), and currently NOT reconstructable from
+    % idxSel/drop alone once selMatch/idx_sort (below) have also run,
+    % neither of which is otherwise exposed. Carried through selMatch/
+    % idx_sort and attached as a STAT column (dtsRowIdx_sel/_sorted below),
+    % not returned as a separate output -- same reasoning as subj_internal
+    % a few lines down: a STAT column stays in lockstep with every later
+    % row-subset (fitByCombo, applyPointer, ...) automatically, where a
+    % bare returned array would go stale the moment STAT is subset again
+    % before a caller gets to use it.
+    dtsRowIdx = find(idxSel);
+    dtsRowIdx = dtsRowIdx(~drop);
+
     % AXIS POOLING
     try
         try
@@ -293,6 +308,8 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     % exactly the class of desync a hand-maintained parallel array risks.
     subjID_sel = string.empty;
     if numel(subjID) == numel(selMatch), subjID_sel = subjID(selMatch); end
+    dtsRowIdx_sel = double.empty;
+    if numel(dtsRowIdx) == numel(selMatch), dtsRowIdx_sel = dtsRowIdx(selMatch); end
     % enumerate rows as trial numbers, relative to subject/phase combos
     % TF_trialNum = nexon.console.BASE.DTS.trialNumber(idxSel);
     try
@@ -311,6 +328,8 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     Y.trialNumber = TF_trialNum;
     subjID_sorted = string.empty;
     if numel(subjID_sel) == numel(idx_sort), subjID_sorted = subjID_sel(idx_sort); end
+    dtsRowIdx_sorted = double.empty;
+    if numel(dtsRowIdx_sel) == numel(idx_sort), dtsRowIdx_sorted = dtsRowIdx_sel(idx_sort); end
     
     % parallel parsing
     SS = outerjoinStructs(S_categories, S_items);
@@ -333,9 +352,37 @@ function [STAT, idxSel, drop, aligned] = nexOp_compileSTAT(nexObj, dfID, S_categ
     %     categoryID = split(categoryID,"--"); categoryID = categoryID(2);
     %     % 
     % end
+    % Normalize each M{i}.ax's field set before vertcat -- confirmed
+    % directly: compiling a flat dfID (e.g. responseThreshold_g) across
+    % enough sessions/subjects hit rows whose .ax struct ended up with a
+    % DIFFERENT field set than other rows' (root cause not pinned down --
+    % could be a genuinely inconsistent write for that dfID on disk, or
+    % some other per-session quirk -- but regardless of why, struct-array
+    % concatenation requires an identical field set across every element,
+    % which cat(1, M{:}) below does via the table's own 'ax' column).
+    % Union every M{i}.ax's fields and pad any row missing one with []
+    % rather than let vertcat fail with "Number of fields in structure
+    % arrays being concatenated do not match."
+    try
+        axFieldSets   = cellfun(@(m) fieldnames(m.ax), M, 'UniformOutput', false);
+        unionAxFields = unique(vertcat(axFieldSets{:}));
+        for i = 1:numel(M)
+            missing = setdiff(unionAxFields, fieldnames(M{i}.ax));
+            for mi = 1:numel(missing)
+                for k = 1:numel(M{i}.ax)
+                    M{i}.ax(k).(missing{mi}) = [];
+                end
+            end
+        end
+    catch e
+        fprintf('[nexOp_compileSTAT] ax field-set normalization skipped: %s\n', e.message);
+    end
     STAT = cat(1, M{:});
     if numel(subjID_sorted) == height(STAT)
         STAT.subj_internal = subjID_sorted(:);
+    end
+    if numel(dtsRowIdx_sorted) == height(STAT)
+        STAT.dtsRowIdx = dtsRowIdx_sorted(:);
     end
     % Genuinely globally-unique per-row trial identifier -- STAT.trialNumber
     % (the literal DTS per-session count) resets to 1 at the start of EVERY

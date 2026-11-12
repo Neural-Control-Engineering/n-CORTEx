@@ -68,12 +68,19 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
         H5P.close(fapl_len);
         for ii = 1:dtsRows
             dset_path = char(nexon.console.BASE.DTS.h5_root(ii) + "/" + dfID_entry + "/df");
+            t_path    = char(nexon.console.BASE.DTS.h5_root(ii) + "/" + dfID_entry + "/t");
             try
-                if H5L.exists(fid_len, dset_path, 'H5P_DEFAULT')
-                    did_l = H5D.open(fid_len, dset_path);
+                % Trial length comes from the DF's own t axis, so it holds for
+                % any layout (chans x t, unit x t x measure, chans x f x t).
+                % A DF with no t axis falls back to the df's first H5 dim.
+                hasT = H5L.exists(fid_len, t_path, 'H5P_DEFAULT');
+                if hasT || H5L.exists(fid_len, dset_path, 'H5P_DEFAULT')
+                    if hasT, did_l = H5D.open(fid_len, t_path);
+                    else,    did_l = H5D.open(fid_len, dset_path); end
                     sid_l = H5D.get_space(did_l);
                     [~, sz_l] = H5S.get_simple_extent_dims(sid_l);
-                    lengths(ii) = sz_l(1);
+                    if hasT, lengths(ii) = prod(sz_l);
+                    else,    lengths(ii) = sz_l(1); end
                     H5S.close(sid_l);
                     H5D.close(did_l);
                 end
@@ -147,22 +154,29 @@ function nexTract(nexon, fcn, dfID, mask, fcnName, dfColName, opts)
         end
         if ~isempty(df)
             try
-                if size(df, 2) > minLength * 1.01
-                    ptr = nexInit_axisPointer(DF_in.df, DF_in.ax);
-                    DF_in.df = df(:, 1:minLength);
+                % Trim along the DF's t axis, wherever it sits. A DF with no t
+                % axis keeps the original behavior: trim dim 2 and its axis.
+                ptr  = nexInit_axisPointer(DF_in.df, DF_in.ax);
+                tDim = 2;
+                axSel = "t";
+                if isfield(DF_in.ax, 't') && ~isempty(ptr.t.dim)
+                    tDim = ptr.t.dim;
+                else
                     axFields = convertCharsToStrings(fieldnames(DF_in.ax));
-                    axDims = [];
-                    for j = 1:length(axFields); axDims = [axDims; ptr.(axFields(j)).dim]; end %#ok<AGROW>
-                    axSel = axFields(axDims == 2);
-                    try
-                        ax = DF_in.ax.(axSel);
-                    catch
-                        try
-                            ax = DF_in.ax.t;  axSel = "t";
-                        catch e
-                            disp(getReport(e));
-                        end
+                    % NaN placeholder keeps axDims aligned with axFields when a
+                    % co-indexed label (e.g. per-unit chans) has an empty .dim.
+                    axDims = nan(length(axFields), 1);
+                    for j = 1:length(axFields)
+                        d = ptr.(axFields(j)).dim;
+                        if ~isempty(d), axDims(j) = d; end
                     end
+                    axSel = axFields(axDims == 2);
+                end
+                if size(df, tDim) > minLength * 1.01
+                    sub = repmat({':'}, 1, ndims(df));
+                    sub{tDim} = 1:minLength;
+                    DF_in.df = df(sub{:});
+                    ax = DF_in.ax.(axSel);
                     DF_in.ax.(axSel) = ax(1:minLength);
                 end
                 args         = extractMethodCfg(fcnName);

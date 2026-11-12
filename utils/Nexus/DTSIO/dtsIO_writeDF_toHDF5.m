@@ -32,7 +32,14 @@ function dtsIO_writeDF_toHDF5(h5File, h5Root, DFID, DF)
 
     try
         if isfield(DF, 'df') && ~isempty(DF.df)
-            if ~isreal(DF.df)
+            if isstring(DF.df) || ischar(DF.df) || iscellstr(DF.df)
+                % String-valued df -- a per-trial category LABEL (e.g. a
+                % quantized bin name), not a numeric measurement. No
+                % complex/dim_order handling needed; same variable-length
+                % UTF-8 writer already used for string .ax fields below.
+                dset = [h5Root '/' DFID '/df'];
+                h5writeStringSafe(fid, dset, DF.df);
+            elseif ~isreal(DF.df)
                 dset_re = [h5Root '/' DFID '/df_re'];
                 dset_im = [h5Root '/' DFID '/df_im'];
                 h5writeLL(fid, dset_re, double(real(DF.df)), chunkSz);

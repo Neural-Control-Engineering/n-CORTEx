@@ -578,6 +578,30 @@ classdef mdlObject < handle
                 end
                 if ~isempty(fieldnames(ptrDict))
                     mdlObj.collector.Pointer = buildSelection(mdlObj, ptrDict);
+                    % buildSelection's own default (initSel=1) selects only
+                    % the first candidate per axis. Under applyPointer's
+                    % simplified rule (filter to exactly what's selected,
+                    % no special-casing by count -- see that method's own
+                    % comment), leaving that default in place would mean
+                    % every Pointer axis starts out narrowed to one
+                    % arbitrary value the instant a figure is built, before
+                    % anyone touches anything -- not a desync (the listbox
+                    % would correctly SHOW that single selection, matching
+                    % what gets filtered), just a default nobody asked for.
+                    % Override to "everything selected" here instead, scoped
+                    % to the Pointer bus only (not buildSelection's own
+                    % shared default, which other bus types may still want
+                    % single-select-by-default for) -- the listbox widget
+                    % reads this SAME selections.(key) value to seed its own
+                    % initial Value (nexObj_listCfgPanel), so it will
+                    % visibly show every item highlighted, not a hidden
+                    % backend-only state.
+                    for i = 1:numel(axFields)
+                        f = axFields{i};
+                        if isfield(ptrDict, f)
+                            mdlObj.collector.Pointer.selections.(f) = 1:numel(ptrDict.(f));
+                        end
+                    end
                 else
                     mdlObj.collector.Pointer = [];
                 end
@@ -739,6 +763,8 @@ classdef mdlObject < handle
                                                % reconfigured back to pool-mode) doesn't
                                                % see a stale block structure from an
                                                % earlier needsHR fit
+            mdlObj.TRAIN.X_reduced    = [];   % same -- audit-only stash, see below
+            mdlObj.TRAIN.G_reduced    = [];
 
             % needsHR mdlObjs defer ALL pMap pooling to here — nexOp_compileSTAT
             % skips it entirely (TF_pooled = TF) so a reduce-mode FTR axis
@@ -772,6 +798,12 @@ classdef mdlObject < handle
                 end
                 mdlObj.FTR_blockColRanges = blockColRanges;
                 mdlObj.TRAIN.G            = G_train_p;
+                % Pre-pool (reduced-only) intermediate, stashed purely so
+                % an audit trail (fitSWPGrid's own, or any other caller)
+                % can show "after reduce, before pool" without re-running
+                % fitReduce a second time just to see it.
+                mdlObj.TRAIN.X_reduced    = X_train_r;
+                mdlObj.TRAIN.G_reduced    = G_train;
                 if strcmp(mdlObj.cfg.dmCfg.format, "supervised")
                     tVar = char(mdlObj.dfID_target);
                     nBinsY = Inf;
@@ -1421,10 +1453,38 @@ classdef mdlObject < handle
                 swpIDs = allSwp(allSwp ~= "" & allSwp ~= "None");
             end
 
+            % Opt-in audit trail — same toggle nexAnalysis_cvPermute.m
+            % already uses (cvCfg.auditDir), reused rather than inventing
+            % a second one, since fitSWPGrid is conceptually the same
+            % kind of "sweep procedure" cvCfg was already home to. Zero
+            % behavior change when unset (the default) — every audit call
+            % below is gated on auditOn. Writes a trial-level trace of
+            % the reduce-then-pool sequence (raw/scaled/reduced/pooled)
+            % once per CTG combo, plus each SWP grid cell's own final DM
+            % right before that cell's fit — see nexAudit_fitSWPGridTrace.m
+            % / nexAudit_swpCellDM.m.
+            auditOn  = isfield(mdlObj.cfg.cvCfg, 'auditDir') && ~isempty(mdlObj.cfg.cvCfg.auditDir);
+            auditDir = '';
+            if auditOn
+                auditDir = fullfile(mdlObj.cfg.cvCfg.auditDir, sprintf('nexAudit_fitSWPGrid_%s', mdlObj.modelID));
+                if ~isfolder(auditDir), mkdir(auditDir); end
+                fprintf('[mdlObject] fitSWPGrid: audit trail -> %s\n', auditDir);
+            end
+
             if isempty(validCTG) && isempty(swpIDs)
                 % Degenerate case -- identical to the old single-model fit() body.
                 mdlObj.comboFits = struct('key', {}, 'child', {}, 'swpVal', {});
                 mdlObj.getDesignMatrix();
+                if auditOn
+                    needsHR_ = ~isempty(mdlObj.TRAIN.G);
+                    if needsHR_
+                        nexAudit_fitSWPGridTrace(auditDir, 'combo_all', 'all', 1, mdlObj, mdlObj.TRAIN.STAT, ...
+                            mdlObj.TRAIN.X_reduced, mdlObj.TRAIN.G_reduced, mdlObj.DM, mdlObj.TRAIN.G, mdlObj.FTR_blockColRanges);
+                        nexAudit_swpCellDM(auditDir, 'combo_all', 'all (no SWP)', mdlObj.DM, mdlObj.FTR_blockColRanges);
+                    else
+                        nexAudit_swpCellDM(auditDir, 'combo_all', 'all (no SWP)', mdlObj.DM, []);
+                    end
+                end
                 mdlObj.cfg.fitCfg.fcn(mdlObj, mdlObj.cfg.fitCfg.entryParams);
                 if ~isempty(mdlObj.Predictor) && ~isequal(mdlObj, mdlObj.Predictor)
                     mdlObj.Predictor.trainMask = mdlObj.trainMask;
@@ -1452,12 +1512,19 @@ classdef mdlObject < handle
             newGridFits = struct('key', {}, 'child', {}, 'swpVal', {});
             for ci = 1:nCombos
                 if isempty(validCTG)
-                    comboKey = struct();
-                    mask     = true(height(mdlObj.STAT), 1);
+                    comboKey  = struct();
+                    comboLabel = 'all';
+                    mask      = true(height(mdlObj.STAT), 1);
                 else
                     comboKey = table2struct(comboTbl(ci, :));
+                    comboLabel = strjoin(arrayfun(@(c) string(comboTbl.(char(c))(ci)), ...
+                                          validCTG), ' | ');
                     mask     = nexOp_matchComboRow(mdlObj.STAT, comboKey);
                 end
+                % Filesystem-safe combo directory name, reused by every
+                % audit write for the rest of this combo's iteration --
+                % same convention nexAnalysis_cvPermute.m's own comboDir uses.
+                comboDirName = sprintf('combo_%s', regexprep(comboLabel, '[\\/:*?"<>| ]+', '_'));
 
                 child = mdlObject_initGridChild(mdlObj, initFcn);
                 child.STAT      = mdlObj.STAT(mask, :);
@@ -1467,6 +1534,16 @@ classdef mdlObject < handle
                     % No SWP -- one cell for this combo, identical to
                     % fitByCombo's own per-combo body.
                     child.getDesignMatrix();
+                    if auditOn
+                        needsHR_ = ~isempty(child.TRAIN.G);
+                        if needsHR_
+                            nexAudit_fitSWPGridTrace(auditDir, comboDirName, comboLabel, 1, child, child.TRAIN.STAT, ...
+                                child.TRAIN.X_reduced, child.TRAIN.G_reduced, child.DM, child.TRAIN.G, child.FTR_blockColRanges);
+                            nexAudit_swpCellDM(auditDir, comboDirName, sprintf('%s (no SWP)', comboLabel), child.DM, child.FTR_blockColRanges);
+                        else
+                            nexAudit_swpCellDM(auditDir, comboDirName, sprintf('%s (no SWP)', comboLabel), child.DM, []);
+                        end
+                    end
                     child.cfg.fitCfg.fcn(child, child.cfg.fitCfg.entryParams);
                     child.DM = [];
                     newGridFits(end+1) = struct('key', comboKey, 'child', child, 'swpVal', struct()); %#ok<AGROW>
@@ -1484,6 +1561,8 @@ classdef mdlObject < handle
                 swpAxes = struct('id', {}, 'vals', {}, 'rangeLabel', {}, 'mode', {}, 'dim', {}, 'n', {});
                 for a = 1:numel(swpIDs)
                     [vals_a, rangeLabel_a, mode_a, dim_a] = nexOp_resolveSWPAxis(child, child.STAT, swpIDs(a));
+                    fprintf('[DEBUG] swpAxes(%s): mode=%s class(vals)=%s vals(1:min(5,end))=%s\n', ...
+                        swpIDs(a), mode_a, class(vals_a), mat2str(string(vals_a(1:min(5,numel(vals_a))))));
                     swpAxes(end+1) = struct('id', swpIDs(a), 'vals', vals_a, 'rangeLabel', rangeLabel_a, ...
                                              'mode', mode_a, 'dim', dim_a, 'n', numel(vals_a)); %#ok<AGROW>
                 end
@@ -1511,12 +1590,26 @@ classdef mdlObject < handle
                         end
                         grandchild.trainMask = true(height(grandchild.STAT), 1);
                         grandchild.getDesignMatrix();
+                        cellLabel = sprintf('%s | %s', comboLabel, strjoin(comboParts, ', '));
+                        if auditOn
+                            cellDir = fullfile(comboDirName, sprintf('swp_%s', ...
+                                regexprep(strjoin(comboParts, '_'), '[\\/:*?"<>| ]+', '_')));
+                            nexAudit_swpCellDM(auditDir, cellDir, cellLabel, grandchild.DM, []);
+                        end
                         grandchild.cfg.fitCfg.fcn(grandchild, grandchild.cfg.fitCfg.entryParams);
                         grandchild.DM = [];
                         newGridFits(end+1) = struct('key', comboKey, 'child', grandchild, 'swpVal', swpValStruct); %#ok<AGROW>
                         fprintf('[mdlObject] fitSWPGrid: combo %d/%d, SWP %s fit\n', ...
                                 ci, nCombos, strjoin(comboParts, ', '));
                     end
+                    % child itself is never stored (only grandchildren are,
+                    % one per SWP cell) -- delete it explicitly now rather
+                    % than leave it for MATLAB's own (lazy, batched) GC to
+                    % notice later. Cheap per-iteration, and avoids a large
+                    % backlog of unreferenced handle objects (each holding
+                    % Python proxies) all coming due at once when fitSWPGrid
+                    % itself finally returns.
+                    delete(child);
                     continue;
                 end
 
@@ -1527,6 +1620,22 @@ classdef mdlObject < handle
                 baseDM             = child.DM;
                 baseG              = child.TRAIN.G;
                 baseBlockColRanges = child.FTR_blockColRanges;
+
+                for a = 1:numel(swpAxes)
+                    axID = char(swpAxes(a).id);
+                    if ismember(axID, baseG.Properties.VariableNames)
+                        colVals = baseG.(axID);
+                        fprintf('[DEBUG] baseG.%s: class=%s sample(1:min(5,end))=%s\n', ...
+                            axID, class(colVals), mat2str(string(colVals(1:min(5,numel(colVals))))));
+                    else
+                        fprintf('[DEBUG] baseG has NO column "%s"\n', axID);
+                    end
+                end
+
+                if auditOn
+                    nexAudit_fitSWPGridTrace(auditDir, comboDirName, comboLabel, 1, child, child.TRAIN.STAT, ...
+                        child.TRAIN.X_reduced, child.TRAIN.G_reduced, baseDM, baseG, baseBlockColRanges);
+                end
 
                 for si = 1:nSwp
                     subs = nexOp_swpLinToSubs(si, nPerAxis);
@@ -1579,12 +1688,27 @@ classdef mdlObject < handle
                     end
                     grandchild.FTR_blockColRanges = keptBlocks;
 
+                    if auditOn
+                        cellLabel = sprintf('%s | %s', comboLabel, strjoin(comboParts, ', '));
+                        cellDir = fullfile(comboDirName, sprintf('swp_%s', ...
+                            regexprep(strjoin(comboParts, '_'), '[\\/:*?"<>| ]+', '_')));
+                        nexAudit_swpCellDM(auditDir, cellDir, cellLabel, grandchild.DM, grandchild.FTR_blockColRanges);
+                    end
+
                     grandchild.cfg.fitCfg.fcn(grandchild, grandchild.cfg.fitCfg.entryParams);
                     grandchild.DM = [];
                     newGridFits(end+1) = struct('key', comboKey, 'child', grandchild, 'swpVal', swpValStruct); %#ok<AGROW>
                     fprintf('[mdlObject] fitSWPGrid: combo %d/%d, SWP %s (%dx%d) fit\n', ...
                             ci, nCombos, strjoin(comboParts, ', '), nnz(rows), nnz(cols));
                 end
+                % Same reasoning as the non-needsHR branch above -- child
+                % only ever held baseDM/baseG/baseBlockColRanges (and the
+                % HR model tree, via fitReduce's own side effect) as
+                % scratch state for this combo; every grandchild copied
+                % what it needed by VALUE (grandchild.STAT = child.STAT is
+                % a value/COW copy, not a reference to child the object),
+                % so deleting child here doesn't touch anything kept.
+                delete(child);
             end
 
             mdlObj.comboFits = newGridFits;
@@ -2566,8 +2690,18 @@ classdef mdlObject < handle
                 if needsHR && any(skipAxes == string(f)), continue; end
                 selIdx = bus.selections.(f);
 
-                % Default (scalar 1) or single item → skip
-                if numel(selIdx) <= 1, continue; end
+                % Nothing selected at all isn't a meaningful filter request
+                % (narrowing STAT to zero rows would just break downstream
+                % consumers) -- skip only this genuinely degenerate case.
+                % A single selected item IS a real, deliberate filter, same
+                % as any other count -- the "selected == everything" check
+                % right below already handles "this axis isn't actually
+                % narrowed" correctly regardless of how many items that is,
+                % including the single-candidate-axis case. Simplified per
+                % user request -- the previous `numel(selIdx)<=1` guard
+                % conflated "nothing selected" with "exactly one selected",
+                % silently ignoring a deliberate single-value selection.
+                if isempty(selIdx), continue; end
 
                 allVals      = bus.selKeys.(f);
                 selectedVals = allVals(selIdx);

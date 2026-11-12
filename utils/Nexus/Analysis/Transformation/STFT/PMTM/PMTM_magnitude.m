@@ -1,10 +1,18 @@
-function [psd, f] = PMTM_magnitude(xin,fs,bins_per_hz)
+function [psd, f] = PMTM_magnitude(xin,fs,bins_per_hz,NW,K)
     % custom gpu-enabled pmtm by Daniel Harvey
     % Harvey, D. (2018). How to adapt pmtm for a gpuArray? MATLAB Central. Retrieved from https://www.mathworks.com/atlabcentral/answers/267759-how-to-adapt-pmtm-for-a-gpuarray
+    %
+    % NW : time-bandwidth product. Half-bandwidth (frequency smoothing) is
+    %      W = NW / T Hz for a window of T s -- e.g. T=0.5 s, NW=4 -> +/-8 Hz;
+    %      T=0.1 s, NW=4 -> +/-40 Hz; T=0.1 s, NW=2 -> +/-20 Hz.
+    % K  : number of DPSS tapers (well-concentrated up to ~2*NW-1).
+    % Defaults NW=4, K=3 reproduce the original hardcoded dpss(m,4,3).
+    if nargin < 4 || isempty(NW), NW = 4; end
+    if nargin < 5 || isempty(K),  K  = 3; end
     [m, n] = size(xin); % m=length of signal, n=# of signals
     k=fs*bins_per_hz;
     nfft = 2^nextpow2(m+k-1);%- Length for power-of-two fft.
-    [E,V] = dpss(m,4, 3);
+    [E,V] = dpss(m, NW, K);
     g=gpuDevice;
     s=(m+nfft)*32*length(V);%how many bytes will be needed for ea. signal
     ne=floor(g.AvailableMemory/s);%number of signals that can be processed at once with available memory

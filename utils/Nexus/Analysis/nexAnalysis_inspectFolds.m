@@ -70,6 +70,17 @@ function T = nexAnalysis_inspectFolds(mdlObj)
     if needsHR
         ftrAxis  = char(mdlObj.domain.FTR(1));
         poolAxis = nexOp_resolvePoolAxis(mdlObj.pMap);
+        if numel(poolAxis) > 1
+            % nexOp_resolvePoolAxis can now return more than one
+            % simultaneously pool-mode axis (Nexus WIP.md #19 follow-up) —
+            % this file's own pooling logic still assumes exactly one
+            % throughout. Fail loudly here rather than hit a dynamic-
+            % field-access error on a non-scalar string further down.
+            error('nexAnalysis_inspectFolds:multiPoolAxisUnsupported', ...
+                ['This mdlObj has %d simultaneously pool-mode axes (%s) -- ' ...
+                 'nexAnalysis_inspectFolds''s own pooling logic only supports one. ' ...
+                 'See Nexus WIP.md #19.'], numel(poolAxis), strjoin(poolAxis, ", "));
+        end
         if poolAxis ~= ""
             % Same enumeration nexAnalysis_cvPermute.m section 4 does for
             % the pool-mode SWP axis — from TRIAL 1 ONLY (STAT_full.ax(1)),

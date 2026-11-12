@@ -1734,6 +1734,48 @@ SWP-gridded fit.
   under the "epoch" mapID default (`map_epochs2time` always returns
   exactly 3 rows/trial) but not a general guarantee for every possible
   pMap config.
+- **Follow-up, same pass: `nexOp_resolvePoolAxis`/`nexOp_poolStackedDM`
+  generalized to multiple simultaneous pool axes**, not just discovered
+  — fixed for real at the user's own call ("cinch this now rather than
+  forget and be surprised later"). `nexOp_resolvePoolAxis` used to
+  silently return only the FIRST `divsPerBin>0` field it found; now
+  returns every one. `nexOp_poolStackedDM` now pools them hierarchically
+  (first axis bins positionally over the whole trial; each later axis
+  bins positionally within its predecessor's own surviving rows —
+  mirrors `nexHR_fit`'s own recursive block structure) rather than
+  silently dropping every axis but the first. The single-axis case is
+  the recursion's own base case, unchanged line-for-line from the
+  original algorithm — verified by inspection to produce IDENTICAL
+  results for exactly one axis, but **NOT yet exercised against a real
+  pMap with 2+ simultaneous pool axes** — audit/test this live before
+  trusting it on real data. `nexOp_resolveSWPAxis.m` updated for the
+  plural return (`any(swpID == poolAxes)` instead of a scalar `==`,
+  which would have errored via `&&` on a non-scalar operand the first
+  time 2+ pool axes actually existed). `nexAnalysis_cvPermute.m`/
+  `nexAnalysis_inspectFolds.m` were NOT touched to support multiple pool
+  axes for their OWN (separate, already multi-axis-for-SWP-but-
+  single-poolAxis-throughout) sweep machinery — deliberately out of
+  scope today (their own `resolveSWPMaskHR`/section-4 `swpAxes` logic
+  assumes one poolAxis structurally, a materially bigger rewrite). Both
+  DO now get an explicit `error(...)` guard right after resolving
+  `poolAxis` if it comes back with more than one element, so a future
+  2-pool-axis pMap fails loudly and immediately there instead of hitting
+  a dynamic-field-access error on a non-scalar string deep in a CV fold
+  loop.
+- **New gap surfaced, not fixed (pre-existing, shared, not SSM-specific):**
+  nothing in Nexus persists `mdlObj.HR`/`mdlObj.FTR_layout` — `nexHR_fit`'s
+  own fitted block-PCA model tree (nested Python PCA objects per block) —
+  through `saveFit`/`loadFit` for ANY needsHR mdlObj. `mdlObj_ssm.saveFit`/
+  `.loadFit` still persist `mdlObj.Scaler.model` (now real and necessary,
+  since `fitReduce` fits it) but explicitly do NOT persist `HR`/
+  `FTR_layout` — flagged in both methods' own comments. Consequence: a
+  freshly `loadFit`'d needsHR mdlObj's `flattenInput`/`transform()` sees
+  `isempty(mdlObj.HR)` and silently falls through to the NON-needsHR
+  fallback path instead of actually reducing — inference after a
+  save/reload cycle is not currently correct for a needsHR fit. Real fix
+  needs its own design (recursively serializing nested per-block sklearn
+  PCA objects, mirroring whatever `mdlObj_reducer.save/load` — the now-
+  retired mechanism this replaces — used to do for exactly this).
 
 ---
 
@@ -1770,5 +1812,382 @@ constrained fitting has no SGD counterpart in the wrapper today either
 (`fit_block_diagonal` is its own hand-rolled EM loop, not `model.fit_em`)
 — would need its own SGD-equivalent if block-diagonal + minibatched
 fitting together is ever needed, not just unconstrained + minibatched.
+
+---
+
+## 21. The "cooldown" mystery (up to 24h, no visible CPU/GPU/RAM pressure) and why it points toward running fits via the Agent Contract instead of in-session
+
+**Status:** Root cause NOT confirmed. One concrete mitigation landed
+(`delete()` on scratch children in `fitSWPGrid`). Bigger architectural
+redirect identified and agreed as the real priority — logged here so the
+reasoning survives past this conversation, since the user's own stated
+trajectory is: finish verifying the SSM pipeline through `fitSWPGrid` →
+implement/test dynamax SGD/batch fitting (#20) → THEN generalize this
+entry's design across both `fitSWPGrid` AND `nexAnalysis_cvPermute.m`
+(LDA), not just SSM.
+
+**The symptom:** after a multi-cell LDA `nexAnalysis_cvPermute` run
+finished and control had fully returned to the MATLAB prompt, the
+machine stayed sluggish for as long as 24 hours in the worst observed
+case. Confirmed, by direct user observation, NOT explained by:
+- The run's own `TIMING:` instrumentation (full-CTG `fitReduce` and
+  `py.gc.collect()`, both already wrapped in `tic`/`toc` by an earlier
+  session specifically to chase this) — both reported near-instantly.
+- RAM/swap — 300GB physical RAM, never observed near its limit; the
+  user's own words: "the objects themselves aren't RAM heavy, it's the
+  physical data that drives my RAM."
+- GPU/CPU being visibly "driven hard" during the stall.
+- Network storage latency — confirmed local (Expansion Drive), not a
+  network share.
+- Each child automatically writing a RESULT to HDF5 on fit — checked
+  directly (grepped `fit`/`fitByCombo`/`fitSWPGrid` for any `save`/`h5`/
+  `write` call): none exists. `saveFit`/`saveRESULT`/`saveFitAll` are
+  separate, explicitly user-invoked methods, never called from inside
+  the fit path itself.
+- Confirmed to happen strictly AFTER the whole analysis function
+  returns, not during the run (ruling out anything the existing TIMING
+  markers, which are all mid-run, could have caught even if they'd shown
+  a delay).
+
+**Leading (unconfirmed) hypothesis:** mass, simultaneous teardown of a
+large backlog of Python-proxy-holding MATLAB handle objects. Nexus's
+Python session runs `ExecutionMode="OutOfProcess"` (`startNexus.m`) —
+every `py.*` object a MATLAB handle holds (`model`, `Scaler.model`, each
+block's `HR{b}.reducer`, dynamax's `W.params`) is a proxy to something
+living in a SEPARATE OS process, released via an IPC "decref" (decrement
+reference count) round-trip. `nexAnalysis_cvPermute.m`/`fitByCombo`/
+`fitSWPGrid` never call `delete()` on any temporary fold/combo/SWP-cell
+child — every one relies entirely on MATLAB's own lazy, batched handle-
+object GC to eventually notice it's unreferenced. When a function
+returns, EVERY one of its local temporaries goes out of scope
+simultaneously, not incrementally — so if a run accumulated many such
+children (nFolds × nPermute × combos × SWP cells, for cvPermute
+specifically — much larger than fitSWPGrid's own CTG × SWP, which has no
+fold/permutation dimension), their teardown could all land in one
+moment. Candidate reason this could cost disproportionately more than
+the sum of its parts (24h is wildly disproportionate to "a few hundred
+small proxy releases," which is why this is flagged as unconfirmed, not
+settled): some non-linearity in either MATLAB's own handle/COW-array
+reference-graph walk, or in how many individual IPC round-trips get
+serialized when a large batch comes due at once, rather than the
+teardown cost being purely linear in backlog size (in the strictly-linear
+case, spreading cleanup out would only relocate a visible stall, not
+actually shorten total wall-clock time — this distinction was explicitly
+discussed and is NOT resolved either way).
+
+**Open, cheap diagnostics not yet run** (still worth doing before
+trusting any fix):
+1. Watch the Python process specifically (not MATLAB) for CPU activity
+   during a future cooldown window — would directly confirm/deny the
+   Python-side decref-cascade theory.
+2. Run the same workload via `-nodesktop` to rule out MATLAB Desktop/
+   Workspace-browser JVM-side indexing of a large nested variable.
+
+**Mitigation landed today (low-risk, scoped to `fitSWPGrid` only):**
+explicit `delete(child)` added at the two points in `mdlObject.fitSWPGrid`
+where a per-combo `child` is pure scratch (never stored in `comboFits` —
+only the grandchildren per SWP cell are) — end of the non-needsHR "raw"
+branch and end of the needsHR branch's `si` loop. Does nothing for
+`nexAnalysis_cvPermute.m` itself (not touched — deliberately deferred,
+see below).
+
+**The real redirect — running fits via the Agent Contract instead of
+in-session, not just patching cleanup:** regardless of whether the
+mass-teardown theory is ever confirmed, running `fitSWPGrid` (and
+eventually `cvPermute`) inside a SEPARATE process via Nexus's own
+already-documented dehydrate/rehydrate Agent Contract pattern
+(`saveState()`/`mdlObj_fromState()`, `nexAgent_run(contractPath)`,
+dispatched via `parfeval`/`matlab -batch` — see `Nexus/CLAUDE.md`'s own
+"Agentic Analysis" section) makes the whole question moot: OS process
+teardown reclaims everything unconditionally the instant the process
+exits, no cooperative decref chain required. This ALSO directly realizes
+the user's own intended split — interactive terminal for viewing/
+manipulating/RESULT-loading, background process for the actual analysis,
+eventually agent-dispatchable — rather than being a workaround bolted on
+for a performance problem. Recognized explicitly as a two-birds-one-stone
+design, not a stretch.
+
+**Not yet built (the real remaining scope, in two parts):**
+1. `nexAgent_run` expects `feval(analysisID, mdlObj, analysisCfg)` — a
+   plain `(mdlObj, cfg)` function. `fitSWPGrid` is a no-arg method, so it
+   needs a thin wrapper, e.g. `nexAnalysis_fitSWPGrid(mdlObj, ~) ->
+   mdlObj.fitSWPGrid()`, to match the existing contract shape with zero
+   changes to `nexAgent_run` itself.
+2. **The harder, undecided piece:** what the background job actually
+   WRITES and what the interactive terminal LOADS back. Today
+   `fitSWPGrid` leaves results as live, Python-backed handles sitting in
+   `mdlObj.comboFits` — exactly the kind of object the terminal side
+   should never have to hold if the split is to mean anything.
+   `saveFitAll` already exists and already walks `comboFits`, calling
+   each child's own `saveFit` — a natural starting point, but the full
+   shape of "one grid-sweep's worth of results, as something cheap to
+   load back" has not been designed.
+
+**Explicit user-stated sequencing — do NOT jump ahead of this:** (1)
+finish passing the SSM pipeline through `fitSWPGrid` and verify it works
+on real data (using #19's audit trail — `nexAudit_fitSWPGridTrace`/
+`nexAudit_swpCellDM`); (2) implement and test dynamax's SGD/batch fitting
+(#20); (3) ONLY THEN generalize this entry's Agent Contract design across
+BOTH `fitSWPGrid` and `nexAnalysis_cvPermute.m` (LDA) together — not
+SSM-only. `nexAnalysis_cvPermute.m` itself has intentionally NOT been
+touched for any of this yet.
+
+---
+
+## 22. SSM GPU fit: real `dynamax`/TFP `MVN` asymmetry fixed; the remaining
+GPU-only crash turned out to be a known JAX/cuSolver dependency bug, not
+a numerics problem — `jax[cuda12]` upgrade in progress, PyTorch left
+intentionally mismatched for now
+
+Full investigation write-up (diagnostic methodology, every ruled-out
+hypothesis, the worked analogies) lives in
+`utils/Nexus/python/Pytafix/pytafix/ssm/NaN_collapse_investigation.md` —
+this entry is the WIP-level summary + the still-open piece.
+
+**What's real and fixed, keeping regardless of the GPU/cuSolver outcome
+below:**
+- `lgssm_dynamax.py`'s `fit()` rewritten to loop `model.fit_em(...,
+  num_iters=1)` itself instead of one bulk `num_iters=N` call (proven,
+  via reading `dynamax/ssm.py`'s own source, to be byte-for-byte what
+  `fit_em` already does internally — not a workaround against the
+  library's design). Between iterations: re-floors `Q`/`R`/`initial.cov`
+  (variance collapse — a general, well-documented EM pathology, not GPU-
+  specific) and clips `A`'s spectral radius to 0.95 if it drifts past 1
+  (mirrors `fit_block_diagonal()`'s existing precedent). Finiteness
+  checked before every `eigvalsh` call (which raises
+  `LinAlgError: Eigenvalues did not converge`, not a NaN return, on an
+  already-non-finite input).
+- The original, unstabilized bulk call preserved as `fit_bulk()` (not
+  deleted).
+- **Real bug found and fixed in `dynamax` itself** (via `pytafix`-side
+  monkeypatch, dynamax's own installed files never touched): its
+  `_log_likelihood` (private closure inside `lgssm_filter`) builds the
+  SAME innovation covariance `S = R + H @ pred_cov @ H.T` that
+  `_condition_on` builds for the Kalman gain — but while `_condition_on`
+  routes its copy through `psd_solve` (dynamax's own `1e-9`-diagonal-
+  boost-before-Cholesky helper), `_log_likelihood` hands its copy RAW
+  into `MVN(m, S).log_prob(y)`, which runs an entirely unprotected
+  `tf.linalg.cholesky`. Confirmed via a native-Python reproduction
+  (MATLAB's `py.*` bridge truncates tracebacks; had to export the
+  emissions array via `py.numpy.save` and reproduce outside MATLAB) with
+  `JAX_TRACEBACK_FILTERING=off` + `jax.disable_jit()`. Fixed by
+  monkeypatching `dynamax.linear_gaussian_ssm.inference.MVN` (the free
+  variable `_log_likelihood` looks up at call time — no importable name
+  to override directly) with a wrapper that adds the same style of
+  diagonal jitter, `1e-6` (bigger than dynamax's native `1e-9` since GPU's
+  cuSolver Cholesky kernel tolerates a near-singular matrix less
+  gracefully than CPU's LAPACK does).
+
+**What that fix did NOT do: resolve the GPU crash.** Re-running after the
+`MVN` patch hit the exact same failure point. Deeper localization (bypass
+`vmap`'s batching entirely — it still produces un-convertible
+`BatchTracer`s even under `disable_jit()` — by replaying `fit()`'s first
+2 iterations manually, then calling `model.e_step` per-trial in a plain
+loop) found trial 0 alone reproduces it immediately, and tracing further
+in showed the actual error isn't a NaN at all:
+`jaxlib._jax.XlaRuntimeError: INTERNAL: cuSolver internal error`, raised
+during **XLA compilation** of the batched Cholesky kernel itself (not
+during numerical execution) — and it recurred at THREE different call
+sites across different attempts (the forward filter's log-likelihood,
+the smoother's backward pass, the M-step's own regression fit), always
+the same error, just whichever Cholesky-shaped call got compiled first.
+
+**Root cause (confirmed via JAX's own GitHub issues #29065 and #29042,
+not guessed):** JAX 0.6.1 shipped an upper-version-limit on its
+`nvidia-cublas-cu12` dependency that let pip resolve an incompatible
+pairing against a newer `nvidia-cusparse-cu12` wheel — cuSolver's batched
+Cholesky implementation depends on both internally. Confirmed our
+environment had exactly the affected old `nvidia-cublas-cu12==12.4.5.8`
+despite running `jaxlib==0.6.2` (upgrading jax's own package doesn't
+retroactively upgrade an already-installed dependency wheel). This also
+reframes the ENTIRE earlier numerics investigation: the original
+deterministic NaN (traced all the way to the unprotected `MVN` Cholesky)
+may itself have been a symptom of this same underlying cuSolver
+fragility, not a pure data/EM-pathology problem — unresolved, since the
+GPU-level bug was never cleared long enough to re-test the `MVN` fix in
+isolation.
+
+**In progress:** a targeted `pip install "nvidia-cublas-cu12==12.9.0.13"`
+(the specific version confirmed by another reporter on the same GitHub
+thread) did NOT fully resolve it — the failure simply moved to a
+different Cholesky call site, same error. Strong evidence the real fix
+needs the FULL `jax[cuda12]` dependency set upgraded together (JAX's own
+`cuda12` extra pins a mutually-tested set of
+`cublas`/`cusparse`/`cusolver`/`cudnn`-cu12 versions simultaneously,
+rather than hand-picking one package and leaving the others stale).
+`pip install --upgrade "jax[cuda12]"` launched by the user; result not
+yet confirmed as of this entry.
+
+**Deliberately deferred, NOT part of tonight's fix:** the cublas upgrade
+(either the single-package one already applied, or the fuller
+`jax[cuda12]` one in progress) breaks `torch==2.6.0`'s own exact pin on
+`nvidia-cublas-cu12==12.4.5.8` (and a pre-existing, unrelated
+`nvidia-cudnn-cu12` mismatch pip flagged at the same time — that one
+predates tonight's changes). `torch` doesn't expose a way to loosen this
+pin while staying on 2.6.0 — the real fix is moving to a newer `torch`
+release whose own metadata already expects the newer CUDA library set,
+which is its own separate, deliberately-deferred task (needs its own
+sanity check — a CUDA matmul at minimum, ideally exercising whatever in
+Nexus actually depends on `torch`+GPU, e.g. CEBRA/UMAP embedding — before
+trusting it). Until that happens, anything using `torch` with CUDA in
+this shared `nexus` environment is in a known-mismatched state.
+
+---
+
+## 23. SSM GPU fit (WIP #22 follow-on): the "upgrade everything to latest"
+attempt overshot and broke GPU loading entirely; cuSPARSE specifically
+confirmed as the culprit; JAX's own team has an acknowledged, unresolved
+`cusolver` version-check bug; rolled back to the cublas-only fix state
+
+Tried bringing `nvidia-cusolver-cu12`/`nvidia-cusparse-cu12`/
+`nvidia-cudnn-cu12`/`nvidia-cuda-runtime-cu12` all up to their latest
+PyPI versions together (reasoning: same-era NVIDIA wheels are more
+likely mutually tested than hand-picking one package) — this was a
+heuristic, not a confirmed-compatible set, unlike the `cublas==12.9.0.13`
+bump (#22), which WAS directly evidence-based (another reporter on the
+same GitHub thread confirmed that exact version for this exact bug).
+
+**Result: made things worse, not better.** JAX's CUDA plugin failed to
+load at all —
+`RuntimeError: ... cusparseGetProperty(...) failed: The cuSPARSE library
+was not found` — and JAX silently fell back to CPU. The run that
+followed (on CPU, not GPU) hit a new, confusing `psd_solve` failure with
+a substantively indefinite matrix (`eig` ranging from `-0.163` to
+`0.979` — not a tiny rounding-scale negative, a real one), which does
+NOT match anything seen across multiple real, in-MATLAB `fit()` runs —
+most likely a bug in the throwaway manual-EM-replication diagnostic
+script itself, not a real finding about the model. Flagged as
+unconfirmed/likely-noise rather than chased further.
+
+**Root cause, confirmed (not guessed) via `jax_plugins/xla_cuda12/
+__init__.py`'s own `_check_cuda_versions` source:** version checks run
+in a fixed order — CUDA runtime → cuDNN → cuFFT → cuPTI → cuBLAS →
+cuSPARSE — and `raise_on_first_error=True` means it stops at the FIRST
+failure. Since cuSPARSE's check is what raised, cuda-runtime/cuDNN/
+cuFFT/cuPTI/cuBLAS (four of the five things just upgraded) all
+necessarily PASSED their checks first. Specifically cuSPARSE's jump to
+`12.5.10.65` broke jaxlib 0.6.2's own precompiled version-check
+extension — likely an ABI/symbol-behavior change in `cusparseGetProperty`
+between the cusparse version jaxlib 0.6.2 was built against and
+`12.5.10.65`, a 2-minor-version jump.
+
+**Notable, previously-unknown context found in the same file** — JAX's
+own developers have an acknowledged, unresolved issue in this exact area,
+serious enough that they disabled the check rather than fix it:
+```python
+# TODO(phawkins): for some reason this check fails with a cusolver internal
+# error when fetching the version. This may be a path error from our stubs.
+# Figure out what's happening here and re-enable.
+# _version_check("cuSOLVER", ...)
+```
+The phrase "cusolver internal error" in a JAX-authored comment about a
+KNOWN, open problem is the same phrase this entire investigation (#22)
+has been chasing all evening. Doesn't prove the deeper Cholesky-
+compilation crash (the one that survives even the clean, GPU-loading
+`cublas`-only fix state) is literally the same bug, but it's a real
+signal that cuSolver integration in this jaxlib release has a
+recognized, not-fully-understood sore spot for the JAX team itself —
+this may not be fully solvable through version-pinning alone from our
+side.
+
+**Action taken:** rolled back `cusolver`/`cusparse`/`cudnn`/
+`cuda-runtime` to their original versions (`11.6.1.9`/`12.3.1.170`/
+`9.20.0.48`/`12.4.127`), keeping only the confirmed-safe
+`cublas==12.9.0.13`. Confirmed GPU loads again
+(`jax.devices() -> [CudaDevice(id=0)]`). This is the SAME state #22
+left off at (gets past iterations 0-2 cleanly, still fails later with
+the cuSolver Cholesky-compilation error) — net progress tonight on the
+GPU-specific crash itself is effectively zero; the real yield was
+ruling out several hypotheses (data conditioning, `A`/`Q`/`R`
+stabilization, the `MVN` asymmetry fix) and landing on strong evidence
+this is a jaxlib/cuSolver integration issue, not a numerics problem in
+our own code or in `dynamax`'s EM math.
+
+**Not yet tried:** changing ONE variable at a time from this known-good-
+load baseline (e.g. `cusolver` alone next) rather than bulk upgrades,
+to find the actual safe boundary if one exists — or accepting CPU for
+this workload given the dataset's tiny size (68x480x10) and revisiting
+GPU only if/when a future `jaxlib` release actually fixes the
+underlying issue (confirmed via `pip index versions jaxlib` that `0.6.2`
+is currently the latest available — no newer release to try yet).
+
+---
+
+## 24. SSM GPU fit (WIP #22/#23 resolution): RESOLVED — root cause was never
+GPU/jaxlib/cuSolver/environment at all; it was the M-step's own initial-
+covariance estimate going substantially indefinite, with the existing
+floor 1000x too small. `fit()` now completes all 20 iterations cleanly,
+confirmed 4/4 consecutive runs, in an ordinary fresh process on the
+unmodified reverted environment.
+
+**How this was actually found**: direct instrumentation (vmap-safe
+`jax.debug.print` + `jax.lax.cond`, run through the REAL, unmodified,
+fully-batched `fit_em` call — critically, NOT an isolated/un-batched
+single trial, which is a different, unrelated failure mode that misled
+much of tonight's earlier investigation, see below) showed the very
+FIRST `_condition_on` call of the entire failing iteration — timestep
+`t=0`, before any per-timestep propagation happens at all — already
+receives a non-finite result. Its input, `params.initial.cov`, was
+printed directly: eigenvalue `-0.117`, confirmed via `np.linalg.eigvalsh`
+— substantial, not rounding noise — even AFTER the existing `+1e-4` flat
+jitter reflooring (added in #22) already ran on it. Not accumulated
+per-timestep drift at all (two attempts assuming that — per-timestep
+symmetrize+jitter on `_condition_on`'s AND `_predict`'s own outputs, at
+`1e-6` then `1e-2`, on one then both functions — were tried and ruled
+out by direct evidence before this was found): the M-step's own
+ONE-TIME-PER-ITERATION MLE estimate of the initial-state covariance
+comes out substantially indefinite, and a flat constant roughly 1000x
+smaller than the actual negative eigenvalue was never going to fix it,
+no matter how many times per iteration it was reapplied.
+
+**The fix**: `initial.cov`'s reflooring now uses a proper eigenvalue
+clip (symmetrize, floor every eigenvalue to at least `jitter`) instead
+of a flat additive constant — unconditionally correct regardless of how
+far negative the real eigenvalue has drifted, unlike guessing at ever-
+larger flat constants. Costs nothing extra: this matrix is `state_dim x
+state_dim` (3x3 here) and computed once per outer EM iteration, not in
+the 480x68-call-per-iteration hot path that ruled out doing this for
+`_condition_on`/`_predict` (an `eigh` call there would itself be a new
+cuSolver call inserted into the thing we were trying to get away from).
+
+**Preserved per explicit request, given the whole night's wild chase**:
+the pre-fix per-iteration loop is kept, byte-identical, as
+`fit_no_inner_psd_defense()` — confirmed via direct comparison to still
+reach iteration 3 and fail there exactly as before (same LL values).
+Avoided any risk of the two methods silently diverging (the original
+mistake that caused tonight's chase) by extracting the per-iteration
+loop into a shared `_fit_core(cls, ..., reflooring_fn)` that both `fit()`
+and `fit_no_inner_psd_defense()` call with a different reflooring
+strategy passed in — zero code duplication between them.
+
+**What #22's `MVN` patch, `Q`/`R`/`A` reflooring, and tonight's GPU/driver
+archaeology actually were**: all real, confirmed findings — not wasted
+effort — but none of them were THE bug. The `MVN` asymmetry was real and
+is still fixed. The `Q`/`R`/`A` per-iteration reflooring is real,
+necessary, general EM-stability defense-in-depth, and still active. The
+entire GPU/jaxlib/cuSolver/driver/dependency-version saga (WIP #22/#23)
+was chasing a genuinely different, SEPARATE problem: an un-batched,
+isolated-single-trial diagnostic call (used to localize which trial was
+responsible) is a different compiled program than anything the real,
+always-fully-`vmap`-batched production code ever executes — and that
+different compiled program has its own, real, apparently GPU-specific
+cuSolver limitation that the real code simply never triggers. Mistaking
+an artifact of the diagnostic methodology for a property of the real
+code cost most of one night; the lesson, now encoded in how every
+diagnostic script in this investigation was eventually written: **always
+instrument the real, fully-batched call path, never an isolated
+single-trial bypass**, however tempting that is for localizing *which*
+trial is responsible.
+
+**Not yet done, explicitly deferred**: the earlier, orthogonal cuSolver/
+jaxlib/dependency-version findings from #22/#23 remain true facts about
+this environment (the confirmed `cublas`/jax 0.6.1 regression, the
+confirmed working `nexus_jaxtest` Python 3.12 + conda-forge environment
+built tonight as a fallback, the still-unexplained compile-time
+`cuSolver internal error` on isolated/un-batched calls specifically) —
+none of that needs further action now that the real bug is fixed and
+confirmed in the existing, unmodified, reverted environment, but it's
+left documented rather than silently dropped, in case an isolated-trial-
+style diagnostic is ever needed again.
 
 ---

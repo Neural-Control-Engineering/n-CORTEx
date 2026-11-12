@@ -23,15 +23,41 @@ function DM = stat2dm_dpca(mdlObj)
     end
 
     %% Stack X: (N_lat × T × N_trials) from STAT.df cells (T × N_lat each)
+    % Trials are trimmed to the SHORTEST trial's length (event-aligned trials
+    % routinely come up a bin or two short -- see nexOp_reshapeStackedByTrial).
+    % Previously X_raw was zeros() and any trial whose length != trial 1's was
+    % skipped but left as an all-ZERO trial that still counted toward X_avg and
+    % numOfTrials, biasing averages toward zero. Now: NaN-initialized, trimmed
+    % to a common length, and a trial whose feature count doesn't match is left
+    % NaN (excluded) with a warning instead of silently zeroed.
     N_trials = height(STAT);
-    T_ref    = size(STAT.df{1}, 1);
+    T_each   = cellfun(@(d) size(d, 1), STAT.df);
+    T_ref    = min(T_each);
     N_lat    = size(STAT.df{1}, 2);
-    X_raw    = zeros(N_lat, T_ref, N_trials);
+    if any(T_each ~= T_ref)
+        fprintf(['[stat2dm_dpca] trimmed %d/%d trial(s) to common length T=%d ' ...
+                 '(dropped up to %d trailing bin(s))\n'], ...
+                nnz(T_each ~= T_ref), N_trials, T_ref, max(T_each) - T_ref);
+        if (max(T_each) - T_ref) > 0.05 * max(T_each)
+            warning('stat2dm_dpca:trim', ...
+                'trial lengths differ by >5%% (min %d, max %d) -- check event alignment.', ...
+                T_ref, max(T_each));
+        end
+    end
+    X_raw    = NaN(N_lat, T_ref, N_trials);
+    nBadFeat = 0;
     for r = 1:N_trials
         df_r = STAT.df{r};
-        if size(df_r, 1) == T_ref
-            X_raw(:, :, r) = df_r';
+        if size(df_r, 2) ~= N_lat
+            nBadFeat = nBadFeat + 1;
+            continue;   % stays NaN -> excluded from X_avg and numOfTrials
         end
+        X_raw(:, :, r) = df_r(1:T_ref, :)';
+    end
+    if nBadFeat > 0
+        warning('stat2dm_dpca:features', ...
+            '%d trial(s) had a feature count ~= %d and were excluded (mixed sessions/unit sets?).', ...
+            nBadFeat, N_lat);
     end
 
     %% Resolve condition variable values — STAT columns first, DTS fallback
@@ -126,7 +152,7 @@ function DM = stat2dm_dpca(mdlObj)
 
         % Index into N_lat+cond+T dimensions: {:, s1, s2, ..., :}
         avgSub         = [{':'}, num2cell(idx_g), {':'}];
-        X_avg(avgSub{:}) = mean(X_g, 3);
+        X_avg(avgSub{:}) = mean(X_g, 3, 'omitnan');
 
         singleSub              = [{':'}, num2cell(idx_g), {':', 1:n_g}];
         X_single(singleSub{:}) = X_g;

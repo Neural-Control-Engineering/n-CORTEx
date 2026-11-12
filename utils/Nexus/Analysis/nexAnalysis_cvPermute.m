@@ -209,6 +209,18 @@ function nexAnalysis_cvPermute(mdlObj, resultID)
     poolAxis   = "";
     if needsHR
         poolAxis = nexOp_resolvePoolAxis(mdlObj.pMap);
+        if numel(poolAxis) > 1
+            % nexOp_resolvePoolAxis can now return more than one
+            % simultaneously pool-mode axis (Nexus WIP.md #19 follow-up) —
+            % this file's own SWP/pooling machinery (section 4 below,
+            % resolveSWPMaskHR) still assumes exactly one throughout.
+            % Fail loudly here rather than hit a dynamic-field-access
+            % error on a non-scalar string deep in a CV fold loop.
+            error('nexAnalysis_cvPermute:multiPoolAxisUnsupported', ...
+                ['This mdlObj has %d simultaneously pool-mode axes (%s) -- ' ...
+                 'nexAnalysis_cvPermute''s own SWP/pooling logic only supports one. ' ...
+                 'See Nexus WIP.md #19.'], numel(poolAxis), strjoin(poolAxis, ", "));
+        end
         fprintf(['[nexAnalysis_cvPermute] needsHR: FTR axis "%s" is reduce-mode; ' ...
                  'deferring pool axis "%s" until after reduction.\n'], ftrAxisStr, poolAxis);
     end

@@ -5,6 +5,18 @@ function ptr = nexInit_axisPointer(df, ax)
     %
     % Usage:
     %   ptr = nexInit_axisPointer(df_pooled.df, df_pooled.ax)
+    %
+    % Flat/scalar df -- no axes at all (e.g. a plain per-trial category
+    % value compiled as its own dfID, responseThreshold_g-style) -- ax
+    % empty/missing. Same tolerance as nex_initAxisPointer_v2's own guard:
+    % nothing to build a pointer for, so return an empty one instead of
+    % looping (fieldnames(ax) on [] or struct() already returns {} here,
+    % so the loop below was already a silent no-op in that case -- this
+    % makes that explicit instead of relying on it).
+    if isempty(ax) || (isstruct(ax) && isempty(fieldnames(ax)))
+        ptr = nexObj_ptr(struct());
+        return;
+    end
 
     axFields  = fieldnames(ax);
     dimsTaken = [];

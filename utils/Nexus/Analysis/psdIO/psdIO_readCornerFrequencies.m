@@ -77,25 +77,25 @@ function df_cf = psdIO_readCornerFrequencies(f_psd, df_psd, cfConvention)
     end
 
     %% Diagnostics
-    % figure;
-    % subplot(2,1,1);
-    % semilogx(f_psd, df_psd, 'Color', [0.7 0.7 0.7]); hold on;
-    % semilogx(f_resamp, df_smooth_resamp, 'b', 'LineWidth', 1.5);
-    % for cf = f_cf
-    %     xline(cf, 'r--', sprintf('%.0f Hz', cf), 'LabelVerticalAlignment','bottom');
-    % end
-    % xlabel('Frequency (Hz)'); ylabel('Power'); title('PSD + Corner Frequencies');
-    % 
-    % subplot(2,1,2);
-    % scatter(f_slopes, local_slopes, 30, cluster_idx, 'filled');
-    % colormap(lines(K)); colorbar;
-    % set(gca, 'XScale', 'log');
-    % hold on;
-    % for cf = f_cf
-    %     xline(cf, 'r--');
-    % end
-    % xlabel('Frequency (Hz)'); ylabel('Log-log slope (spectral exponent)');
-    % title(sprintf('K=%d regime clustering | centroids: %s', K, mat2str(round(centroids,2))));
+    figure;
+    subplot(2,1,1);
+    semilogx(f_psd, df_psd, 'Color', [0.7 0.7 0.7]); hold on;
+    semilogx(f_resamp, df_smooth_resamp, 'b', 'LineWidth', 1.5);
+    for cf = f_cf
+        xline(cf, 'r--', sprintf('%.0f Hz', cf), 'LabelVerticalAlignment','bottom');
+    end
+    xlabel('Frequency (Hz)'); ylabel('Power'); title('PSD + Corner Frequencies');
+
+    subplot(2,1,2);
+    scatter(f_slopes, local_slopes, 30, cluster_idx, 'filled');
+    colormap(lines(K)); colorbar;
+    set(gca, 'XScale', 'log');
+    hold on;
+    for cf = f_cf
+        xline(cf, 'r--');
+    end
+    xlabel('Frequency (Hz)'); ylabel('Log-log slope (spectral exponent)');
+    title(sprintf('K=%d regime clustering | centroids: %s', K, mat2str(round(centroids,2))));
 
     df_cf = f_cf;
 end

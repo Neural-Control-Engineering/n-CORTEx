@@ -1,4 +1,17 @@
 function DF = nex_initAxisPointer_v2(DF)
+    % Flat/scalar DF -- e.g. a plain per-trial category value compiled as
+    % its own dfID (responseThreshold_g-style), which has no axes at all.
+    % Confirmed directly: this previously assumed DF.ax unconditionally
+    % present, erroring "Unrecognized field name 'ax'" on a DF with no
+    % such field. Nothing to build a pointer for -- empty ax/ptr instead
+    % of erroring. Every downstream consumer (nexStat_breakoutDF's own
+    % DF.ax/DF.ptr table row, nexOp_sliceDF/nexOp_buildSliceIndex) already
+    % tolerates an empty struct here, just not a MISSING field.
+    if ~isfield(DF, 'ax')
+        DF.ax  = struct();
+        DF.ptr = nexObj_ptr(struct());
+        return;
+    end
     % loop through ax fields and initiate ptr for each
     axFields = fieldnames(DF.ax);
     df = DF.df;

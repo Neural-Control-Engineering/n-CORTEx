@@ -86,5 +86,5 @@ end
 function items = seedFcns()
 % Curated starting set for the editable function dropdown. Editable=on, so any
 % function name can be typed; extend this list as common ops stabilise.
-    items = {'nex_pcaNoiseRm', 'rtPMTM_magnitude_roll'};
+    items = {'nex_pcaNoiseRm', 'rtPMTM_magnitude_roll', 'nexOp_sqrtCounts', 'nexOp_commonMode'};
 end

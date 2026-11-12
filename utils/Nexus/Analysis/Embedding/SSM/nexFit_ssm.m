@@ -75,13 +75,12 @@ function nexFit_ssm(mdlObj, args)
                 end
             end
 
-            if ndims(DM) < 3
-                % 2D path: single sequence (T x channels)
-                DM_scaled_py = mdlObj.py.np.array(double(DM));
-            else
-                % 3D path: batched (num_trials x T x channels)
-                DM_scaled_py = mdlObj.py.np.array(double(DM));
-            end
+            % DM is already in whatever shape dynamax itself distinguishes
+            % internally -- 2D (T x channels, single sequence) or 3D
+            % (num_trials x T x channels, batched) -- no MATLAB-side
+            % branching needed now that scaling/reduction/pooling no
+            % longer happen here.
+            DM_scaled_py = mdlObj.py.np.array(double(DM));
 
             % FIT SSM
             switch isBlock

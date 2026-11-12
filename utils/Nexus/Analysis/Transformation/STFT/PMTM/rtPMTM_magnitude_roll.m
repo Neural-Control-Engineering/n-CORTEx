@@ -1,4 +1,7 @@
 function DF_out = rtPMTM_magnitude_roll(DF, args)
+    % Back-compat: cfgs saved before NW/K were parameterized lack these fields.
+    if ~isfield(args, 'NW'), args.NW = 4; end
+    if ~isfield(args, 'K'),  args.K  = 3; end
     % CFG HEADER
     windowLen = args.windowLen; % default = 250
     stride = args.stride; % default = 50
@@ -6,6 +9,8 @@ function DF_out = rtPMTM_magnitude_roll(DF, args)
     chanRange_end = args.chanRange_end; % default = 384    
     Fs = args.Fs; % default = 500
     preBuffLen = args.preBuffLen; % default = 3.5
+    NW = args.NW; % default = 4
+    K = args.K; % default = 3
 
     % DF = nexObj.DF;
     chanSel = [chanRange_start: chanRange_end];

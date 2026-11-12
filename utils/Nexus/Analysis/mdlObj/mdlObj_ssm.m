@@ -12,13 +12,19 @@ classdef mdlObj_ssm < mdlObject
             % neural network handle to train and infer from a neural
             mdlObj = mdlObj@mdlObject(Parent, Origin, "ssm", dfID_source, [], headline);
             mdlObj.py.np = py.importlib.import_module('numpy');
-            sklearnPreProc = py.importlib.import_module('sklearn.preprocessing');
-            mdlObj.Scaler.model = sklearnPreProc.StandardScaler();
+            % mdlObj.Scaler.model is already set by the base mdlObject
+            % constructor (every subclass gets one) — no need to build a
+            % second StandardScaler here.
             % mdlObj.cfg.fitCfg = nex_generateCfgObj(str2func("nexFit_ssm"));
-            % Reducer: placeholder with no blocks — setBlocks() called by initReducer at fit time
-            mdlObj.Reducer = mdlObj_reducer("pca", mdlObj.cfg.fitCfg.entryParams.reducerDim);
             mdlObj.domain.FTR = mdlObj.domain.D2(1);   % default: first non-t axis; updated by Domain bus
-       
+
+            % mdlObj.Reducer (the old bespoke setBlocks-based mechanism)
+            % and its own initReducer override are retired — unified onto
+            % the shared needsHR reduce-then-pool sequence (Nexus WIP.md
+            % #19): getDesignMatrix's needsHR branch (fitReduce ->
+            % nexHR_fit) now does this generically, keyed off whatever
+            % sign pMap.chans.divsPerBin actually has — set via the
+            % Figure's own pMap config, not here.
         end
 
         function locateDataset(mdlObj)
@@ -34,48 +40,12 @@ classdef mdlObj_ssm < mdlObject
         function formatSample(X, Y)
         end
 
-        function initReducer(mdlObj)
-            % Build block structure from pMap for domain.FTR(1) using the
-            % live axis values from Origin.DF_postOp.  Called at the top of
-            % nexFit_ssm so the partition reflects the current pMap state.
-            ftrAxis = char(mdlObj.domain.FTR(1));
-            axis    = mdlObj.Origin.DF_postOp.ax.(ftrAxis);
-            if ~isfield(mdlObj.pMap, ftrAxis) || ~ mdlObj.cfg.fitCfg.entryParams.isBlock
-                % fprintf('[mdlObj_ssm] pMap has no entry for FTR="%s" — single-block fallback\n', ftrAxis);
-                mdlObj.Reducer.setBlocks([axis(1), axis(end)]);
-                mdlObj.Reducer.MDL.ax.binLabels = string(ftrAxis);
-                return;
-            end
-            % if mdlObj.cfg.fitCfg.entryParams.isBlock
-            [binEdges, ~, binLabels, ~] = mdlObj.pMap.(ftrAxis).getBinEdges(axis);
-            % else
-                % binEdges = [];
-            % end
-
-
-
-            nComp    = mdlObj.cfg.fitCfg.entryParams.reducerDim;
-            mdlObj.Reducer.MDL.nComponents  = nComp;
-            mdlObj.Reducer.setBlocks(binEdges);
-            mdlObj.Reducer.MDL.ax.binLabels = string(binLabels(:)');   % (1 x num_blocks) string
-            fprintf('[mdlObj_ssm] Reducer: %d blocks, %d components/block  [%s]\n', ...
-                numel(mdlObj.Reducer.MDL.ax.block), nComp, strjoin(mdlObj.Reducer.MDL.ax.binLabels, ", "));
-        end
-
-        function applyDomainBus(mdlObj)
-            % Read collector.Domain and write into mdlObj.domain.
-            % Mirrors nexObj_stateSpace.applyDomainBus().
-            if isempty(mdlObj.collector) || ~isfield(mdlObj.collector, 'Domain')
-                return;
-            end
-            domSel = nex_returnSelectionMask(mdlObj.collector.Domain);
-            if ~isequal(domSel.DN, "")
-                mdlObj.domain.DN = domSel.DN;
-            end
-            if ~isequal(domSel.FTR, "")
-                mdlObj.domain.FTR = domSel.FTR;
-            end
-        end
+        % applyDomainBus: no override -- the base mdlObject.applyDomainBus
+        % (DN/FTR/MSR/REG, with correct invalidatePrecompile() on REG
+        % change) is a strict superset of what this SSM-specific version
+        % used to do (DN/FTR only, REG silently dropped -- the exact bug
+        % that made the REG listbox inert). Retired, not patched: nothing
+        % here needs to differ from the generic version.
 
         function fit_block_diagonal(mdlObj)
 
@@ -146,54 +116,67 @@ classdef mdlObj_ssm < mdlObject
         % end
 
         function DF_Z = transform(mdlObj, DF_X)
-            % Use learned weights to project emission into state-space
-            % DF_X.df: (T x channels) or (T x channels x batch)
-            % For 3D input, batch dim is passed to dynamax filter as (batch x T x n_components)
+            % Use learned weights to project emission into state-space.
+            % DF_X.df: raw, pre-reduction — (T x channels) or (T x channels x batch).
             disp("transforming ssm...")
             jnp = py.importlib.import_module('jax.numpy');
             np  = py.importlib.import_module('numpy');
-            X       = DF_X.df;
-            origSize = size(X);
-            isBatch  = ndims(X) == 3;
 
-            % Unstack to 2D for sklearn Scaler/Reducer
-            X_perm = permute(X,[1,3,2]); % put reshape-able dimensions in the first two
-            X_2d = reshape(X_perm, [], origSize(2));
-            X_2d_py      = mdlObj.py.np.array(X_2d);
-            X_scaled_mat = double(mdlObj.Scaler.model.transform(X_2d_py));
-            X_dr         = mdlObj.Reducer.transform(X_scaled_mat);   % block-aware, returns MATLAB double
-            nComp        = size(X_dr, 2);
+            % Scale+reduce(+pool) via the shared needsHR mechanism (base
+            % mdlObject.flattenInput) instead of SSM's own retired
+            % Scaler/Reducer.transform calls. G_flat carries trial/bin
+            % bookkeeping when needsHR; empty otherwise.
+            [X_flat, G_flat] = mdlObj.flattenInput(DF_X);
 
-            % Pass as single sequence (T_total x n_components) regardless of input shape
+            poolAxis = nexOp_resolvePoolAxis(mdlObj.pMap);
+            if ~isempty(G_flat)
+                % Gate on G_flat alone, not poolAxis -- needsHR can be
+                % true (and G_flat non-empty) with no designated pool
+                % axis at all (reduce-only pMap config); requiring
+                % poolAxis too would wrongly skip the reshape and hand
+                % dynamax a flat, trial-blind array instead. See
+                % nexFit_ssm.m's own identical comment / Nexus WIP.md #19.
+                [X_dr, ~, binLabels] = nexOp_reshapeStackedByTrial(X_flat, G_flat, poolAxis);
+            else
+                X_dr      = X_flat;
+                binLabels = [];
+            end
+
+            % Pass straight to filter() in whatever shape X_dr actually
+            % is -- 2D (single sequence) or 3D (num_trials x T x
+            % n_components). Unlike the OLD code, this does NOT flatten a
+            % genuine 3D/multi-trial case down to 2D before filtering:
+            % pytafix's own filter() vmaps per-trial for ndim==3 input,
+            % so Z.filtered_means/_covariances already come back in the
+            % matching batched shape -- no manual restack needed (and the
+            % old restack, keyed off DF_X's RAW size, would be wrong here
+            % anyway once pooling has changed the row count).
             emissions = jnp.asarray(mdlObj.py.np.array(double(X_dr)));
 
-            if ~isempty(X)
+            if ~isempty(X_dr)
                 try
                     Z = mdlObj.W.filter(emissions);
-                    % mdlObj.model.filter(emissions);
                 catch e
                     disp(getReport(e));
                     DF_Z = [];
                     return
                 end
-                Z_mu  = double(np.asarray(Z.filtered_means));   % (T_total x state_dim)
+                Z_mu  = double(np.asarray(Z.filtered_means));
                 Z_cov = double(np.asarray(Z.filtered_covariances));
-
-                if isBatch
-                    % Restack to (T x state_dim x batch)
-                    % Z_mu  = reshape(Z_mu,  [origSize(1), origSize(3), nComp]);
-                    stateDim = mdlObj.cfg.fitCfg.entryParams.stateDim;
-                    Z_mu = reshape(Z_mu, [origSize(1), origSize(3), stateDim]);
-                    Z_mu  = permute(Z_mu,  [1 3 2]);
-                    Z_cov = reshape(Z_cov, [origSize(1), origSize(3), stateDim, stateDim]);
-                    Z_cov = permute(Z_cov, [1 3 4 2]);
-                end
 
                 DF_Z.df  = Z_mu;
                 DF_Z.cov = Z_cov;
-                DF_Z.ax=DF_X.ax;
-                DF_Z.ax.(mdlObj.domain.DN(1)) = DF_X.ax.(mdlObj.domain.DN(1));
-                DF_Z.ax.latent = 1:size(Z_mu, 2);
+                DF_Z.ax  = DF_X.ax;
+                if ~isempty(binLabels)
+                    % Pooled: the DN axis's own tick labels are now the
+                    % pooled bin representatives (e.g. epoch labels), not
+                    % DF_X's raw, full-resolution values -- those would
+                    % mismatch Z_mu's actual (pooled) length.
+                    DF_Z.ax.(mdlObj.domain.DN(1)) = binLabels;
+                else
+                    DF_Z.ax.(mdlObj.domain.DN(1)) = DF_X.ax.(mdlObj.domain.DN(1));
+                end
+                DF_Z.ax.latent = 1:size(Z_mu, ndims(Z_mu));
                 DF_Z = nex_initAxisPointer_v2(DF_Z);
             else
                 DF_Z = [];
@@ -210,10 +193,20 @@ classdef mdlObj_ssm < mdlObject
             if ~isempty(mdlObj.W)
                 mdlObj.W.save(py.str(fullfile(fitDir, "lgssm.npz")));
             end
-            % Scaler (sklearn) → pickle
+            % Scaler (sklearn) → pickle — still real and necessary: fitReduce
+            % fits mdlObj.Scaler.model now (Nexus WIP.md #19), and applyReduce
+            % (inference) must transform through the SAME fitted scaler, not
+            % a fresh one.
             LGSSM.save_pickle(mdlObj.Scaler.model, py.str(fullfile(fitDir, "scaler.pkl")));
-            % Reducer (per-block sklearn models + MATLAB metadata) — writes into fitDir
-            mdlObj.Reducer.save(fitDir);
+            % NOT saved here, and nothing else in Nexus saves this for ANY
+            % needsHR mdlObj today (pre-existing shared-mechanism gap, not
+            % SSM-specific): mdlObj.HR / mdlObj.FTR_layout — the fitted
+            % nexHR_fit block-PCA model tree (nested nested Python PCA
+            % objects per block). Without persisting these, a fresh
+            % loadFit() leaves mdlObj.HR empty, so flattenInput's needsHR
+            % branch silently falls through to its non-needsHR fallback
+            % instead of actually reducing — loadFit'd SSM inference
+            % (transform()) is NOT currently correct for a needsHR fit.
             mdlObj.fitPath = fitDir;
             fprintf("[mdlObj_ssm] saved: %s\n", fitDir);
         end
@@ -229,8 +222,8 @@ classdef mdlObj_ssm < mdlObject
             mdlObj.model = mdlObj.W.model;
             % Reconstruct Scaler from pickle
             mdlObj.Scaler.model = LGSSM.load_pickle(py.str(fullfile(fitDir, "scaler.pkl")));
-            % Reconstruct Reducer
-            mdlObj.Reducer.load(fitDir);
+            % mdlObj.HR / .FTR_layout are NOT restored here — see saveFit's
+            % own comment; not persisted in the first place.
             mdlObj.fitPath = fitDir;
             fprintf("[mdlObj_ssm] loaded: %s\n", fitDir);
         end

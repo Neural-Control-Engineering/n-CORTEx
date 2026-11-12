@@ -17,7 +17,7 @@ function [specs, kernel_args, psd_fit] = specParam_multiExp(f_psd, df_psd, args,
     peakThreshold = args.peakThreshold; % default = 0.5
     chanRange_start  = args.chanRange_start; % default = 1
     chanRange_end = args.chanRange_end; % default = 384
-    fRange_start = args.fRange_start; % default = 2
+    fRange_start = args.fRange_start; % default = 1
     fRange_end = args.fRange_end; % default = 50
     doPlot = isfield(args, 'doPlot') && args.doPlot;
 
@@ -31,7 +31,8 @@ function [specs, kernel_args, psd_fit] = specParam_multiExp(f_psd, df_psd, args,
         % locate corner frequencies
         df_cf = psdIO_readCornerFrequencies(f_psd, df_psd);
         % push cornerfrequencies away from line freq (60 Hz)
-        lineFreqCond = (df_cf>55)&(df_cf<65);
+        % lineFreqCond = (df_cf>55)&(df_cf<65);
+        lineFreqCond = (df_cf>57)&(df_cf<62);
         % df_cf(lineFreqCond)=df_cf(lineFreqCond)+20;
         df_cf(lineFreqCond)=65;
     end

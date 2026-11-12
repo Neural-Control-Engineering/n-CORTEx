@@ -8,10 +8,16 @@ function out = rtPMTM_magnitude(df_in, args)
 
     % note: windowLen not used here but in the outer 'animate' function
 
+    % Back-compat: cfgs saved before NW/K were parameterized lack these fields.
+    if ~isfield(args, 'NW'), args.NW = 4; end
+    if ~isfield(args, 'K'),  args.K  = 3; end
+
     % CFG HEADER    
     chanRange_start = args.chanRange_start; % default = 1
     chanRange_end = args.chanRange_end; % default = 384    
     Fs = args.Fs; % default = 500
+    NW = args.NW; % default = 4
+    K = args.K; % default = 3
 
     frameNum = args.frameNum; % input sample step/number to return time point
     downSampleFactor=1;
@@ -25,7 +31,7 @@ function out = rtPMTM_magnitude(df_in, args)
     % for each channel
     parfor i = 1:size(gpuBuffer,1)
         x = gpuBuffer(i,:)';
-        [S{i}, F{i}] = (PMTM_magnitude(x, Fs, 1));
+        [S{i}, F{i}] = (PMTM_magnitude(x, Fs, 1, NW, K));
     end    
     % figure; plot(gather(F{1}),log10(abs(gather(S{1}))))    
     SF = {S,F};    

@@ -34,9 +34,10 @@ function [vals, rangeLabel, mode, dim] = nexOp_resolveSWPAxis(mdlObj, STAT, swpI
         needsHR  = any(arrayfun(@(i) mdlObj.pMap.(pmFields{i}).divsPerBin < 0, 1:numel(pmFields)));
     end
     ftrAxisStr = string(mdlObj.domain.FTR(1));
-    poolAxis   = "";
+    poolAxes   = string.empty;   % plural -- nexOp_resolvePoolAxis can return
+                                  % more than one simultaneously pool-mode axis
     if needsHR
-        poolAxis = nexOp_resolvePoolAxis(mdlObj.pMap);
+        poolAxes = nexOp_resolvePoolAxis(mdlObj.pMap);
     end
 
     ax0 = STAT.ax(1);
@@ -60,15 +61,27 @@ function [vals, rangeLabel, mode, dim] = nexOp_resolveSWPAxis(mdlObj, STAT, swpI
         vals = unique(blockLabels, 'stable');
         vals = mdlObj.applyPointerDM(swpID, vals, ax0);
         rangeLabel = vals;
-    elseif needsHR && poolAxis ~= "" && swpID == poolAxis
+    elseif needsHR && any(swpID == poolAxes)
         mode = "pool";
         pm_id = mdlObj.pMap.(char(swpID));
         [~, binIDs, binLabels] = pm_id.getBinEdges(raw, abs(pm_id.divsPerBin), subjAll);
-        [uBinIDs, firstIdx] = unique(binIDs, 'stable');
+        % divsPerBin==0 (mapID-type axis, e.g. epoch): one bin PER RAW
+        % POSITION, so binIDs is unique per position, not per group --
+        % useless as the shared key fitSWPGrid masks TRAIN.G by (which
+        % nexOp_poolStackedDM now writes binLabels into for exactly this
+        % case -- same asymmetry, same fix, mirrored here). binLabels is
+        % the real shared group name. For divsPerBin>0, unchanged: binIDs
+        % is the real per-window identity, same as before.
+        if pm_id.divsPerBin == 0
+            binKey = binLabels;
+        else
+            binKey = binIDs;
+        end
+        [uBinKeys, firstIdx] = unique(binKey, 'stable');
         uBinLabels = binLabels(firstIdx);
-        vals = uBinIDs;
+        vals = uBinKeys;
         vals = mdlObj.applyPointerDM(swpID, vals, ax0);
-        [~, locIdx] = ismember(vals, uBinIDs);
+        [~, locIdx] = ismember(vals, uBinKeys);
         rangeLabel = uBinLabels(locIdx);
     else
         mode = "raw";
